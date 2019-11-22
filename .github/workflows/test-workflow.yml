@@ -1,4 +1,4 @@
-name: Test Workflow
+name: Testing Workflow
 # This workflow is triggered on pull requests to development branch
 on:
   pull_request:
@@ -27,7 +27,7 @@ jobs:
       - name: Create Artifact Path
         run: |
           mkdir -p anomaly-detection-artifacts
-          cp ./anomaly-detection/build/distributions/*.zip anomaly-detection-artifacts
+          cp ./build/distributions/*.zip anomaly-detection-artifacts
       # This step uses the upload-artifact Github action: https://github.com/actions/upload-artifact
       - name: Upload Artifacts
         uses: actions/upload-artifact@v1

@@ -1,4 +1,4 @@
-name: Test Workflow
+name: Testing Workflow
 # This workflow is triggered on pull requests to development branch
 on:
   pull_request:

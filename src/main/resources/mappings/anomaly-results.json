@@ -1,0 +1,42 @@
+{
+  "dynamic": false,
+  "_meta": {
+    "schema_version": 1
+  },
+  "properties": {
+    "detector_id": {
+      "type": "keyword"
+    },
+    "is_anomaly": {
+      "type": "boolean"
+    },
+    "anomaly_score": {
+      "type": "double"
+    },
+    "anomaly_grade": {
+      "type": "double"
+    },
+    "confidence": {
+      "type": "double"
+    },
+    "feature_data": {
+      "type": "nested",
+      "properties": {
+        "feature_id": {
+          "type": "keyword"
+        },
+        "data": {
+          "type": "double"
+        }
+      }
+    },
+    "start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "end_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    }
+  }
+}

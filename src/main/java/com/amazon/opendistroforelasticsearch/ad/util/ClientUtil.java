@@ -1,0 +1,77 @@
+/*
+ * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
+package com.amazon.opendistroforelasticsearch.ad.util;
+
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
+
+import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
+
+import org.apache.logging.log4j.Logger;
+import org.elasticsearch.ElasticsearchTimeoutException;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.ActionRequest;
+import org.elasticsearch.action.ActionResponse;
+import org.elasticsearch.action.LatchedActionListener;
+import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.TimeValue;
+
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+
+public class ClientUtil {
+    private volatile TimeValue requestTimeout;
+
+    @Inject
+    public ClientUtil(Settings setting) {
+        this.requestTimeout = REQUEST_TIMEOUT.get(setting);
+    }
+
+    /**
+     * Generates a nonblocking request with a timeout. Blocking is not allowed in a
+     * transport call context. See BaseFuture.blockingAllowed
+     * @param request request like index/search/get
+     * @param LOG log
+     * @param consumer functional interface to operate as a client request like client::get
+     * @return the response
+     * @throws ElasticsearchTimeoutException when we cannot get response within time.
+     * @throws IllegalStateException when the waiting thread is interrupted
+     */
+    public <Request extends ActionRequest, Response extends ActionResponse> Optional<Response> timedRequest(
+            Request request, Logger LOG, BiConsumer<Request, ActionListener<Response>> consumer) {
+        try {
+            AtomicReference<Response> respReference = new AtomicReference<>();
+            final CountDownLatch latch = new CountDownLatch(1);
+
+            consumer.accept(request, new LatchedActionListener<Response>(ActionListener.wrap(response -> {
+                respReference.set(response);
+            }, exception -> {
+                LOG.error("Cannot get response for request {}, error: {}", request, exception);
+            }), latch));
+
+            if (!latch.await(requestTimeout.getSeconds(), TimeUnit.SECONDS)) {
+                throw new ElasticsearchTimeoutException("Cannot get response within time limit: " + request.toString());
+            }
+            return Optional.ofNullable(respReference.get());
+        } catch (InterruptedException e1) {
+            LOG.error(CommonErrorMessages.WAIT_ERR_MSG);
+            throw new IllegalStateException(e1);
+        }
+    }
+}

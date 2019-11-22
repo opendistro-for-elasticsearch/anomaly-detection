@@ -27,6 +27,7 @@ jobs:
       - name: Create Artifact Path
         run: |
           mkdir -p anomaly-detection-artifacts
+          ls
           cp ./anomaly-detection/build/distributions/*.zip anomaly-detection-artifacts
       # This step uses the upload-artifact Github action: https://github.com/actions/upload-artifact
       - name: Upload Artifacts

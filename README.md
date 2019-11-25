@@ -12,6 +12,9 @@ This is an open source Apache-2 licensed ElasticSearch plugin for anomaly detect
 * List the project's components and the way they interact with one another
 * What are the plugin functions and low-level data types
   
+## Current Limitations
+* We are actively working on and invite contributions to... security support, etc.
+
 ## Documentation
 
 Please see our [documentation](https://opendistro.github.io/for-elasticsearch-docs/).
@@ -91,7 +94,7 @@ If you need a multi node cluster (up to 3 nodes) where you'd like to be able to 
 ./gradlew startSingleNode2
 ```
 
-#### Kill the nodes when you're done!!
+#### Kill the nodes when you're done!
 
 ```
 ./gradlew stopMultiNode

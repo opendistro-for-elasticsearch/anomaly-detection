@@ -32,14 +32,9 @@ Please see our [documentation](https://opendistro.github.io/for-elasticsearch-do
 
 ## Build
 
-This package is organized into subprojects, most of which contribute JARs to the top-level plugin in the `anomaly-detection` subproject.
-
-All subprojects in this package use the [Gradle](https://docs.gradle.org/current/userguide/userguide.html) build system. Gradle comes with excellent documentation that should be your first stop when trying to figure out how to operate or modify the build.
-
 This package uses the [Gradle](https://docs.gradle.org/current/userguide/userguide.html) build system. Gradle comes with excellent documentation that should be your first stop when trying to figure out how to operate or modify the build. we also use the Elastic build tools for Gradle. These tools are idiosyncratic and don't always follow the conventions and instructions for building regular Java code using Gradle. Not everything in this package will work the way it's described in the Gradle documentation. If you encounter such a situation, the Elastic build tools [source code](https://github.com/elastic/elasticsearch/tree/master/buildSrc/src/main/groovy/org/elasticsearch/gradle) is your best bet for figuring out what's going on.
 
 Currently we just put RCF and RCF Serialize jar in lib as dependency. Plan to merge them and publish to Maven and we can import it later. Before publishing to Maven, you can still build this package directly and find source code in RCF Github package.
-
 
 ### Building from the command line
 

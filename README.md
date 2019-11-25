@@ -97,6 +97,10 @@ If you need a multi node cluster (up to 3 nodes) where you'd like to be able to 
 ./gradlew stopMultiNode
 ```
 
+## Interested in contributing to the Anomaly Detection plugin
+
+We welcome you to get involved in development, documentation, testing the anomaly detection plugin. See our [contribution guidelines](https://opendistro.github.io/for-elasticsearch/blob/development/CONTRIBUTING.md) and join in.
+
 ## Code of Conduct
 
 This project has adopted an [Open Source Code of Conduct](https://opendistro.github.io/for-elasticsearch/codeofconduct.html).

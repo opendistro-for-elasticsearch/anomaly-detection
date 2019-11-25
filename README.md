@@ -1,16 +1,12 @@
 ## Open Distro for Elasticsearch Anomaly Detection
 
-This is an open source Apache-2 licensed ElasticSearch plugin for anomaly detection in ingested data streams.
-
-**NOTE**: The code is in development currently and not distributed with Open Distro for Elasticsearch yet. So if you're looking for features that you need in anomaly detection for Elasticsearch, please file a request issue.
+The Open Distro for Elasticsearch Anomaly Detection plugin enables you to leverage Machine Learning based algorithms to automatically detect anomalies as your log data is ingested. Combined with Alerting, you can monitor your data in near real time and automatically send alert notifications . With an intuitive Kibana interface and a powerful API, it is easy to set up, tune, and monitor your anomaly detectors.
 
 ## Highlights
 
-* Why would I use this code? How does the user benefit?
-  
-## Functionality
-* List the project's components and the way they interact with one another
-* What are the plugin functions and low-level data types
+Anomaly detection is using Random Cut Forest (RCF) algorithm for detecting anomalous data points.
+
+You should use anomaly detection plugin with Open Distro Alerting plugin (https://github.com/opendistro-for-elasticsearch/alerting). You can also create monitor based on anomaly detector. Scheduled monitor run will trigger anomaly detector and get anomaly result to check if should trigger alert or not based on custom trigger conditions.
   
 ## Current Limitations
 * We are actively working on and invite contributions to... security support, etc.
@@ -21,15 +17,29 @@ Please see our [documentation](https://opendistro.github.io/for-elasticsearch-do
   
 ## Setup
 
-1. Checkout this package from version control. 
-1. Launch Intellij IDEA, Choose Import Project and select the `settings.gradle` file in the root of this package. 
-1. To build from command line set `JAVA_HOME` to point to a JDK >=12 before running `./gradlew`
+1. Checkout source code of this package from Github repo.
+1. Launch Intellij IDEA, Choose Import Project and select the settings.gradle file in the root of this package.
+1. To build from command line set JAVA_HOME to point to a JDK >=12 before running ./gradlew
+
+  * Unix System
+    * export JAVA_HOME=jdk-install-dir: Replace jdk-install-dir by the JAVA_HOME directory of your system.
+    * export PATH=$JAVA_HOME/bin:$PATH
+  * Windows System
+    * Find **My Computers** from file directory, right click and select **properties**.
+    * Select the **Advanced** tab, select **Environment variables**.
+    * Edit **JAVA_HOME** to path of where JDK software is installed.
+
 
 ## Build
 
 This package is organized into subprojects, most of which contribute JARs to the top-level plugin in the `anomaly-detection` subproject.
 
 All subprojects in this package use the [Gradle](https://docs.gradle.org/current/userguide/userguide.html) build system. Gradle comes with excellent documentation that should be your first stop when trying to figure out how to operate or modify the build.
+
+This package uses the [Gradle](https://docs.gradle.org/current/userguide/userguide.html) build system. Gradle comes with excellent documentation that should be your first stop when trying to figure out how to operate or modify the build. we also use the Elastic build tools for Gradle. These tools are idiosyncratic and don't always follow the conventions and instructions for building regular Java code using Gradle. Not everything in this package will work the way it's described in the Gradle documentation. If you encounter such a situation, the Elastic build tools [source code](https://github.com/elastic/elasticsearch/tree/master/buildSrc/src/main/groovy/org/elasticsearch/gradle) is your best bet for figuring out what's going on.
+
+Currently we just put RCF and RCF Serialize jar in lib as dependency. Plan to merge them and publish to Maven and we can import it later. Before publishing to Maven, you can still build this package directly and find source code in RCF Github package.
+
 
 ### Building from the command line
 

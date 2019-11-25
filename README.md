@@ -1,10 +1,17 @@
-ElasticSearch Plugins for anomaly detection.
+Open Distro for Elasticsearch Anomaly Detection
 
-**NOTE**: This is a draft version which doesn't include everything and may contain errors. The code is just used to build a rough plugin. Feel free to restructure and build your own code. Use "Apache License Version 2.0" here just as a place holder. Will replace it once we decide which license to use.
+This is a open source Apache-2 licensed ElasticSearch plugin for anomaly detection in ingested data streams.
 
-Developing
---
+**NOTE**: The code is in development currently and not distributed with Open Distro for Elasticsearch yet.
 
+## Highlights
+
+<Add Here>
+  
+## Documentation
+
+Please see our [documentation](https://opendistro.github.io/for-elasticsearch-docs/).
+  
 ## Setup
 
 1. Checkout this package from version control. 
@@ -13,17 +20,22 @@ Developing
 
 ## Build
 
-### Building from command line
+This package is organized into subprojects, most of which contribute JARs to the top-level plugin in the `anomaly-detection` subproject.
+
+All subprojects in this package use the [Gradle](https://docs.gradle.org/current/userguide/userguide.html) build system. Gradle comes with excellent documentation that should be your first stop when trying to figure out how to operate or modify the build.
+
+### Building from the command line
 
 1. `./gradlew build` builds and tests
 1. `./gradlew :run` launches a single node cluster with the AD plugin installed
-1. `./gradlew :integTest` launches a single node cluster with the AD plugin installed and runs all integ tests
-1. ` ./gradlew :integTest --tests="**.test execute foo"` runs a single integ test class or method
+1. `./gradlew :integTest` launches a single node cluster with the AD plugin installed and runs all integration tests
+1. ` ./gradlew :integTest --tests="**.test execute foo"` runs a single integration test class or method
 
 When launching a cluster using one of the above commands logs are placed in `/build/cluster/run node0/elasticsearch-<version>/logs`. Though the logs are teed to the console, in practices it's best to check the actual log file.
 
 ### Building from the IDE
-The only IDE we support is IntelliJ IDEA.  It's free, it's open source, it works. The gradle tasks above can also be launched from IntelliJ's Gradle toolbar and the extra parameters can be passed in via the Launch Configurations VM arguments. 
+
+Currently, the only IDE we support is IntelliJ IDEA.  It's free, it's open source, it works. The gradle tasks above can also be launched from IntelliJ's Gradle toolbar and the extra parameters can be passed in via the Launch Configurations VM arguments. 
 
 ### Debugging
 
@@ -81,3 +93,21 @@ If you need a multi node cluster (up to 3 nodes) where you'd like to be able to 
 ./gradlew stopMultiNode
 ```
 
+## Code of Conduct
+
+This project has adopted an [Open Source Code of Conduct](https://opendistro.github.io/for-elasticsearch/codeofconduct.html).
+
+
+## Security issue notifications
+
+If you discover a potential security issue in this project we ask that you notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/). Please do **not** create a public GitHub issue.
+
+
+## Licensing
+
+See the [LICENSE](./LICENSE.txt) file for our project's licensing. We will ask you to confirm the licensing of your contribution.
+
+
+## Copyright
+
+Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.

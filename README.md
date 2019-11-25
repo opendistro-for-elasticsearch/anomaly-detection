@@ -1,12 +1,16 @@
-Open Distro for Elasticsearch Anomaly Detection
+## Open Distro for Elasticsearch Anomaly Detection
 
-This is a open source Apache-2 licensed ElasticSearch plugin for anomaly detection in ingested data streams.
+This is an open source Apache-2 licensed ElasticSearch plugin for anomaly detection in ingested data streams.
 
-**NOTE**: The code is in development currently and not distributed with Open Distro for Elasticsearch yet.
+**NOTE**: The code is in development currently and not distributed with Open Distro for Elasticsearch yet. So if you're looking for features that you need in anomaly detection for Elasticsearch, please file a request issue.
 
 ## Highlights
 
-<Add Here>
+* Why would I use this code? How does the user benefit?
+  
+## Functionality
+* List the project's components and the way they interact with one another
+* What are the plugin functions and low-level data types
   
 ## Documentation
 

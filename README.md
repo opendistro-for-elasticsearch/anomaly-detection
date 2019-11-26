@@ -10,6 +10,7 @@ You should use anomaly detection plugin with Open Distro Alerting plugin (https:
   
 ## Current Limitations
 * We are actively working on and invite contributions to... security support, ES versions supported, etc. Not in this section, but we need to mention what AD writes to ES (list of indices)
+* We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. We may ask contribution from the community to improve the coverage.
 
 ## Documentation
 

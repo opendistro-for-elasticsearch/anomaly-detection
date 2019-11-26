@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
-/*
+/**
  * A model for converting raw anomaly scores into anomaly grades.
  *
  * A thresholding model is trained on a set of raw anomaly scores like those
@@ -29,21 +29,21 @@ package com.amazon.opendistroforelasticsearch.ad.ml;
 public interface ThresholdingModel {
 
 
-    /*
+    /**
      * Initializes the model using a training set of anomaly scores.
      *
      * @param anomalyScores  array of anomaly scores with which to train the model
      */
     void train(double[] anomalyScores);
 
-    /*
+    /**
      * Update the model with a new anomaly score.
      *
      * @param anomalyScore  an anomaly score
      */
     void update(double anomalyScore);
 
-    /*
+    /**
      * Computes the anomaly grade associated with the given anomaly score. A
      * non-zero grade implies that the given score is anomalous. The magnitude
      * of the grade, a value between 0 and 1, indicates the severity of the
@@ -54,7 +54,7 @@ public interface ThresholdingModel {
      */
     double grade(double anomalyScore);
 
-    /*
+    /**
      * Returns the confidence of the model in predicting anomaly grades; that
      * is, the probability that the reported anomaly grade is correct according
      * to the underlying model.

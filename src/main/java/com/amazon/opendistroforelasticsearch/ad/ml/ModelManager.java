@@ -51,7 +51,7 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.randomcutforest.RandomCutForest;
-import com.amazon.randomcutforest.RandomCutForestSerDe;
+import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 
 /**
  * A facade managing ML operations and models.

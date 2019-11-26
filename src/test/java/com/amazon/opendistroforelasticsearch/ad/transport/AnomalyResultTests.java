@@ -412,7 +412,6 @@ public class AnomalyResultTests extends AbstractADTest {
         doThrow(new NotSerializableExceptionWrapper(
                 new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG))).when(rcfManager)
                         .getRcfResult(any(String.class), any(String.class), any(double[].class));
-        //when(rcfManager.getRcfModelId(any(String.class), anyInt())).thenReturn(rcfModelID);
 
         // These constructors register handler in transport service
         new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, rcfManager);

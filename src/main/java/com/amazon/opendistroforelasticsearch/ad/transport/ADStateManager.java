@@ -20,7 +20,6 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -28,7 +27,6 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelInformation;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
@@ -124,13 +122,6 @@ public class ADStateManager {
 
         return onGetResponse(getResponse, adID);
     }
-
-    /**
-     * Get information for all models hosted on the node
-     *
-     * @return information about models hosted on node
-     */
-    public List<ModelInformation> getAllModelsInformation() { return modelManager.getAllModelsInformation(); }
 
     private Optional<AnomalyDetector> onGetResponse(Optional<GetResponse> asResponse, String adID) {
         if (!asResponse.isPresent() || !asResponse.get().isExists()) {

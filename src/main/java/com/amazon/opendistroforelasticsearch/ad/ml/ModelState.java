@@ -27,7 +27,7 @@ public class ModelState<T> {
     private Instant lastCheckpointTime;
 
     /**
-     * Construtor.
+     * Constructor.
      *
      * @param model ML model
      * @param lastUsedTime time when the ML model was used last time
@@ -58,6 +58,8 @@ public class ModelState<T> {
 
     /**
      * Sets the time when ML model was used last time.
+     *
+     * @param lastUsedTime time when the ML model was used last time
      */
     public void setLastUsedTime(Instant lastUsedTime) {
         this.lastUsedTime = lastUsedTime;
@@ -73,7 +75,9 @@ public class ModelState<T> {
     }
 
     /**
-     * Sets the time when a checkpiont for the ML model was made last time.
+     * Sets the time when a checkpoint for the ML model was made last time.
+     *
+     * @param lastCheckpointTime time when a checkpoint for the ML model was made last time.
      */
     public void setLastCheckpointTime(Instant lastCheckpointTime) {
         this.lastCheckpointTime = lastCheckpointTime;

@@ -57,7 +57,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
 import com.amazon.randomcutforest.RandomCutForest;
-import com.amazon.randomcutforest.RandomCutForestSerDe;
+import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 
 import static java.util.Arrays.asList;
 

@@ -55,20 +55,19 @@ allprojects {
 
 ext {
     projectSubstitutions = [:]
+    opendistroVersion = '1.2.1'
     licenseFile = rootProject.file('LICENSE.txt')
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
+version = "${opendistroVersion}.0"
+
 esplugin {
-    name 'opendistro-anomaly-detector'
+    name 'opendistro-anomaly-detection'
     description 'Amazon opendistro elasticsearch anomaly detector plugin'
     classname 'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin'
     extendedPlugins = ['lang-painless']
 }
-
-// Prefer elastic bundled versions for conflicts (primarily with AWS SDK).  We need to specify these manually because
-// esplugin sets ResolutionStrategy.failOnVersionConflict. Luckily it is also nice enough to expose (most of) the
-// versions it uses in ext.versions.
 
 // Handle case where older versions of esplugin doesn't expose the joda time version it uses
 configurations.all {
@@ -135,7 +134,7 @@ tasks.create(name : "runMultiNode", type: org.elasticsearch.gradle.test.RunTask)
     // this has to be false otherwise ClusterFormationTasks.groovy will set discovery.seed_providers to file
     autoSetHostsProvider = false
     setting 'http.port', '9200-9300'
-    setting 'transport.tcp.port', '9300-9400'
+    setting 'transport.port', '9300-9400'
     setting 'discovery.seed_hosts', getSeedHosts(numNodes)
     clusterName = 'multi-node-run'
     plugin project.path
@@ -158,7 +157,7 @@ tasks.create(name : "runSingleNode", type: org.elasticsearch.gradle.test.RunTask
     // this has to be false otherwise ClusterFormationTasks.groovy will set cluster.initial_master_nodes to all 3 nodes
     autoSetInitialMasterNodes = false
     setting 'http.port', '9200-9300'
-    setting 'transport.tcp.port', '9300-9400'
+    setting 'transport.port', '9300-9400'
     setting 'discovery.seed_hosts', getSeedHosts(numNodes)
     setting 'node.master', true
     setting 'node.data', true
@@ -216,7 +215,7 @@ evaluationDependsOnChildren()
 task release(type: Copy, group: 'build') {
     dependsOn allprojects*.tasks.build
     from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
-    into "build/plugins/opendistro-anomaly-detector"
+    into "build/plugins/opendistro-anomaly-detection"
     includeEmptyDirs = false
     // ES versions < 6.3 have a top-level elasticsearch directory inside the plugin zip which we need to remove
     eachFile { it.path = it.path - "elasticsearch/" }
@@ -234,7 +233,6 @@ List<String> jacocoExclusions = [
         // Class containing just constants.  Don't need to test
         'com.amazon.opendistroforelasticsearch.ad.constant.*',
 
-        // to be removed (kaituo)
         'com.amazon.opendistroforelasticsearch.ad.common.exception.FeatureNotAvailableException',
         'com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException',
         'com.amazon.opendistroforelasticsearch.ad.util.ClientUtil',
@@ -246,10 +244,12 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.resthandler.RestGetAnomalyResultAction',
         'com.amazon.opendistroforelasticsearch.ad.metrics.MetricFactory',
         'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
-        'com.amazon.opendistroforelasticsearch.ad.transport.ADStatsTransportAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.ADStatsAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.ForwardAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.ForwardTransportAction'
+        'com.amazon.opendistroforelasticsearch.ad.transport.ForwardTransportAction',
+        'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction',
+        'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorRequest',
+        'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorResponse',
+        'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction'
 ]
 
 jacocoTestCoverageVerification {
@@ -282,7 +282,7 @@ dependencies {
     compile group: 'com.google.guava', name: 'guava', version:'15.0'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     compile group: 'com.google.code.gson', name: 'gson', version: '2.8.5'
-    compile files('lib/RandomCutForest-1.0.jar', 'lib/RandomCutForestSerialize-1.0.jar')
+    compile files('lib/random-cut-forest-1.0.jar')
     compile group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
     compile group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'

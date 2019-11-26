@@ -210,7 +210,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         try {
             Optional<AnomalyDetector> detector = stateManager.getAnomalyDetector(adID);
             if (!detector.isPresent()) {
-                listener.onFailure(new EndRunException(adID, "AnoamalyDetector is not available.", true));
+                listener.onFailure(new EndRunException(adID, "AnomalyDetector is not available.", true));
                 return;
             }
 
@@ -649,9 +649,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
     /**
      * Since we need to read from customer index and write to anomaly result index,
-     * we need to make sure we can read and write. If globalBlockedException returns
-     * ClusterBlockException, we might lack available disk space or low memory. See
-     * https://tinyurl.com/y3ogxyru for details.
+     * we need to make sure we can read and write.
      *
      * @param state Cluster state
      * @return whether we have global block or not

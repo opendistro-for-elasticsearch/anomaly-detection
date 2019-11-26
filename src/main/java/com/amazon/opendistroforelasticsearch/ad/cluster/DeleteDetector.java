@@ -48,7 +48,7 @@ public class DeleteDetector {
     private static final String UPDATE_TASK_NAME = "update-detector-graveyard";
     static final String INDEX_DELETED_LOG_MSG = "Anomaly result index has been deleted.  Has nothing to do:";
     static final String NOT_ABLE_TO_DELETE_LOG_MSG = "Cannot delete all anomaly result of detector";
-    static final String DOC_GOT_DELETED_LOG_MSG = "anomaly result docs get deleted";
+    static final String DOC_GOT_DELETED_LOG_MSG = "Anomaly result docs get deleted";
     static final String TIMEOUT_LOG_MSG = "Timeout while deleting anomaly results of";
     static final String BULK_FAILURE_LOG_MSG = "Bulk failure while deleting anomaly results of";
     static final String SEARCH_FAILURE_LOG_MSG = "Search failure while deleting anomaly results of";

@@ -50,7 +50,7 @@ public final class AnomalyDetectorRunner {
     /**
      * run anomaly detector and return anomaly result.
      *
-     * @param detector  anomaly detecor instance
+     * @param detector  anomaly detector instance
      * @param startTime detection period start time
      * @param endTime   detection period end time
      * @param listener handle anomaly result

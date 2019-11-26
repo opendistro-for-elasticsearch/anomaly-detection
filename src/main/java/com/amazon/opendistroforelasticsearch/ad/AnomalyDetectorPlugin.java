@@ -46,6 +46,8 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFResultAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
@@ -101,7 +103,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
-import com.amazon.randomcutforest.RandomCutForestSerDe;
+import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 
 /**
  * Entry point of AD plugin.
@@ -258,6 +260,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         return Arrays.asList(
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
                 new ActionHandler<>(DeleteDetectorAction.INSTANCE, DeleteDetectorTransportAction.class),
+                new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
                 new ActionHandler<>(RCFResultAction.INSTANCE, RCFResultTransportAction.class),
                 new ActionHandler<>(ThresholdResultAction.INSTANCE, ThresholdResultTransportAction.class),
                 new ActionHandler<>(AnomalyResultAction.INSTANCE, AnomalyResultTransportAction.class),

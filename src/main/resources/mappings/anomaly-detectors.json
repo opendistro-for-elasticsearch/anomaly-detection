@@ -59,9 +59,6 @@
         "feature_enabled": {
           "type": "boolean"
         },
-        "importance": {
-          "type": "integer"
-        },
         "aggregation_query": {
           "type": "object",
           "enabled": false

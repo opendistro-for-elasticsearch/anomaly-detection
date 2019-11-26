@@ -101,7 +101,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         int version = (int) responseMap.get("_version");
         assertNotEquals("response is missing Id", AnomalyDetector.NO_ID, id);
         assertTrue("incorrect version", version > 0);
-//        assertEquals("Incorrect Location header", TestHelpers.AD_BASE_DETECTORS_URI + "/" + id, response.getHeader("Location"));
     }
 
     public void testGetAnomalyDetector() throws IOException {

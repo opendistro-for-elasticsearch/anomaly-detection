@@ -49,6 +49,8 @@ public class ClientUtil {
      * @param request request like index/search/get
      * @param LOG log
      * @param consumer functional interface to operate as a client request like client::get
+     * @param <Request> ActionRequest
+     * @param <Response> ActionResponse
      * @return the response
      * @throws ElasticsearchTimeoutException when we cannot get response within time.
      * @throws IllegalStateException when the waiting thread is interrupted

@@ -281,7 +281,6 @@ public class AnomalyDetector implements ToXContentObject {
     }
 
     public SearchSourceBuilder generateFeatureQuery() {
-        // TODO (kaituo): Is it good to always regenerate feature query?  Can we store it somewhere?
         SearchSourceBuilder generatedFeatureQuery = new SearchSourceBuilder().query(filterQuery);
         if (this.getFeatureAttributes() != null) {
             this.getFeatureAttributes().stream().forEach(feature ->

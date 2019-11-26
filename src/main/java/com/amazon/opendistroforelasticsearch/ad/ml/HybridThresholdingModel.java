@@ -24,7 +24,7 @@ import com.google.gson.annotations.JsonAdapter;
 import com.yahoo.sketches.kll.KllFloatsSketch;
 
 
-/*
+/**
  * A model for converting raw anomaly scores into anomaly grades.
  *
  * The hybrid thresholding model combines a log-normal distribution model/CDF as
@@ -34,9 +34,9 @@ import com.yahoo.sketches.kll.KllFloatsSketch;
  * made as to how often a large anomaly score will occur given the training
  * data. The empirical model uses the technique described in "Optimal Quantile
  * Approximation in Streams" by Karnin, Lang, and Liberty. The KLL model is
- * implemented in {@code KllFloatSketch}.
+ * implemented in {@code KllFloatSketchSerDe}.
  *
- * @see KllFloatSketch
+ * @see KllFloatsSketchSerDe
  */
 public class HybridThresholdingModel implements ThresholdingModel {
 
@@ -52,7 +52,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
     private int downsampleNumSamples;
     private long downsampleMaxNumObservations;
 
-    /*
+    /**
      * Initializes a HybridThresholdingModel.
      *
      * The primary parameters to a HybridThresholdingModel are {@code
@@ -101,7 +101,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
      *                                      {@code numLogNormalQuantiles}
      *                                      negative
      *
-     * @see KllFloatSketch
+     * @see KllFloatsSketchSerDe
      */
     public HybridThresholdingModel(double minPvalueThreshold, double maxRankError, double maxScore, int numLogNormalQuantiles,
                                    int downsampleNumSamples, long downsampleMaxNumObservations) {
@@ -146,50 +146,62 @@ public class HybridThresholdingModel implements ThresholdingModel {
      */
     public HybridThresholdingModel() {}
 
-    /*
+    /**
      * Returns the minimum p-value threshold for anomaly classification.
+     *
+     * @return minPvalueThreshold
      */
     public double getMinPvalueThreshold() {
         return minPvalueThreshold;
     }
 
-    /*
+    /**
      * Returns the approximate double-sided normalized rank error of the quantile sketch.
+     *
+     * @return MaxRankError
      */
     public double getMaxRankError() {
         return quantileSketch.getNormalizedRankError(USE_DOUBLE_SIDED_ERROR);
     }
 
-    /*
+    /**
      * Returns the maximum possible anomaly score of the thresholding model.
+     *
+     * @return maxScore
      */
     public double getMaxScore() {
         return maxScore;
     }
 
-    /*
+    /**
      * Returns the number of log-normal quantiles used to initialize the
      * quantile sketch.
+     *
+     * @return numLogNormalQuantiles
      */
     public int getNumLogNormalQuantiles() {
         return numLogNormalQuantiles;
     }
 
-    /*
+    /**
      * Returns the number of samples to retain when downsampling the model.
+     *
+     * @return downsampleNumSamples
      */
     public int getDownsampleNumSamples() {
         return downsampleNumSamples;
     }
 
-    /*
+    /**
      * Returns the number of observations that triggers a model downsampling.
+     *
+     * @return downsampleMaxNumObservations
      */
     public long getDownsampleMaxNumObservations() {
         return downsampleMaxNumObservations;
     }
 
-    /*
+    /**
      * Initializes the model using a training set of anomaly scores.
      *
      * The hybrid model initialization has several steps. First, a log-normal
@@ -227,7 +239,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
         }
     }
 
-    /*
+    /**
      * The log-normal cumulative distribution function.
      *
      * Given and anomaly score compute the corresponding p-value.
@@ -241,7 +253,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
         return (1.0 + Erf.erf((Math.log(anomalyScore) - mu)/(Math.sqrt(2.0)*sigma)))/2.0;
     }
 
-    /*
+    /**
      * The log-normal quantile function.
      *
      * Given a p-value and log-normal distribution parameters compute the
@@ -256,7 +268,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
         return Math.exp(mu + Math.sqrt(2.0)*sigma*Erf.erfInv(2.0*pvalue - 1.0));
     }
 
-    /*
+    /**
      * Updates the model with a new anomaly score.
      *
      * Note that once we initialize the hybrid model we only update the
@@ -264,7 +276,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
      * observations/updates exceeds {@code downsampleMaxNumObservations}.
      *
      * @param anomalyScore  an anomaly score.
-     * @see                 HybridThresholdingModel.train
+     * @see                 HybridThresholdingModel
      */
     @Override
     public void update(double anomalyScore) {
@@ -276,7 +288,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
         }
     }
 
-    /*
+    /**
      * Computes the anomaly grade associated with the given anomaly score. A
      * non-zero grade implies that the given score is anomalous. The magnitude
      * of the grade, a value between 0 and 1, indicates the severity of the
@@ -293,7 +305,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
         return Math.max(0.0, anomalyGrade);
     }
 
-    /*
+    /**
      * Returns the confidence of the model in predicting anomaly grades; that
      * is, the probability that the reported anomaly grade is correct according
      * to the underlying model.
@@ -301,7 +313,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
      * For the HybridThresholdingModel the model confidence is from underlying Sketch.
      *
      * @return  the model confidence.
-     * @see     https://datasketches.github.io/docs/Quantiles/KLLSketch.html
+     * @see  <a href="https://datasketches.github.io/docs/Quantiles/KLLSketch.html"></a>
      */
     @Override
     public double confidence() {
@@ -309,7 +321,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
     }
 
 
-    /*
+    /**
      * Replaces the model's ECDF sketch with a downsampled version.
      *
      * Periodic downsampling of the sketch is primarily useful for allowing the

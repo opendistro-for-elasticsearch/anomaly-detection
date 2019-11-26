@@ -13,7 +13,7 @@ You should use anomaly detection plugin with Open Distro Alerting plugin [1.2-al
 * We inherit security features from Open Distro for Elasticsearch Alerting.
 * We use Alerting alpha code branch.
 * We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. This is a great area for developers from the community to contribute and help improve test coverage.
-* Please see documentation links for other details.
+* Please see documentation links and GitHub issues for other details.
 
 ## Documentation
 

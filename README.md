@@ -9,7 +9,6 @@ Anomaly detection is using Random Cut Forest (RCF) algorithm for detecting anoma
 You should use anomaly detection plugin with Open Distro Alerting plugin [1.2-alpha](https://github.com/opendistro-for-elasticsearch/alerting). You can also create a monitor based on anomaly detector. A scheduled monitor run will trigger the anomaly detection plugin and collecting anomalies to trigger alerts based on custom trigger conditions.
   
 ## Current Limitations
-* We are actively working on and invite contributions to this code base. 
 * We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. This is a great area for developers from the community to contribute and help improve test coverage.
 
 ## Documentation

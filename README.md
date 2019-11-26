@@ -106,6 +106,9 @@ If you need a multi node cluster (up to 3 nodes) where you'd like to be able to 
 ./gradlew stopMultiNode
 ```
 
+## Known Issues
+* We have a cold start period whenever we initialize a model, which could happen when we create a new detector or when the cluster restarts and models get restored from snapshots. Currently the detector always return errors during the cold start period. Please ignore these initial errors for now. We are actively working on the fix, will have it fixed in the next release.
+
 ## Interested in contributing to the Anomaly Detection plugin
 
 We welcome you to get involved in development, documentation, testing the anomaly detection plugin. See our [contribution guidelines](https://opendistro.github.io/for-elasticsearch/blob/development/CONTRIBUTING.md) and join in.

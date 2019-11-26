@@ -6,11 +6,11 @@ The Open Distro for Elasticsearch Anomaly Detection plugin enables you to levera
 
 Anomaly detection is using Random Cut Forest (RCF) algorithm for detecting anomalous data points.
 
-You should use anomaly detection plugin with Open Distro Alerting plugin [1.2-alpha](https://github.com/opendistro-for-elasticsearch/alerting). You can also create monitor based on anomaly detector. Scheduled monitor run will trigger anomaly detector and get anomaly result to check if should trigger alert or not based on custom trigger conditions.
+You should use anomaly detection plugin with Open Distro Alerting plugin [1.2-alpha](https://github.com/opendistro-for-elasticsearch/alerting). You can also create a monitor based on anomaly detector. A scheduled monitor run will trigger the anomaly detection plugin and collecting anomalies to trigger alerts based on custom trigger conditions.
   
 ## Current Limitations
-* We are actively working on and invite contributions to... security support, ES versions supported, etc. Not in this section, but we need to mention what AD writes to ES (list of indices)
-* We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. We may ask contribution from the community to improve the coverage.
+* We are actively working on and invite contributions to this code base. 
+* We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. This is a great area for developers from the community to contribute and help improve test coverage.
 
 ## Documentation
 
@@ -107,7 +107,7 @@ If you need a multi node cluster (up to 3 nodes) where you'd like to be able to 
 ```
 
 ## Known Issues
-* We have a cold start period whenever we initialize a model, which could happen when we create a new detector or when the cluster restarts and models get restored from snapshots. Currently the detector always return errors during the cold start period. Please ignore these initial errors for now. We are actively working on the fix, will have it fixed in the next release.
+* We have a cold start period whenever we initialize a model, which could happen when we create a new detector or when the cluster restarts and models get restored from snapshots. Currently the detector always return errors during the cold start period. Please ignore these initial errors for now. We are actively working on the fix and will push in the next release.
 
 ## Interested in contributing to the Anomaly Detection plugin
 

@@ -16,12 +16,17 @@
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelInformation;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import org.elasticsearch.test.ESTestCase;
 
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -29,15 +34,29 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+
 public class ADStatsTests extends ESTestCase {
     private AnomalyDetectionIndices indices;
+    private ModelManager modelManager;
     private ADStats adStats;
 
     @Before
     public void setup() {
         indices = mock(AnomalyDetectionIndices.class);
         when(indices.getIndexHealthStatus(anyString())).thenReturn("yellow");
-        adStats = ADStats.getInstance(indices);
+        when(indices.getNumberOfDocumentsInIndex(anyString())).thenReturn(100L);
+
+        modelManager = mock(ModelManager.class);
+        List<ModelInformation> modelsInformation = new ArrayList<>(Arrays.asList(
+                new ModelInformation("modelId-1", "detectorId-1", ModelInformation.RCF_TYPE_VALUE),
+                new ModelInformation("modelId-2", "detectorId-1", ModelInformation.THRESHOLD_TYPE_VALUE),
+                new ModelInformation("modelId-3", "detectorId-2", ModelInformation.RCF_TYPE_VALUE),
+                new ModelInformation("modelId-4", "detectorId-2", ModelInformation.THRESHOLD_TYPE_VALUE)
+        ));
+
+        when(modelManager.getAllModelsInformation()).thenReturn(modelsInformation);
+
+        adStats = ADStats.getInstance(indices, modelManager);
     }
 
     @Test
@@ -85,7 +104,7 @@ public class ADStatsTests extends ESTestCase {
         Set<ADStat<?>> clusterStats = new HashSet<>(adStats.getClusterStats().values());
 
         for (ADStat<?> stat : stats.values()) {
-            assertTrue("getClusterStats returns incorrect stats", !stat.isClusterLevel() || clusterStats.contains(stat));
+            assertTrue("getNodeStats returns incorrect stats", !stat.isClusterLevel() || clusterStats.contains(stat));
         }
     }
 }

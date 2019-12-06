@@ -16,11 +16,13 @@
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.stats.counters.BasicCounter;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,16 +39,17 @@ public class ADStats {
 
     private static ADStats adStats = null;
 
-    public static ADStats getInstance(AnomalyDetectionIndices anomalyDetectionIndices) {
+    public static ADStats getInstance(AnomalyDetectionIndices anomalyDetectionIndices, ModelManager modelManager) {
 
         if (adStats == null) {
-            adStats = new ADStats(anomalyDetectionIndices);
+            adStats = new ADStats(anomalyDetectionIndices, modelManager);
         }
 
         return adStats;
     }
 
     private AnomalyDetectionIndices anomalyDetectionIndices;
+    private ModelManager modelManager;
     private Map<String, ADStat<?>> stats;
 
     /**
@@ -56,7 +59,8 @@ public class ADStats {
         AD_EXECUTE_REQUEST_COUNT("ad_execute_request_count"),
         AD_EXECUTE_FAIL_COUNT("ad_execute_failure_count"),
         ANOMALY_DETECTORS_INDEX_STATUS("anomaly_detectors_index_status"),
-        ANOMALY_RESULTS_INDEX_STATUS("anomaly_results_index_status");
+        ANOMALY_RESULTS_INDEX_STATUS("anomaly_results_index_status"),
+        MODEL_INFORMATION("models");
 
         private String name;
 
@@ -76,9 +80,11 @@ public class ADStats {
     /**
      * ADStats constructor
      * @param anomalyDetectionIndices indices that store information about anomaly detection
+     * @param modelManager modelManager used to get information about which models are hosted on a particular node
      */
-    private ADStats(AnomalyDetectionIndices anomalyDetectionIndices) {
+    private ADStats(AnomalyDetectionIndices anomalyDetectionIndices, ModelManager modelManager) {
         this.anomalyDetectionIndices = anomalyDetectionIndices;
+        this.modelManager = modelManager;
         initStats();
     }
 
@@ -93,6 +99,10 @@ public class ADStats {
                         false, new CounterSupplier(new BasicCounter())));
                 put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(StatNames.AD_EXECUTE_FAIL_COUNT.getName(),
                         false, new CounterSupplier(new BasicCounter())));
+
+                // Stateless Node stats
+                put(StatNames.MODEL_INFORMATION.getName(), new ADStat<>(StatNames.MODEL_INFORMATION.getName(),
+                        false, new ModelsOnNodeSupplier(modelManager)));
 
                 // Stateless Cluster stats
                 put(StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(), new ADStat<>(StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(),
@@ -154,3 +164,4 @@ public class ADStats {
         return clusterStats;
     }
 }
+

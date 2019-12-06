@@ -333,10 +333,10 @@ public class ModelManager {
     public List<ModelInformation> getAllModelsInformation() {
         List<ModelInformation> modelsInformation = new ArrayList<>();
 
-        forests.keySet().forEach(modelId -> modelsInformation.add(new ModelInformation(modelId,
+        forests.forEach((modelId, model) -> modelsInformation.add(new ModelInformation(modelId,
                 getDetectorIdForModelId(modelId), ModelInformation.RCF_TYPE_VALUE)));
 
-        thresholds.keySet().forEach(modelId -> modelsInformation.add(new ModelInformation(modelId,
+        thresholds.forEach((modelId, model) -> modelsInformation.add(new ModelInformation(modelId,
                 getDetectorIdForModelId(modelId), ModelInformation.THRESHOLD_TYPE_VALUE)));
 
         return modelsInformation;

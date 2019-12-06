@@ -19,13 +19,14 @@ import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
  * ModelInformation keeps track of different information on a per model basis
  */
 public class ModelInformation implements ToXContentObject {
-
     private String modelId;
     private String detectorId;
     private String modelType;
@@ -49,6 +50,13 @@ public class ModelInformation implements ToXContentObject {
         this.modelType = modelType;
     }
 
+    /**
+     * Convert ModelInformation to XContent
+     * @param xContentBuilder XContentBuilder
+     * @param params Params
+     * @return xContentBuilder
+     * @throws IOException XContentBuilder throws IOException
+     */
     public XContentBuilder toXContent(XContentBuilder xContentBuilder, Params params) throws IOException {
 
         xContentBuilder.startObject();
@@ -61,23 +69,41 @@ public class ModelInformation implements ToXContentObject {
     }
 
     /**
+     * getModelInfoAsMap
+     * @return Map of ModelInformation
+     */
+    public Map<String, Object> getModelInfoAsMap() {
+        return new HashMap<String, Object>() {{
+            put(MODEL_ID_KEY, modelId);
+            put(DETECTOR_ID_KEY, detectorId);
+            put(MODEL_TYPE_KEY, modelType);
+        }};
+    }
+
+    /**
      * getModelId
      * @return modelId of model
      */
-    public String getModelId() { return modelId; }
+    public String getModelId() {
+        return modelId;
+    }
 
     /**
      * getDetectorId
      * @return detectorId associated with the model
      */
-    public String getDetectorId() { return detectorId; }
+    public String getDetectorId() {
+        return detectorId;
+    }
 
     /**
      * getModelType
      * @return modelType of the model
      */
-    public String getModelType() { return modelType; }
-
+    public String getModelType() {
+        return modelType;
+    }
+    
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

@@ -42,6 +42,7 @@ import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyResultActi
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
 
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorAction;
@@ -209,11 +210,13 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.CHECKPOINT_TTL);
         HourlyCron hourlyCron = new HourlyCron(clusterService, client);
 
+        ADStats adStats = ADStats.getInstance();
+
         return ImmutableList.of(anomalyDetectionIndices, anomalyDetectorRunner, searchFeatureDao,
                 singleFeatureLinearUniformInterpolator, interpolator, gson, jvmService, hashRing, featureManager,
                 modelManager, clock, stateManager, runner,
                 new ADClusterEventListener(clusterService, hashRing, modelManager),
-                deleteUtil, dailyCron, hourlyCron,
+                deleteUtil, dailyCron, hourlyCron, adStats,
                 new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock)
                 );
     }

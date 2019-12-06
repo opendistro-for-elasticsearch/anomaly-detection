@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -60,6 +61,7 @@ public class ADStats {
         AD_EXECUTE_FAIL_COUNT("ad_execute_failure_count"),
         ANOMALY_DETECTORS_INDEX_STATUS("anomaly_detectors_index_status"),
         ANOMALY_RESULTS_INDEX_STATUS("anomaly_results_index_status"),
+        MODELS_CHECKPOINT_INDEX_STATUS("models_checkpoint_index_status"),
         MODEL_INFORMATION("models");
 
         private String name;
@@ -109,6 +111,9 @@ public class ADStats {
                         true, new IndexStatusSupplier(anomalyDetectionIndices, AnomalyDetector.ANOMALY_DETECTORS_INDEX)));
                 put(StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(), new ADStat<>(StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(),
                         true, new IndexStatusSupplier(anomalyDetectionIndices, AnomalyResult.ANOMALY_RESULT_INDEX)));
+                put(StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(),
+                        new ADStat<>(StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(), true,
+                                new IndexStatusSupplier(anomalyDetectionIndices, CommonName.CHECKPOINT_INDEX_NAME)));
             }
         };
     }

@@ -24,6 +24,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.LatchedActionListener;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
@@ -52,7 +53,10 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_INDEX_MAX_AGE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS;
@@ -82,9 +86,12 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     //Elastic mapping type
     private static final String MAPPING_TYPE = "_doc";
 
+    //Timeout for search used to get number of documents in seconds
+    private static final Long DOCUMENT_COUNT_SEARCH_TIMEOUT_S = 3L;
+
     private ClusterService clusterService;
     private final AdminClient adminClient;
-    private final Client client;
+    final Client client;
     private final ThreadPool threadPool;
 
     private volatile TimeValue requestTimeout;
@@ -351,9 +358,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     void setClusterService(ClusterService clusterService) { this.clusterService = clusterService; }
 
     /**
-     * Gets the number of documents in an index
+     * Gets the number of documents in an index with an async search call
      *
-     * @param indexName String of the index
+     * @param indexName Name of the index
      * @return number of docs in the index
      */
     public Long getNumberOfDocumentsInIndex(String indexName) {
@@ -362,18 +369,41 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
         }
 
         SearchRequest searchRequest = new SearchRequest(indexName);
-
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder.size(0);
-
         searchRequest.source(sourceBuilder);
 
-        Optional<SearchResponse> response = requestUtil.timedRequest(searchRequest, logger, client::search);
+        final CountDownLatch responseLatch = new CountDownLatch(1);
+        AtomicReference<Long> count = new AtomicReference<>();
+        LatchedActionListener<SearchResponse> searchListener = new LatchedActionListener<>(
+                new DocumentCountListener(count), responseLatch);
 
-        if (response.isPresent()) {
-            return response.get().getHits().getTotalHits().value;
-        } else {
-            return 0L;
+        client.search(searchRequest, searchListener);
+
+        try {
+            responseLatch.await(DOCUMENT_COUNT_SEARCH_TIMEOUT_S, TimeUnit.SECONDS);
+            return count.get();
+        } catch (InterruptedException e) {
+            logger.error("Interrupted Exception", e);
+            return -1L;
+        }
+    }
+
+    private class DocumentCountListener implements ActionListener<SearchResponse> {
+        private AtomicReference<Long> count;
+
+        DocumentCountListener(AtomicReference<Long> count) {
+            this.count = count;
+        }
+
+        @Override
+        public void onResponse(SearchResponse response) {
+            count.set(response.getHits().getTotalHits().value);
+        }
+
+        @Override
+        public void onFailure(Exception e) {
+            logger.error("Exception on DocumentCountListener failure", e);
         }
     }
 }

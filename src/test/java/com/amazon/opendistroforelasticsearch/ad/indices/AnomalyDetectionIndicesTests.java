@@ -155,8 +155,8 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
                 status.equals(AnomalyDetectionIndices.NONEXISTENT_INDEX_STATUS));
     }
 
-    public void testAnomalyDetectorsGetNumberOfDocuments() throws  IOException {
-        String indexName = "test_index";
+    public void testAnomalyDetectorsGetNumberOfDocuments_onSuccess_normal() throws  IOException {
+        String indexName = "test-index-success";
 
         indices.setClusterService(clusterService());
 
@@ -174,6 +174,21 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
 
         Long numOfActualDetectorsCreated = indices.getNumberOfDocumentsInIndex(indexName);
         assertEquals("Total number of detectors is incorrect", numOfDetectors, numOfActualDetectorsCreated);
+
+        // Manually reset the clusterService to the original
+        indices.setClusterService(clusterService);
+    }
+
+    public void testAnomalyDetectorsGetNumberOfDocuments_onSuccess_indexDoesNotExist() {
+        String indexName = "test-index-success-does-not-exist";
+
+        indices.setClusterService(clusterService());
+
+        flushAndRefresh();
+
+        // Documents in a non-existent index is 0
+        Long numOfActualDetectorsCreated = indices.getNumberOfDocumentsInIndex(indexName);
+        assertEquals("Total number of detectors is incorrect", (Long) 0L, numOfActualDetectorsCreated);
 
         // Manually reset the clusterService to the original
         indices.setClusterService(clusterService);

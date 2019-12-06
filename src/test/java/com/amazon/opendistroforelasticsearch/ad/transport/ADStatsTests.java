@@ -195,4 +195,15 @@ public class ADStatsTests extends ESTestCase {
                 ToXContent.EMPTY_PARAMS).endObject());
         assertEquals("Serialization fails", readJson, json);
     }
+
+    @Test(expected=UnsupportedOperationException.class)
+    public void testADStatsAction_newResponse() {
+        ADStatsAction adStatsAction = ADStatsAction.INSTANCE;
+        adStatsAction.newResponse();
+    }
+
+    @Test
+    public void testADTransportAction() {
+
+    }
 }

@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.stats.counters.BasicCounter;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.DocumentCountSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 
@@ -31,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Stats
+ * ADStats
  *
  * This class is the main entrypoint for access to the stats that
  * the AD plugin keeps track of.
@@ -59,6 +60,7 @@ public class ADStats {
     public enum StatNames {
         AD_EXECUTE_REQUEST_COUNT("ad_execute_request_count"),
         AD_EXECUTE_FAIL_COUNT("ad_execute_failure_count"),
+        DETECTOR_COUNT("detector_count"),
         ANOMALY_DETECTORS_INDEX_STATUS("anomaly_detectors_index_status"),
         ANOMALY_RESULTS_INDEX_STATUS("anomaly_results_index_status"),
         MODELS_CHECKPOINT_INDEX_STATUS("models_checkpoint_index_status"),
@@ -66,11 +68,16 @@ public class ADStats {
 
         private String name;
 
-        StatNames(String name) { this.name = name; }
-        public String getName() { return name; }
+        StatNames(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
 
         public static List<String> getNames() {
-            ArrayList<String> names = new ArrayList<>();
+            List<String> names = new ArrayList<>();
 
             for (StatNames statName : StatNames.values()) {
                 names.add(statName.getName());
@@ -114,6 +121,9 @@ public class ADStats {
                 put(StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(),
                         new ADStat<>(StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(), true,
                                 new IndexStatusSupplier(anomalyDetectionIndices, CommonName.CHECKPOINT_INDEX_NAME)));
+                put(StatNames.DETECTOR_COUNT.getName(),
+                        new ADStat<>(StatNames.DETECTOR_COUNT.getName(), true,
+                                new DocumentCountSupplier(anomalyDetectionIndices, AnomalyDetector.ANOMALY_DETECTORS_INDEX)));
             }
         };
     }
@@ -141,7 +151,7 @@ public class ADStats {
 
     /**
      * Get a map of the stats that are kept at the node level
-     * @return HashMap of stats kept at the node level
+     * @return Map of stats kept at the node level
      */
     public Map<String, ADStat<?>> getNodeStats() {
         Map<String, ADStat<?>> nodeStats = new HashMap<>();
@@ -156,7 +166,7 @@ public class ADStats {
 
     /**
      * Get a map of the stats that are kept at the cluster level
-     * @return HashMap of stats kept at the cluster level
+     * @return Map of stats kept at the cluster level
      */
     public Map<String, ADStat<?>> getClusterStats() {
         Map<String, ADStat<?>> clusterStats = new HashMap<>();
@@ -169,4 +179,3 @@ public class ADStats {
         return clusterStats;
     }
 }
-

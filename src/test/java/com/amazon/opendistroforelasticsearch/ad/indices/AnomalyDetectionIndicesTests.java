@@ -151,7 +151,8 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
 
         // check status
         String status = indices.getIndexHealthStatus(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-        assertTrue(status.equals("yellow")  || status.equals("green")  || status.equals("red") || status.equals("nonexistent"));
+        assertTrue(status.equals("yellow")  || status.equals("green")  || status.equals("red") ||
+                status.equals(AnomalyDetectionIndices.NONEXISTENT_INDEX_STATUS));
     }
 
     public void testAnomalyDetectorsGetNumberOfDocuments() throws  IOException {

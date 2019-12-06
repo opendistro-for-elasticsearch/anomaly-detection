@@ -39,6 +39,7 @@ import org.elasticsearch.cluster.ClusterChangedEvent;
 import org.elasticsearch.cluster.ClusterStateListener;
 import org.elasticsearch.cluster.LocalNodeMasterListener;
 import org.elasticsearch.cluster.health.ClusterIndexHealth;
+import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -49,6 +50,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -72,6 +74,10 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
 
     //The index name pattern to query all AD result, history and current AD result
     public static final String ALL_AD_RESULTS_INDEX_PATTERN = ".opendistro-anomaly-results*";
+
+    //The index name pattern to query all AD result, history and current AD result
+    public static final String NONEXISTENT_INDEX_STATUS = "non-existent";
+    public static final String ALIAS_EXISTS_NO_INDICES_STATUS = "alias exists, but does not point to any indices";
 
     //Elastic mapping type
     private static final String MAPPING_TYPE = "_doc";
@@ -309,19 +315,31 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     }
 
     /**
-     * Gets the cluster index health for a particular index
+     * Gets the cluster index health for a particular index or the index an alias points to
      *
-     * @param indexName String of the index to get health of
+     * @param indexOrAliasName String of the index or alias name to get health of
      * @return String represents the status of the index: "red", "yellow" or "green"
      */
-    public String getIndexHealthStatus(String indexName) {
-        if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
-            return "nonexistent";
+    public String getIndexHealthStatus(String indexOrAliasName) {
+        if (!clusterService.state().getRoutingTable().hasIndex(indexOrAliasName)) {
+            // Check if the index is actually an alias
+            if (clusterService.state().getMetaData().hasAlias(indexOrAliasName)) {
+                // List of all indices the alias refers to
+                List<IndexMetaData> indexMetaDataList = clusterService.state().getMetaData().getAliasAndIndexLookup()
+                        .get(indexOrAliasName).getIndices();
+                if (indexMetaDataList.size() == 0) {
+                    return ALIAS_EXISTS_NO_INDICES_STATUS;
+                } else {
+                    indexOrAliasName = indexMetaDataList.get(0).getIndex().getName();
+                }
+            } else {
+                return NONEXISTENT_INDEX_STATUS;
+            }
         }
 
         ClusterIndexHealth indexHealth = new ClusterIndexHealth(
-                clusterService.state().metaData().index(indexName),
-                clusterService.state().getRoutingTable().index(indexName)
+                clusterService.state().metaData().index(indexOrAliasName),
+                clusterService.state().getRoutingTable().index(indexOrAliasName)
         );
 
         return indexHealth.getStatus().name().toLowerCase();

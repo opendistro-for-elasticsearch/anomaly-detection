@@ -223,7 +223,7 @@ public class AnomalyResultTests extends AbstractADTest {
         }).when(client).index(any(), any());
 
         indexNameResolver = new IndexNameExpressionResolver();
-        adStats = ADStats.getInstance();
+        adStats = ADStats.getInstance(anomalyDetectionIndices);
     }
 
     public void setupTestNodes(Settings settings) {

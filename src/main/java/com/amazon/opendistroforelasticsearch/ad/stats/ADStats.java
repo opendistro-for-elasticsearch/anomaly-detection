@@ -15,8 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
+import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.stats.counters.BasicCounter;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,15 +37,16 @@ public class ADStats {
 
     private static ADStats adStats = null;
 
-    public static ADStats getInstance() {
+    public static ADStats getInstance(AnomalyDetectionIndices anomalyDetectionIndices) {
 
         if (adStats == null) {
-            adStats = new ADStats();
+            adStats = new ADStats(anomalyDetectionIndices);
         }
 
         return adStats;
     }
 
+    private AnomalyDetectionIndices anomalyDetectionIndices;
     private Map<String, ADStat<?>> stats;
 
     /**
@@ -49,7 +54,9 @@ public class ADStats {
      */
     public enum StatNames {
         AD_EXECUTE_REQUEST_COUNT("ad_execute_request_count"),
-        AD_EXECUTE_FAIL_COUNT("ad_execute_failure_count");
+        AD_EXECUTE_FAIL_COUNT("ad_execute_failure_count"),
+        ANOMALY_DETECTORS_INDEX_STATUS("anomaly_detectors_index_status"),
+        ANOMALY_RESULTS_INDEX_STATUS("anomaly_results_index_status");
 
         private String name;
 
@@ -68,8 +75,10 @@ public class ADStats {
 
     /**
      * ADStats constructor
+     * @param anomalyDetectionIndices indices that store information about anomaly detection
      */
-    private ADStats() {
+    private ADStats(AnomalyDetectionIndices anomalyDetectionIndices) {
+        this.anomalyDetectionIndices = anomalyDetectionIndices;
         initStats();
     }
 
@@ -84,6 +93,12 @@ public class ADStats {
                         false, new CounterSupplier(new BasicCounter())));
                 put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(StatNames.AD_EXECUTE_FAIL_COUNT.getName(),
                         false, new CounterSupplier(new BasicCounter())));
+
+                // Stateless Cluster stats
+                put(StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(), new ADStat<>(StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(),
+                        true, new IndexStatusSupplier(anomalyDetectionIndices, AnomalyDetector.ANOMALY_DETECTORS_INDEX)));
+                put(StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(), new ADStat<>(StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(),
+                        true, new IndexStatusSupplier(anomalyDetectionIndices, AnomalyResult.ANOMALY_RESULT_INDEX)));
             }
         };
     }
@@ -122,5 +137,20 @@ public class ADStats {
             }
         }
         return nodeStats;
+    }
+
+    /**
+     * Get a map of the stats that are kept at the cluster level
+     * @return HashMap of stats kept at the cluster level
+     */
+    public Map<String, ADStat<?>> getClusterStats() {
+        Map<String, ADStat<?>> clusterStats = new HashMap<>();
+
+        for (Map.Entry<String, ADStat<?>> entry : stats.entrySet()) {
+            if (entry.getValue().isClusterLevel()) {
+                clusterStats.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return clusterStats;
     }
 }

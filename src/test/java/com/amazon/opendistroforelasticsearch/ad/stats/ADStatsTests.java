@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
+import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import org.elasticsearch.test.ESTestCase;
 
 import org.junit.Before;
@@ -24,13 +25,19 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class ADStatsTests extends ESTestCase {
+    private AnomalyDetectionIndices indices;
     private ADStats adStats;
 
     @Before
     public void setup() {
-        adStats = ADStats.getInstance();
+        indices = mock(AnomalyDetectionIndices.class);
+        when(indices.getIndexHealthStatus(anyString())).thenReturn("yellow");
+        adStats = ADStats.getInstance(indices);
     }
 
     @Test
@@ -69,6 +76,16 @@ public class ADStatsTests extends ESTestCase {
 
         for (ADStat<?> stat : stats.values()) {
             assertTrue("getNodeStats returns incorrect stats", stat.isClusterLevel() || nodeStats.contains(stat));
+        }
+    }
+
+    @Test
+    public void testGetClusterStats() {
+        Map<String, ADStat<?>> stats = adStats.getStats();
+        Set<ADStat<?>> clusterStats = new HashSet<>(adStats.getClusterStats().values());
+
+        for (ADStat<?> stat : stats.values()) {
+            assertTrue("getClusterStats returns incorrect stats", !stat.isClusterLevel() || clusterStats.contains(stat));
         }
     }
 }

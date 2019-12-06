@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRestTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -167,6 +168,13 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 ImmutableMap.of(),
                 new NStringEntity(search.toString(), ContentType.APPLICATION_JSON), null);
         assertEquals("Search anomaly detector failed", RestStatus.OK, restStatus(searchResponse));
+    }
+
+    public void testStatsAnomalyDetector() throws IOException {
+        Response statsResponse = TestHelpers.makeRequest(client(), "GET",
+                AnomalyDetectorPlugin.AD_BASE_URI + "/stats",  ImmutableMap.of(), "", null);
+
+        assertEquals("Get stats failed", RestStatus.OK, restStatus(statsResponse));
     }
 
     @Ignore

@@ -18,13 +18,12 @@ package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * ModelsOnNodeSupplier provides a List of ModelInformation for the models the nodes contains
+ * ModelsOnNodeSupplier provides a List of ModelStates info for the models the nodes contains
  */
 public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>> {
     private ModelManager modelManager;
@@ -36,8 +35,8 @@ public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>>
     @Override
     public List<Map<String, Object>> get() {
         List<Map<String, Object>> values = new ArrayList<>();
-        modelManager.getAllModelsInformation().forEach(
-                modelInformation -> values.add(Collections.<String, Object>unmodifiableMap(modelInformation.getModelInfoAsMap()))
+        modelManager.getAllModels().forEach(
+                modelState -> values.add(modelState.getModelStateAsMap())
         );
 
         return values;

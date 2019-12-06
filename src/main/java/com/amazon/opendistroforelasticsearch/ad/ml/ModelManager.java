@@ -21,7 +21,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +60,8 @@ public class ModelManager {
     protected static final String DETECTOR_ID_PATTERN = "(.*)_model_.+";
     protected static final String RCF_MODEL_ID_PATTERN = "%s_model_rcf_%d";
     protected static final String THRESHOLD_MODEL_ID_PATTERN = "%s_model_threshold";
+    public static final String RCF_TYPE_VALUE = "rcf";
+    public static final String THRESHOLD_TYPE_VALUE = "threshold";
     private static final double FULL_CONFIDENCE_EXPONENT = 18.43; // exponent over which confidence is 1
 
     private static final Logger logger = LogManager.getLogger(ModelManager.class);
@@ -276,7 +277,7 @@ public class ModelManager {
                 .map(checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) ()
                     -> rcfSerde.fromJson(checkpoint)))
                 .filter(rcf -> isHostingAllowed(detectorId, rcf))
-                .map(rcf -> new ModelState<>(rcf, clock.instant()))
+                .map(rcf -> new ModelState<>(rcf, modelId, detectorId, RCF_TYPE_VALUE, clock.instant()))
                 .orElseThrow(() -> new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId)));
 
         RandomCutForest rcf = modelState.getModel();
@@ -305,7 +306,7 @@ public class ModelManager {
             model -> checkpointDao.getModelCheckpoint(model)
                 .map(checkpoint -> AccessController.doPrivileged((PrivilegedAction<ThresholdingModel>)
                     () -> gson.fromJson(checkpoint, thresholdingModelClass)))
-                .map(threshold -> new ModelState<>(threshold, clock.instant()))
+                .map(threshold -> new ModelState<>(threshold, modelId, detectorId, THRESHOLD_TYPE_VALUE, clock.instant()))
                 .orElseThrow(() -> new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId)));
 
         ThresholdingModel threshold = modelState.getModel();
@@ -326,20 +327,12 @@ public class ModelManager {
     }
 
     /**
-     * Get the ModelInformation for all hosted models
-     *
-     * @return modelsInformation list of model information for all hosted models
+     * getAllModels
+     * @return list of modelState
      */
-    public List<ModelInformation> getAllModelsInformation() {
-        List<ModelInformation> modelsInformation = new ArrayList<>();
-
-        forests.forEach((modelId, model) -> modelsInformation.add(new ModelInformation(modelId,
-                getDetectorIdForModelId(modelId), ModelInformation.RCF_TYPE_VALUE)));
-
-        thresholds.forEach((modelId, model) -> modelsInformation.add(new ModelInformation(modelId,
-                getDetectorIdForModelId(modelId), ModelInformation.THRESHOLD_TYPE_VALUE)));
-
-        return modelsInformation;
+    public List<ModelState<?>> getAllModels() {
+        return Stream.concat(forests.values().stream(), thresholds.values().stream())
+                .collect(Collectors.toList());
     }
 
     /**

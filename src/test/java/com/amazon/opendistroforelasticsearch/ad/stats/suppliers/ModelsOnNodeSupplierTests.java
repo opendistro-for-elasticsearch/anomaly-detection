@@ -15,36 +15,55 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelInformation;
+import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
+import com.amazon.randomcutforest.RandomCutForest;
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class ModelsOnNodeSupplierTests extends ESTestCase {
+    private RandomCutForest rcf;
+    private HybridThresholdingModel thresholdingModel;
+    private List<ModelState<?>> expectedResults;
+    private Clock clock;
+
+    @Mock
     private ModelManager modelManager;
-    List<ModelInformation> expectedResults;
 
     @Before
     public void setup() {
+        MockitoAnnotations.initMocks(this);
+
+        clock = Clock.systemUTC();
+        rcf = RandomCutForest.builder().dimensions(1).sampleSize(1).numberOfTrees(1).build();
+        thresholdingModel = new HybridThresholdingModel(1e-8, 1e-5, 200,
+                10_000, 2, 5_000_000);
+
         expectedResults = new ArrayList<>(Arrays.asList(
-                new ModelInformation("rcf-model-1", "detector-1", ModelInformation.RCF_TYPE_VALUE),
-                new ModelInformation("thr-model-1",  "detector-1", ModelInformation.THRESHOLD_TYPE_VALUE),
-                new ModelInformation("rcf-model-2",  "detector-2", ModelInformation.RCF_TYPE_VALUE),
-                new ModelInformation("thr-model-2", "detector-2",  ModelInformation.THRESHOLD_TYPE_VALUE)
+                new ModelState<>(rcf, "rcf-model-1", "detector-1",
+                        ModelManager.RCF_TYPE_VALUE, clock.instant()),
+                new ModelState<>(thresholdingModel,"thr-model-1",  "detector-1",
+                        ModelManager.RCF_TYPE_VALUE, clock.instant()),
+                new ModelState<>(rcf, "rcf-model-2",  "detector-2",
+                        ModelManager.THRESHOLD_TYPE_VALUE, clock.instant()),
+                new ModelState<>(thresholdingModel,"thr-model-2", "detector-2",
+                        ModelManager.THRESHOLD_TYPE_VALUE, clock.instant())
             ));
 
-        modelManager = mock(ModelManager.class);
-        when(modelManager.getAllModelsInformation()).thenReturn(expectedResults);
+        when(modelManager.getAllModels()).thenReturn(expectedResults);
     }
 
     @Test
@@ -52,6 +71,6 @@ public class ModelsOnNodeSupplierTests extends ESTestCase {
         ModelsOnNodeSupplier modelsOnNodeSupplier = new ModelsOnNodeSupplier(modelManager);
         List<Map<String, Object>> results = modelsOnNodeSupplier.get();
         assertEquals("get fails to return correct result",
-                expectedResults.stream().map(ModelInformation::getModelInfoAsMap).collect(Collectors.toList()), results);
+                expectedResults.stream().map(ModelState::getModelStateAsMap).collect(Collectors.toList()), results);
     }
 }

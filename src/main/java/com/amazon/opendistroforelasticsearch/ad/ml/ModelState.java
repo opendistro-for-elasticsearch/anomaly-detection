@@ -16,24 +16,39 @@
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * A ML model and states such as usage.
  */
 public class ModelState<T> {
 
+    public static String MODEL_ID_KEY = "model_id";
+    public static String DETECTOR_ID_KEY = "detector_id";
+    public static String MODEL_TYPE_KEY = "model_type";
+
     private T model;
+    private String modelId;
+    private String detectorId;
+    private String modelType;
     private Instant lastUsedTime;
     private Instant lastCheckpointTime;
 
     /**
      * Constructor.
      *
+     * @param modelId Id of Model this model partition is a part of
+     * @param detectorId Id of detector this model partition is used for
+     * @param modelType type of model
      * @param model ML model
      * @param lastUsedTime time when the ML model was used last time
      */
-    public ModelState(T model, Instant lastUsedTime) {
+    public ModelState(T model, String modelId, String detectorId, String modelType, Instant lastUsedTime) {
         this.model = model;
+        this.modelId = modelId;
+        this.detectorId = detectorId;
+        this.modelType = modelType;
         this.lastUsedTime = lastUsedTime;
         this.lastCheckpointTime = Instant.MIN;
     }
@@ -45,6 +60,30 @@ public class ModelState<T> {
      */
     public T getModel() {
         return this.model;
+    }
+
+    /**
+     * getModelId
+     * @return modelId of model
+     */
+    public String getModelId() {
+        return modelId;
+    }
+
+    /**
+     * getDetectorId
+     * @return detectorId associated with the model
+     */
+    public String getDetectorId() {
+        return detectorId;
+    }
+
+    /**
+     * getModelType
+     * @return modelType of the model
+     */
+    public String getModelType() {
+        return modelType;
     }
 
     /**
@@ -81,5 +120,17 @@ public class ModelState<T> {
      */
     public void setLastCheckpointTime(Instant lastCheckpointTime) {
         this.lastCheckpointTime = lastCheckpointTime;
+    }
+
+    /**
+     * getModelStateAsMap
+     * @return Map of ModelStates
+     */
+    public Map<String, Object> getModelStateAsMap() {
+        return new HashMap<String, Object>() {{
+            put(MODEL_ID_KEY, modelId);
+            put(DETECTOR_ID_KEY, detectorId);
+            put(MODEL_TYPE_KEY, modelType);
+        }};
     }
 }

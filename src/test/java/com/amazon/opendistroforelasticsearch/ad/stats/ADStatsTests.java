@@ -16,13 +16,18 @@
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelInformation;
+import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
+import com.amazon.randomcutforest.RandomCutForest;
 import org.elasticsearch.test.ESTestCase;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -31,31 +36,46 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-
 public class ADStatsTests extends ESTestCase {
-    private AnomalyDetectionIndices indices;
-    private ModelManager modelManager;
+
     private ADStats adStats;
+    private RandomCutForest rcf;
+    private HybridThresholdingModel thresholdingModel;
+
+    @Mock
+    private Clock clock;
+
+    @Mock
+    private AnomalyDetectionIndices indices;
+
+    @Mock
+    private ModelManager modelManager;
 
     @Before
     public void setup() {
-        indices = mock(AnomalyDetectionIndices.class);
+        MockitoAnnotations.initMocks(this);
+
         when(indices.getIndexHealthStatus(anyString())).thenReturn("yellow");
         when(indices.getNumberOfDocumentsInIndex(anyString())).thenReturn(100L);
 
-        modelManager = mock(ModelManager.class);
-        List<ModelInformation> modelsInformation = new ArrayList<>(Arrays.asList(
-                new ModelInformation("modelId-1", "detectorId-1", ModelInformation.RCF_TYPE_VALUE),
-                new ModelInformation("modelId-2", "detectorId-1", ModelInformation.THRESHOLD_TYPE_VALUE),
-                new ModelInformation("modelId-3", "detectorId-2", ModelInformation.RCF_TYPE_VALUE),
-                new ModelInformation("modelId-4", "detectorId-2", ModelInformation.THRESHOLD_TYPE_VALUE)
+        rcf = RandomCutForest.builder().dimensions(1).sampleSize(1).numberOfTrees(1).build();
+        thresholdingModel = new HybridThresholdingModel(1e-8, 1e-5, 200,
+                10_000, 2, 5_000_000);
+
+        List<ModelState<?>> modelsInformation = new ArrayList<>(Arrays.asList(
+                new ModelState<>(rcf, "rcf-model-1", "detector-1",
+                        ModelManager.RCF_TYPE_VALUE, clock.instant()),
+                new ModelState<>(thresholdingModel,"thr-model-1",  "detector-1",
+                        ModelManager.RCF_TYPE_VALUE, clock.instant()),
+                new ModelState<>(rcf, "rcf-model-2",  "detector-2",
+                        ModelManager.THRESHOLD_TYPE_VALUE, clock.instant()),
+                new ModelState<>(thresholdingModel,"thr-model-2", "detector-2",
+                        ModelManager.THRESHOLD_TYPE_VALUE, clock.instant())
         ));
 
-        when(modelManager.getAllModelsInformation()).thenReturn(modelsInformation);
-
+        when(modelManager.getAllModels()).thenReturn(modelsInformation);
         adStats = ADStats.getInstance(indices, modelManager);
     }
 

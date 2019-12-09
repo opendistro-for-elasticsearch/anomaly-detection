@@ -97,7 +97,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
                     + " and individual stats");
         } else {
             Set<String> invalidStats = new TreeSet<>();
-
+            adStatsRequest.clear();
             for (String stat : statsSet) {
                 if (!adStatsRequest.addStat(stat)) {
                     invalidStats.add(stat);

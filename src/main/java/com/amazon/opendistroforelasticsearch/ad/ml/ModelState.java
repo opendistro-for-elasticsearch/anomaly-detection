@@ -38,10 +38,10 @@ public class ModelState<T> {
     /**
      * Constructor.
      *
+     * @param model ML model
      * @param modelId Id of Model this model partition is a part of
      * @param detectorId Id of detector this model partition is used for
      * @param modelType type of model
-     * @param model ML model
      * @param lastUsedTime time when the ML model was used last time
      */
     public ModelState(T model, String modelId, String detectorId, String modelType, Instant lastUsedTime) {

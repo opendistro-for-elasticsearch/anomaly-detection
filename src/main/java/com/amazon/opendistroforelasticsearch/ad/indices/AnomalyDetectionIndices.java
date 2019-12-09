@@ -79,7 +79,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     //The index name pattern to query all AD result, history and current AD result
     public static final String ALL_AD_RESULTS_INDEX_PATTERN = ".opendistro-anomaly-results*";
 
-    //The index name pattern to query all AD result, history and current AD result
+    //Index health status messages
     public static final String NONEXISTENT_INDEX_STATUS = "non-existent";
     public static final String ALIAS_EXISTS_NO_INDICES_STATUS = "alias exists, but does not point to any indices";
 
@@ -91,7 +91,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
 
     private ClusterService clusterService;
     private final AdminClient adminClient;
-    final Client client;
+    private final Client client;
     private final ThreadPool threadPool;
 
     private volatile TimeValue requestTimeout;
@@ -358,7 +358,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     void setClusterService(ClusterService clusterService) { this.clusterService = clusterService; }
 
     /**
-     * Gets the number of documents in an index with an async search call
+     * Gets the number of documents in an index.
      *
      * @param indexName Name of the index
      * @return number of docs in the index

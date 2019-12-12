@@ -77,4 +77,14 @@ public class ADCircuitBreakerService {
 
         return this;
     }
+
+    public Boolean isOpen() {
+        for (CircuitBreaker breaker : breakers.values()) {
+            if (breaker.isOpen()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

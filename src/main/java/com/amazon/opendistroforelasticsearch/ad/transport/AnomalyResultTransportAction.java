@@ -29,7 +29,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.time.Instant;
 
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
-import com.amazon.opendistroforelasticsearch.ad.breaker.BreakerName;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ClientException;

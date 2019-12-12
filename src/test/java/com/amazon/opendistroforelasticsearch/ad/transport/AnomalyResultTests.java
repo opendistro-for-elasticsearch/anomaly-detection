@@ -297,7 +297,8 @@ public class AnomalyResultTests extends AbstractADTest {
 
         setUpSavingAnomalyResultIndex(false);
         // These constructors register handler in transport service
-        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager, adCircuitBreakerService);
+        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager,
+                adCircuitBreakerService);
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService,
                 normalModelManager);
 
@@ -441,7 +442,8 @@ public class AnomalyResultTests extends AbstractADTest {
                 any(String.class), anyDouble());
 
         // These constructors register handler in transport service
-        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager, adCircuitBreakerService);
+        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager,
+                adCircuitBreakerService);
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService,
                 exceptionThreadholdfManager);
 
@@ -455,6 +457,29 @@ public class AnomalyResultTests extends AbstractADTest {
         action.doExecute(null, request, listener);
 
         assertException(listener, AnomalyDetectionException.class);
+    }
+
+    public void testCircuitBreaker() {
+
+        ADCircuitBreakerService breakerService = mock(ADCircuitBreakerService.class);
+        when(breakerService.isOpen()).thenReturn(true);
+
+        // These constructors register handler in transport service
+        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager,
+                breakerService);
+        new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService,
+                normalModelManager);
+
+        AnomalyResultTransportAction action = new AnomalyResultTransportAction(
+                new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, runner,
+                anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService, indexNameResolver,
+                threadPool, breakerService);
+
+        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+        action.doExecute(null, request, listener);
+
+        assertException(listener, LimitExceededException.class);
     }
 
     /**
@@ -560,7 +585,8 @@ public class AnomalyResultTests extends AbstractADTest {
     public void testRCFLatchAwaitException() throws InterruptedException {
 
         // These constructors register handler in transport service
-        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager, adCircuitBreakerService);
+        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager,
+                adCircuitBreakerService);
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService,
                 normalModelManager);
 
@@ -583,7 +609,8 @@ public class AnomalyResultTests extends AbstractADTest {
 
     public void testThresholdLatchAwaitException() throws InterruptedException {
         // These constructors register handler in transport service
-        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager, adCircuitBreakerService);
+        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager,
+                adCircuitBreakerService);
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService,
                 normalModelManager);
 
@@ -607,7 +634,8 @@ public class AnomalyResultTests extends AbstractADTest {
     public void alertingRequestTemplate(boolean anomalyResultIndexExists) throws IOException {
         setUpSavingAnomalyResultIndex(anomalyResultIndexExists);
         // These constructors register handler in transport service
-        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager, adCircuitBreakerService);
+        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager,
+                adCircuitBreakerService);
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService,
                 normalModelManager);
 
@@ -821,7 +849,8 @@ public class AnomalyResultTests extends AbstractADTest {
                 .put("ml.anomaly_detectors.backoff_initial_delay", TimeValue.timeValueMillis(1)).build();
 
         // These constructors register handler in transport service
-        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager, adCircuitBreakerService);
+        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager,
+                adCircuitBreakerService);
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService,
                 normalModelManager);
 
@@ -928,7 +957,8 @@ public class AnomalyResultTests extends AbstractADTest {
         when(hackedClusterService.state()).thenReturn(blockedClusterState);
 
         // These constructors register handler in transport service
-        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager, adCircuitBreakerService);
+        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager,
+                adCircuitBreakerService);
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService,
                 normalModelManager);
 

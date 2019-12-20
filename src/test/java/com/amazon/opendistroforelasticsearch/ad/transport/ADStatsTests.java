@@ -201,9 +201,4 @@ public class ADStatsTests extends ESTestCase {
         ADStatsAction adStatsAction = ADStatsAction.INSTANCE;
         adStatsAction.newResponse();
     }
-
-    @Test
-    public void testADTransportAction() {
-
-    }
 }

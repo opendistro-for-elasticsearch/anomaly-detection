@@ -47,6 +47,10 @@ public class ADStatsResponse extends BaseNodesResponse<ADStatsNodeResponse> impl
         this.clusterStats = clusterStats;
     }
 
+    Map<String, Object> getClusterStats() {
+        return clusterStats;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);

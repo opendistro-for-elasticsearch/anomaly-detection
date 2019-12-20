@@ -95,6 +95,6 @@ public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest,
             }
         }
 
-        return new ADStatsNodeResponse(transportService.getLocalNode(), statValues);
+        return new ADStatsNodeResponse(clusterService.localNode(), statValues);
     }
 }

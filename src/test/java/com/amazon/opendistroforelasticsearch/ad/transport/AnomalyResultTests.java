@@ -72,7 +72,9 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
@@ -223,7 +225,10 @@ public class AnomalyResultTests extends AbstractADTest {
         }).when(client).index(any(), any());
 
         indexNameResolver = new IndexNameExpressionResolver();
-        adStats = ADStats.getInstance(anomalyDetectionIndices, normalModelManager);
+
+        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY);
+        IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
+        adStats = ADStats.getInstance(indexUtils, normalModelManager);
     }
 
     public void setupTestNodes(Settings settings) {

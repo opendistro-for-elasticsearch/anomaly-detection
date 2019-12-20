@@ -15,10 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.randomcutforest.RandomCutForest;
 import org.elasticsearch.test.ESTestCase;
 
@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class ADStatsTests extends ESTestCase {
@@ -48,17 +49,11 @@ public class ADStatsTests extends ESTestCase {
     private Clock clock;
 
     @Mock
-    private AnomalyDetectionIndices indices;
-
-    @Mock
     private ModelManager modelManager;
 
     @Before
     public void setup() {
         MockitoAnnotations.initMocks(this);
-
-        when(indices.getIndexHealthStatus(anyString())).thenReturn("yellow");
-        when(indices.getNumberOfDocumentsInIndex(anyString())).thenReturn(100L);
 
         rcf = RandomCutForest.builder().dimensions(1).sampleSize(1).numberOfTrees(1).build();
         thresholdingModel = new HybridThresholdingModel(1e-8, 1e-5, 200,
@@ -76,7 +71,11 @@ public class ADStatsTests extends ESTestCase {
         ));
 
         when(modelManager.getAllModels()).thenReturn(modelsInformation);
-        adStats = ADStats.getInstance(indices, modelManager);
+        IndexUtils indexUtils = mock(IndexUtils.class);
+
+        when(indexUtils.getIndexHealthStatus(anyString())).thenReturn("yellow");
+        when(indexUtils.getNumberOfDocumentsInIndex(anyString())).thenReturn(100L);
+        adStats = ADStats.getInstance(indexUtils, modelManager);
     }
 
     @Test

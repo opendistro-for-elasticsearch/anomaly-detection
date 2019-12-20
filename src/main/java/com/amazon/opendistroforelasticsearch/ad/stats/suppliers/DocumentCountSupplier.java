@@ -15,28 +15,24 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
+
 import java.util.function.Supplier;
 
 /**
  * DocumentCountSupplier provides the number of documents for a given index
  */
 public class DocumentCountSupplier implements Supplier<Long> {
-    private AnomalyDetectionIndices indices;
+    private IndexUtils indexUtils;
     private String indexName;
 
-    /**
-     * Constructor
-     * @param indices AnomalyDetectionIndices
-     * @param indexName IndexName
-     */
-    public DocumentCountSupplier(AnomalyDetectionIndices indices, String indexName) {
-        this.indices = indices;
+    public DocumentCountSupplier(IndexUtils indexUtils, String indexName) {
+        this.indexUtils = indexUtils;
         this.indexName = indexName;
     }
 
     @Override
     public Long get() {
-        return indices.getNumberOfDocumentsInIndex(indexName);
+        return indexUtils.getNumberOfDocumentsInIndex(indexName);
     }
 }

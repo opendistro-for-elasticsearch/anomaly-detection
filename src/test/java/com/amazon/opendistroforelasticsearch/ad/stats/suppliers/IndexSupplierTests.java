@@ -15,30 +15,30 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class IndexSupplierTests extends ESTestCase {
-    private AnomalyDetectionIndices indices;
+    private IndexUtils indexUtils;
     private String indexStatus;
+    private String indexName;
 
     @Before
     public void setup() {
+        indexUtils = mock(IndexUtils.class);
         indexStatus = "yellow";
-        indices = mock(AnomalyDetectionIndices.class);
-        when(indices.getIndexHealthStatus(anyString())).thenReturn(indexStatus);
+        indexName = "test-index";
+        when(indexUtils.getIndexHealthStatus(indexName)).thenReturn(indexStatus);
     }
 
     @Test
     public void testGet() {
-        IndexStatusSupplier indexStatusSupplier = new IndexStatusSupplier(indices, AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-        assertEquals("Get method for Anomaly Result Index Health does not work", indexStatus, indexStatusSupplier.get());
+        IndexStatusSupplier indexStatusSupplier = new IndexStatusSupplier(indexUtils, indexName);
+        assertEquals("Get method for IndexSupplier does not work", indexStatus, indexStatusSupplier.get());
     }
 }

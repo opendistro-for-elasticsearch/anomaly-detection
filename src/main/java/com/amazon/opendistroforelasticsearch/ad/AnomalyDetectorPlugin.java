@@ -62,6 +62,7 @@ import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 
@@ -175,6 +176,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                                                NamedWriteableRegistry namedWriteableRegistry) {
         Settings settings = environment.settings();
         ClientUtil clientUtil = new ClientUtil(settings);
+        IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
         anomalyDetectionIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings,
                 clientUtil);
         this.clusterService = clusterService;
@@ -215,7 +217,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.CHECKPOINT_TTL);
         HourlyCron hourlyCron = new HourlyCron(clusterService, client);
 
-        ADStats adStats = ADStats.getInstance(anomalyDetectionIndices, modelManager);
+        ADStats adStats = ADStats.getInstance(indexUtils, modelManager);
 
         return ImmutableList.of(anomalyDetectionIndices, anomalyDetectorRunner, searchFeatureDao,
                 singleFeatureLinearUniformInterpolator, interpolator, gson, jvmService, hashRing, featureManager,

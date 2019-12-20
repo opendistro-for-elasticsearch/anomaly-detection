@@ -15,34 +15,31 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class DocumentCountSupplierTests extends ESTestCase {
 
     private Long count;
     private String indexName;
-
-    @Mock
-    private AnomalyDetectionIndices indices;
+    private IndexUtils indexUtils;
 
     @Before
     public void setup() {
-        MockitoAnnotations.initMocks(this);
+        indexUtils = mock(IndexUtils.class);
         count = 15L;
         indexName = "test-index";
-        when(indices.getNumberOfDocumentsInIndex(indexName)).thenReturn(count);
+        when(indexUtils.getNumberOfDocumentsInIndex(indexName)).thenReturn(count);
     }
 
     @Test
     public void testGet() {
-        DocumentCountSupplier documentCountSupplier = new DocumentCountSupplier(indices, indexName);
+        DocumentCountSupplier documentCountSupplier = new DocumentCountSupplier(indexUtils, indexName);
         assertEquals("Get fails", count, documentCountSupplier.get());
     }
 }

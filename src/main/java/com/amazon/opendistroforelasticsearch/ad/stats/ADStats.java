@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
@@ -25,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.DocumentCountSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,25 +34,29 @@ import java.util.Map;
 /**
  * ADStats
  *
- * This class is the main entrypoint for access to the stats that
- * the AD plugin keeps track of.
+ * This class is the main entry-point for access to the stats that the AD plugin keeps track of.
  */
 public class ADStats {
 
     private static ADStats adStats = null;
 
-    public static ADStats getInstance(AnomalyDetectionIndices anomalyDetectionIndices, ModelManager modelManager) {
-
-        if (adStats == null) {
-            adStats = new ADStats(anomalyDetectionIndices, modelManager);
-        }
-
-        return adStats;
-    }
-
-    private AnomalyDetectionIndices anomalyDetectionIndices;
+    private IndexUtils indexUtils;
     private ModelManager modelManager;
     private Map<String, ADStat<?>> stats;
+
+    /**
+     * getInstance
+     *
+     * @param indexUtils utility to get information about indices
+     * @param modelManager used to get information about which models are hosted on a particular node
+     * @return ADStats instance
+     */
+    public static ADStats getInstance(IndexUtils indexUtils, ModelManager modelManager) {
+        if (adStats == null) {
+            adStats = new ADStats(indexUtils, modelManager);
+        }
+        return adStats;
+    }
 
     /**
      * Enum containing names of all stats
@@ -88,11 +92,12 @@ public class ADStats {
 
     /**
      * ADStats constructor
-     * @param anomalyDetectionIndices indices that store information about anomaly detection
-     * @param modelManager modelManager used to get information about which models are hosted on a particular node
+     *
+     * @param indexUtils utility to get information about indices
+     * @param modelManager used to get information about which models are hosted on a particular node
      */
-    private ADStats(AnomalyDetectionIndices anomalyDetectionIndices, ModelManager modelManager) {
-        this.anomalyDetectionIndices = anomalyDetectionIndices;
+    private ADStats(IndexUtils indexUtils, ModelManager modelManager) {
+        this.indexUtils = indexUtils;
         this.modelManager = modelManager;
         initStats();
     }
@@ -104,8 +109,9 @@ public class ADStats {
         stats = new HashMap<String, ADStat<?>>() {
             {
                 // Stateful Node stats
-                put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(),
-                        false, new CounterSupplier(new BasicCounter())));
+                put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(
+                        StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), false,
+                        new CounterSupplier(new BasicCounter())));
                 put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(StatNames.AD_EXECUTE_FAIL_COUNT.getName(),
                         false, new CounterSupplier(new BasicCounter())));
 
@@ -114,22 +120,25 @@ public class ADStats {
                         false, new ModelsOnNodeSupplier(modelManager)));
 
                 // Stateless Cluster stats
-                put(StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(), new ADStat<>(StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(),
-                        true, new IndexStatusSupplier(anomalyDetectionIndices, AnomalyDetector.ANOMALY_DETECTORS_INDEX)));
-                put(StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(), new ADStat<>(StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(),
-                        true, new IndexStatusSupplier(anomalyDetectionIndices, AnomalyResult.ANOMALY_RESULT_INDEX)));
+                put(StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(), new ADStat<>(
+                        StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(), true,
+                        new IndexStatusSupplier(indexUtils, AnomalyDetector.ANOMALY_DETECTORS_INDEX)));
+                put(StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(),
+                        new ADStat<>(StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(), true,
+                                new IndexStatusSupplier(indexUtils, AnomalyResult.ANOMALY_RESULT_INDEX)));
                 put(StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(),
                         new ADStat<>(StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(), true,
-                                new IndexStatusSupplier(anomalyDetectionIndices, CommonName.CHECKPOINT_INDEX_NAME)));
+                                new IndexStatusSupplier(indexUtils, CommonName.CHECKPOINT_INDEX_NAME)));
                 put(StatNames.DETECTOR_COUNT.getName(),
                         new ADStat<>(StatNames.DETECTOR_COUNT.getName(), true,
-                                new DocumentCountSupplier(anomalyDetectionIndices, AnomalyDetector.ANOMALY_DETECTORS_INDEX)));
+                                new DocumentCountSupplier(indexUtils, AnomalyDetector.ANOMALY_DETECTORS_INDEX)));
             }
         };
     }
 
     /**
      * Get the stats
+     *
      * @return all of the stats
      */
     public Map<String, ADStat<?>> getStats() {
@@ -138,7 +147,8 @@ public class ADStats {
 
     /**
      * Get individual statName
-     * @param key Stat name
+     *
+     * @param key Name of stat
      * @return ADStat
      * @throws IllegalArgumentException thrown on illegal statName
      */
@@ -151,6 +161,7 @@ public class ADStats {
 
     /**
      * Get a map of the stats that are kept at the node level
+     *
      * @return Map of stats kept at the node level
      */
     public Map<String, ADStat<?>> getNodeStats() {
@@ -166,6 +177,7 @@ public class ADStats {
 
     /**
      * Get a map of the stats that are kept at the cluster level
+     *
      * @return Map of stats kept at the cluster level
      */
     public Map<String, ADStat<?>> getClusterStats() {

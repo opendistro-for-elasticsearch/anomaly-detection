@@ -246,7 +246,6 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.resthandler.RestGetAnomalyResultAction',
         'com.amazon.opendistroforelasticsearch.ad.metrics.MetricFactory',
         'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
-        'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices.DocumentCountListener',
         'com.amazon.opendistroforelasticsearch.ad.transport.ADStatsTransportAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.ForwardAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.ForwardTransportAction',

@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 
 import java.util.function.Supplier;
 
@@ -23,16 +23,16 @@ import java.util.function.Supplier;
  * IndexStatusSupplier provides the status of an index as the value
  */
 public class IndexStatusSupplier implements Supplier<String> {
-    private AnomalyDetectionIndices indices;
+    private IndexUtils indexUtils;
     private String indexName;
 
-    public IndexStatusSupplier(AnomalyDetectionIndices indices, String indexName) {
-        this.indices = indices;
+    public IndexStatusSupplier(IndexUtils indexUtils, String indexName) {
+        this.indexUtils = indexUtils;
         this.indexName = indexName;
     }
 
     @Override
     public String get() {
-        return indices.getIndexHealthStatus(indexName);
+        return indexUtils.getIndexHealthStatus(indexName);
     }
 }

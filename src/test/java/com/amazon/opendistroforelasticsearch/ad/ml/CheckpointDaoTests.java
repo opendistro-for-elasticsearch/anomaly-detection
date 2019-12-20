@@ -43,8 +43,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -138,5 +141,106 @@ public class CheckpointDaoTests {
         assertEquals(indexName, deleteRequest.index());
         assertEquals(CheckpointDao.DOC_TYPE, deleteRequest.type());
         assertEquals(modelId, deleteRequest.id());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void putModelCheckpoint_callListener_whenCompleted() {
+        ArgumentCaptor<IndexRequest> requestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
+        doAnswer(invocation -> {
+            ActionListener<IndexResponse> listener = invocation.getArgument(1);
+            listener.onResponse(null);
+            return null;
+        }).when(client).index(requestCaptor.capture(), any(ActionListener.class));
+
+        ActionListener<Void> listener = mock(ActionListener.class);
+        checkpointDao.putModelCheckpoint(modelId, model, listener);
+
+        verify(client).index(requestCaptor.capture(), any(ActionListener.class));
+        IndexRequest indexRequest = requestCaptor.getValue();
+        assertEquals(indexName, indexRequest.index());
+        assertEquals(CheckpointDao.DOC_TYPE, indexRequest.type());
+        assertEquals(modelId, indexRequest.id());
+        assertEquals(docSource, indexRequest.sourceAsMap());
+
+        ArgumentCaptor<Void> responseCaptor = ArgumentCaptor.forClass(Void.class);
+        verify(listener).onResponse(responseCaptor.capture());
+        Void response = responseCaptor.getValue();
+        assertEquals(null, response);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getModelCheckpoint_returnExpectedToListener() {
+        ArgumentCaptor<GetRequest> requestCaptor = ArgumentCaptor.forClass(GetRequest.class);
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            listener.onResponse(getResponse);
+            return null;
+        }).when(client).get(requestCaptor.capture(), any(ActionListener.class));
+        when(getResponse.isExists()).thenReturn(true);
+        when(getResponse.getSource()).thenReturn(docSource);
+
+        ActionListener<Optional<String>> listener = mock(ActionListener.class);
+        checkpointDao.getModelCheckpoint(modelId, listener);
+
+        GetRequest getRequest = requestCaptor.getValue();
+        assertEquals(indexName, getRequest.index());
+        assertEquals(CheckpointDao.DOC_TYPE, getRequest.type());
+        assertEquals(modelId, getRequest.id());
+        ArgumentCaptor<Optional<String>> responseCaptor = ArgumentCaptor.forClass(Optional.class);
+        verify(listener).onResponse(responseCaptor.capture());
+        Optional<String> result = responseCaptor.getValue();
+        assertTrue(result.isPresent());
+        assertEquals(model, result.get());
+    }
+
+        @Test
+    @SuppressWarnings("unchecked")
+    public void getModelCheckpoint_returnEmptyToListener_whenModelNotFound() {
+        ArgumentCaptor<GetRequest> requestCaptor = ArgumentCaptor.forClass(GetRequest.class);
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            listener.onResponse(getResponse);
+            return null;
+        }).when(client).get(requestCaptor.capture(), any(ActionListener.class));
+        when(getResponse.isExists()).thenReturn(false);
+
+        ActionListener<Optional<String>> listener = mock(ActionListener.class);
+        checkpointDao.getModelCheckpoint(modelId, listener);
+
+        GetRequest getRequest = requestCaptor.getValue();
+        assertEquals(indexName, getRequest.index());
+        assertEquals(CheckpointDao.DOC_TYPE, getRequest.type());
+        assertEquals(modelId, getRequest.id());
+        ArgumentCaptor<Optional<String>> responseCaptor = ArgumentCaptor.forClass(Optional.class);
+        verify(listener).onResponse(responseCaptor.capture());
+        Optional<String> result = responseCaptor.getValue();
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void deleteModelCheckpoint_callListener_whenCompleted() {
+        ArgumentCaptor<DeleteRequest> requestCaptor = ArgumentCaptor.forClass(DeleteRequest.class);
+        doAnswer(invocation -> {
+            ActionListener<DeleteResponse> listener = invocation.getArgument(1);
+            listener.onResponse(null);
+            return null;
+        }).when(client).delete(requestCaptor.capture(), any(ActionListener.class));
+
+        ActionListener<Void> listener = mock(ActionListener.class);
+        checkpointDao.deleteModelCheckpoint(modelId, listener);
+
+        verify(client).delete(requestCaptor.capture(), any(ActionListener.class));
+        DeleteRequest deleteRequest = requestCaptor.getValue();
+        assertEquals(indexName, deleteRequest.index());
+        assertEquals(CheckpointDao.DOC_TYPE, deleteRequest.type());
+        assertEquals(modelId, deleteRequest.id());
+
+        ArgumentCaptor<Void> responseCaptor = ArgumentCaptor.forClass(Void.class);
+        verify(listener).onResponse(responseCaptor.capture());
+        Void response = responseCaptor.getValue();
+        assertEquals(null, response);
     }
 }

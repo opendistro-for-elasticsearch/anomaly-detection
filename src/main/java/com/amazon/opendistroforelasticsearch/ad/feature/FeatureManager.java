@@ -145,6 +145,68 @@ public class FeatureManager {
             .orElse(new SinglePointFeatures(currentPoint, Optional.empty()));
     }
 
+    /**
+     * Returns to listener unprocessed features and processed features (such as shingle) for the current data point.
+     *
+     * @param detector anomaly detector for which the features are returned
+     * @param startTime start time of the data point in epoch milliseconds
+     * @param endTime end time of the data point in epoch milliseconds
+     * @param listener onResponse is called with unprocessed features and processed features for the current data point
+     */
+    public void getCurrentFeatures(AnomalyDetector detector, long startTime, long endTime, ActionListener<SinglePointFeatures> listener) {
+
+        Deque<Entry<Long, double[]>> shingle = detectorIdsToTimeShingles
+            .computeIfAbsent(detector.getDetectorId(), id -> new ArrayDeque<Entry<Long, double[]>>(shingleSize));
+        if (shingle.isEmpty() || shingle.getLast().getKey() < endTime) {
+            searchFeatureDao
+                .getFeaturesForPeriod(
+                    detector,
+                    startTime,
+                    endTime,
+                    ActionListener
+                        .wrap(point -> updateUnprocessedFeatures(point, shingle, detector, endTime, listener), listener::onFailure)
+                );
+        } else {
+            getProcessedFeatures(shingle, detector, endTime, listener);
+        }
+    }
+
+    private void updateUnprocessedFeatures(
+        Optional<double[]> point,
+        Deque<Entry<Long, double[]>> shingle,
+        AnomalyDetector detector,
+        long endTime,
+        ActionListener<SinglePointFeatures> listener
+    ) {
+        if (point.isPresent()) {
+            if (shingle.size() == shingleSize) {
+                shingle.remove();
+            }
+            shingle.add(new SimpleImmutableEntry<>(endTime, point.get()));
+            getProcessedFeatures(shingle, detector, endTime, listener);
+        } else {
+            listener.onResponse(new SinglePointFeatures(Optional.empty(), Optional.empty()));
+        }
+    }
+
+    private void getProcessedFeatures(
+        Deque<Entry<Long, double[]>> shingle,
+        AnomalyDetector detector,
+        long endTime,
+        ActionListener<SinglePointFeatures> listener
+    ) {
+
+        double[][] currentPoints = filterAndFill(shingle, endTime, detector);
+        Optional<double[]> currentPoint = Optional.ofNullable(shingle.peekLast()).map(Entry::getValue);
+        listener
+            .onResponse(
+                Optional
+                    .ofNullable(currentPoints)
+                    .map(points -> new SinglePointFeatures(currentPoint, Optional.of(batchShingle(points, shingleSize)[0])))
+                    .orElse(new SinglePointFeatures(currentPoint, Optional.empty()))
+            );
+    }
+
     private double[][] filterAndFill(Deque<Entry<Long, double[]>> shingle, long endTime, AnomalyDetector detector) {
         long intervalMilli = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
         double[][] result = null;

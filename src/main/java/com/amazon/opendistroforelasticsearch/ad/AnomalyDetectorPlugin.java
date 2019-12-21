@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
+import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADClusterEventListener;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData.ADMetaDataDiff;
@@ -218,12 +219,13 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         HourlyCron hourlyCron = new HourlyCron(clusterService, client);
 
         ADStats adStats = new ADStats(indexUtils, modelManager);
+        ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
 
         return ImmutableList.of(anomalyDetectionIndices, anomalyDetectorRunner, searchFeatureDao,
                 singleFeatureLinearUniformInterpolator, interpolator, gson, jvmService, hashRing, featureManager,
                 modelManager, clock, stateManager, runner,
                 new ADClusterEventListener(clusterService, hashRing, modelManager),
-                deleteUtil, dailyCron, hourlyCron, adStats,
+                deleteUtil, dailyCron, hourlyCron, adCircuitBreakerService, adStats,
                 new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock)
                 );
     }

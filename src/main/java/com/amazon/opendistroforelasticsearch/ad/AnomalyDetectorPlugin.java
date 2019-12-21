@@ -217,7 +217,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.CHECKPOINT_TTL);
         HourlyCron hourlyCron = new HourlyCron(clusterService, client);
 
-        ADStats adStats = ADStats.getInstance(indexUtils, modelManager);
+        ADStats adStats = new ADStats(indexUtils, modelManager);
 
         return ImmutableList.of(anomalyDetectionIndices, anomalyDetectorRunner, searchFeatureDao,
                 singleFeatureLinearUniformInterpolator, interpolator, gson, jvmService, hashRing, featureManager,

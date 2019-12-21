@@ -228,7 +228,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
         ClientUtil clientUtil = new ClientUtil(Settings.EMPTY);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
-        adStats = ADStats.getInstance(indexUtils, normalModelManager);
+        adStats = new ADStats(indexUtils, normalModelManager);
     }
 
     public void setupTestNodes(Settings settings) {

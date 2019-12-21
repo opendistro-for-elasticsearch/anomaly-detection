@@ -38,25 +38,9 @@ import java.util.Map;
  */
 public class ADStats {
 
-    private static ADStats adStats = null;
-
     private IndexUtils indexUtils;
     private ModelManager modelManager;
     private Map<String, ADStat<?>> stats;
-
-    /**
-     * getInstance
-     *
-     * @param indexUtils utility to get information about indices
-     * @param modelManager used to get information about which models are hosted on a particular node
-     * @return ADStats instance
-     */
-    public static ADStats getInstance(IndexUtils indexUtils, ModelManager modelManager) {
-        if (adStats == null) {
-            adStats = new ADStats(indexUtils, modelManager);
-        }
-        return adStats;
-    }
 
     /**
      * Enum containing names of all stats
@@ -96,7 +80,7 @@ public class ADStats {
      * @param indexUtils utility to get information about indices
      * @param modelManager used to get information about which models are hosted on a particular node
      */
-    private ADStats(IndexUtils indexUtils, ModelManager modelManager) {
+    public ADStats(IndexUtils indexUtils, ModelManager modelManager) {
         this.indexUtils = indexUtils;
         this.modelManager = modelManager;
         initStats();

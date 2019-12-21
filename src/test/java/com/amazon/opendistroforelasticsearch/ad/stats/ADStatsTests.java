@@ -75,7 +75,7 @@ public class ADStatsTests extends ESTestCase {
 
         when(indexUtils.getIndexHealthStatus(anyString())).thenReturn("yellow");
         when(indexUtils.getNumberOfDocumentsInIndex(anyString())).thenReturn(100L);
-        adStats = ADStats.getInstance(indexUtils, modelManager);
+        adStats = new ADStats(indexUtils, modelManager);
     }
 
     @Test

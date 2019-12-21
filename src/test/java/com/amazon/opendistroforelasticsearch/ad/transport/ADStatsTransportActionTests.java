@@ -47,7 +47,7 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
 
         IndexUtils indexUtils = new IndexUtils(client(), new ClientUtil(Settings.EMPTY), clusterService());
         ModelManager modelManager = mock(ModelManager.class);
-        adStats = ADStats.getInstance(indexUtils, modelManager);
+        adStats = new ADStats(indexUtils, modelManager);
 
         action = new ADStatsTransportAction(
                 client().threadPool(),

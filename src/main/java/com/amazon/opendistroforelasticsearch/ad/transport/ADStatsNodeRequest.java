@@ -47,6 +47,7 @@ class ADStatsNodeRequest extends BaseNodeRequest {
 
     /**
      * getADStatsRequest
+     *
      * @return ADStatsRequest for this node
      */
     ADStatsRequest getADStatsRequest() {

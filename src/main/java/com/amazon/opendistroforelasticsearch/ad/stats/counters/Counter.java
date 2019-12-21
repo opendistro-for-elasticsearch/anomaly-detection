@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.ad.stats.counters;
 
 /**
  * Counter interface
- *
  */
 public interface Counter {
 

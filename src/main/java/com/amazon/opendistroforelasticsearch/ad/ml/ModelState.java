@@ -63,7 +63,8 @@ public class ModelState<T> {
     }
 
     /**
-     * getModelId
+     * Gets the model ID of the model
+     *
      * @return modelId of model
      */
     public String getModelId() {
@@ -71,7 +72,8 @@ public class ModelState<T> {
     }
 
     /**
-     * getDetectorId
+     * Gets the detectorID of the model
+     *
      * @return detectorId associated with the model
      */
     public String getDetectorId() {
@@ -79,7 +81,8 @@ public class ModelState<T> {
     }
 
     /**
-     * getModelType
+     * Gets the type of the model
+     *
      * @return modelType of the model
      */
     public String getModelType() {
@@ -123,7 +126,8 @@ public class ModelState<T> {
     }
 
     /**
-     * getModelStateAsMap
+     * Gets the Model State as a map
+     *
      * @return Map of ModelStates
      */
     public Map<String, Object> getModelStateAsMap() {

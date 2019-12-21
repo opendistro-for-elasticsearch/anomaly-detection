@@ -35,6 +35,7 @@ public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
 
     /**
      * Constructor
+     *
      * @param nodeIds nodeIds of nodes' stats to be retrieved
      */
     public ADStatsRequest(String... nodeIds) {
@@ -73,6 +74,7 @@ public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
 
     /**
      * Sets a stats retrieval status to true if it is a valid stat
+     *
      * @param stat stat name
      * @return true if the stats's retrieval status is successfully update; false otherwise
      */
@@ -86,6 +88,7 @@ public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
 
     /**
      * Get the map that tracks which stats should be retrieved
+     *
      * @return the map that contains the stat names to retrieval status mapping
      */
     public Map<String, Boolean> getStatsRetrievalMap() {

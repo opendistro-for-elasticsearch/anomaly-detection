@@ -39,6 +39,7 @@ public class ADStatsNodeResponse extends BaseNodeResponse implements ToXContentF
 
     /**
      * Constructor
+     *
      * @param node node
      * @param statsToValues Mapping of stat name to value
      */
@@ -49,6 +50,7 @@ public class ADStatsNodeResponse extends BaseNodeResponse implements ToXContentF
 
     /**
      * Creates a new ADStatsNodeResponse object and reads in the stats from an input stream
+     *
      * @param in StreamInput to read from
      * @return ADStatsNodeResponse object corresponding to the input stream
      * @throws IOException throws an IO exception if the StreamInput cannot be read from
@@ -61,6 +63,7 @@ public class ADStatsNodeResponse extends BaseNodeResponse implements ToXContentF
 
     /**
      * getStatsMap
+     *
      * @return map of stats
      */
     public Map<String, Object> getStatsMap() {

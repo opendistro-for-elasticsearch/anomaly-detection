@@ -67,6 +67,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
 
     /**
      * Creates a ADStatsRequest from a RestRequest
+     *
      * @param request RestRequest
      * @return ADStatsRequest
      */

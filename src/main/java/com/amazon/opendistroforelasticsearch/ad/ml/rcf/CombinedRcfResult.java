@@ -56,11 +56,12 @@ public class CombinedRcfResult {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         CombinedRcfResult that = (CombinedRcfResult) o;
-        return Objects.equals(this.score, that.score)
-            && Objects.equals(this.confidence, that.confidence);
+        return Objects.equals(this.score, that.score) && Objects.equals(this.confidence, that.confidence);
     }
 
     @Override

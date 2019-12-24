@@ -21,7 +21,9 @@ public class CronAction extends Action<CronResponse> {
     public static final CronAction INSTANCE = new CronAction();
     public static final String NAME = "cluster:admin/ad/cron";
 
-    private CronAction() {super(NAME); }
+    private CronAction() {
+        super(NAME);
+    }
 
     @Override
     public CronResponse newResponse() {

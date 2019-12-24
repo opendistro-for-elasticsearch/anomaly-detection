@@ -51,4 +51,4 @@ public class DeleteModelNodeRequest extends BaseNodeRequest {
     public String getAdID() {
         return adID;
     }
- }
+}

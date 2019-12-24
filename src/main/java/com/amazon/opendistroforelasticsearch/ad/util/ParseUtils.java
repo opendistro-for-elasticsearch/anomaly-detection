@@ -56,8 +56,7 @@ public final class ParseUtils {
      * @throws IOException IOException if content can't be parsed correctly
      */
     public static Instant toInstant(XContentParser parser) throws IOException {
-        if (parser.currentToken() == null ||
-                parser.currentToken() == XContentParser.Token.VALUE_NULL) {
+        if (parser.currentToken() == null || parser.currentToken() == XContentParser.Token.VALUE_NULL) {
             return null;
         }
         if (parser.currentToken().isValue()) {
@@ -101,8 +100,8 @@ public final class ParseUtils {
      * @return instance of {@link AggregatorFactories.Builder}
      * @throws IOException IOException if content can't be parsed correctly
      */
-    public static AggregatorFactories.Builder parseAggregators(String aggQuery, NamedXContentRegistry xContentRegistry,
-                                                               String aggName) throws IOException {
+    public static AggregatorFactories.Builder parseAggregators(
+        String aggQuery, NamedXContentRegistry xContentRegistry, String aggName) throws IOException {
         XContentParser parser = parser(aggQuery, xContentRegistry);
         return parseAggregators(parser, aggName);
     }
@@ -128,8 +127,7 @@ public final class ParseUtils {
      * @return instance of {@link AggregatorFactories.Builder}
      * @throws IOException IOException if content can't be parsed correctly
      */
-    public static AggregatorFactories.Builder parseAggregators(XContentParser parser, int level, String aggName)
-            throws IOException {
+    public static AggregatorFactories.Builder parseAggregators(XContentParser parser, int level, String aggName) throws IOException {
         Matcher validAggMatcher = VALID_AGG_NAME.matcher("");
         AggregatorFactories.Builder factories = new AggregatorFactories.Builder();
 
@@ -137,18 +135,27 @@ public final class ParseUtils {
         while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
             if (token != XContentParser.Token.FIELD_NAME) {
                 throw new ParsingException(parser.getTokenLocation(),
-                        "Unexpected token " + token + " in [aggs]: aggregations definitions must start with the name of the aggregation.");
+                    "Unexpected token " + token + " in [aggs]: aggregations definitions must start with the name of the aggregation.");
             }
             final String aggregationName = aggName == null ? parser.currentName() : aggName;
             if (!validAggMatcher.reset(aggregationName).matches()) {
-                throw new ParsingException(parser.getTokenLocation(), "Invalid aggregation name [" + aggregationName
-                        + "]. Aggregation names must be alpha-numeric and can only contain '_' and '-'");
+                throw new ParsingException(parser.getTokenLocation(),
+                    "Invalid aggregation name [" +
+                        aggregationName +
+                        "]. Aggregation names must be alpha-numeric and can only contain '_'" +
+                        " and '-'");
             }
 
             token = parser.nextToken();
             if (token != XContentParser.Token.START_OBJECT) {
-                throw new ParsingException(parser.getTokenLocation(), "Aggregation definition for [" + aggregationName + " starts with a ["
-                        + token + "], expected a [" + XContentParser.Token.START_OBJECT + "].");
+                throw new ParsingException(parser.getTokenLocation(),
+                    "Aggregation definition for [" +
+                        aggregationName +
+                        " starts with a [" +
+                        token +
+                        "], expected a [" +
+                        XContentParser.Token.START_OBJECT +
+                        "].");
             }
 
             BaseAggregationBuilder aggBuilder = null;
@@ -158,10 +165,18 @@ public final class ParseUtils {
 
             while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
                 if (token != XContentParser.Token.FIELD_NAME) {
-                    throw new ParsingException(
-                            parser.getTokenLocation(), "Expected [" + XContentParser.Token.FIELD_NAME + "] under a ["
-                            + XContentParser.Token.START_OBJECT + "], but got a [" + token + "] in [" + aggregationName + "]",
-                            parser.getTokenLocation());
+                    throw new ParsingException(parser.getTokenLocation(),
+                        "Expected [" +
+                            XContentParser.Token.FIELD_NAME +
+                            "] under a [" +
+                            XContentParser.Token.START_OBJECT +
+                            "], but got " +
+                            "a [" +
+                            token +
+                            "] in [" +
+                            aggregationName +
+                            "]",
+                        parser.getTokenLocation());
                 }
                 final String fieldName = parser.currentName();
 
@@ -175,28 +190,46 @@ public final class ParseUtils {
                         case "aggs":
                             if (subFactories != null) {
                                 throw new ParsingException(parser.getTokenLocation(),
-                                        "Found two sub aggregation definitions under [" + aggregationName + "]");
+                                    "Found two sub aggregation definitions under [" + aggregationName + "]");
                             }
                             subFactories = parseAggregators(parser, level + 1, null);
                             break;
                         default:
                             if (aggBuilder != null) {
-                                throw new ParsingException(parser.getTokenLocation(), "Found two aggregation type definitions in ["
-                                        + aggregationName + "]: [" + aggBuilder.getType() + "] and [" + fieldName + "]");
+                                throw new ParsingException(parser.getTokenLocation(),
+                                    "Found two aggregation type definitions in [" +
+                                        aggregationName +
+                                        "]: [" +
+                                        aggBuilder.getType() +
+                                        "] " +
+                                        "and [" +
+                                        fieldName +
+                                        "]");
                             }
 
-                            aggBuilder = parser.namedObject(BaseAggregationBuilder.class, fieldName,
+                            aggBuilder =
+                                parser.namedObject(BaseAggregationBuilder.class,
+                                    fieldName,
                                     new AggregatorFactories.AggParseContext(aggregationName));
                     }
                 } else {
-                    throw new ParsingException(parser.getTokenLocation(), "Expected [" + XContentParser.Token.START_OBJECT + "] under ["
-                            + fieldName + "], but got a [" + token + "] in [" + aggregationName + "]");
+                    throw new ParsingException(parser.getTokenLocation(),
+                        "Expected [" +
+                            XContentParser.Token.START_OBJECT +
+                            "] under [" +
+                            fieldName +
+                            "], but got a [" +
+                            token +
+                            "] in [" +
+                            aggregationName +
+                            "]");
                 }
             }
 
             if (aggBuilder == null) {
-                throw new ParsingException(parser.getTokenLocation(), "Missing definition for aggregation [" + aggregationName + "]",
-                        parser.getTokenLocation());
+                throw new ParsingException(parser.getTokenLocation(),
+                    "Missing definition for aggregation [" + aggregationName + "]",
+                    parser.getTokenLocation());
             } else {
                 if (metaData != null) {
                     aggBuilder.setMetaData(metaData);
@@ -217,25 +250,22 @@ public final class ParseUtils {
         return factories;
     }
 
-    public static SearchSourceBuilder generateInternalFeatureQuery(AnomalyDetector detector, long startTime,
-                                                                   long endTime, NamedXContentRegistry xContentRegistry)
-            throws IOException {
+    public static SearchSourceBuilder generateInternalFeatureQuery(
+        AnomalyDetector detector, long startTime, long endTime, NamedXContentRegistry xContentRegistry) throws IOException {
         SearchSourceBuilder searchSourceBuilder = detector.generateFeatureQuery();
-        RangeQueryBuilder rangeQuery = new RangeQueryBuilder(detector.getTimeField())
-                .from(startTime)
-                .to(endTime)
-                .format("epoch_millis")
-                .includeLower(true)
+        RangeQueryBuilder
+            rangeQuery =
+            new RangeQueryBuilder(detector.getTimeField()).from(startTime).to(endTime).format("epoch_millis").includeLower(true)
                 .includeUpper(false);
 
-        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery)
-                .must(searchSourceBuilder.query());
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(searchSourceBuilder.query());
 
         SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(internalFilterQuery);
         if (detector.getFeatureAttributes() != null) {
             for (Feature feature : detector.getFeatureAttributes()) {
-                AggregatorFactories.Builder internalAgg = parseAggregators(feature.getAggregation().toString(),
-                        xContentRegistry, feature.getId());
+                AggregatorFactories.Builder
+                    internalAgg =
+                    parseAggregators(feature.getAggregation().toString(), xContentRegistry, feature.getId());
                 internalSearchSourceBuilder.aggregation(internalAgg.getAggregatorFactories().iterator().next());
             }
         }
@@ -243,22 +273,22 @@ public final class ParseUtils {
         return internalSearchSourceBuilder;
     }
 
-    public static String generateInternalFeatureQueryTemplate(AnomalyDetector detector,
-                                                              NamedXContentRegistry xContentRegistry)
-            throws IOException {
+    public static String generateInternalFeatureQueryTemplate(AnomalyDetector detector, NamedXContentRegistry xContentRegistry) throws
+        IOException {
         SearchSourceBuilder searchSourceBuilder = detector.generateFeatureQuery();
-        RangeQueryBuilder rangeQuery = new RangeQueryBuilder(detector.getTimeField())
-                .from("{{" + QUERY_PARAM_PERIOD_START + "}}")
+        RangeQueryBuilder
+            rangeQuery =
+            new RangeQueryBuilder(detector.getTimeField()).from("{{" + QUERY_PARAM_PERIOD_START + "}}")
                 .to("{{" + QUERY_PARAM_PERIOD_END + "}}");
 
-        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery)
-                .must(searchSourceBuilder.query());
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(searchSourceBuilder.query());
 
         SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(internalFilterQuery);
         if (detector.getFeatureAttributes() != null) {
             for (Feature feature : detector.getFeatureAttributes()) {
-                AggregatorFactories.Builder internalAgg = parseAggregators(feature.getAggregation().toString(),
-                        xContentRegistry, feature.getId());
+                AggregatorFactories.Builder
+                    internalAgg =
+                    parseAggregators(feature.getAggregation().toString(), xContentRegistry, feature.getId());
                 internalSearchSourceBuilder.aggregation(internalAgg.getAggregatorFactories().iterator().next());
             }
         }

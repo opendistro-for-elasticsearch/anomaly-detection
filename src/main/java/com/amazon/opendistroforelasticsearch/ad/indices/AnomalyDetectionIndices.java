@@ -102,8 +102,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
      * @param settings       ES cluster setting
      * @param requestUtil   wrapper to send a non-blocking timed request
      */
-    public AnomalyDetectionIndices(Client client, ClusterService clusterService, ThreadPool threadPool,
-                                   Settings settings, ClientUtil requestUtil) {
+    public AnomalyDetectionIndices(
+        Client client, ClusterService clusterService, ThreadPool threadPool, Settings settings, ClientUtil requestUtil) {
         this.client = client;
         this.adminClient = client.admin();
         this.clusterService = clusterService;
@@ -114,15 +114,12 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
         this.historyMaxAge = AD_RESULT_HISTORY_INDEX_MAX_AGE.get(settings);
         this.historyRolloverPeriod = AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings);
         this.historyMaxDocs = AD_RESULT_HISTORY_MAX_DOCS.get(settings);
-        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS,
-                it -> historyMaxDocs = it);
-        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_INDEX_MAX_AGE,
-                it -> historyMaxAge = it);
-        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD,
-                it -> {
-                    historyRolloverPeriod = it;
-                    rescheduleRollover();
-                });
+        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS, it -> historyMaxDocs = it);
+        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_INDEX_MAX_AGE, it -> historyMaxAge = it);
+        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
+            historyRolloverPeriod = it;
+            rescheduleRollover();
+        });
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
         this.requestUtil = requestUtil;
     }
@@ -186,7 +183,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorMappings}
      */
     public void initAnomalyDetectorIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        CreateIndexRequest request = new CreateIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+        CreateIndexRequest
+            request =
+            new CreateIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
                 .mapping(AnomalyDetector.TYPE, getAnomalyDetectorMappings(), XContentType.JSON);
         adminClient.indices().create(request, actionListener);
     }
@@ -218,21 +217,24 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     private boolean createIndex(String index, String alias, String mapping) {
         IndicesExistsRequest indicesExistsRequest = new IndicesExistsRequest(index).local(true);
         // TODO: add appropriate listener
-        Optional<IndicesExistsResponse> existsResponse = requestUtil
-                .<IndicesExistsRequest, IndicesExistsResponse>timedRequest(indicesExistsRequest, logger,
-                        adminClient.indices()::exists);
+        Optional<IndicesExistsResponse>
+            existsResponse =
+            requestUtil.<IndicesExistsRequest, IndicesExistsResponse>timedRequest(indicesExistsRequest,
+                logger,
+                adminClient.indices()::exists);
         if (existsResponse.isPresent() && existsResponse.get().isExists()) {
             return true;
         }
-        CreateIndexRequest createIndexRequest = new CreateIndexRequest(index).mapping(MAPPING_TYPE,
-                mapping, XContentType.JSON);
+        CreateIndexRequest createIndexRequest = new CreateIndexRequest(index).mapping(MAPPING_TYPE, mapping, XContentType.JSON);
         if (alias != null) {
             createIndexRequest.alias(new Alias(alias));
         }
         try {
-            Optional<CreateIndexResponse> response = requestUtil
-                    .<CreateIndexRequest, CreateIndexResponse>timedRequest(createIndexRequest, logger,
-                            adminClient.indices()::create);
+            Optional<CreateIndexResponse>
+                response =
+                requestUtil.<CreateIndexRequest, CreateIndexResponse>timedRequest(createIndexRequest,
+                    logger,
+                    adminClient.indices()::create);
             return response.isPresent() && response.get().isAcknowledged();
         } catch (ResourceAlreadyExistsException e) {
             return true;
@@ -245,12 +247,10 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
             // try to rollover immediately as we might be restarting the cluster
             rolloverHistoryIndex();
             // schedule the next rollover for approx MAX_AGE later
-            scheduledRollover = threadPool.scheduleWithFixedDelay(() -> rolloverHistoryIndex(),
-                    historyRolloverPeriod, executorName());
+            scheduledRollover = threadPool.scheduleWithFixedDelay(() -> rolloverHistoryIndex(), historyRolloverPeriod, executorName());
         } catch (Exception e) {
             // This should be run on cluster startup
-            logger.error("Error rollover AD result indices. " +
-                    "Can't rollover AD result until master node is restarted.", e);
+            logger.error("Error rollover AD result indices. " + "Can't rollover AD result until master node is restarted.", e);
         }
     }
 
@@ -295,8 +295,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
             logger.error("Fail to roll over AD result index, as can't get AD result index mapping");
             return false;
         }
-        request.getCreateIndexRequest().index(AD_RESULT_HISTORY_INDEX_PATTERN)
-                .mapping(MAPPING_TYPE, adResultMapping, XContentType.JSON);
+        request.getCreateIndexRequest().index(AD_RESULT_HISTORY_INDEX_PATTERN).mapping(MAPPING_TYPE, adResultMapping, XContentType.JSON);
         request.addMaxIndexDocsCondition(historyMaxDocs);
         request.addMaxIndexAgeCondition(historyMaxAge);
         RolloverResponse response = adminClient.indices().rolloversIndex(request).actionGet(requestTimeout);
@@ -319,10 +318,10 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
             return "nonexistent";
         }
 
-        ClusterIndexHealth indexHealth = new ClusterIndexHealth(
-                clusterService.state().metaData().index(indexName),
-                clusterService.state().getRoutingTable().index(indexName)
-        );
+        ClusterIndexHealth
+            indexHealth =
+            new ClusterIndexHealth(clusterService.state().metaData().index(indexName),
+                clusterService.state().getRoutingTable().index(indexName));
 
         return indexHealth.getStatus().name().toLowerCase();
     }
@@ -330,7 +329,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     /**
      * Used to set cluster service for testing
      */
-    void setClusterService(ClusterService clusterService) { this.clusterService = clusterService; }
+    void setClusterService(ClusterService clusterService) {
+        this.clusterService = clusterService;
+    }
 
     /**
      * Gets the number of documents in an index

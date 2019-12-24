@@ -42,7 +42,7 @@ public class MemoryCircuitBreakerTests {
         MockitoAnnotations.initMocks(this);
         when(jvmService.stats()).thenReturn(jvmStats);
         when(jvmStats.getMem()).thenReturn(mem);
-        when(mem.getHeapUsedPercent()).thenReturn((short)50);
+        when(mem.getHeapUsedPercent()).thenReturn((short) 50);
     }
 
     @Test
@@ -54,7 +54,7 @@ public class MemoryCircuitBreakerTests {
 
     @Test
     public void testIsOpen1() {
-        CircuitBreaker breaker = new MemoryCircuitBreaker((short)90, jvmService);
+        CircuitBreaker breaker = new MemoryCircuitBreaker((short) 90, jvmService);
 
         assertThat(breaker.isOpen(), equalTo(false));
     }
@@ -63,15 +63,15 @@ public class MemoryCircuitBreakerTests {
     public void testIsOpen2() {
         CircuitBreaker breaker = new MemoryCircuitBreaker(jvmService);
 
-        when(mem.getHeapUsedPercent()).thenReturn((short)95);
+        when(mem.getHeapUsedPercent()).thenReturn((short) 95);
         assertThat(breaker.isOpen(), equalTo(true));
     }
 
     @Test
     public void testIsOpen3() {
-        CircuitBreaker breaker = new MemoryCircuitBreaker((short)90, jvmService);
+        CircuitBreaker breaker = new MemoryCircuitBreaker((short) 90, jvmService);
 
-        when(mem.getHeapUsedPercent()).thenReturn((short)95);
+        when(mem.getHeapUsedPercent()).thenReturn((short) 95);
         assertThat(breaker.isOpen(), equalTo(true));
     }
 }

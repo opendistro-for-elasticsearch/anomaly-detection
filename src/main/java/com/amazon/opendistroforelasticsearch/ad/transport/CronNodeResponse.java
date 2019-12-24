@@ -26,7 +26,8 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 public class CronNodeResponse extends BaseNodeResponse implements ToXContentObject {
     static String NODE_ID = "node_id";
 
-    public CronNodeResponse() {}
+    public CronNodeResponse() {
+    }
 
     public CronNodeResponse(DiscoveryNode node) {
         super(node);

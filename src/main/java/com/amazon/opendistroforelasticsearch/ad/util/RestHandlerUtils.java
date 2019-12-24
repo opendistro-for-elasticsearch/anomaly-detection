@@ -39,11 +39,10 @@ public final class RestHandlerUtils {
     public static final String STOP = "_stop";
     public static final String RUN = "_run";
     public static final String PREVIEW = "_preview";
-    public static final ToXContent.MapParams XCONTENT_WITH_TYPE =
-            new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
+    public static final ToXContent.MapParams XCONTENT_WITH_TYPE = new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
 
     private static final String KIBANA_USER_AGENT = "Kibana";
-    private static final String[] UI_METADATA_EXCLUDE = new String[]{AnomalyDetector.UI_METADATA_FIELD};
+    private static final String[] UI_METADATA_EXCLUDE = new String[] { AnomalyDetector.UI_METADATA_FIELD };
 
     private RestHandlerUtils() {
     }

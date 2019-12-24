@@ -64,28 +64,36 @@ public class ModelInformation implements ToXContentObject {
      * getModelId
      * @return modelId of model
      */
-    public String getModelId() { return modelId; }
+    public String getModelId() {
+        return modelId;
+    }
 
     /**
      * getDetectorId
      * @return detectorId associated with the model
      */
-    public String getDetectorId() { return detectorId; }
+    public String getDetectorId() {
+        return detectorId;
+    }
 
     /**
      * getModelType
      * @return modelType of the model
      */
-    public String getModelType() { return modelType; }
+    public String getModelType() {
+        return modelType;
+    }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         ModelInformation that = (ModelInformation) o;
         return getModelId().equals(that.getModelId()) &&
-                getDetectorId().equals(that.getDetectorId()) &&
-                getModelType().equals(that.getModelType());
+            getDetectorId().equals(that.getDetectorId()) &&
+            getModelType().equals(that.getModelType());
     }
 
     @Override

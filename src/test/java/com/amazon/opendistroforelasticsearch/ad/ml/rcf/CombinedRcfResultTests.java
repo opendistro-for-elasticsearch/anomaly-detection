@@ -24,7 +24,7 @@ import org.junit.runner.RunWith;
 import static org.junit.Assert.assertEquals;
 
 @RunWith(JUnitParamsRunner.class)
-public class CombinedRcfResultTests{
+public class CombinedRcfResultTests {
 
     private double score = 1.;
     private double confidence = .5;
@@ -38,14 +38,13 @@ public class CombinedRcfResultTests{
 
     private Object[] equalsData() {
         return new Object[] {
-            new Object[]{rcfResult, null, false},
-            new Object[]{rcfResult, rcfResult, true},
-            new Object[]{rcfResult, 1, false},
-            new Object[]{rcfResult, new CombinedRcfResult(score, confidence), true},
-            new Object[]{rcfResult, new CombinedRcfResult(score + 1, confidence), false},
-            new Object[]{rcfResult, new CombinedRcfResult(score, confidence + 1), false},
-            new Object[]{rcfResult, new CombinedRcfResult(score + 1, confidence + 1), false},
-        };
+            new Object[] { rcfResult, null, false },
+            new Object[] { rcfResult, rcfResult, true },
+            new Object[] { rcfResult, 1, false },
+            new Object[] { rcfResult, new CombinedRcfResult(score, confidence), true },
+            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence), false },
+            new Object[] { rcfResult, new CombinedRcfResult(score, confidence + 1), false },
+            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence + 1), false }, };
     }
 
     @Test
@@ -56,16 +55,16 @@ public class CombinedRcfResultTests{
 
     private Object[] hashCodeData() {
         return new Object[] {
-            new Object[]{rcfResult, new CombinedRcfResult(score, confidence), true},
-            new Object[]{rcfResult, new CombinedRcfResult(score + 1, confidence), false},
-            new Object[]{rcfResult, new CombinedRcfResult(score, confidence + 1), false},
-            new Object[]{rcfResult, new CombinedRcfResult(score + 1, confidence + 1), false},
-        };
+            new Object[] { rcfResult, new CombinedRcfResult(score, confidence), true },
+            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence), false },
+            new Object[] { rcfResult, new CombinedRcfResult(score, confidence + 1), false },
+            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence + 1), false }, };
     }
 
     @Test
     @Parameters(method = "hashCodeData")
-    public void hashCode_returnExpected(CombinedRcfResult result, CombinedRcfResult other, boolean expected) {
+    public void hashCode_returnExpected(
+        CombinedRcfResult result, CombinedRcfResult other, boolean expected) {
         assertEquals(expected, result.hashCode() == other.hashCode());
     }
 }

@@ -50,7 +50,7 @@ public class CronResponse extends BaseNodesResponse<CronNodeResponse> implements
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startArray(NODES_JSON_KEY);
         for (CronNodeResponse nodeResp : getNodes()) {
-           nodeResp.toXContent(builder, params);
+            nodeResp.toXContent(builder, params);
         }
         builder.endArray();
         return builder;

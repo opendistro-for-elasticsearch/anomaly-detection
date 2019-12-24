@@ -71,12 +71,14 @@ public class Features {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         Features that = (Features) o;
-        return Objects.equals(this.timeRanges, that.timeRanges)
-            && Arrays.deepEquals(this.unprocessedFeatures, that.unprocessedFeatures)
-            && Arrays.deepEquals(this.processedFeatures, that.processedFeatures);
+        return Objects.equals(this.timeRanges, that.timeRanges) &&
+            Arrays.deepEquals(this.unprocessedFeatures, that.unprocessedFeatures) &&
+            Arrays.deepEquals(this.processedFeatures, that.processedFeatures);
     }
 
     @Override

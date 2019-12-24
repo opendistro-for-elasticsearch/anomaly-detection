@@ -83,7 +83,6 @@ public class ThresholdResultRequest extends ActionRequest implements ToXContentO
             validationException = addValidationError(CommonErrorMessages.MODEL_ID_MISSING_MSG, validationException);
         }
 
-
         return validationException;
     }
 

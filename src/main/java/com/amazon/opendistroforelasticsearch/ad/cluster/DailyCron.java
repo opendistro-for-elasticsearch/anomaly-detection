@@ -42,8 +42,8 @@ public class DailyCron implements Runnable {
     private final Client client;
     private final Duration checkpointTtl;
 
-    public DailyCron(DeleteDetector deleteUtil, Clock clock, Client client,
-            Duration checkpointTtl) {
+    public DailyCron(
+        DeleteDetector deleteUtil, Clock clock, Client client, Duration checkpointTtl) {
         this.deleteUtil = deleteUtil;
         this.clock = clock;
         this.client = client;
@@ -52,11 +52,11 @@ public class DailyCron implements Runnable {
 
     @Override
     public void run() {
-        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(CommonName.CHECKPOINT_INDEX_NAME)
-                .setQuery(QueryBuilders.boolQuery()
-                        .filter(QueryBuilders.rangeQuery(CheckpointDao.TIMESTAMP)
-                                .lte(clock.millis() - checkpointTtl.toMillis()).format(CommonName.EPOCH_MILLIS_FORMAT)))
-                .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
+        DeleteByQueryRequest
+            deleteRequest =
+            new DeleteByQueryRequest(CommonName.CHECKPOINT_INDEX_NAME).setQuery(QueryBuilders.boolQuery()
+                .filter(QueryBuilders.rangeQuery(CheckpointDao.TIMESTAMP).lte(clock.millis() - checkpointTtl.toMillis())
+                    .format(CommonName.EPOCH_MILLIS_FORMAT))).setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
         client.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(response -> {
             // if 0 docs get deleted, it means our query cannot find any matching doc
             LOG.info("{} " + CHECKPOINT_DELETED_MSG, response.getDeleted());

@@ -28,4 +28,4 @@ public class CronNodeRequest extends BaseNodeRequest {
     CronNodeRequest(String nodeID, CronRequest request) {
         super(nodeID);
     }
- }
+}

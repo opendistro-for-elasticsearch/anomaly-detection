@@ -35,13 +35,13 @@ import com.yahoo.sketches.kll.KllFloatsSketch;
  */
 public class KllFloatsSketchSerDe implements JsonSerializer<KllFloatsSketch>, JsonDeserializer<KllFloatsSketch> {
 
-     @Override
-     public JsonElement serialize(KllFloatsSketch src, Type typeOfSrc, JsonSerializationContext context) {
-         return new JsonPrimitive(Base64.getEncoder().encodeToString(src.toByteArray()));
-     }
+    @Override
+    public JsonElement serialize(KllFloatsSketch src, Type typeOfSrc, JsonSerializationContext context) {
+        return new JsonPrimitive(Base64.getEncoder().encodeToString(src.toByteArray()));
+    }
 
-     @Override
-     public KllFloatsSketch deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) {
-         return KllFloatsSketch.heapify(Memory.wrap(Base64.getDecoder().decode(json.getAsString())));
-     }
+    @Override
+    public KllFloatsSketch deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) {
+        return KllFloatsSketch.heapify(Memory.wrap(Base64.getDecoder().decode(json.getAsString())));
+    }
 }

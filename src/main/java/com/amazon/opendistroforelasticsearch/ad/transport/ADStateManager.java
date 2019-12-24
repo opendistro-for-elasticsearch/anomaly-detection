@@ -53,6 +53,9 @@ import com.amazon.randomcutforest.RandomCutForest;
  */
 public class ADStateManager {
     private static final Logger LOG = LogManager.getLogger(ADStateManager.class);
+    private final Clock clock;
+    private final Settings settings;
+    private final Duration stateTtl;
     private ConcurrentHashMap<String, Entry<AnomalyDetector, Instant>> currentDetectors;
     private ConcurrentHashMap<String, Entry<Integer, Instant>> partitionNumber;
     private Client client;
@@ -62,12 +65,15 @@ public class ADStateManager {
     private ClientUtil clientUtil;
     // map from ES node id to the node's backpressureMuter
     private Map<String, BackPressureRouting> backpressureMuter;
-    private final Clock clock;
-    private final Settings settings;
-    private final Duration stateTtl;
 
-    public ADStateManager(Client client, NamedXContentRegistry xContentRegistry, ModelManager modelManager,
-            Settings settings, ClientUtil clientUtil, Clock clock, Duration stateTtl) {
+    public ADStateManager(
+        Client client,
+        NamedXContentRegistry xContentRegistry,
+        ModelManager modelManager,
+        Settings settings,
+        ClientUtil clientUtil,
+        Clock clock,
+        Duration stateTtl) {
         this.currentDetectors = new ConcurrentHashMap<>();
         this.client = client;
         this.random = new Random();
@@ -100,10 +106,11 @@ public class ADStateManager {
             throw new AnomalyDetectionException(adID, "AnomalyDetector is not found");
         }
 
-        RandomCutForest forest = RandomCutForest.builder()
-            .dimensions(detector.get().getFeatureAttributes().size() * AnomalyDetectorSettings.SHINGLE_SIZE)
-            .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE) 
-            .numberOfTrees(AnomalyDetectorSettings.NUM_TREES).parallelExecutionEnabled(false).build();
+        RandomCutForest
+            forest =
+            RandomCutForest.builder().dimensions(detector.get().getFeatureAttributes().size() * AnomalyDetectorSettings.SHINGLE_SIZE)
+                .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE).numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
+                .parallelExecutionEnabled(false).build();
         int partitionNum = modelManager.getPartitionedForestSizes(forest, adID).getKey();
         partitionNumber.putIfAbsent(adID, new SimpleEntry<>(partitionNum, clock.instant()));
         return partitionNum;
@@ -132,8 +139,8 @@ public class ADStateManager {
         String xc = response.getSourceAsString();
         LOG.debug("Fetched anomaly detector: {}", xc);
 
-        try (XContentParser parser = XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                xc)) {
+        try (
+            XContentParser parser = XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, xc)) {
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
             AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId());
             currentDetectors.put(adID, new SimpleEntry<>(detector, clock.instant()));
@@ -177,7 +184,8 @@ public class ADStateManager {
                 }
             } catch (Exception e) {
                 LOG.warn("Failed to finish maintenance for detector id " + detectorId, e);
-            }});
+            }
+        });
     }
 
     public boolean isMuted(String nodeId) {

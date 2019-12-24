@@ -29,10 +29,9 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class ADCircuitBreakerService {
 
+    private static final Logger logger = LogManager.getLogger(ADCircuitBreakerService.class);
     private final ConcurrentMap<String, CircuitBreaker> breakers = new ConcurrentHashMap<>();
     private final JvmService jvmService;
-
-    private static final Logger logger = LogManager.getLogger(ADCircuitBreakerService.class);
 
     /**
      * Constructor.

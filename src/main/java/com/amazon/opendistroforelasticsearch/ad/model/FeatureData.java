@@ -44,15 +44,6 @@ public class FeatureData implements ToXContentObject {
         this.data = data;
     }
 
-    @Override
-    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        XContentBuilder xContentBuilder = builder.startObject()
-                .field(FEATURE_ID_FIELD, featureId)
-                .field(FEATURE_NAME_FIELD, featureName)
-                .field(DATA_FIELD, data);
-        return xContentBuilder.endObject();
-    }
-
     public static FeatureData parse(XContentParser parser) throws IOException {
         String featureId = null;
         Double data = null;
@@ -80,15 +71,25 @@ public class FeatureData implements ToXContentObject {
         return new FeatureData(featureId, parsedFeatureName, data);
     }
 
+    @Override
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        XContentBuilder
+            xContentBuilder =
+            builder.startObject().field(FEATURE_ID_FIELD, featureId).field(FEATURE_NAME_FIELD, featureName).field(DATA_FIELD, data);
+        return xContentBuilder.endObject();
+    }
+
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         FeatureData that = (FeatureData) o;
         return Objects.equal(getFeatureId(), that.getFeatureId()) &&
-                Objects.equal(getFeatureName(), that.getFeatureName()) &&
-                Objects.equal(getData(), that.getData());
+            Objects.equal(getFeatureName(), that.getFeatureName()) &&
+            Objects.equal(getData(), that.getData());
     }
 
     @Generated

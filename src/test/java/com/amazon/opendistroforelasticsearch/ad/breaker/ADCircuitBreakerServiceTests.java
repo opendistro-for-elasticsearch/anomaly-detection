@@ -29,11 +29,10 @@ import static org.hamcrest.Matchers.nullValue;
 
 public class ADCircuitBreakerServiceTests {
 
-    @InjectMocks
-    private ADCircuitBreakerService adCircuitBreakerService;
-
     @Mock
     JvmService jvmService;
+    @InjectMocks
+    private ADCircuitBreakerService adCircuitBreakerService;
 
     @Before
     public void setup() {

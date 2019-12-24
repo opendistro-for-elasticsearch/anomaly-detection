@@ -36,10 +36,6 @@ import org.elasticsearch.index.reindex.BulkByScrollResponse;
 
 public class DailyCronTests extends AbstractADTest {
 
-    enum DailyCronTestExecutionMode {
-        NORMAL, INDEX_NOT_EXIST, FAIL
-    }
-
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -61,8 +57,7 @@ public class DailyCronTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                    args.length == 3);
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 3);
             assertTrue(args[2] instanceof ActionListener);
 
             ActionListener<BulkByScrollResponse> listener = (ActionListener<BulkByScrollResponse>) args[2];
@@ -98,5 +93,11 @@ public class DailyCronTests extends AbstractADTest {
     public void testFail() {
         templateDailyCron(DailyCronTestExecutionMode.FAIL);
         assertTrue(testAppender.containsMessage(DailyCron.CANNOT_DELETE_OLD_CHECKPOINT_MSG));
+    }
+
+    enum DailyCronTestExecutionMode {
+        NORMAL,
+        INDEX_NOT_EXIST,
+        FAIL
     }
 }

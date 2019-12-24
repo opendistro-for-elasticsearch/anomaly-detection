@@ -35,21 +35,20 @@ import org.elasticsearch.common.unit.TimeValue;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 
 public class HashRing {
-    private static final Logger LOG = LogManager.getLogger(HashRing.class);
     static final String REBUILD_MSG = "Rebuild hash ring";
     // In case of frequent node join/leave, hash ring has a cooldown period say 5 minute.
     // Hash ring doesn't respond to more than 1 cluster membership changes within the
     // cool-down period.
     static final String COOLDOWN_MSG = "Hash ring doesn't respond to cluster state change within the cooldown period.";
-
+    private static final Logger LOG = LogManager.getLogger(HashRing.class);
     private final int VIRTUAL_NODE_COUNT = 100;
     private final ClusterService clusterService;
+    private final TimeValue coolDownPeriod;
+    private final Clock clock;
     private TreeMap<Integer, DiscoveryNode> circle;
     private Semaphore inProgress;
     // the UTC epoch milliseconds of the most recent successful update
     private long lastUpdate;
-    private final TimeValue coolDownPeriod;
-    private final Clock clock;
     private AtomicBoolean membershipChangeRequied;
 
     public HashRing(ClusterService clusterService, Clock clock, Settings settings) {

@@ -23,7 +23,9 @@ public class DeleteDetectorAction extends Action<AcknowledgedResponse> {
     public static final DeleteDetectorAction INSTANCE = new DeleteDetectorAction();
     public static final String NAME = "cluster:admin/ad/detector/delete";
 
-    private DeleteDetectorAction() {super(NAME); }
+    private DeleteDetectorAction() {
+        super(NAME);
+    }
 
     @Override
     public AcknowledgedResponse newResponse() {

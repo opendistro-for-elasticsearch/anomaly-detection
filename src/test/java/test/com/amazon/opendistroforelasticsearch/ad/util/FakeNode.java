@@ -49,17 +49,30 @@ import org.elasticsearch.transport.TransportService;
 import org.elasticsearch.transport.nio.MockNioTransport;
 
 public class FakeNode implements Releasable {
+    public final ClusterService clusterService;
+    public final TransportService transportService;
+    public final TransportListTasksAction transportListTasksAction;
+    public final TransportCancelTasksAction transportCancelTasksAction;
+    private final SetOnce<DiscoveryNode> discoveryNode = new SetOnce<>();
+
     public FakeNode(String name, ThreadPool threadPool, Settings settings) {
-        final Function<BoundTransportAddress, DiscoveryNode> boundTransportAddressDiscoveryNodeFunction =
-            address -> {
-             discoveryNode.set(new DiscoveryNode(name, address.publishAddress(), emptyMap(), emptySet(), Version.CURRENT));
-             return discoveryNode.get();
-            };
-        transportService = new TransportService(settings,
-            new MockNioTransport(settings, Version.CURRENT, threadPool, new NetworkService(Collections.emptyList()),
-                PageCacheRecycler.NON_RECYCLING_INSTANCE, new NamedWriteableRegistry(ClusterModule.getNamedWriteables()),
+        final Function<BoundTransportAddress, DiscoveryNode> boundTransportAddressDiscoveryNodeFunction = address -> {
+            discoveryNode.set(new DiscoveryNode(name, address.publishAddress(), emptyMap(), emptySet(), Version.CURRENT));
+            return discoveryNode.get();
+        };
+        transportService = new TransportService(
+            settings,
+            new MockNioTransport(settings,
+                Version.CURRENT,
+                threadPool,
+                new NetworkService(Collections.emptyList()),
+                PageCacheRecycler.NON_RECYCLING_INSTANCE,
+                new NamedWriteableRegistry(ClusterModule.getNamedWriteables()),
                 new NoneCircuitBreakerService()),
-            threadPool, TransportService.NOOP_TRANSPORT_INTERCEPTOR, boundTransportAddressDiscoveryNodeFunction, null,
+            threadPool,
+            TransportService.NOOP_TRANSPORT_INTERCEPTOR,
+            boundTransportAddressDiscoveryNodeFunction,
+            null,
             Collections.emptySet()) {
             @Override
             protected TaskManager createTaskManager(Settings settings, ThreadPool threadPool, Set<String> taskHeaders) {
@@ -79,11 +92,22 @@ public class FakeNode implements Releasable {
         transportService.acceptIncomingRequests();
     }
 
-    public final ClusterService clusterService;
-    public final TransportService transportService;
-    private final SetOnce<DiscoveryNode> discoveryNode = new SetOnce<>();
-    public final TransportListTasksAction transportListTasksAction;
-    public final TransportCancelTasksAction transportCancelTasksAction;
+    public static void connectNodes(FakeNode... nodes) {
+        List<DiscoveryNode> discoveryNodes = new ArrayList<DiscoveryNode>(nodes.length);
+        DiscoveryNode master = nodes[0].discoveryNode();
+        for (int i = 0; i < nodes.length; i++) {
+            discoveryNodes.add(nodes[i].discoveryNode());
+        }
+
+        for (FakeNode node : nodes) {
+            setState(node.clusterService, ClusterCreation.state(new ClusterName("test"), node.discoveryNode(), master, discoveryNodes));
+        }
+        for (FakeNode nodeA : nodes) {
+            for (FakeNode nodeB : nodes) {
+                nodeA.transportService.connectToNode(nodeB.discoveryNode());
+            }
+        }
+    }
 
     @Override
     public void close() {
@@ -95,23 +119,7 @@ public class FakeNode implements Releasable {
         return discoveryNode().getId();
     }
 
-    public DiscoveryNode discoveryNode() { return  discoveryNode.get(); }
-
-    public static void connectNodes(FakeNode... nodes) {
-        List<DiscoveryNode> discoveryNodes = new ArrayList<DiscoveryNode>(nodes.length);
-        DiscoveryNode master = nodes[0].discoveryNode();
-        for (int i = 0; i < nodes.length; i++) {
-            discoveryNodes.add(nodes[i].discoveryNode());
-        }
-
-        for (FakeNode node : nodes) {
-            setState(node.clusterService,
-                    ClusterCreation.state(new ClusterName("test"), node.discoveryNode(), master, discoveryNodes));
-        }
-        for (FakeNode nodeA : nodes) {
-            for (FakeNode nodeB : nodes) {
-                nodeA.transportService.connectToNode(nodeB.discoveryNode());
-            }
-        }
+    public DiscoveryNode discoveryNode() {
+        return discoveryNode.get();
     }
 }

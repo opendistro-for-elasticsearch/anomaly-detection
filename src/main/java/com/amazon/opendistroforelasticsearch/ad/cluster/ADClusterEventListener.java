@@ -31,18 +31,17 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.gateway.GatewayService;
 
 public class ADClusterEventListener implements ClusterStateListener {
-    private static final Logger LOG = LogManager.getLogger(ADClusterEventListener.class);
     static final String MASTER_NOT_APPLIED_MSG = "AD does not use master nodes";
     static final String NOT_RECOVERED_MSG = "CLuster is not recovered yet.";
     static final String IN_PROGRESS_MSG = "Cluster state change in progress, return.";
     static final String REMOVE_MODEL_MSG = "Remove model";
     static final String NODE_ADDED_MSG = "Data node added ";
     static final String NODE_REMOVED_MSG = "Data node removed ";
-
+    private static final Logger LOG = LogManager.getLogger(ADClusterEventListener.class);
     private final Semaphore inProgress;
+    private final ClusterService clusterService;
     private HashRing hashRing;
     private ModelManager modelManager;
-    private final ClusterService clusterService;
 
     @Inject
     public ADClusterEventListener(ClusterService clusterService, HashRing hashRing, ModelManager modelManager) {

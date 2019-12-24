@@ -27,10 +27,10 @@ import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronRequest;
 
 public class HourlyCron implements Runnable {
-    private static final Logger LOG = LogManager.getLogger(HourlyCron.class);
     static final String SUCCEEDS_LOG_MSG = "Hourly maintenance succeeds";
     static final String NODE_EXCEPTION_LOG_MSG = "Hourly maintenance of node has exception";
     static final String EXCEPTION_LOG_MSG = "Hourly maintenance has exception.";
+    private static final Logger LOG = LogManager.getLogger(HourlyCron.class);
     private ClusterService clusterService;
     private Client client;
 
@@ -44,17 +44,16 @@ public class HourlyCron implements Runnable {
         DiscoveryNode[] dataNodes = clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class);
 
         CronRequest modelDeleteRequest = new CronRequest(dataNodes);
-        client.execute(CronAction.INSTANCE, modelDeleteRequest,
-                ActionListener.wrap(response -> {
-                    if (response.hasFailures()) {
-                        for (FailedNodeException failedNodeException : response.failures()) {
-                            LOG.warn(NODE_EXCEPTION_LOG_MSG, failedNodeException);
-                        }
-                    } else {
-                        LOG.info(SUCCEEDS_LOG_MSG);
-                    }
-                }, exception -> {
-                    LOG.error(EXCEPTION_LOG_MSG, exception);
-                }));
+        client.execute(CronAction.INSTANCE, modelDeleteRequest, ActionListener.wrap(response -> {
+            if (response.hasFailures()) {
+                for (FailedNodeException failedNodeException : response.failures()) {
+                    LOG.warn(NODE_EXCEPTION_LOG_MSG, failedNodeException);
+                }
+            } else {
+                LOG.info(SUCCEEDS_LOG_MSG);
+            }
+        }, exception -> {
+            LOG.error(EXCEPTION_LOG_MSG, exception);
+        }));
     }
 }

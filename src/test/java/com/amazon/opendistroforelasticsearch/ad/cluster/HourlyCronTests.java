@@ -46,10 +46,6 @@ import test.com.amazon.opendistroforelasticsearch.ad.util.ClusterCreation;
 
 public class HourlyCronTests extends AbstractADTest {
 
-    enum HourlyCronTestExecutionMode {
-        NORMAL, NODE_FAIL, ALL_FAIL
-    }
-
     @SuppressWarnings("unchecked")
     public void templateHourlyCron(HourlyCronTestExecutionMode mode) {
         super.setUpLog4jForJUnit(HourlyCron.class);
@@ -61,16 +57,16 @@ public class HourlyCronTests extends AbstractADTest {
         Client client = mock(Client.class);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                    args.length == 3);
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 3);
             assertTrue(args[2] instanceof ActionListener);
 
             ActionListener<CronResponse> listener = (ActionListener<CronResponse>) args[2];
 
             if (mode == HourlyCronTestExecutionMode.NODE_FAIL) {
-                listener.onResponse(new CronResponse(new ClusterName("test"),
-                        Collections.singletonList(new CronNodeResponse()), Collections.singletonList(
-                                new FailedNodeException("foo0", "blah", new ElasticsearchException("bar")))));
+                listener.onResponse(new CronResponse(
+                    new ClusterName("test"),
+                    Collections.singletonList(new CronNodeResponse()),
+                    Collections.singletonList(new FailedNodeException("foo0", "blah", new ElasticsearchException("bar")))));
             } else if (mode == HourlyCronTestExecutionMode.ALL_FAIL) {
                 listener.onFailure(new ElasticsearchException("bar"));
             } else {
@@ -83,8 +79,9 @@ public class HourlyCronTests extends AbstractADTest {
                 CronNodeResponse nodeResponseRead = new CronNodeResponse();
                 nodeResponseRead.readFrom(siNode);
 
-                CronResponse response = new CronResponse(new ClusterName("test"),
-                        Collections.singletonList(nodeResponseRead), Collections.EMPTY_LIST);
+                CronResponse
+                    response =
+                    new CronResponse(new ClusterName("test"), Collections.singletonList(nodeResponseRead), Collections.EMPTY_LIST);
                 BytesStreamOutput out = new BytesStreamOutput();
                 out.setVersion(Version.V_7_1_1);
                 response.writeTo(out);
@@ -123,5 +120,11 @@ public class HourlyCronTests extends AbstractADTest {
 
     public void testNodeFail() {
         templateHourlyCron(HourlyCronTestExecutionMode.NODE_FAIL);
+    }
+
+    enum HourlyCronTestExecutionMode {
+        NORMAL,
+        NODE_FAIL,
+        ALL_FAIL
     }
 }

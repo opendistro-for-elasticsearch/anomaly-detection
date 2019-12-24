@@ -64,20 +64,6 @@ public class Feature implements ToXContentObject {
         this.aggregation = aggregation;
     }
 
-    @Override
-    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        XContentBuilder xContentBuilder = builder.startObject()
-                .field(FEATURE_ID_FIELD, id)
-                .field(FEATURE_NAME_FIELD, name)
-                .field(FEATURE_ENABLED_FIELD, enabled)
-                .field(AGGREGATION_QUERY)
-                .startObject()
-                .value(aggregation)
-                .endObject()
-                ;
-        return xContentBuilder.endObject();
-    }
-
     /**
      * Parse raw json content into feature instance.
      *
@@ -117,16 +103,27 @@ public class Feature implements ToXContentObject {
         return new Feature(id, name, enabled, aggregation);
     }
 
+    @Override
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        XContentBuilder
+            xContentBuilder =
+            builder.startObject().field(FEATURE_ID_FIELD, id).field(FEATURE_NAME_FIELD, name).field(FEATURE_ENABLED_FIELD, enabled)
+                .field(AGGREGATION_QUERY).startObject().value(aggregation).endObject();
+        return xContentBuilder.endObject();
+    }
+
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         Feature feature = (Feature) o;
         return Objects.equal(getId(), feature.getId()) &&
-                Objects.equal(getName(), feature.getName()) &&
-                Objects.equal(getEnabled(), feature.getEnabled()) &&
-                Objects.equal(getAggregation(), feature.getAggregation());
+            Objects.equal(getName(), feature.getName()) &&
+            Objects.equal(getEnabled(), feature.getEnabled()) &&
+            Objects.equal(getAggregation(), feature.getAggregation());
     }
 
     @Generated

@@ -28,10 +28,9 @@ import java.util.Set;
 
 public class IntervalTimeConfiguration extends TimeConfiguration {
 
+    private static final Set<ChronoUnit> SUPPORTED_UNITS = ImmutableSet.of(ChronoUnit.MINUTES, ChronoUnit.SECONDS);
     private long interval;
     private ChronoUnit unit;
-
-    private static final Set<ChronoUnit> SUPPORTED_UNITS = ImmutableSet.of(ChronoUnit.MINUTES, ChronoUnit.SECONDS);
 
     /**
      * Constructor function.
@@ -52,23 +51,19 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.startObject()
-                .startObject(PERIOD_FIELD)
-                .field(INTERVAL_FIELD, interval)
-                .field(UNIT_FIELD, unit)
-                .endObject()
-                .endObject();
+        builder.startObject().startObject(PERIOD_FIELD).field(INTERVAL_FIELD, interval).field(UNIT_FIELD, unit).endObject().endObject();
         return builder;
     }
 
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         IntervalTimeConfiguration that = (IntervalTimeConfiguration) o;
-        return getInterval() == that.getInterval() &&
-                getUnit() == that.getUnit();
+        return getInterval() == that.getInterval() && getUnit() == that.getUnit();
     }
 
     @Generated

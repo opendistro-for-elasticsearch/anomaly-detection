@@ -56,7 +56,7 @@ public class ClientUtil {
      * @throws IllegalStateException when the waiting thread is interrupted
      */
     public <Request extends ActionRequest, Response extends ActionResponse> Optional<Response> timedRequest(
-            Request request, Logger LOG, BiConsumer<Request, ActionListener<Response>> consumer) {
+        Request request, Logger LOG, BiConsumer<Request, ActionListener<Response>> consumer) {
         try {
             AtomicReference<Response> respReference = new AtomicReference<>();
             final CountDownLatch latch = new CountDownLatch(1);

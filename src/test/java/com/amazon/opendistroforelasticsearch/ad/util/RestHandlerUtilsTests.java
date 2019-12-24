@@ -28,7 +28,7 @@ public class RestHandlerUtilsTests extends ESTestCase {
     public void testGetSourceContext() {
         RestRequest request = new FakeRestRequest();
         FetchSourceContext context = RestHandlerUtils.getSourceContext(request);
-        assertArrayEquals(new String[]{"ui_metadata"}, context.excludes());
+        assertArrayEquals(new String[] { "ui_metadata" }, context.excludes());
     }
 
     public void testGetSourceContextForKibana() {

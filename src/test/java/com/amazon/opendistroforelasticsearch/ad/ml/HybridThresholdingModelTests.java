@@ -60,19 +60,36 @@ public class HybridThresholdingModelTests {
         int numLogNormalQuantiles = 0;
         int downsampleNumSamples = 100_000;
         long downsampleMaxNumObservations = 10_000_000L;
-        HybridThresholdingModel model = new HybridThresholdingModel(minPvalueThreshold, maxRankError, maxScore, numLogNormalQuantiles,
-                                                                    downsampleNumSamples, downsampleMaxNumObservations);
+        HybridThresholdingModel
+            model =
+            new HybridThresholdingModel(minPvalueThreshold,
+                maxRankError,
+                maxScore,
+                numLogNormalQuantiles,
+                downsampleNumSamples,
+                downsampleMaxNumObservations);
 
         return new Object[] {
-            new Object[]{model, minPvalueThreshold, maxRankError, maxScore, numLogNormalQuantiles,
-                         downsampleNumSamples, downsampleMaxNumObservations}
-        };
+            new Object[] {
+                model,
+                minPvalueThreshold,
+                maxRankError,
+                maxScore,
+                numLogNormalQuantiles,
+                downsampleNumSamples,
+                downsampleMaxNumObservations } };
     }
 
     @Test
     @Parameters(method = "getTestGettersParameters")
-    public void testGetters(HybridThresholdingModel model, double minPvalueThreshold, double maxRankError, double maxScore,
-                            int numLogNormalQuantiles, int downsampleNumSamples, long downsampleMaxNumObservations) {
+    public void testGetters(
+        HybridThresholdingModel model,
+        double minPvalueThreshold,
+        double maxRankError,
+        double maxScore,
+        int numLogNormalQuantiles,
+        int downsampleNumSamples,
+        long downsampleMaxNumObservations) {
         double delta = 1e-4;
         assertEquals(minPvalueThreshold, model.getMinPvalueThreshold(), delta);
         assertEquals(maxRankError, model.getMaxRankError(), delta);
@@ -89,26 +106,34 @@ public class HybridThresholdingModelTests {
 
     private Object[] getThrowsExpectedInitializationExceptionParameters() {
         return new Object[] {
-            new Object[]{0.0, 0.001, 10, 10, 100, 1000},
-            new Object[]{1.0, 0.001, 10, 10, 100, 1000},
-            new Object[]{0.9, 0.123, 10, 10, 100, 1000},
-            new Object[]{0.9, -0.01, 10, 10, 100, 1000},
-            new Object[]{0.9, 0.001, -8, 10, 100, 1000},
-            new Object[]{0.9, 0.001, 10, -1, 100, 1000},
-            new Object[]{0.9, 0.001, 10, 10, 1, 1000},
-            new Object[]{0.9, 0.001, 10, 10, 0, 1000},
-            new Object[]{0.9, 0.001, 10, 10, 10_000, 1000},
-        };
+            new Object[] { 0.0, 0.001, 10, 10, 100, 1000 },
+            new Object[] { 1.0, 0.001, 10, 10, 100, 1000 },
+            new Object[] { 0.9, 0.123, 10, 10, 100, 1000 },
+            new Object[] { 0.9, -0.01, 10, 10, 100, 1000 },
+            new Object[] { 0.9, 0.001, -8, 10, 100, 1000 },
+            new Object[] { 0.9, 0.001, 10, -1, 100, 1000 },
+            new Object[] { 0.9, 0.001, 10, 10, 1, 1000 },
+            new Object[] { 0.9, 0.001, 10, 10, 0, 1000 },
+            new Object[] { 0.9, 0.001, 10, 10, 10_000, 1000 }, };
     }
 
     @Test(expected = IllegalArgumentException.class)
     @Parameters(method = "getThrowsExpectedInitializationExceptionParameters")
-    public void throwsExpectedInitializationExceptions(double minPvalueThreshold, double maxRankError,
-                                                       double maxScore, int numLogNormalQuantiles,
-                                                       int downsampleNumSamples, int downsampleMaxNumObservations) {
-        HybridThresholdingModel invalidModel = new HybridThresholdingModel(minPvalueThreshold, maxRankError,
-                                                                           maxScore, numLogNormalQuantiles,
-                                                                           downsampleNumSamples, downsampleMaxNumObservations);
+    public void throwsExpectedInitializationExceptions(
+        double minPvalueThreshold,
+        double maxRankError,
+        double maxScore,
+        int numLogNormalQuantiles,
+        int downsampleNumSamples,
+        int downsampleMaxNumObservations) {
+        HybridThresholdingModel
+            invalidModel =
+            new HybridThresholdingModel(minPvalueThreshold,
+                maxRankError,
+                maxScore,
+                numLogNormalQuantiles,
+                downsampleNumSamples,
+                downsampleMaxNumObservations);
     }
 
     private Object[] getTestExpectedGradesWithUpdateParameters() {
@@ -120,25 +145,21 @@ public class HybridThresholdingModelTests {
         model.train(trainingAnomalyScores);
 
         return new Object[] {
-            new Object[]{
+            new Object[] {
                 model,
-                new double[]{},
-                new double[]{0.0, Math.exp(mu), Math.exp(mu + sigma), maxScore},
-                new double[]{0.0, 0.5, 0.84134, 1.0},
-            },
-            new Object[]{
-                model,
-                trainingAnomalyScores,
-                new double[]{0.0, Math.exp(mu), Math.exp(mu + sigma), maxScore},
-                new double[]{0.0, 0.5, 0.84134, 1.0},
-            },
-        };
+                new double[] {},
+                new double[] { 0.0, Math.exp(mu), Math.exp(mu + sigma), maxScore },
+                new double[] { 0.0, 0.5, 0.84134, 1.0 }, }, new Object[] {
+            model,
+            trainingAnomalyScores,
+            new double[] { 0.0, Math.exp(mu), Math.exp(mu + sigma), maxScore },
+            new double[] { 0.0, 0.5, 0.84134, 1.0 }, }, };
     }
 
     @Test
     @Parameters(method = "getTestExpectedGradesWithUpdateParameters")
-    public void testExpectedGradesWithUpdate(HybridThresholdingModel model, double[] updateAnomalyScores,
-        double[] testAnomalyScores, double[] expectedGrades) {
+    public void testExpectedGradesWithUpdate(
+        HybridThresholdingModel model, double[] updateAnomalyScores, double[] testAnomalyScores, double[] expectedGrades) {
         double delta = 1e-3;
         for (double anomalyScore : updateAnomalyScores) {
             model.update(anomalyScore);
@@ -164,36 +185,35 @@ public class HybridThresholdingModelTests {
         HybridThresholdingModel newModel = new HybridThresholdingModel(0.8, maxRankError, maxScore, 1000, 2, 5_000_000);
 
         return new Object[] {
-            new Object[] {model, 0.99},
-            new Object[] {newModel, 0.99}
-        };
+            new Object[] { model, 0.99 }, new Object[] { newModel, 0.99 } };
     }
 
     @Test
     @Parameters(method = "getTestConfidenceParameters")
-    public void testConfidence(HybridThresholdingModel model, double expectedConfidence) {
+    public void testConfidence(
+        HybridThresholdingModel model, double expectedConfidence) {
         double delta = 1e-2;
         assertEquals(expectedConfidence, model.confidence(), delta);
     }
 
     private Object[] getTestDownsamplingParameters() {
-        double[] scores = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+        double[] scores = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         HybridThresholdingModel model = new HybridThresholdingModel(1e-8, 1e-4, 9, 0, 5, 9);
         for (double score : scores)
             model.update(score);
 
         return new Object[] {
             new Object[] {
-                model, // model ECDF should be equal to [1, 3, 5, 7, 9]
-                new double[]{1.0, 1.1, 2.0, 3.0, 4.0, 4.1, 5.0, 5.1, 7.1, 10.1},
-                new double[]{0.0, 0.2, 0.2, 0.2, 0.4, 0.4, 0.4, 0.6, 0.8, 1.0},
-            },
-        };
+                model,
+                // model ECDF should be equal to [1, 3, 5, 7, 9]
+                new double[] { 1.0, 1.1, 2.0, 3.0, 4.0, 4.1, 5.0, 5.1, 7.1, 10.1 },
+                new double[] { 0.0, 0.2, 0.2, 0.2, 0.4, 0.4, 0.4, 0.6, 0.8, 1.0 }, }, };
     }
 
     @Test
     @Parameters(method = "getTestDownsamplingParameters")
-    public void testDownsampling(HybridThresholdingModel model, double[] scores, double[] expectedGrades) {
+    public void testDownsampling(
+        HybridThresholdingModel model, double[] scores, double[] expectedGrades) {
         double[] actualGrades = new double[scores.length];
         for (int i = 0; i < actualGrades.length; i++)
             actualGrades[i] = model.grade(scores[i]);

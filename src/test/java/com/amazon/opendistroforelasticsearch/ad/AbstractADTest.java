@@ -33,17 +33,65 @@ import org.elasticsearch.threadpool.ThreadPool;
 public class AbstractADTest extends ESTestCase {
 
     protected static final Logger LOG = (Logger) LogManager.getLogger(AbstractADTest.class);
+    protected static ThreadPool threadPool;
+    protected TestAppender testAppender;
+    Logger logger;
+
+    private static String toLoggerName(final Class<?> cls) {
+        String canonicalName = cls.getCanonicalName();
+        return canonicalName != null ? canonicalName : cls.getName();
+    }
+
+    private static Class<?> callerClass(final Class<?> clazz) {
+        if (clazz != null) {
+            return clazz;
+        }
+        final Class<?> candidate = StackLocatorUtil.getCallerClass(3);
+        if (candidate == null) {
+            throw new UnsupportedOperationException("No class provided, and an appropriate one cannot be found.");
+        }
+        return candidate;
+    }
+
+    protected static void setUpThreadPool(String name) {
+        threadPool = new TestThreadPool(name);
+    }
+
+    protected static void tearDownThreadPool() {
+        ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
+        threadPool = null;
+    }
+
+    /**
+     * Set up test with junit that a warning was logged with log4j
+     */
+    protected void setUpLog4jForJUnit(Class<?> cls) {
+        String loggerName = toLoggerName(callerClass(cls));
+        logger = (Logger) LogManager.getLogger(loggerName);
+        testAppender = new TestAppender(loggerName);
+        testAppender.start();
+        logger.addAppender(testAppender);
+        logger.setLevel(Level.DEBUG);
+    }
+
+    /**
+     * remove the appender
+     */
+    protected void tearDownLog4jForJUnit() {
+        logger.removeAppender(testAppender);
+        testAppender.stop();
+    }
 
     /**
      * Log4j appender that uses a list to store log messages
      *
      */
     protected class TestAppender extends AbstractAppender {
+        public List<String> messages = new ArrayList<String>();
+
         protected TestAppender(String name) {
             super(name, null, PatternLayout.createDefaultLayout(), true);
         }
-
-        public List<String> messages = new ArrayList<String>();
 
         public boolean containsMessage(String msg) {
             for (String logMsg : messages) {
@@ -70,56 +118,5 @@ public class AbstractADTest extends ESTestCase {
         public void append(LogEvent event) {
             messages.add(event.getMessage().getFormattedMessage());
         }
-    }
-
-    protected static ThreadPool threadPool;
-
-    protected TestAppender testAppender;
-
-    Logger logger;
-
-    /**
-     * Set up test with junit that a warning was logged with log4j
-     */
-    protected void setUpLog4jForJUnit(Class<?> cls) {
-        String loggerName = toLoggerName(callerClass(cls));
-        logger = (Logger) LogManager.getLogger(loggerName);
-        testAppender = new TestAppender(loggerName);
-        testAppender.start();
-        logger.addAppender(testAppender);
-        logger.setLevel(Level.DEBUG);
-    }
-
-    private static String toLoggerName(final Class<?> cls) {
-        String canonicalName = cls.getCanonicalName();
-        return canonicalName != null ? canonicalName : cls.getName();
-    }
-
-    private static Class<?> callerClass(final Class<?> clazz) {
-        if (clazz != null) {
-            return clazz;
-        }
-        final Class<?> candidate = StackLocatorUtil.getCallerClass(3);
-        if (candidate == null) {
-            throw new UnsupportedOperationException("No class provided, and an appropriate one cannot be found.");
-        }
-        return candidate;
-    }
-
-    /**
-     * remove the appender
-     */
-    protected void tearDownLog4jForJUnit() {
-        logger.removeAppender(testAppender);
-        testAppender.stop();
-    }
-
-    protected static void setUpThreadPool(String name) {
-        threadPool = new TestThreadPool(name);
-    }
-
-    protected static void tearDownThreadPool() {
-        ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
-        threadPool = null;
     }
 }

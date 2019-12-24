@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.ad.dataprocessor;
 
-
 /*
  * An object for interpolating feature vectors.
  *

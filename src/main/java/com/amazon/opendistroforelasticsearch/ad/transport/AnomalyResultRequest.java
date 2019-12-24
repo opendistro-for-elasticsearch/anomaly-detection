@@ -59,6 +59,21 @@ public class AnomalyResultRequest extends ActionRequest implements ToXContentObj
         this.end = end;
     }
 
+    public static AnomalyResultRequest fromActionRequest(final ActionRequest actionRequest) {
+        if (actionRequest instanceof AnomalyResultRequest) {
+            return (AnomalyResultRequest) actionRequest;
+        }
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+            actionRequest.writeTo(osso);
+            try (StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
+                return new AnomalyResultRequest(input);
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("failed to parse ActionRequest into AnomalyResultRequest", e);
+        }
+    }
+
     public long getStart() {
         return start;
     }
@@ -86,8 +101,8 @@ public class AnomalyResultRequest extends ActionRequest implements ToXContentObj
             validationException = addValidationError(CommonErrorMessages.AD_ID_MISSING_MSG, validationException);
         }
         if (start <= 0 || end <= 0 || start > end) {
-            validationException = addValidationError(
-                    String.format(Locale.ROOT, "%s: start %d, end %d", INVALID_TIMESTAMP_ERR_MSG, start, end),
+            validationException =
+                addValidationError(String.format(Locale.ROOT, "%s: start %d, end %d", INVALID_TIMESTAMP_ERR_MSG, start, end),
                     validationException);
         }
         return validationException;
@@ -101,21 +116,5 @@ public class AnomalyResultRequest extends ActionRequest implements ToXContentObj
         builder.field(END_JSON_KEY, end);
         builder.endObject();
         return builder;
-    }
-
-    public static AnomalyResultRequest fromActionRequest(final ActionRequest actionRequest) {
-        if (actionRequest instanceof AnomalyResultRequest) {
-            return (AnomalyResultRequest) actionRequest;
-        }
-
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
-            actionRequest.writeTo(osso);
-            try (StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
-                return new AnomalyResultRequest(input);
-            }
-        } catch (IOException e) {
-            throw new IllegalArgumentException("failed to parse ActionRequest into AnomalyResultRequest", e);
-        }
     }
 }

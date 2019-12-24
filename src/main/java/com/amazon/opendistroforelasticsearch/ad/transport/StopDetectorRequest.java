@@ -47,6 +47,22 @@ public class StopDetectorRequest extends ActionRequest implements ToXContentObje
         this.adID = adID;
     }
 
+    public static StopDetectorRequest fromActionRequest(final ActionRequest actionRequest) {
+        if (actionRequest instanceof StopDetectorRequest) {
+            return (StopDetectorRequest) actionRequest;
+        }
+
+        try (
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+            actionRequest.writeTo(osso);
+            try (StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
+                return new StopDetectorRequest(input);
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("failed to parse ActionRequest into StopDetectorRequest", e);
+        }
+    }
+
     public String getAdID() {
         return adID;
     }
@@ -72,21 +88,5 @@ public class StopDetectorRequest extends ActionRequest implements ToXContentObje
         builder.field(CommonMessageAttributes.ID_JSON_KEY, adID);
         builder.endObject();
         return builder;
-    }
-
-    public static StopDetectorRequest fromActionRequest(final ActionRequest actionRequest) {
-        if (actionRequest instanceof StopDetectorRequest) {
-            return (StopDetectorRequest) actionRequest;
-        }
-
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
-            actionRequest.writeTo(osso);
-            try (StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
-                return new StopDetectorRequest(input);
-            }
-        } catch (IOException e) {
-            throw new IllegalArgumentException("failed to parse ActionRequest into StopDetectorRequest", e);
-        }
     }
 }

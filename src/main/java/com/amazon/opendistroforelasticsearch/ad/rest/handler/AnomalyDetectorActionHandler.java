@@ -38,10 +38,10 @@ import java.io.IOException;
  */
 public class AnomalyDetectorActionHandler {
 
-    private final Logger logger = LogManager.getLogger(AnomalyDetectorActionHandler.class);
     private static final String MONITOR_INPUTS_ANOMALY_DETECTOR_ID = "monitor.inputs.anomaly_detector.detector_id";
     private static final String MONITOR_INPUTS = "monitor.inputs";
     private static final String OPENDISTRO_ALERTING_CONFIG_INDEX = ".opendistro-alerting-config";
+    private final Logger logger = LogManager.getLogger(AnomalyDetectorActionHandler.class);
 
     /**
      * Get monitor which is running on specified detector.
@@ -53,8 +53,8 @@ public class AnomalyDetectorActionHandler {
      * @param channel        ES rest channel
      * @param function       Anomaly detector function
      */
-    public void getMonitorUsingDetector(ClusterService clusterService, NodeClient client, String detectorId,
-                                        RestChannel channel, AnomalyDetectorFunction function) {
+    public void getMonitorUsingDetector(
+        ClusterService clusterService, NodeClient client, String detectorId, RestChannel channel, AnomalyDetectorFunction function) {
         final BoolQueryBuilder booleanQuery = QueryBuilders.boolQuery();
         booleanQuery.must(QueryBuilders.termQuery(MONITOR_INPUTS_ANOMALY_DETECTOR_ID, detectorId));
         NestedQueryBuilder queryBuilder = QueryBuilders.nestedQuery(MONITOR_INPUTS, booleanQuery, ScoreMode.None);
@@ -64,16 +64,14 @@ public class AnomalyDetectorActionHandler {
         if (clusterService.state().getMetaData().indices().containsKey(OPENDISTRO_ALERTING_CONFIG_INDEX)) {
             SearchRequest request = new SearchRequest();
             request.indices(OPENDISTRO_ALERTING_CONFIG_INDEX).source(searchSourceBuilder);
-            client.search(request,
-                    ActionListener.wrap(response -> onSearchResponse(response, channel, function),
-                            exception -> {
-                                logger.error("Fail to search monitor using detector id" + detectorId, exception);
-                                try {
-                                    channel.sendResponse(new BytesRestResponse(channel, exception));
-                                } catch (IOException e) {
-                                    logger.error("Fail to send exception" + detectorId, e);
-                                }
-                            }));
+            client.search(request, ActionListener.wrap(response -> onSearchResponse(response, channel, function), exception -> {
+                logger.error("Fail to search monitor using detector id" + detectorId, exception);
+                try {
+                    channel.sendResponse(new BytesRestResponse(channel, exception));
+                } catch (IOException e) {
+                    logger.error("Fail to send exception" + detectorId, e);
+                }
+            }));
         } else {
             function.execute();
         }
@@ -88,14 +86,12 @@ public class AnomalyDetectorActionHandler {
      * @param channel  ES rest channel
      * @param function Anomaly detector function
      */
-    private void onSearchResponse(SearchResponse response, RestChannel channel,
-                                  AnomalyDetectorFunction function) {
+    private void onSearchResponse(SearchResponse response, RestChannel channel, AnomalyDetectorFunction function) {
         if (response.getHits().getTotalHits().value > 0) {
             String monitorId = response.getHits().getAt(0).getId();
             if (monitorId != null) {
                 // check if any monitor running on the detector, if yes, we can't delete the detector
-                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST,
-                        "Detector is used by monitor: " + monitorId));
+                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Detector is used by monitor: " + monitorId));
                 return;
             }
         }

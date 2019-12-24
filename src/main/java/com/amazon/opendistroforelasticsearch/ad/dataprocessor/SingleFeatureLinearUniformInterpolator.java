@@ -60,14 +60,14 @@ public class SingleFeatureLinearUniformInterpolator {
              to the last sample.
             */
             for (int interpolantIndex = 0; interpolantIndex < (numInterpolants - 1); interpolantIndex++) {
-                double tGlobal = ((double)interpolantIndex)/(numInterpolants - 1.0);
-                double tInterval = tGlobal*(numSamples - 1.0);
-                int intervalIndex = (int)Math.floor(tInterval);
+                double tGlobal = ((double) interpolantIndex) / (numInterpolants - 1.0);
+                double tInterval = tGlobal * (numSamples - 1.0);
+                int intervalIndex = (int) Math.floor(tInterval);
                 tInterval -= intervalIndex;
 
                 double leftSample = samples[intervalIndex];
                 double rightSample = samples[intervalIndex + 1];
-                double interpolant = (1.0 - tInterval)*leftSample + tInterval*rightSample;
+                double interpolant = (1.0 - tInterval) * leftSample + tInterval * rightSample;
                 interpolants[interpolantIndex] = interpolant;
             }
 

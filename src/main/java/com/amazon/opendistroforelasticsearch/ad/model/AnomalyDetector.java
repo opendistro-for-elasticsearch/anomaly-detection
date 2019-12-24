@@ -47,14 +47,15 @@ import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQuery
 public class AnomalyDetector implements ToXContentObject {
 
     public static final String PARSE_FIELD_NAME = "AnomalyDetector";
-    public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY =
-            new NamedXContentRegistry.Entry(AnomalyDetector.class, new ParseField(PARSE_FIELD_NAME), it -> parse(it));
+    public static final NamedXContentRegistry.Entry
+        XCONTENT_REGISTRY =
+        new NamedXContentRegistry.Entry(AnomalyDetector.class, new ParseField(PARSE_FIELD_NAME), it -> parse(it));
     public static final String NO_ID = "";
     public static final String ANOMALY_DETECTORS_INDEX = ".opendistro-anomaly-detectors";
     public static final String TYPE = "_doc";
     public static final String QUERY_PARAM_PERIOD_START = "period_start";
     public static final String QUERY_PARAM_PERIOD_END = "period_end";
-
+    public static final String UI_METADATA_FIELD = "ui_metadata";
     private static final String NAME_FIELD = "name";
     private static final String DESCRIPTION_FIELD = "description";
     private static final String TIMEFIELD_FIELD = "time_field";
@@ -65,8 +66,6 @@ public class AnomalyDetector implements ToXContentObject {
     private static final String DETECTION_INTERVAL_FIELD = "detection_interval";
     private static final String WINDOW_DELAY_FIELD = "window_delay";
     private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
-    public static final String UI_METADATA_FIELD = "ui_metadata";
-
     private final String detectorId;
     private final Long version;
     private final String name;
@@ -98,19 +97,20 @@ public class AnomalyDetector implements ToXContentObject {
      * @param schemaVersion     anomaly detector index mapping version
      * @param lastUpdateTime    detector's last update time
      */
-    public AnomalyDetector(String detectorId,
-                           Long version,
-                           String name,
-                           String description,
-                           String timeField,
-                           List<String> indices,
-                           List<Feature> features,
-                           QueryBuilder filterQuery,
-                           TimeConfiguration detectionInterval,
-                           TimeConfiguration windowDelay,
-                           Map<String, Object> uiMetadata,
-                           Integer schemaVersion,
-                           Instant lastUpdateTime) {
+    public AnomalyDetector(
+        String detectorId,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration detectionInterval,
+        TimeConfiguration windowDelay,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime) {
         if (Strings.isBlank(name)) {
             throw new IllegalArgumentException("Detector name should be set");
         }
@@ -136,31 +136,6 @@ public class AnomalyDetector implements ToXContentObject {
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
-    }
-
-    public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
-        return toXContent(builder, ToXContent.EMPTY_PARAMS);
-    }
-
-    @Override
-    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        XContentBuilder xContentBuilder = builder.startObject()
-                .field(NAME_FIELD, name)
-                .field(DESCRIPTION_FIELD, description)
-                .field(TIMEFIELD_FIELD, timeField)
-                .field(INDICES_FIELD, indices.toArray())
-                .field(FEATURE_ATTRIBUTES_FIELD, featureAttributes.toArray())
-                .field(FILTER_QUERY_FIELD, filterQuery)
-                .field(DETECTION_INTERVAL_FIELD, detectionInterval)
-                .field(WINDOW_DELAY_FIELD, windowDelay)
-                .field(SCHEMA_VERSION_FIELD, schemaVersion);
-        if (uiMetadata != null && !uiMetadata.isEmpty()) {
-            xContentBuilder.field(UI_METADATA_FIELD, uiMetadata);
-        }
-        if (lastUpdateTime != null) {
-            xContentBuilder.timeField(LAST_UPDATE_TIME_FIELD, LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli());
-        }
-        return xContentBuilder.endObject();
     }
 
     /**
@@ -202,17 +177,26 @@ public class AnomalyDetector implements ToXContentObject {
      * @return anomaly detector instance
      * @throws IOException IOException if content can't be parsed correctly
      */
-    public static AnomalyDetector parse(XContentParser parser, String detectorId, Long version,
-                                        TimeValue defaultDetectionInterval,
-                                        TimeValue defaultDetectionWindowDelay) throws IOException {
+    public static AnomalyDetector parse(
+        XContentParser parser,
+        String detectorId,
+        Long version,
+        TimeValue defaultDetectionInterval,
+        TimeValue defaultDetectionWindowDelay) throws IOException {
         String name = null;
         String description = null;
         String timeField = null;
         List<String> indices = new ArrayList<String>();
         QueryBuilder filterQuery = QueryBuilders.matchAllQuery();
-        TimeConfiguration detectionInterval = defaultDetectionInterval == null ? null :
+        TimeConfiguration
+            detectionInterval =
+            defaultDetectionInterval == null ?
+                null :
                 new IntervalTimeConfiguration(defaultDetectionInterval.getMinutes(), ChronoUnit.MINUTES);
-        TimeConfiguration windowDelay = defaultDetectionWindowDelay == null ? null :
+        TimeConfiguration
+            windowDelay =
+            defaultDetectionWindowDelay == null ?
+                null :
                 new IntervalTimeConfiguration(defaultDetectionWindowDelay.getSeconds(), ChronoUnit.SECONDS);
         List<Feature> features = new ArrayList<>();
         int schemaVersion = 0;
@@ -276,15 +260,47 @@ public class AnomalyDetector implements ToXContentObject {
                     break;
             }
         }
-        return new AnomalyDetector(detectorId, version, name, description, timeField, indices, features, filterQuery,
-                detectionInterval, windowDelay, uiMetadata, schemaVersion, lastUpdateTime);
+        return new AnomalyDetector(
+            detectorId,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            detectionInterval,
+            windowDelay,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime);
+    }
+
+    public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
+        return toXContent(builder, ToXContent.EMPTY_PARAMS);
+    }
+
+    @Override
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        XContentBuilder
+            xContentBuilder =
+            builder.startObject().field(NAME_FIELD, name).field(DESCRIPTION_FIELD, description).field(TIMEFIELD_FIELD, timeField)
+                .field(INDICES_FIELD, indices.toArray()).field(FEATURE_ATTRIBUTES_FIELD, featureAttributes.toArray())
+                .field(FILTER_QUERY_FIELD, filterQuery).field(DETECTION_INTERVAL_FIELD, detectionInterval)
+                .field(WINDOW_DELAY_FIELD, windowDelay).field(SCHEMA_VERSION_FIELD, schemaVersion);
+        if (uiMetadata != null && !uiMetadata.isEmpty()) {
+            xContentBuilder.field(UI_METADATA_FIELD, uiMetadata);
+        }
+        if (lastUpdateTime != null) {
+            xContentBuilder.timeField(LAST_UPDATE_TIME_FIELD, LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli());
+        }
+        return xContentBuilder.endObject();
     }
 
     public SearchSourceBuilder generateFeatureQuery() {
         SearchSourceBuilder generatedFeatureQuery = new SearchSourceBuilder().query(filterQuery);
         if (this.getFeatureAttributes() != null) {
-            this.getFeatureAttributes().stream().forEach(feature ->
-                    generatedFeatureQuery.aggregation(feature.getAggregation()));
+            this.getFeatureAttributes().stream().forEach(feature -> generatedFeatureQuery.aggregation(feature.getAggregation()));
         }
         return generatedFeatureQuery;
     }
@@ -292,25 +308,37 @@ public class AnomalyDetector implements ToXContentObject {
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         AnomalyDetector detector = (AnomalyDetector) o;
         return Objects.equal(getName(), detector.getName()) &&
-                Objects.equal(getDescription(), detector.getDescription()) &&
-                Objects.equal(getTimeField(), detector.getTimeField()) &&
-                Objects.equal(getIndices(), detector.getIndices()) &&
-                Objects.equal(getFeatureAttributes(), detector.getFeatureAttributes()) &&
-                Objects.equal(getFilterQuery(), detector.getFilterQuery()) &&
-                Objects.equal(getDetectionInterval(), detector.getDetectionInterval()) &&
-                Objects.equal(getWindowDelay(), detector.getWindowDelay()) &&
-                Objects.equal(getSchemaVersion(), detector.getSchemaVersion());
+            Objects.equal(getDescription(), detector.getDescription()) &&
+            Objects.equal(getTimeField(), detector.getTimeField()) &&
+            Objects.equal(getIndices(), detector.getIndices()) &&
+            Objects.equal(getFeatureAttributes(), detector.getFeatureAttributes()) &&
+            Objects.equal(getFilterQuery(), detector.getFilterQuery()) &&
+            Objects.equal(getDetectionInterval(), detector.getDetectionInterval()) &&
+            Objects.equal(getWindowDelay(), detector.getWindowDelay()) &&
+            Objects.equal(getSchemaVersion(), detector.getSchemaVersion());
     }
 
     @Generated
     @Override
     public int hashCode() {
-        return Objects.hashCode(detectorId, name, description, timeField, indices, featureAttributes,
-                detectionInterval, windowDelay, uiMetadata, schemaVersion, lastUpdateTime);
+        return Objects.hashCode(
+            detectorId,
+            name,
+            description,
+            timeField,
+            indices,
+            featureAttributes,
+            detectionInterval,
+            windowDelay,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime);
     }
 
     public String getDetectorId() {

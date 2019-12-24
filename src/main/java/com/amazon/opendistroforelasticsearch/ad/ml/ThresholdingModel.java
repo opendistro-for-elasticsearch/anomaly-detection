@@ -28,7 +28,6 @@ package com.amazon.opendistroforelasticsearch.ad.ml;
  */
 public interface ThresholdingModel {
 
-
     /**
      * Initializes the model using a training set of anomaly scores.
      *
@@ -50,7 +49,7 @@ public interface ThresholdingModel {
      * anomaly.
      *
      * @param anomalyScore  an anomaly score
-     * @return              the associated anomaly grade
+     * @return the associated anomaly grade
      */
     double grade(double anomalyScore);
 
@@ -59,7 +58,7 @@ public interface ThresholdingModel {
      * is, the probability that the reported anomaly grade is correct according
      * to the underlying model.
      *
-     * @return  the model confidence
+     * @return the model confidence
      */
     double confidence();
 }

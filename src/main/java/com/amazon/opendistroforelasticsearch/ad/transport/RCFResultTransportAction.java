@@ -32,8 +32,8 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
     private ModelManager manager;
 
     @Inject
-    public RCFResultTransportAction(ActionFilters actionFilters, TransportService transportService,
-            ModelManager manager) {
+    public RCFResultTransportAction(
+        ActionFilters actionFilters, TransportService transportService, ModelManager manager) {
         super(RCFResultAction.NAME, transportService, actionFilters, RCFResultRequest::new);
         this.manager = manager;
     }

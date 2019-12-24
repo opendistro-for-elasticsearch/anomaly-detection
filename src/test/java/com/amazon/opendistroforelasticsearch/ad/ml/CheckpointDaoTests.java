@@ -89,7 +89,8 @@ public class CheckpointDaoTests {
         checkpointDao.putModelCheckpoint(modelId, model);
 
         ArgumentCaptor<IndexRequest> indexRequestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
-        verify(clientUtil).timedRequest(indexRequestCaptor.capture(), anyObject(),
+        verify(clientUtil).timedRequest(indexRequestCaptor.capture(),
+            anyObject(),
             Matchers.<BiConsumer<IndexRequest, ActionListener<IndexResponse>>>anyObject());
         IndexRequest indexRequest = indexRequestCaptor.getValue();
         assertEquals(indexName, indexRequest.index());
@@ -101,8 +102,9 @@ public class CheckpointDaoTests {
     @Test
     public void getModelCheckpoint_returnExpected() {
         ArgumentCaptor<GetRequest> getRequestCaptor = ArgumentCaptor.forClass(GetRequest.class);
-        doReturn(Optional.of(getResponse)).when(clientUtil).timedRequest(
-            getRequestCaptor.capture(), anyObject(), Matchers.<BiConsumer<GetRequest, ActionListener<GetResponse>>>anyObject());
+        doReturn(Optional.of(getResponse)).when(clientUtil).timedRequest(getRequestCaptor.capture(),
+            anyObject(),
+            Matchers.<BiConsumer<GetRequest, ActionListener<GetResponse>>>anyObject());
         when(getResponse.isExists()).thenReturn(true);
         when(getResponse.getSource()).thenReturn(docSource);
 
@@ -118,8 +120,8 @@ public class CheckpointDaoTests {
 
     @Test
     public void getModelCheckpoint_returnEmpty_whenDocNotFound() {
-        doReturn(Optional.of(getResponse)).when(clientUtil).timedRequest(
-            anyObject(), anyObject(), Matchers.<BiConsumer<GetRequest, ActionListener<GetResponse>>>anyObject());
+        doReturn(Optional.of(getResponse)).when(clientUtil)
+            .timedRequest(anyObject(), anyObject(), Matchers.<BiConsumer<GetRequest, ActionListener<GetResponse>>>anyObject());
         when(getResponse.isExists()).thenReturn(false);
 
         Optional<String> result = checkpointDao.getModelCheckpoint(modelId);
@@ -132,7 +134,8 @@ public class CheckpointDaoTests {
         checkpointDao.deleteModelCheckpoint(modelId);
 
         ArgumentCaptor<DeleteRequest> deleteRequestCaptor = ArgumentCaptor.forClass(DeleteRequest.class);
-        verify(clientUtil).timedRequest(deleteRequestCaptor.capture(), anyObject(),
+        verify(clientUtil).timedRequest(deleteRequestCaptor.capture(),
+            anyObject(),
             Matchers.<BiConsumer<DeleteRequest, ActionListener<DeleteResponse>>>anyObject());
         DeleteRequest deleteRequest = deleteRequestCaptor.getValue();
         assertEquals(indexName, deleteRequest.index());

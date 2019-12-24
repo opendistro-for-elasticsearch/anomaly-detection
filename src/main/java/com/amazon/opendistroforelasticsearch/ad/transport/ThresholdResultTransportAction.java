@@ -26,28 +26,23 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
-
 public class ThresholdResultTransportAction extends HandledTransportAction<ThresholdResultRequest, ThresholdResultResponse> {
 
     private static final Logger LOG = LogManager.getLogger(ThresholdResultTransportAction.class);
     private ModelManager manager;
 
     @Inject
-    public ThresholdResultTransportAction(ActionFilters actionFilters,
-                               TransportService transportService,
-                               ModelManager manager) {
+    public ThresholdResultTransportAction(ActionFilters actionFilters, TransportService transportService, ModelManager manager) {
         super(ThresholdResultAction.NAME, transportService, actionFilters, ThresholdResultRequest::new);
         this.manager = manager;
     }
 
     @Override
-    protected void doExecute(Task task, ThresholdResultRequest request,
-            ActionListener<ThresholdResultResponse> listener) {
+    protected void doExecute(Task task, ThresholdResultRequest request, ActionListener<ThresholdResultResponse> listener) {
 
         try {
             LOG.info("Serve threshold request for {}", request.getModelID());
-            ThresholdingResult result = manager.getThresholdingResult(request.getAdID(), request.getModelID(),
-                    request.getRCFScore());
+            ThresholdingResult result = manager.getThresholdingResult(request.getAdID(), request.getModelID(), request.getRCFScore());
             listener.onResponse(new ThresholdResultResponse(result.getGrade(), result.getConfidence()));
         } catch (Exception e) {
             LOG.error(e);

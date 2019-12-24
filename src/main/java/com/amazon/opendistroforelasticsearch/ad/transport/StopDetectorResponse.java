@@ -40,6 +40,23 @@ public class StopDetectorResponse extends ActionResponse implements ToXContentOb
         success = in.readBoolean();
     }
 
+    public static StopDetectorResponse fromActionResponse(final ActionResponse actionResponse) {
+        if (actionResponse instanceof StopDetectorResponse) {
+            return (StopDetectorResponse) actionResponse;
+        }
+
+        try (
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+            actionResponse.writeTo(osso);
+            try (
+                InputStreamStreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
+                return new StopDetectorResponse(input);
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("failed to parse ActionResponse into StopDetectorResponse", e);
+        }
+    }
+
     public boolean success() {
         return success;
     }
@@ -56,22 +73,5 @@ public class StopDetectorResponse extends ActionResponse implements ToXContentOb
         builder.field(SUCCESS_JSON_KEY, success);
         builder.endObject();
         return builder;
-    }
-
-    public static StopDetectorResponse fromActionResponse(final ActionResponse actionResponse) {
-        if (actionResponse instanceof StopDetectorResponse) {
-            return (StopDetectorResponse) actionResponse;
-        }
-
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
-            actionResponse.writeTo(osso);
-            try (InputStreamStreamInput input = new InputStreamStreamInput(
-                    new ByteArrayInputStream(baos.toByteArray()))) {
-                return new StopDetectorResponse(input);
-            }
-        } catch (IOException e) {
-            throw new IllegalArgumentException("failed to parse ActionResponse into StopDetectorResponse", e);
-        }
     }
 }

@@ -38,14 +38,12 @@ public class AnomalyResult implements ToXContentObject {
     public static final String ANOMALY_RESULT_INDEX = ".opendistro-anomaly-results";
 
     public static final String DETECTOR_ID_FIELD = "detector_id";
+    public static final String END_TIME_FIELD = "end_time";
     private static final String ANOMALY_SCORE_FIELD = "anomaly_score";
     private static final String ANOMALY_GRADE_FIELD = "anomaly_grade";
     private static final String CONFIDENCE_FIELD = "confidence";
     private static final String FEATURE_DATA_FIELD = "feature_data";
     private static final String START_TIME_FIELD = "start_time";
-    public static final String END_TIME_FIELD = "end_time";
-
-
     private final String detectorId;
     private final Double anomalyScore;
     private final Double anomalyGrade;
@@ -54,8 +52,14 @@ public class AnomalyResult implements ToXContentObject {
     private final Instant startTime;
     private final Instant endTime;
 
-    public AnomalyResult(String detectorId, Double anomalyScore, Double anomalyGrade,
-                         Double confidence, List<FeatureData> featureData, Instant startTime, Instant endTime) {
+    public AnomalyResult(
+        String detectorId,
+        Double anomalyScore,
+        Double anomalyGrade,
+        Double confidence,
+        List<FeatureData> featureData,
+        Instant startTime,
+        Instant endTime) {
         this.detectorId = detectorId;
         this.anomalyScore = anomalyScore;
         this.anomalyGrade = anomalyGrade;
@@ -63,20 +67,6 @@ public class AnomalyResult implements ToXContentObject {
         this.featureData = featureData;
         this.startTime = startTime;
         this.endTime = endTime;
-    }
-
-
-    @Override
-    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        XContentBuilder xContentBuilder = builder.startObject()
-                .field(DETECTOR_ID_FIELD, detectorId)
-                .field(ANOMALY_SCORE_FIELD, anomalyScore)
-                .field(ANOMALY_GRADE_FIELD, anomalyGrade)
-                .field(CONFIDENCE_FIELD, confidence)
-                .field(FEATURE_DATA_FIELD, featureData.toArray())
-                .field(START_TIME_FIELD, startTime.toEpochMilli())
-                .field(END_TIME_FIELD, endTime.toEpochMilli());
-        return xContentBuilder.endObject();
     }
 
     public static AnomalyResult parse(XContentParser parser) throws IOException {
@@ -123,30 +113,47 @@ public class AnomalyResult implements ToXContentObject {
                     break;
             }
         }
-        return new AnomalyResult(detectorId, anomalyScore, anomalyGrade, confidence, featureData,
-                startTime, endTime);
+        return new AnomalyResult(detectorId, anomalyScore, anomalyGrade, confidence, featureData, startTime, endTime);
+    }
+
+    @Override
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        XContentBuilder
+            xContentBuilder =
+            builder.startObject().field(DETECTOR_ID_FIELD, detectorId).field(ANOMALY_SCORE_FIELD, anomalyScore)
+                .field(ANOMALY_GRADE_FIELD, anomalyGrade).field(CONFIDENCE_FIELD, confidence)
+                .field(FEATURE_DATA_FIELD, featureData.toArray()).field(START_TIME_FIELD, startTime.toEpochMilli())
+                .field(END_TIME_FIELD, endTime.toEpochMilli());
+        return xContentBuilder.endObject();
     }
 
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         AnomalyResult that = (AnomalyResult) o;
         return Objects.equal(getDetectorId(), that.getDetectorId()) &&
-                Objects.equal(getAnomalyScore(), that.getAnomalyScore()) &&
-                Objects.equal(getAnomalyGrade(), that.getAnomalyGrade()) &&
-                Objects.equal(getConfidence(), that.getConfidence()) &&
-                Objects.equal(getFeatureData(), that.getFeatureData()) &&
-                Objects.equal(getStartTime(), that.getStartTime()) &&
-                Objects.equal(getEndTime(), that.getEndTime());
+            Objects.equal(getAnomalyScore(), that.getAnomalyScore()) &&
+            Objects.equal(getAnomalyGrade(), that.getAnomalyGrade()) &&
+            Objects.equal(getConfidence(), that.getConfidence()) &&
+            Objects.equal(getFeatureData(), that.getFeatureData()) &&
+            Objects.equal(getStartTime(), that.getStartTime()) &&
+            Objects.equal(getEndTime(), that.getEndTime());
     }
 
     @Generated
     @Override
     public int hashCode() {
-        return Objects.hashCode(getDetectorId(), getAnomalyScore(), getAnomalyGrade(), getConfidence(),
-                getFeatureData(), getStartTime(), getEndTime());
+        return Objects.hashCode(getDetectorId(),
+            getAnomalyScore(),
+            getAnomalyGrade(),
+            getConfidence(),
+            getFeatureData(),
+            getStartTime(),
+            getEndTime());
     }
 
     public String getDetectorId() {

@@ -45,15 +45,6 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
         this.detectorId = detectorId;
     }
 
-    @Override
-    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        XContentBuilder xContentBuilder = builder.startObject()
-                .field(DETECTOR_ID_FIELD, detectorId)
-                .field(PERIOD_START_FIELD, periodStart.toEpochMilli())
-                .field(PERIOD_END_FIELD, periodEnd.toEpochMilli());
-        return xContentBuilder.endObject();
-    }
-
     public static AnomalyDetectorExecutionInput parse(XContentParser parser) throws IOException {
         String detectorId = null;
         Instant periodStart = null;
@@ -81,15 +72,26 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
         return new AnomalyDetectorExecutionInput(detectorId, periodStart, periodEnd);
     }
 
+    @Override
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        XContentBuilder
+            xContentBuilder =
+            builder.startObject().field(DETECTOR_ID_FIELD, detectorId).field(PERIOD_START_FIELD, periodStart.toEpochMilli())
+                .field(PERIOD_END_FIELD, periodEnd.toEpochMilli());
+        return xContentBuilder.endObject();
+    }
+
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         AnomalyDetectorExecutionInput that = (AnomalyDetectorExecutionInput) o;
         return Objects.equal(getPeriodStart(), that.getPeriodStart()) &&
-                Objects.equal(getPeriodEnd(), that.getPeriodEnd()) &&
-                Objects.equal(getDetectorId(), that.getDetectorId());
+            Objects.equal(getPeriodEnd(), that.getPeriodEnd()) &&
+            Objects.equal(getDetectorId(), that.getDetectorId());
     }
 
     @Generated

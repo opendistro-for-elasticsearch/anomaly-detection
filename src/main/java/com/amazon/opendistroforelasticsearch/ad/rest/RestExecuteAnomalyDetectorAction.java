@@ -62,14 +62,12 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
     public static final String ANOMALY_RESULT = "anomaly_result";
     public static final String ANOMALY_DETECTOR = "anomaly_detector";
     private final AnomalyDetectorRunner anomalyDetectorRunner;
+    private final Logger logger = LogManager.getLogger(RestExecuteAnomalyDetectorAction.class);
     //TODO: apply timeout config
     private volatile TimeValue requestTimeout;
 
-    private final Logger logger = LogManager.getLogger(RestExecuteAnomalyDetectorAction.class);
-
-    public RestExecuteAnomalyDetectorAction(Settings settings, RestController controller,
-                                            ClusterService clusterService,
-                                            AnomalyDetectorRunner anomalyDetectorRunner) {
+    public RestExecuteAnomalyDetectorAction(
+        Settings settings, RestController controller, ClusterService clusterService, AnomalyDetectorRunner anomalyDetectorRunner) {
         super(settings);
 
         this.anomalyDetectorRunner = anomalyDetectorRunner;
@@ -78,11 +76,13 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
 
         // get AD result, for regular run
         controller.registerHandler(RestRequest.Method.POST,
-                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, RUN), this);
+            String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, RUN),
+            this);
 
         // preivew AD
         controller.registerHandler(RestRequest.Method.POST,
-                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PREVIEW), this);
+            String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PREVIEW),
+            this);
     }
 
     @Override
@@ -104,8 +104,11 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
             if (rawPath.endsWith(PREVIEW)) {
                 preivewAnomalyDetector(client, channel, input);
             } else if (rawPath.endsWith(RUN)) {
-                AnomalyResultRequest getRequest = new AnomalyResultRequest(input.getDetectorId(),
-                        input.getPeriodStart().toEpochMilli(), input.getPeriodEnd().toEpochMilli());
+                AnomalyResultRequest
+                    getRequest =
+                    new AnomalyResultRequest(input.getDetectorId(),
+                        input.getPeriodStart().toEpochMilli(),
+                        input.getPeriodEnd().toEpochMilli());
                 client.execute(AnomalyResultAction.INSTANCE, getRequest, new RestToXContentListener<>(channel));
             }
         };
@@ -141,50 +144,47 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
 
     private void preivewAnomalyDetector(NodeClient client, RestChannel channel, AnomalyDetectorExecutionInput input) {
         if (!StringUtils.isBlank(input.getDetectorId())) {
-            GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-                    .id(input.getDetectorId());
+            GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(input.getDetectorId());
             client.get(getRequest, onGetAnomalyDetectorResponse(channel, input));
         } else {
             channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, "Wrong input, no detector id"));
         }
     }
 
-    private RestActionListener<GetResponse> onGetAnomalyDetectorResponse(RestChannel channel,
-                                                                         AnomalyDetectorExecutionInput input) {
+    private RestActionListener<GetResponse> onGetAnomalyDetectorResponse(RestChannel channel, AnomalyDetectorExecutionInput input) {
         return new RestActionListener<GetResponse>(channel) {
             @Override
             protected void processResponse(GetResponse response) throws Exception {
                 if (!response.isExists()) {
-                    XContentBuilder message = channel.newErrorBuilder().startObject()
-                            .field("message", "Can't find anomaly detector with id:" + response.getId())
+                    XContentBuilder
+                        message =
+                        channel.newErrorBuilder().startObject().field("message", "Can't find anomaly detector with id:" + response.getId())
                             .endObject();
                     channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, message));
                     return;
                 }
-                XContentParser parser = XContentType.JSON.xContent()
-                        .createParser(channel.request().getXContentRegistry(), LoggingDeprecationHandler.INSTANCE,
-                                response.getSourceAsBytesRef().streamInput());
+                XContentParser parser = XContentType.JSON.xContent().createParser(channel.request().getXContentRegistry(),
+                    LoggingDeprecationHandler.INSTANCE,
+                    response.getSourceAsBytesRef().streamInput());
 
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
-                anomalyDetectorRunner.run(detector, input.getPeriodStart(), input.getPeriodEnd(),
-                        ActionListener.wrap(anomalyResult -> {
-                            XContentBuilder builder = channel.newBuilder().startObject()
-                                    .field(ANOMALY_RESULT, anomalyResult).field(ANOMALY_DETECTOR, detector).endObject();
-                            channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
-                        }, exception -> {
-                            logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(),
-                                    exception);
-                            try {
-                                XContentBuilder builder = channel.newBuilder().startObject()
-                                        .field(ANOMALY_DETECTOR, detector).endObject();
-                                channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
-                            } catch (IOException e) {
-                                logger.error("Fail to send back exception message" + detector.getDetectorId(),
-                                        exception);
-                            }
-                        }));
+                anomalyDetectorRunner.run(detector, input.getPeriodStart(), input.getPeriodEnd(), ActionListener.wrap(anomalyResult -> {
+                    XContentBuilder
+                        builder =
+                        channel.newBuilder().startObject().field(ANOMALY_RESULT, anomalyResult).field(ANOMALY_DETECTOR, detector)
+                            .endObject();
+                    channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
+                }, exception -> {
+                    logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(), exception);
+                    try {
+                        XContentBuilder builder = channel.newBuilder().startObject().field(ANOMALY_DETECTOR, detector).endObject();
+                        channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
+                    } catch (IOException e) {
+                        logger.error("Fail to send back exception message" + detector.getDetectorId(), exception);
+                    }
+                }));
             }
         };
     }

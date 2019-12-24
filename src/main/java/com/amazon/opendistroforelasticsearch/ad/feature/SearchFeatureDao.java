@@ -80,8 +80,8 @@ public class SearchFeatureDao {
      * @param interpolator interpolator for missing values
      * @param clientUtil utility for ES client
      */
-    public SearchFeatureDao(Client client, ScriptService scriptService, NamedXContentRegistry xContent,
-        Interpolator interpolator, ClientUtil clientUtil) {
+    public SearchFeatureDao(
+        Client client, ScriptService scriptService, NamedXContentRegistry xContent, Interpolator interpolator, ClientUtil clientUtil) {
         this.client = client;
         this.scriptService = scriptService;
         this.xContent = xContent;
@@ -96,17 +96,13 @@ public class SearchFeatureDao {
      * @return epoch time of the latest data in milliseconds
      */
     public Optional<Long> getLatestDataTime(AnomalyDetector detector) {
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(AGG_NAME_MAX).field(detector.getTimeField()))
-            .size(0);
-        SearchRequest searchRequest = new SearchRequest()
-            .indices(detector.getIndices().toArray(new String[0]))
-            .source(searchSourceBuilder);
+        SearchSourceBuilder
+            searchSourceBuilder =
+            new SearchSourceBuilder().aggregation(AggregationBuilders.max(AGG_NAME_MAX).field(detector.getTimeField())).size(0);
+        SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         return clientUtil.<SearchRequest, SearchResponse>timedRequest(searchRequest, logger, client::search)
-            .map(SearchResponse::getAggregations)
-            .map(aggs -> aggs.asMap())
-            .map(map -> (Max)map.get(AGG_NAME_MAX))
-            .map(agg -> (long)agg.getValue());
+            .map(SearchResponse::getAggregations).map(aggs -> aggs.asMap()).map(map -> (Max) map.get(AGG_NAME_MAX))
+            .map(agg -> (long) agg.getValue());
     }
 
     /**
@@ -125,22 +121,18 @@ public class SearchFeatureDao {
     }
 
     private Optional<double[]> parseResponse(SearchResponse response, List<String> featureIds) {
-        return Optional.ofNullable(response)
-            .filter(resp -> response.getHits().getTotalHits().value > 0L)
-            .map(resp-> resp.getAggregations())
-            .map(aggs -> aggs.asMap())
-            .map(map -> featureIds.stream()
-                .mapToDouble(id -> Optional.ofNullable(map.get(id)).map(this::parseAggregation).orElse(Double.NaN))
-                .toArray())
+        return Optional.ofNullable(response).filter(resp -> response.getHits().getTotalHits().value > 0L)
+            .map(resp -> resp.getAggregations()).map(aggs -> aggs.asMap()).map(map -> featureIds.stream()
+                .mapToDouble(id -> Optional.ofNullable(map.get(id)).map(this::parseAggregation).orElse(Double.NaN)).toArray())
             .filter(result -> Arrays.stream(result).noneMatch(d -> Double.isNaN(d) || Double.isInfinite(d)));
     }
 
     private double parseAggregation(Aggregation aggregation) {
         Double result = null;
         if (aggregation instanceof SingleValue) {
-            result = ((SingleValue)aggregation).value();
+            result = ((SingleValue) aggregation).value();
         } else if (aggregation instanceof InternalTDigestPercentiles) {
-            Iterator<Percentile> percentile = ((InternalTDigestPercentiles)aggregation).iterator();
+            Iterator<Percentile> percentile = ((InternalTDigestPercentiles) aggregation).iterator();
             if (percentile.hasNext()) {
                 result = percentile.next().getValue();
             }
@@ -159,20 +151,18 @@ public class SearchFeatureDao {
      */
     @Deprecated
     public List<Optional<double[]>> getFeatureSamplesForPeriods(AnomalyDetector detector, List<Entry<Long, Long>> ranges) {
-         MultiSearchRequest multiSearchRequest = new MultiSearchRequest();
-         ranges.stream()
-             .map(range -> createFeatureSearchRequest(detector, range.getKey(), range.getValue(), Optional.of(FEATURE_SAMPLE_PREFERENCE)))
-             .forEachOrdered(request -> multiSearchRequest.add(request));
+        MultiSearchRequest multiSearchRequest = new MultiSearchRequest();
+        ranges.stream()
+            .map(range -> createFeatureSearchRequest(detector, range.getKey(), range.getValue(), Optional.of(FEATURE_SAMPLE_PREFERENCE)))
+            .forEachOrdered(request -> multiSearchRequest.add(request));
 
-         return clientUtil.<MultiSearchRequest, MultiSearchResponse>timedRequest(multiSearchRequest, logger, client::multiSearch)
-             .map(Stream::of).orElseGet(Stream::empty)
-             .flatMap(multiSearchResp -> Arrays.stream(multiSearchResp.getResponses()))
-             .map(item -> {
-                 Optional.ofNullable(item.getFailure()).ifPresent(e -> logger.warn("Failed to get search response", e));
-                 return item;
-             })
-             .map(item -> Optional.ofNullable(item.getResponse()).flatMap(r -> parseResponse(r, detector.getEnabledFeatureIds())))
-             .collect(Collectors.toList());
+        return clientUtil.<MultiSearchRequest, MultiSearchResponse>timedRequest(multiSearchRequest, logger, client::multiSearch)
+            .map(Stream::of).orElseGet(Stream::empty).flatMap(multiSearchResp -> Arrays.stream(multiSearchResp.getResponses()))
+            .map(item -> {
+                Optional.ofNullable(item.getFailure()).ifPresent(e -> logger.warn("Failed to get search response", e));
+                return item;
+            }).map(item -> Optional.ofNullable(item.getResponse()).flatMap(r -> parseResponse(r, detector.getEnabledFeatureIds())))
+            .collect(Collectors.toList());
     }
 
     /**
@@ -184,21 +174,19 @@ public class SearchFeatureDao {
      * @param ranges list of time ranges
      * @param listener handle approximate features for the time ranges
      */
-    public void getFeatureSamplesForPeriods(AnomalyDetector detector, List<Entry<Long, Long>> ranges,
-            ActionListener<List<Optional<double[]>>> listener) {
+    public void getFeatureSamplesForPeriods(
+        AnomalyDetector detector, List<Entry<Long, Long>> ranges, ActionListener<List<Optional<double[]>>> listener) {
         MultiSearchRequest multiSearchRequest = new MultiSearchRequest();
         ranges.stream()
-                .map(range -> createFeatureSearchRequest(detector, range.getKey(), range.getValue(),
-                        Optional.of(FEATURE_SAMPLE_PREFERENCE)))
-                .forEachOrdered(request -> multiSearchRequest.add(request));
+            .map(range -> createFeatureSearchRequest(detector, range.getKey(), range.getValue(), Optional.of(FEATURE_SAMPLE_PREFERENCE)))
+            .forEachOrdered(request -> multiSearchRequest.add(request));
 
-        client.multiSearch(multiSearchRequest, ActionListener.wrap(
-                        response -> listener.onResponse(Optional.of(response).map(Stream::of).orElseGet(Stream::empty)
-                                .flatMap(multiSearchResp -> Arrays.stream(multiSearchResp.getResponses()))
-                                .map(item -> Optional.ofNullable(item.getResponse())
-                                        .flatMap(r -> parseResponse(r, detector.getEnabledFeatureIds())))
-                                .collect(Collectors.toList())),
-                        listener::onFailure));
+        client.multiSearch(
+            multiSearchRequest,
+            ActionListener.wrap(response -> listener.onResponse(Optional.of(response).map(Stream::of).orElseGet(Stream::empty)
+                .flatMap(multiSearchResp -> Arrays.stream(multiSearchResp.getResponses()))
+                .map(item -> Optional.ofNullable(item.getResponse()).flatMap(r -> parseResponse(r, detector.getEnabledFeatureIds())))
+                .collect(Collectors.toList())), listener::onFailure));
     }
 
     /**
@@ -239,7 +227,7 @@ public class SearchFeatureDao {
         AnomalyDetector detector, int maxSamples, int stride, long endTime, Map<Long, double[]> cache, boolean isInterpolatable) {
         ArrayDeque<double[]> sampledFeatures = new ArrayDeque<>(maxSamples);
         for (int i = 0; i < maxSamples; i++) {
-            long span = ((IntervalTimeConfiguration)detector.getDetectionInterval()).toDuration().toMillis();
+            long span = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
             long end = endTime - span * stride * i;
             if (cache.containsKey(end)) {
                 sampledFeatures.addFirst(cache.get(end));
@@ -273,7 +261,7 @@ public class SearchFeatureDao {
     }
 
     private double[] getInterpolants(double[] previous, double[] next) {
-        return transpose(interpolator.interpolate(transpose(new double[][]{previous, next}), 3))[1];
+        return transpose(interpolator.interpolate(transpose(new double[][] { previous, next }), 3))[1];
     }
 
     private double[][] transpose(double[][] matrix) {
@@ -284,10 +272,9 @@ public class SearchFeatureDao {
         // TODO: FeatureQuery field is planned to be removed and search request creation will migrate to new api.
         try {
             SearchSourceBuilder searchSourceBuilder = ParseUtils.generateInternalFeatureQuery(detector, startTime, endTime, xContent);
-            return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder)
-                .preference(preference.orElse(null));
+            return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder).preference(preference.orElse(null));
         } catch (IOException e) {
-            logger.warn("Failed to create feature search request for " + detector + " from " + startTime +  " to " + endTime, e);
+            logger.warn("Failed to create feature search request for " + detector + " from " + startTime + " to " + endTime, e);
             throw new IllegalStateException(e);
         }
     }

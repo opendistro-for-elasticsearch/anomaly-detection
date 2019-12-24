@@ -31,19 +31,18 @@ import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 
 public class DailyCron implements Runnable {
-    private static final Logger LOG = LogManager.getLogger(DailyCron.class);
     protected static final String FIELD_MODEL = "queue";
     static final String CANNOT_DELETE_OLD_CHECKPOINT_MSG = "Cannot delete old checkpoint.";
     static final String CHECKPOINT_NOT_EXIST_MSG = "Checkpoint index does not exist.";
     static final String CHECKPOINT_DELETED_MSG = "checkpoint docs get deleted";
-
+    private static final Logger LOG = LogManager.getLogger(DailyCron.class);
     private final DeleteDetector deleteUtil;
     private final Clock clock;
     private final Client client;
     private final Duration checkpointTtl;
 
-    public DailyCron(DeleteDetector deleteUtil, Clock clock, Client client,
-            Duration checkpointTtl) {
+    public DailyCron(
+        DeleteDetector deleteUtil, Clock clock, Client client, Duration checkpointTtl) {
         this.deleteUtil = deleteUtil;
         this.clock = clock;
         this.client = client;
@@ -52,11 +51,11 @@ public class DailyCron implements Runnable {
 
     @Override
     public void run() {
-        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(CommonName.CHECKPOINT_INDEX_NAME)
-                .setQuery(QueryBuilders.boolQuery()
-                        .filter(QueryBuilders.rangeQuery(CheckpointDao.TIMESTAMP)
-                                .lte(clock.millis() - checkpointTtl.toMillis()).format(CommonName.EPOCH_MILLIS_FORMAT)))
-                .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
+        DeleteByQueryRequest
+            deleteRequest =
+            new DeleteByQueryRequest(CommonName.CHECKPOINT_INDEX_NAME).setQuery(QueryBuilders.boolQuery()
+                .filter(QueryBuilders.rangeQuery(CheckpointDao.TIMESTAMP).lte(clock.millis() - checkpointTtl.toMillis())
+                    .format(CommonName.EPOCH_MILLIS_FORMAT))).setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
         client.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(response -> {
             // if 0 docs get deleted, it means our query cannot find any matching doc
             LOG.info("{} " + CHECKPOINT_DELETED_MSG, response.getDeleted());

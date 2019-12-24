@@ -39,10 +39,9 @@ import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
  */
 public class CheckpointDao {
 
+    public static final String TIMESTAMP = "timestamp";
     protected static final String DOC_TYPE = "_doc";
     protected static final String FIELD_MODEL = "model";
-    public static final String TIMESTAMP = "timestamp";
-
     private static final Logger logger = LogManager.getLogger(CheckpointDao.class);
 
     // dependencies
@@ -76,9 +75,9 @@ public class CheckpointDao {
         source.put(FIELD_MODEL, modelCheckpoint);
         source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
 
-        clientUtil.<IndexRequest, IndexResponse>timedRequest(
-            new IndexRequest(indexName, DOC_TYPE, modelId).source(source),
-            logger, client::index);
+        clientUtil.<IndexRequest, IndexResponse>timedRequest(new IndexRequest(indexName, DOC_TYPE, modelId).source(source),
+            logger,
+            client::index);
     }
 
     /**
@@ -88,11 +87,8 @@ public class CheckpointDao {
      * @return model checkpoint, or empty if not found
      */
     public Optional<String> getModelCheckpoint(String modelId) {
-        return clientUtil.<GetRequest, GetResponse>timedRequest(
-            new GetRequest(indexName, DOC_TYPE, modelId), logger, client::get)
-            .filter(GetResponse::isExists)
-            .map(GetResponse::getSource)
-            .map(source -> (String)source.get(FIELD_MODEL));
+        return clientUtil.<GetRequest, GetResponse>timedRequest(new GetRequest(indexName, DOC_TYPE, modelId), logger, client::get)
+            .filter(GetResponse::isExists).map(GetResponse::getSource).map(source -> (String) source.get(FIELD_MODEL));
     }
 
     /**
@@ -101,8 +97,6 @@ public class CheckpointDao {
      * @param modelId ID of the model checkpoint
      */
     public void deleteModelCheckpoint(String modelId) {
-        clientUtil.<DeleteRequest, DeleteResponse>timedRequest(
-            new DeleteRequest(indexName, DOC_TYPE, modelId),
-            logger, client::delete);
+        clientUtil.<DeleteRequest, DeleteResponse>timedRequest(new DeleteRequest(indexName, DOC_TYPE, modelId), logger, client::delete);
     }
 }

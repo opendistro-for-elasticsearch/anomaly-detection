@@ -48,11 +48,6 @@ public class HashRingTests extends AbstractADTest {
     private Settings settings;
     private Clock clock;
 
-    private DiscoveryNode createNode(String nodeId) {
-        return new DiscoveryNode(nodeId, buildNewFakeTransportAddress(), emptyMap(), EnumSet.allOf(Role.class),
-                Version.CURRENT);
-    }
-
     @BeforeClass
     public static void setUpBeforeClass() {
         setUpThreadPool(HashRingTests.class.getSimpleName());
@@ -60,7 +55,11 @@ public class HashRingTests extends AbstractADTest {
 
     @AfterClass
     public static void tearDownAfterClass() {
-       tearDownThreadPool();
+        tearDownThreadPool();
+    }
+
+    private DiscoveryNode createNode(String nodeId) {
+        return new DiscoveryNode(nodeId, buildNewFakeTransportAddress(), emptyMap(), EnumSet.allOf(Role.class), Version.CURRENT);
     }
 
     @Override
@@ -83,9 +82,8 @@ public class HashRingTests extends AbstractADTest {
         ClusterState clusterState = stateBuilder.build();
         setState(clusterService.getClusterApplierService(), clusterState);
 
-        settings = Settings.builder()
-                .put("ml.anomaly_detectors.cluster_state_change_cooldown_minutes", TimeValue.timeValueMinutes(5))
-                .build();
+        settings =
+            Settings.builder().put("ml.anomaly_detectors.cluster_state_change_cooldown_minutes", TimeValue.timeValueMinutes(5)).build();
         clock = mock(Clock.class);
         when(clock.millis()).thenReturn(700000L);
     }

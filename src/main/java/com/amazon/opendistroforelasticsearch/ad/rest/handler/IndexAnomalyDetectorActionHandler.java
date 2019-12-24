@@ -96,11 +96,19 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
      * @param anomalyDetector         anomaly detector instance
      * @param requestTimeout          request time out configuration
      */
-    public IndexAnomalyDetectorActionHandler(Settings settings, ClusterService clusterService, NodeClient client, RestChannel channel,
-                                             AnomalyDetectionIndices anomalyDetectionIndices,
-                                             String detectorId, Long seqNo,
-                                             Long primaryTerm, WriteRequest.RefreshPolicy refreshPolicy,
-                                             AnomalyDetector anomalyDetector, TimeValue requestTimeout) {
+    public IndexAnomalyDetectorActionHandler(
+        Settings settings,
+        ClusterService clusterService,
+        NodeClient client,
+        RestChannel channel,
+        AnomalyDetectionIndices anomalyDetectionIndices,
+        String detectorId,
+        Long seqNo,
+        Long primaryTerm,
+        WriteRequest.RefreshPolicy refreshPolicy,
+        AnomalyDetector anomalyDetector,
+        TimeValue requestTimeout
+    ) {
         super(client, channel);
         this.clusterService = clusterService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
@@ -124,9 +132,10 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
      */
     public void start() throws IOException {
         if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist()) {
-            anomalyDetectionIndices.initAnomalyDetectorIndex(ActionListener.wrap(
-                    response -> onCreateMappingsResponse(response),
-                    exception -> onFailure(exception)));
+            anomalyDetectionIndices
+                .initAnomalyDetectorIndex(
+                    ActionListener.wrap(response -> onCreateMappingsResponse(response), exception -> onFailure(exception))
+                );
         } else {
             prepareAnomalyDetectorIndexing();
         }
@@ -136,19 +145,18 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
      * Prepare for indexing a new anomaly detector.
      */
     private void prepareAnomalyDetectorIndexing() {
-        //TODO: check if aggregation query will return only one number. Not easy to validate,
+        // TODO: check if aggregation query will return only one number. Not easy to validate,
         // 1).If index has only one document
         // 2).If filter will only return one document,
         // 3).If custom expression has specific logic to return one number for some case,
-        //    but multiple for others, like some if/else branch
+        // but multiple for others, like some if/else branch
         String error = validateAnomalyDetector(anomalyDetector);
         if (StringUtils.isNotBlank(error)) {
             channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
             return;
         }
         if (channel.request().method() == RestRequest.Method.PUT) {
-            handler.getMonitorUsingDetector(clusterService, client, detectorId, channel,
-                    () -> updateAnomalyDetector(client, detectorId));
+            handler.getMonitorUsingDetector(clusterService, client, detectorId, channel, () -> updateAnomalyDetector(client, detectorId));
         } else {
             createAnomalyDetector();
         }
@@ -192,16 +200,16 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
 
     private void updateAnomalyDetector(NodeClient client, String detectorId) {
         GetRequest request = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
-        client.get(request, ActionListener.wrap(response -> onGetAnomalyDetectorResponse(response),
-                exception -> onFailure(exception)));
+        client.get(request, ActionListener.wrap(response -> onGetAnomalyDetectorResponse(response), exception -> onFailure(exception)));
     }
 
     private void onGetAnomalyDetectorResponse(GetResponse response) throws IOException {
         if (!response.isExists()) {
-            XContentBuilder builder = channel.newErrorBuilder()
-                    .startObject()
-                    .field("Message", "AnomalyDetector is not found with id: " + detectorId)
-                    .endObject();
+            XContentBuilder builder = channel
+                .newErrorBuilder()
+                .startObject()
+                .field("Message", "AnomalyDetector is not found with id: " + detectorId)
+                .endObject();
             channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, EMPTY_PARAMS)));
             return;
         }
@@ -212,13 +220,11 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
     private void createAnomalyDetector() {
         try {
             QueryBuilder query = QueryBuilders.matchAllQuery();
-            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0)
-                    .timeout(requestTimeout);
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
 
             SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
 
-            client.search(searchRequest, ActionListener.wrap(response -> onSearchAdResponse(response),
-                    exception -> onFailure(exception)));
+            client.search(searchRequest, ActionListener.wrap(response -> onSearchAdResponse(response), exception -> onFailure(exception)));
         } catch (Exception e) {
             onFailure(e);
         }
@@ -236,21 +242,24 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
 
     private void searchAdInputIndices(String detectorId) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-                .query(QueryBuilders.matchAllQuery()).size(0)
-                .timeout(requestTimeout);
+            .query(QueryBuilders.matchAllQuery())
+            .size(0)
+            .timeout(requestTimeout);
 
-        SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0]))
-                .source(searchSourceBuilder);
+        SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
 
-        client.search(searchRequest,
-                ActionListener.wrap(searchResponse -> onSearchAdInputIndicesResponse(searchResponse, detectorId),
-                        exception -> onFailure(exception)));
+        client
+            .search(
+                searchRequest,
+                ActionListener
+                    .wrap(searchResponse -> onSearchAdInputIndicesResponse(searchResponse, detectorId), exception -> onFailure(exception))
+            );
     }
 
     private void onSearchAdInputIndicesResponse(SearchResponse response, String detectorId) throws IOException {
         if (response.getHits().getTotalHits().value == 0) {
-            String errorMsg = "Can't create anomaly detector as no document found in indices: " +
-                    Arrays.toString(anomalyDetector.getIndices().toArray(new String[0])) ;
+            String errorMsg = "Can't create anomaly detector as no document found in indices: "
+                + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));
             logger.error(errorMsg);
             onFailure(new IllegalArgumentException(errorMsg));
         } else {
@@ -260,11 +269,11 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
 
     private void indexAnomalyDetector(String detectorId) throws IOException {
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
-                .setRefreshPolicy(refreshPolicy)
-                .source(anomalyDetector.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
-                .setIfSeqNo(seqNo)
-                .setIfPrimaryTerm(primaryTerm)
-                .timeout(requestTimeout);
+            .setRefreshPolicy(refreshPolicy)
+            .source(anomalyDetector.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
+            .setIfSeqNo(seqNo)
+            .setIfPrimaryTerm(primaryTerm)
+            .timeout(requestTimeout);
         if (detectorId != null) {
             indexRequest.id(detectorId);
         }
@@ -276,18 +285,18 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
             @Override
             public RestResponse buildResponse(IndexResponse response) throws Exception {
                 if (response.getShardInfo().getSuccessful() < 1) {
-                    return new BytesRestResponse(response.status(),
-                            response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS));
+                    return new BytesRestResponse(response.status(), response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS));
                 }
 
-                XContentBuilder builder = channel.newBuilder()
-                        .startObject()
-                        .field(RestHandlerUtils._ID, response.getId())
-                        .field(RestHandlerUtils._VERSION, response.getVersion())
-                        .field(RestHandlerUtils._SEQ_NO, response.getSeqNo())
-                        .field(RestHandlerUtils._PRIMARY_TERM, response.getPrimaryTerm())
-                        .field("anomaly_detector", anomalyDetector)
-                        .endObject();
+                XContentBuilder builder = channel
+                    .newBuilder()
+                    .startObject()
+                    .field(RestHandlerUtils._ID, response.getId())
+                    .field(RestHandlerUtils._VERSION, response.getVersion())
+                    .field(RestHandlerUtils._SEQ_NO, response.getSeqNo())
+                    .field(RestHandlerUtils._PRIMARY_TERM, response.getPrimaryTerm())
+                    .field("anomaly_detector", anomalyDetector)
+                    .endObject();
 
                 BytesRestResponse restResponse = new BytesRestResponse(response.status(), builder);
                 if (response.status() == RestStatus.CREATED) {
@@ -305,10 +314,11 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
             prepareAnomalyDetectorIndexing();
         } else {
             logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
-            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
-                    response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS)));
+            channel
+                .sendResponse(
+                    new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS))
+                );
         }
     }
-
 
 }

@@ -22,7 +22,9 @@ public class StopDetectorAction extends Action<StopDetectorResponse> {
     public static final StopDetectorAction INSTANCE = new StopDetectorAction();
     public static final String NAME = "cluster:admin/ad/detector/stop";
 
-    private StopDetectorAction() {super(NAME); }
+    private StopDetectorAction() {
+        super(NAME);
+    }
 
     @Override
     public StopDetectorResponse newResponse() {

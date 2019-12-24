@@ -77,14 +77,14 @@ public class ParseUtilsTests extends ESTestCase {
     }
 
     public void testParseAggregatorsWithAggregationQueryString() throws IOException {
-        AggregatorFactories.Builder agg = ParseUtils.parseAggregators(
-                "{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}", TestHelpers.xContentRegistry(), "test");
+        AggregatorFactories.Builder agg = ParseUtils
+            .parseAggregators("{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}", TestHelpers.xContentRegistry(), "test");
         assertEquals("test", agg.getAggregatorFactories().iterator().next().getName());
     }
 
     public void testParseAggregatorsWithAggregationQueryStringAndNullAggName() throws IOException {
-        AggregatorFactories.Builder agg = ParseUtils.parseAggregators(
-                "{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}", TestHelpers.xContentRegistry(), null);
+        AggregatorFactories.Builder agg = ParseUtils
+            .parseAggregators("{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}", TestHelpers.xContentRegistry(), null);
         assertEquals("aa", agg.getAggregatorFactories().iterator().next().getName());
     }
 
@@ -92,9 +92,8 @@ public class ParseUtilsTests extends ESTestCase {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
         long startTime = randomLong();
         long endTime = randomLong();
-        SearchSourceBuilder builder = ParseUtils.generateInternalFeatureQuery(detector, startTime, endTime,
-                TestHelpers.xContentRegistry());
-        for(Feature feature : detector.getFeatureAttributes()) {
+        SearchSourceBuilder builder = ParseUtils.generateInternalFeatureQuery(detector, startTime, endTime, TestHelpers.xContentRegistry());
+        for (Feature feature : detector.getFeatureAttributes()) {
             assertTrue(builder.toString().contains(feature.getId()));
         }
     }
@@ -102,7 +101,7 @@ public class ParseUtilsTests extends ESTestCase {
     public void testGenerateInternalFeatureQueryTemplate() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
         String builder = ParseUtils.generateInternalFeatureQueryTemplate(detector, TestHelpers.xContentRegistry());
-        for(Feature feature : detector.getFeatureAttributes()) {
+        for (Feature feature : detector.getFeatureAttributes()) {
             assertTrue(builder.contains(feature.getId()));
         }
     }

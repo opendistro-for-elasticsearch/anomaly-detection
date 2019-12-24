@@ -56,16 +56,26 @@ public class ClientUtil {
      * @throws IllegalStateException when the waiting thread is interrupted
      */
     public <Request extends ActionRequest, Response extends ActionResponse> Optional<Response> timedRequest(
-            Request request, Logger LOG, BiConsumer<Request, ActionListener<Response>> consumer) {
+        Request request,
+        Logger LOG,
+        BiConsumer<Request, ActionListener<Response>> consumer
+    ) {
         try {
             AtomicReference<Response> respReference = new AtomicReference<>();
             final CountDownLatch latch = new CountDownLatch(1);
 
-            consumer.accept(request, new LatchedActionListener<Response>(ActionListener.wrap(response -> {
-                respReference.set(response);
-            }, exception -> {
-                LOG.error("Cannot get response for request {}, error: {}", request, exception);
-            }), latch));
+            consumer
+                .accept(
+                    request,
+                    new LatchedActionListener<Response>(
+                        ActionListener
+                            .wrap(
+                                response -> { respReference.set(response); },
+                                exception -> { LOG.error("Cannot get response for request {}, error: {}", request, exception); }
+                            ),
+                        latch
+                    )
+                );
 
             if (!latch.await(requestTimeout.getSeconds(), TimeUnit.SECONDS)) {
                 throw new ElasticsearchTimeoutException("Cannot get response within time limit: " + request.toString());

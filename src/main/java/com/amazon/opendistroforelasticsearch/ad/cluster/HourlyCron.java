@@ -44,17 +44,14 @@ public class HourlyCron implements Runnable {
         DiscoveryNode[] dataNodes = clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class);
 
         CronRequest modelDeleteRequest = new CronRequest(dataNodes);
-        client.execute(CronAction.INSTANCE, modelDeleteRequest,
-                ActionListener.wrap(response -> {
-                    if (response.hasFailures()) {
-                        for (FailedNodeException failedNodeException : response.failures()) {
-                            LOG.warn(NODE_EXCEPTION_LOG_MSG, failedNodeException);
-                        }
-                    } else {
-                        LOG.info(SUCCEEDS_LOG_MSG);
-                    }
-                }, exception -> {
-                    LOG.error(EXCEPTION_LOG_MSG, exception);
-                }));
+        client.execute(CronAction.INSTANCE, modelDeleteRequest, ActionListener.wrap(response -> {
+            if (response.hasFailures()) {
+                for (FailedNodeException failedNodeException : response.failures()) {
+                    LOG.warn(NODE_EXCEPTION_LOG_MSG, failedNodeException);
+                }
+            } else {
+                LOG.info(SUCCEEDS_LOG_MSG);
+            }
+        }, exception -> { LOG.error(EXCEPTION_LOG_MSG, exception); }));
     }
 }

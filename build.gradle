@@ -31,6 +31,11 @@ buildscript {
     }
 }
 
+plugins {
+    id "com.diffplug.gradle.spotless" version "3.26.1"
+    //id "com.diffplug.gradle.spotless" version "3.26.1" apply false
+}
+
 repositories {
     mavenCentral()
     maven { url "https://plugins.gradle.org/m2/" }
@@ -48,7 +53,6 @@ apply plugin: 'idea'
 apply plugin: 'elasticsearch.esplugin'
 apply plugin: 'base'
 apply plugin: 'jacoco'
-
 
 allprojects {
     group = 'com.amazon.opendistroforelasticsearch'
@@ -251,7 +255,8 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorRequest',
         'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorResponse',
-        'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction'
+        'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction',
+        'com.amazon.opendistroforelasticsearch.ad.util.ParseUtils'
 ]
 
 jacocoTestCoverageVerification {
@@ -302,4 +307,10 @@ dependencies {
     testCompile group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
 
     checkstyle "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
+}
+
+spotless {
+    java {
+        eclipse().configFile rootProject.file('.eclipseformat.xml')
+    }
 }

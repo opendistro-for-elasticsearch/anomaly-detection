@@ -26,27 +26,28 @@ import org.junit.runners.Parameterized.Parameters;
 
 import static org.junit.Assert.assertArrayEquals;
 
-
 @RunWith(Parameterized.class)
 public class SingleFeatureLinearUniformInterpolatorTests {
 
     @Parameters
     public static Collection<Object[]> data() {
-        double[] singleComponent = {-1.0, 2.0};
-        double[] multiComponent = {0.0, 1.0, -1.};
-        double oneThird = 1.0/3.0;
+        double[] singleComponent = { -1.0, 2.0 };
+        double[] multiComponent = { 0.0, 1.0, -1. };
+        double oneThird = 1.0 / 3.0;
 
-        return Arrays.asList(new Object[][] {
-                { new double[0], 1, new double[0]},
-                { new double[]{1}, 2, new double[]{1, 1} },
-                { singleComponent, 2, singleComponent },
-                { singleComponent, 3, new double[]{-1.0, 0.5, 2.0} },
-                { singleComponent, 4, new double[]{-1.0, 0.0, 1.0, 2.0} },
-                { multiComponent, 3, multiComponent },
-                { multiComponent, 4, new double[]{0.0, 2*oneThird, oneThird, -1.0} },
-                { multiComponent, 5, new double[]{0.0, 0.5, 1.0, 0.0, -1.0} },
-                { multiComponent, 6, new double[]{0.0, 0.4, 0.8, 0.6, -0.2, -1.0} }
-            });
+        return Arrays
+            .asList(
+                new Object[][] {
+                    { new double[0], 1, new double[0] },
+                    { new double[] { 1 }, 2, new double[] { 1, 1 } },
+                    { singleComponent, 2, singleComponent },
+                    { singleComponent, 3, new double[] { -1.0, 0.5, 2.0 } },
+                    { singleComponent, 4, new double[] { -1.0, 0.0, 1.0, 2.0 } },
+                    { multiComponent, 3, multiComponent },
+                    { multiComponent, 4, new double[] { 0.0, 2 * oneThird, oneThird, -1.0 } },
+                    { multiComponent, 5, new double[] { 0.0, 0.5, 1.0, 0.0, -1.0 } },
+                    { multiComponent, 6, new double[] { 0.0, 0.4, 0.8, 0.6, -0.2, -1.0 } } }
+            );
     }
 
     private double[] input;

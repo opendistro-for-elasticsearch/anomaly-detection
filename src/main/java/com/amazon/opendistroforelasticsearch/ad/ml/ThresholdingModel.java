@@ -28,7 +28,6 @@ package com.amazon.opendistroforelasticsearch.ad.ml;
  */
 public interface ThresholdingModel {
 
-
     /**
      * Initializes the model using a training set of anomaly scores.
      *

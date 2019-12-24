@@ -22,7 +22,9 @@ public class AnomalyResultAction extends Action<AnomalyResultResponse> {
     public static final AnomalyResultAction INSTANCE = new AnomalyResultAction();
     public static final String NAME = "cluster:admin/ad/result";
 
-    private AnomalyResultAction() {super(NAME); }
+    private AnomalyResultAction() {
+        super(NAME);
+    }
 
     @Override
     public AnomalyResultResponse newResponse() {

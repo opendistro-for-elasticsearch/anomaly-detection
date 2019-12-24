@@ -50,17 +50,27 @@ import org.elasticsearch.transport.nio.MockNioTransport;
 
 public class FakeNode implements Releasable {
     public FakeNode(String name, ThreadPool threadPool, Settings settings) {
-        final Function<BoundTransportAddress, DiscoveryNode> boundTransportAddressDiscoveryNodeFunction =
-            address -> {
-             discoveryNode.set(new DiscoveryNode(name, address.publishAddress(), emptyMap(), emptySet(), Version.CURRENT));
-             return discoveryNode.get();
-            };
-        transportService = new TransportService(settings,
-            new MockNioTransport(settings, Version.CURRENT, threadPool, new NetworkService(Collections.emptyList()),
-                PageCacheRecycler.NON_RECYCLING_INSTANCE, new NamedWriteableRegistry(ClusterModule.getNamedWriteables()),
-                new NoneCircuitBreakerService()),
-            threadPool, TransportService.NOOP_TRANSPORT_INTERCEPTOR, boundTransportAddressDiscoveryNodeFunction, null,
-            Collections.emptySet()) {
+        final Function<BoundTransportAddress, DiscoveryNode> boundTransportAddressDiscoveryNodeFunction = address -> {
+            discoveryNode.set(new DiscoveryNode(name, address.publishAddress(), emptyMap(), emptySet(), Version.CURRENT));
+            return discoveryNode.get();
+        };
+        transportService = new TransportService(
+            settings,
+            new MockNioTransport(
+                settings,
+                Version.CURRENT,
+                threadPool,
+                new NetworkService(Collections.emptyList()),
+                PageCacheRecycler.NON_RECYCLING_INSTANCE,
+                new NamedWriteableRegistry(ClusterModule.getNamedWriteables()),
+                new NoneCircuitBreakerService()
+            ),
+            threadPool,
+            TransportService.NOOP_TRANSPORT_INTERCEPTOR,
+            boundTransportAddressDiscoveryNodeFunction,
+            null,
+            Collections.emptySet()
+        ) {
             @Override
             protected TaskManager createTaskManager(Settings settings, ThreadPool threadPool, Set<String> taskHeaders) {
                 if (MockTaskManager.USE_MOCK_TASK_MANAGER_SETTING.get(settings)) {
@@ -95,7 +105,9 @@ public class FakeNode implements Releasable {
         return discoveryNode().getId();
     }
 
-    public DiscoveryNode discoveryNode() { return  discoveryNode.get(); }
+    public DiscoveryNode discoveryNode() {
+        return discoveryNode.get();
+    }
 
     public static void connectNodes(FakeNode... nodes) {
         List<DiscoveryNode> discoveryNodes = new ArrayList<DiscoveryNode>(nodes.length);
@@ -105,8 +117,7 @@ public class FakeNode implements Releasable {
         }
 
         for (FakeNode node : nodes) {
-            setState(node.clusterService,
-                    ClusterCreation.state(new ClusterName("test"), node.discoveryNode(), master, discoveryNodes));
+            setState(node.clusterService, ClusterCreation.state(new ClusterName("test"), node.discoveryNode(), master, discoveryNodes));
         }
         for (FakeNode nodeA : nodes) {
             for (FakeNode nodeB : nodes) {

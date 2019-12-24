@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.ad.dataprocessor;
 
-
 /*
  * An object for interpolating feature vectors.
  *
@@ -40,4 +39,3 @@ public interface Interpolator {
      */
     double[][] interpolate(double[][] samples, int numInterpolants);
 }
-

@@ -77,15 +77,16 @@ public class ADStateManagerTests extends ESTestCase {
         super.setUp();
         modelManager = mock(ModelManager.class);
         when(modelManager.getPartitionedForestSizes(any(RandomCutForest.class), any(String.class)))
-                .thenReturn(new SimpleImmutableEntry<>(2, 20));
+            .thenReturn(new SimpleImmutableEntry<>(2, 20));
         client = mock(Client.class);
-        Settings settings = Settings.builder()
-                .put("ml.anomaly_detectors.max_retry_for_unresponsive_node", 3)
-                .put("ml.anomaly_detectors.ad_mute_minutes",TimeValue.timeValueMinutes(10) ).build();
+        Settings settings = Settings
+            .builder()
+            .put("ml.anomaly_detectors.max_retry_for_unresponsive_node", 3)
+            .put("ml.anomaly_detectors.ad_mute_minutes", TimeValue.timeValueMinutes(10))
+            .build();
         clock = mock(Clock.class);
         duration = Duration.ofHours(1);
-        stateManager = new ADStateManager(client, xContentRegistry(), modelManager, settings, new ClientUtil(settings),
-                clock, duration);
+        stateManager = new ADStateManager(client, xContentRegistry(), modelManager, settings, new ClientUtil(settings), clock, duration);
 
     }
 
@@ -105,8 +106,7 @@ public class ADStateManagerTests extends ESTestCase {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                    args.length >= 2);
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 2);
 
             GetRequest request = null;
             ActionListener<GetResponse> listener = null;
@@ -118,9 +118,22 @@ public class ADStateManagerTests extends ESTestCase {
             }
 
             assertTrue(request != null && listener != null);
-            listener.onResponse(new GetResponse(new GetResult(AnomalyDetector.ANOMALY_DETECTORS_INDEX,
-                    MapperService.SINGLE_MAPPING_NAME, detector.getDetectorId(), UNASSIGNED_SEQ_NO, 0, -1, responseExists,
-                    BytesReference.bytes(content), Collections.emptyMap())));
+            listener
+                .onResponse(
+                    new GetResponse(
+                        new GetResult(
+                            AnomalyDetector.ANOMALY_DETECTORS_INDEX,
+                            MapperService.SINGLE_MAPPING_NAME,
+                            detector.getDetectorId(),
+                            UNASSIGNED_SEQ_NO,
+                            0,
+                            -1,
+                            responseExists,
+                            BytesReference.bytes(content),
+                            Collections.emptyMap()
+                        )
+                    )
+                );
 
             return null;
         }).when(client).get(any(), any());
@@ -167,8 +180,7 @@ public class ADStateManagerTests extends ESTestCase {
     public void testMaintenanceNotRemove() throws IOException {
         ConcurrentHashMap<String, Entry<AnomalyDetector, Instant>> states = new ConcurrentHashMap<>();
         when(clock.instant()).thenReturn(Instant.MIN);
-        states.put("123", new SimpleImmutableEntry<>(
-                TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null), Instant.MAX));
+        states.put("123", new SimpleImmutableEntry<>(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null), Instant.MAX));
         stateManager.maintenance(states);
         assertEquals(1, states.size());
 
@@ -177,8 +189,7 @@ public class ADStateManagerTests extends ESTestCase {
     public void testMaintenancRemove() throws IOException {
         ConcurrentHashMap<String, Entry<AnomalyDetector, Instant>> states = new ConcurrentHashMap<>();
         when(clock.instant()).thenReturn(Instant.MAX);
-        states.put("123", new SimpleImmutableEntry<>(
-                TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null), Instant.MIN));
+        states.put("123", new SimpleImmutableEntry<>(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null), Instant.MIN));
         stateManager.maintenance(states);
         assertEquals(0, states.size());
 

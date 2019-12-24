@@ -54,9 +54,9 @@ public class ADMetaDataTests extends AbstractADTest {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        deadDetector1 = new AnomalyDetectorGraveyard( "123", 1L);
-        deadDetector2 = new AnomalyDetectorGraveyard( "cnuRGW4BJpEADCIShyj9", 1572387170588L);
-        deadDetector3 = new AnomalyDetectorGraveyard( "456", 2L);
+        deadDetector1 = new AnomalyDetectorGraveyard("123", 1L);
+        deadDetector2 = new AnomalyDetectorGraveyard("cnuRGW4BJpEADCIShyj9", 1572387170588L);
+        deadDetector3 = new AnomalyDetectorGraveyard("456", 2L);
     }
 
     public void testDiffAdded() throws IOException {
@@ -64,18 +64,19 @@ public class ADMetaDataTests extends AbstractADTest {
         ADMetaData newMeta = new ADMetaData(deadDetector1, deadDetector2);
         ADMetaData newMeta2 = new ADMetaData(deadDetector3);
 
-        ADMetaData.ADMetaDataDiff diff = (ADMetaData.ADMetaDataDiff)newMeta.diff(currentMeta);
+        ADMetaData.ADMetaDataDiff diff = (ADMetaData.ADMetaDataDiff) newMeta.diff(currentMeta);
 
         try (BytesStreamOutput outputStream = new BytesStreamOutput()) {
             diff.writeTo(outputStream);
             byte[] diffBytes = BytesReference.toBytes(outputStream.bytes());
 
             NamedDiff<Custom> diffRead;
-            NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry(
-                    ClusterModule.getNamedWriteables());
+            NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry(ClusterModule.getNamedWriteables());
 
-            try (StreamInput input = StreamInput.wrap(diffBytes);
-                    StreamInput namedInput = new NamedWriteableAwareStreamInput(input, namedWriteableRegistry)) {
+            try (
+                StreamInput input = StreamInput.wrap(diffBytes);
+                StreamInput namedInput = new NamedWriteableAwareStreamInput(input, namedWriteableRegistry)
+            ) {
                 diffRead = new ADMetaData.ADMetaDataDiff(namedInput);
                 Custom newMeta3 = diffRead.apply(newMeta2);
 
@@ -94,18 +95,19 @@ public class ADMetaDataTests extends AbstractADTest {
         ADMetaData newMeta = new ADMetaData(deadDetector1);
         ADMetaData newMeta2 = new ADMetaData(deadDetector2);
 
-        ADMetaData.ADMetaDataDiff diff = (ADMetaData.ADMetaDataDiff)newMeta.diff(currentMeta);
+        ADMetaData.ADMetaDataDiff diff = (ADMetaData.ADMetaDataDiff) newMeta.diff(currentMeta);
 
         try (BytesStreamOutput outputStream = new BytesStreamOutput()) {
             diff.writeTo(outputStream);
             byte[] diffBytes = BytesReference.toBytes(outputStream.bytes());
 
             NamedDiff<Custom> diffRead;
-            NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry(
-                    ClusterModule.getNamedWriteables());
+            NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry(ClusterModule.getNamedWriteables());
 
-            try (StreamInput input = StreamInput.wrap(diffBytes);
-                    StreamInput namedInput = new NamedWriteableAwareStreamInput(input, namedWriteableRegistry)) {
+            try (
+                StreamInput input = StreamInput.wrap(diffBytes);
+                StreamInput namedInput = new NamedWriteableAwareStreamInput(input, namedWriteableRegistry)
+            ) {
                 diffRead = new ADMetaData.ADMetaDataDiff(namedInput);
                 Custom newMeta3 = diffRead.apply(newMeta2);
 
@@ -124,7 +126,7 @@ public class ADMetaDataTests extends AbstractADTest {
             byte[] currentMetaBytes = BytesReference.toBytes(outputStream.bytes());
             StreamInput input = StreamInput.wrap(currentMetaBytes);
             ADMetaData readCurrentMeta = new ADMetaData(input);
-            ADMetaData.ADMetaDataDiff diff = (ADMetaData.ADMetaDataDiff)ADMetaData.EMPTY_METADATA.diff(readCurrentMeta);
+            ADMetaData.ADMetaDataDiff diff = (ADMetaData.ADMetaDataDiff) ADMetaData.EMPTY_METADATA.diff(readCurrentMeta);
 
             ADMetaData meta = (ADMetaData) diff.apply(currentMeta);
             assertEquals(0, meta.getAnomalyDetectorGraveyard().size());
@@ -141,7 +143,7 @@ public class ADMetaDataTests extends AbstractADTest {
             byte[] currentMetaBytes = BytesReference.toBytes(outputStream.bytes());
             StreamInput input = StreamInput.wrap(currentMetaBytes);
             ADMetaData readCurrentMeta = new ADMetaData(input);
-            ADMetaData.ADMetaDataDiff diff = (ADMetaData.ADMetaDataDiff)readCurrentMeta.diff(ADMetaData.EMPTY_METADATA);
+            ADMetaData.ADMetaDataDiff diff = (ADMetaData.ADMetaDataDiff) readCurrentMeta.diff(ADMetaData.EMPTY_METADATA);
 
             ADMetaData meta = (ADMetaData) diff.apply(newMeta2);
             assertEquals(2, meta.getAnomalyDetectorGraveyard().size());
@@ -154,20 +156,37 @@ public class ADMetaDataTests extends AbstractADTest {
 
     @SuppressWarnings("resource")
     public void testParse() throws IOException {
-        Type type = new TypeToken<Map<String, Object>>(){}.getType();
+        Type type = new TypeToken<Map<String, Object>>() {
+        }.getType();
         Gson gson = new Gson();
         String detectorID = "9EQ9120BDBl4sOnjHuIZ";
         long epoch = 1571274501462L;
-        Map<String, Object> adMetaMap = gson.fromJson(" {\"ad\":{\"" + ADMetaData.DETECTOR_GRAVEYARD_FIELD + "\":[{\""
-                + AnomalyDetectorGraveyard.DETECTOR_ID_KEY + "\":\"" + detectorID + "\",\""
-                + AnomalyDetectorGraveyard.DELETE_TIME_KEY + "\":" + epoch + "}]}}", type);
+        Map<String, Object> adMetaMap = gson
+            .fromJson(
+                " {\"ad\":{\""
+                    + ADMetaData.DETECTOR_GRAVEYARD_FIELD
+                    + "\":[{\""
+                    + AnomalyDetectorGraveyard.DETECTOR_ID_KEY
+                    + "\":\""
+                    + detectorID
+                    + "\",\""
+                    + AnomalyDetectorGraveyard.DELETE_TIME_KEY
+                    + "\":"
+                    + epoch
+                    + "}]}}",
+                type
+            );
 
-        try(XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().map(adMetaMap);
-                XContentParser parser = XContentType.JSON
-                    .xContent()
-                    .createParser(new NamedXContentRegistry(new AnomalyDetectorPlugin().getNamedXContent()),
-                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                        BytesReference.bytes(xContentBuilder).streamInput())) {
+        try (
+            XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().map(adMetaMap);
+            XContentParser parser = XContentType.JSON
+                .xContent()
+                .createParser(
+                    new NamedXContentRegistry(new AnomalyDetectorPlugin().getNamedXContent()),
+                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                    BytesReference.bytes(xContentBuilder).streamInput()
+                )
+        ) {
             XContentParser.Token token = parser.nextToken();
             assertTrue(token == XContentParser.Token.START_OBJECT);
             token = parser.nextToken();

@@ -22,10 +22,9 @@ import org.elasticsearch.action.support.nodes.BaseNodeRequest;
  */
 public class CronNodeRequest extends BaseNodeRequest {
 
-    CronNodeRequest() {
-    }
+    CronNodeRequest() {}
 
     CronNodeRequest(String nodeID, CronRequest request) {
         super(nodeID);
     }
- }
+}

@@ -28,29 +28,36 @@ public class AnomalyDetectorExecutionInputTests extends ESTestCase {
 
     public void testParseAnomalyDetectorExecutionInput() throws IOException {
         AnomalyDetectorExecutionInput detectorExecutionInput = TestHelpers.randomAnomalyDetectorExecutionInput();
-        String detectInputString = TestHelpers.xContentBuilderToString(detectorExecutionInput.toXContent(TestHelpers.builder(),
-                ToXContent.EMPTY_PARAMS));
-        detectInputString = detectInputString.replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",",
-                randomAlphaOfLength(5), randomAlphaOfLength(5)));
-        AnomalyDetectorExecutionInput parsedAnomalyDetectorExecutionInput = AnomalyDetectorExecutionInput.parse(
-                TestHelpers.parser(detectInputString));
-        assertEquals("Parsing anomaly detect execution input doesn't work", detectorExecutionInput,
-                parsedAnomalyDetectorExecutionInput);
+        String detectInputString = TestHelpers
+            .xContentBuilderToString(detectorExecutionInput.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        detectInputString = detectInputString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyDetectorExecutionInput parsedAnomalyDetectorExecutionInput = AnomalyDetectorExecutionInput
+            .parse(TestHelpers.parser(detectInputString));
+        assertEquals("Parsing anomaly detect execution input doesn't work", detectorExecutionInput, parsedAnomalyDetectorExecutionInput);
     }
 
     public void testNullPeriodStart() throws Exception {
-        TestHelpers.assertFailWith(IllegalArgumentException.class,
-                () -> new AnomalyDetectorExecutionInput(randomAlphaOfLength(5), null, Instant.now()));
+        TestHelpers
+            .assertFailWith(
+                IllegalArgumentException.class,
+                () -> new AnomalyDetectorExecutionInput(randomAlphaOfLength(5), null, Instant.now())
+            );
     }
 
     public void testNullPeriodEnd() throws Exception {
-        TestHelpers.assertFailWith(IllegalArgumentException.class,
-                () -> new AnomalyDetectorExecutionInput(randomAlphaOfLength(5), Instant.now(), null));
+        TestHelpers
+            .assertFailWith(
+                IllegalArgumentException.class,
+                () -> new AnomalyDetectorExecutionInput(randomAlphaOfLength(5), Instant.now(), null)
+            );
     }
 
     public void testWrongPeriod() throws Exception {
-        TestHelpers.assertFailWith(IllegalArgumentException.class,
-                () -> new AnomalyDetectorExecutionInput(randomAlphaOfLength(5), Instant.now(),
-                        Instant.now().minus(5, ChronoUnit.MINUTES)));
+        TestHelpers
+            .assertFailWith(
+                IllegalArgumentException.class,
+                () -> new AnomalyDetectorExecutionInput(randomAlphaOfLength(5), Instant.now(), Instant.now().minus(5, ChronoUnit.MINUTES))
+            );
     }
 }

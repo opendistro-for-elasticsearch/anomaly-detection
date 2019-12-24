@@ -60,8 +60,22 @@ public class ModelManager {
     protected static final String DETECTOR_ID_PATTERN = "(.*)_model_.+";
     protected static final String RCF_MODEL_ID_PATTERN = "%s_model_rcf_%d";
     protected static final String THRESHOLD_MODEL_ID_PATTERN = "%s_model_threshold";
-    public static final String RCF_TYPE_VALUE = "rcf";
-    public static final String THRESHOLD_TYPE_VALUE = "threshold";
+
+    public enum ModelType {
+        RCF("rcf"),
+        THRESHOLD("threshold");
+
+        private String name;
+
+        ModelType(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
     private static final double FULL_CONFIDENCE_EXPONENT = 18.43; // exponent over which confidence is 1
 
     private static final Logger logger = LogManager.getLogger(ModelManager.class);
@@ -277,7 +291,7 @@ public class ModelManager {
                 .map(checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) ()
                     -> rcfSerde.fromJson(checkpoint)))
                 .filter(rcf -> isHostingAllowed(detectorId, rcf))
-                .map(rcf -> new ModelState<>(rcf, modelId, detectorId, RCF_TYPE_VALUE, clock.instant()))
+                .map(rcf -> new ModelState<>(rcf, modelId, detectorId, ModelType.RCF.getName(), clock.instant()))
                 .orElseThrow(() -> new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId)));
 
         RandomCutForest rcf = modelState.getModel();
@@ -306,8 +320,9 @@ public class ModelManager {
             model -> checkpointDao.getModelCheckpoint(model)
                 .map(checkpoint -> AccessController.doPrivileged((PrivilegedAction<ThresholdingModel>)
                     () -> gson.fromJson(checkpoint, thresholdingModelClass)))
-                .map(threshold -> new ModelState<>(threshold, modelId, detectorId, THRESHOLD_TYPE_VALUE, clock.instant()))
-                .orElseThrow(() -> new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId)));
+                .map(threshold -> new ModelState<>(threshold, modelId, detectorId, ModelType.THRESHOLD.getName(),
+                        clock.instant())).orElseThrow(() -> new ResourceNotFoundException(detectorId,
+                            CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId)));
 
         ThresholdingModel threshold = modelState.getModel();
         double grade = threshold.grade(score);

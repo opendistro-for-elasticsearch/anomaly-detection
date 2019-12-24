@@ -61,13 +61,13 @@ public class ADStatsTests extends ESTestCase {
 
         List<ModelState<?>> modelsInformation = new ArrayList<>(Arrays.asList(
                 new ModelState<>(rcf, "rcf-model-1", "detector-1",
-                        ModelManager.RCF_TYPE_VALUE, clock.instant()),
+                        ModelManager.ModelType.RCF.getName(), clock.instant()),
                 new ModelState<>(thresholdingModel,"thr-model-1",  "detector-1",
-                        ModelManager.RCF_TYPE_VALUE, clock.instant()),
+                        ModelManager.ModelType.RCF.getName(), clock.instant()),
                 new ModelState<>(rcf, "rcf-model-2",  "detector-2",
-                        ModelManager.THRESHOLD_TYPE_VALUE, clock.instant()),
+                        ModelManager.ModelType.THRESHOLD.getName(), clock.instant()),
                 new ModelState<>(thresholdingModel,"thr-model-2", "detector-2",
-                        ModelManager.THRESHOLD_TYPE_VALUE, clock.instant())
+                        ModelManager.ModelType.THRESHOLD.getName(), clock.instant())
         ));
 
         when(modelManager.getAllModels()).thenReturn(modelsInformation);

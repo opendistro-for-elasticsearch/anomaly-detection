@@ -55,36 +55,34 @@ public final class AnomalyDetectorRunner {
      * @param endTime   detection period end time
      * @param listener handle anomaly result
      */
-    public void run(AnomalyDetector detector, Instant startTime, Instant endTime,
-            ActionListener<List<AnomalyResult>> listener) {
+    public void run(AnomalyDetector detector, Instant startTime, Instant endTime, ActionListener<List<AnomalyResult>> listener) {
         executeDetector(detector, startTime, endTime, listener);
     }
 
-    private void executeDetector(AnomalyDetector detector, Instant startTime, Instant endTime,
-            ActionListener<List<AnomalyResult>> listener) {
-        featureManager.getPreviewFeatures(detector, startTime.toEpochMilli(), endTime.toEpochMilli(),
-                ActionListener.wrap(features -> {
-                    try {
-                        List<ThresholdingResult> results = modelManager
-                                .getPreviewResults(features.getProcessedFeatures());
-                        listener.onResponse(sample(parsePreviewResult(detector, features, results), 200));
-                    } catch (Exception e) {
-                        logger.error("Fail to execute anomaly detector " + detector.getDetectorId(), e);
-                        listener.onResponse(parsePreviewResult(detector, features, null));
-                    }
-                }, listener::onFailure));
+    private void executeDetector(
+        AnomalyDetector detector,
+        Instant startTime,
+        Instant endTime,
+        ActionListener<List<AnomalyResult>> listener
+    ) {
+        featureManager.getPreviewFeatures(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(features -> {
+            try {
+                List<ThresholdingResult> results = modelManager.getPreviewResults(features.getProcessedFeatures());
+                listener.onResponse(sample(parsePreviewResult(detector, features, results), 200));
+            } catch (Exception e) {
+                logger.error("Fail to execute anomaly detector " + detector.getDetectorId(), e);
+                listener.onResponse(parsePreviewResult(detector, features, null));
+            }
+        }, listener::onFailure));
 
     }
 
-
-    private List<AnomalyResult> parsePreviewResult(AnomalyDetector detector, Features features,
-                                                   List<ThresholdingResult> results) {
+    private List<AnomalyResult> parsePreviewResult(AnomalyDetector detector, Features features, List<ThresholdingResult> results) {
         // unprocessedFeatures[][], each row is for one date range.
         // For example, unprocessedFeatures[0][2] is for the first time range, the third feature
         double[][] unprocessedFeatures = features.getUnprocessedFeatures();
         List<Map.Entry<Long, Long>> timeRanges = features.getTimeRanges();
-        List<Feature> featureAttributes = detector.getFeatureAttributes().stream()
-                .filter(Feature::getEnabled).collect(Collectors.toList());
+        List<Feature> featureAttributes = detector.getFeatureAttributes().stream().filter(Feature::getEnabled).collect(Collectors.toList());
 
         List<AnomalyResult> anomalyResults = new ArrayList<>();
         if (timeRanges != null && timeRanges.size() > 0) {
@@ -92,7 +90,7 @@ public final class AnomalyDetectorRunner {
                 Map.Entry<Long, Long> timeRange = timeRanges.get(i);
 
                 List<FeatureData> featureDatas = new ArrayList<>();
-                for (int j=0;j<featureAttributes.size();j++) {
+                for (int j = 0; j < featureAttributes.size(); j++) {
                     double value = unprocessedFeatures[i][j];
                     Feature feature = featureAttributes.get(j);
                     FeatureData data = new FeatureData(feature.getId(), feature.getName(), value);
@@ -100,14 +98,27 @@ public final class AnomalyDetectorRunner {
                 }
 
                 AnomalyResult result;
-                if (results!=null && results.size() > i) {
+                if (results != null && results.size() > i) {
                     ThresholdingResult thresholdingResult = results.get(i);
-                    result = new AnomalyResult(detector.getDetectorId(), null,
-                            thresholdingResult.getGrade(), thresholdingResult.getConfidence(), featureDatas,
-                            Instant.ofEpochMilli(timeRange.getKey()), Instant.ofEpochMilli(timeRange.getValue()));
+                    result = new AnomalyResult(
+                        detector.getDetectorId(),
+                        null,
+                        thresholdingResult.getGrade(),
+                        thresholdingResult.getConfidence(),
+                        featureDatas,
+                        Instant.ofEpochMilli(timeRange.getKey()),
+                        Instant.ofEpochMilli(timeRange.getValue())
+                    );
                 } else {
-                    result = new AnomalyResult(detector.getDetectorId(), null, null, null, featureDatas,
-                            Instant.ofEpochMilli(timeRange.getKey()), Instant.ofEpochMilli(timeRange.getValue()));
+                    result = new AnomalyResult(
+                        detector.getDetectorId(),
+                        null,
+                        null,
+                        null,
+                        featureDatas,
+                        Instant.ofEpochMilli(timeRange.getKey()),
+                        Instant.ofEpochMilli(timeRange.getValue())
+                    );
                 }
 
                 anomalyResults.add(result);
@@ -120,10 +131,10 @@ public final class AnomalyDetectorRunner {
         if (results.size() <= sampleSize) {
             return results;
         } else {
-            double stepSize = (results.size() - 1.0)/(sampleSize - 1.0);
+            double stepSize = (results.size() - 1.0) / (sampleSize - 1.0);
             List<AnomalyResult> samples = new ArrayList<>(sampleSize);
             for (int i = 0; i < sampleSize; i++) {
-                int index = Math.min((int)(stepSize * i), results.size() - 1);
+                int index = Math.min((int) (stepSize * i), results.size() - 1);
                 samples.add(results.get(index));
             }
             return samples;

@@ -26,10 +26,10 @@ public class AnomalyResultTests extends ESTestCase {
 
     public void testParseAnomalyDetector() throws IOException {
         AnomalyResult detectResult = TestHelpers.randomAnomalyDetectResult();
-        String detectResultString = TestHelpers.xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(),
-                ToXContent.EMPTY_PARAMS));
-        detectResultString = detectResultString.replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",",
-                randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        String detectResultString = TestHelpers
+            .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        detectResultString = detectResultString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
         assertEquals("Parsing anomaly detect result doesn't work", detectResult, parsedDetectResult);
     }

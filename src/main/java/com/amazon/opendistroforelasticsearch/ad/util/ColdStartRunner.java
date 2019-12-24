@@ -30,7 +30,6 @@ import org.apache.logging.log4j.Logger;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-
 /**
  * The runner allows us to have a parallel thread start cold start in the
  * coordinating AD node. We can check the execution results and exceptions if
@@ -47,8 +46,7 @@ public class ColdStartRunner {
 
     public ColdStartRunner() {
         // when the thread is daemon thread, it will end immediately when the application exits.
-        exec = Executors.newFixedThreadPool(1,
-                new ThreadFactoryBuilder().setNameFormat("ad-thread-%d").setDaemon(true).build());
+        exec = Executors.newFixedThreadPool(1, new ThreadFactoryBuilder().setNameFormat("ad-thread-%d").setDaemon(true).build());
         this.runner = new ExecutorCompletionService<Boolean>(exec);
         this.currentExceptions = new ConcurrentHashMap<>();
     }
@@ -71,7 +69,7 @@ public class ColdStartRunner {
             LOG.error("Could not get result", e);
             Throwable cause = e.getCause();
             if (cause instanceof AnomalyDetectionException) {
-                AnomalyDetectionException adException = (AnomalyDetectionException)cause;
+                AnomalyDetectionException adException = (AnomalyDetectionException) cause;
                 currentExceptions.put(adException.getAnomalyDetectorId(), adException);
             }
         }
@@ -81,7 +79,7 @@ public class ColdStartRunner {
     public Optional<AnomalyDetectionException> fetchException(String adID) {
         checkResult();
 
-        if (currentExceptions.containsKey(adID) ) {
+        if (currentExceptions.containsKey(adID)) {
             LOG.error("Found matching exception for {}", adID);
             return Optional.of(currentExceptions.remove(adID));
         }

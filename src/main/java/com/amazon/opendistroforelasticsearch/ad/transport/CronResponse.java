@@ -29,8 +29,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 public class CronResponse extends BaseNodesResponse<CronNodeResponse> implements ToXContentFragment {
     static String NODES_JSON_KEY = "nodes";
 
-    public CronResponse() {
-    }
+    public CronResponse() {}
 
     public CronResponse(ClusterName clusterName, List<CronNodeResponse> nodes, List<FailedNodeException> failures) {
         super(clusterName, nodes, failures);
@@ -50,7 +49,7 @@ public class CronResponse extends BaseNodesResponse<CronNodeResponse> implements
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startArray(NODES_JSON_KEY);
         for (CronNodeResponse nodeResp : getNodes()) {
-           nodeResp.toXContent(builder, params);
+            nodeResp.toXContent(builder, params);
         }
         builder.endArray();
         return builder;

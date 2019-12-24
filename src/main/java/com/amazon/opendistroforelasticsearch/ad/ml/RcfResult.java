@@ -68,8 +68,10 @@ public class RcfResult {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         RcfResult that = (RcfResult) o;
         return Objects.equals(this.score, that.score)
             && Objects.equals(this.confidence, that.confidence)

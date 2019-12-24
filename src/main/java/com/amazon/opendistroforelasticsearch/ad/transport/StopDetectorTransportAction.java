@@ -43,42 +43,42 @@ public class StopDetectorTransportAction extends HandledTransportAction<ActionRe
 
     @Inject
     public StopDetectorTransportAction(
-            TransportService transportService, ClusterService clusterService,
-            ActionFilters actionFilters, Client client, DeleteDetector deleteUtil) {
+        TransportService transportService,
+        ClusterService clusterService,
+        ActionFilters actionFilters,
+        Client client,
+        DeleteDetector deleteUtil
+    ) {
         super(StopDetectorAction.NAME, transportService, actionFilters, StopDetectorRequest::new);
         this.client = client;
         this.clusterService = clusterService;
         this.deleteUtil = deleteUtil;
     }
 
-
     @Override
     protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<StopDetectorResponse> listener) {
         StopDetectorRequest request = StopDetectorRequest.fromActionRequest(actionRequest);
         String adID = request.getAdID();
         try {
-            DiscoveryNode[] dataNodes = clusterService.state().nodes().getDataNodes().values()
-                    .toArray(DiscoveryNode.class);
+            DiscoveryNode[] dataNodes = clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class);
             DeleteModelRequest modelDeleteRequest = new DeleteModelRequest(adID, dataNodes);
-            client.execute(DeleteModelAction.INSTANCE, modelDeleteRequest,
-                    ActionListener.wrap(response -> {
-                        if (response.hasFailures()) {
-                            LOG.warn("Cannot delete all models of detector {}", adID);
-                            for (FailedNodeException failedNodeException : response.failures()) {
-                                LOG.warn("Deleting models of node has exception", failedNodeException);
-                            }
-                            // if customers are using an updated detector and we haven't deleted old
-                            // checkpoints, customer would have trouble
-                            listener.onResponse(new StopDetectorResponse(false));
-                        } else {
-                            LOG.info("models of detector {} get deleted", adID);
-                            listener.onResponse(new StopDetectorResponse(true));
-                        }
-                    }, exception -> {
-                        LOG.error(new ParameterizedMessage("Deletion of detector [{}] has exception.", adID),
-                                exception);
-                        listener.onResponse(new StopDetectorResponse(false));
-                    }));
+            client.execute(DeleteModelAction.INSTANCE, modelDeleteRequest, ActionListener.wrap(response -> {
+                if (response.hasFailures()) {
+                    LOG.warn("Cannot delete all models of detector {}", adID);
+                    for (FailedNodeException failedNodeException : response.failures()) {
+                        LOG.warn("Deleting models of node has exception", failedNodeException);
+                    }
+                    // if customers are using an updated detector and we haven't deleted old
+                    // checkpoints, customer would have trouble
+                    listener.onResponse(new StopDetectorResponse(false));
+                } else {
+                    LOG.info("models of detector {} get deleted", adID);
+                    listener.onResponse(new StopDetectorResponse(true));
+                }
+            }, exception -> {
+                LOG.error(new ParameterizedMessage("Deletion of detector [{}] has exception.", adID), exception);
+                listener.onResponse(new StopDetectorResponse(false));
+            }));
         } catch (Exception e) {
             LOG.error("Fail to stop detector " + adID, e);
             Throwable cause = ExceptionsHelper.unwrapCause(e);

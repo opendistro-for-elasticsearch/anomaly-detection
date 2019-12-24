@@ -77,7 +77,6 @@ import static org.elasticsearch.test.ESTestCase.randomDouble;
 import static org.elasticsearch.test.ESTestCase.randomInt;
 import static org.elasticsearch.test.ESTestCase.randomLong;
 
-
 public class TestHelpers {
 
     public static final String AD_BASE_DETECTORS_URI = "/_opendistro/_anomaly_detection/detectors";
@@ -86,14 +85,26 @@ public class TestHelpers {
     public static final String AD_BASE_STATS_URI = "/_opendistro/_anomaly_detection/stats";
     private static final Logger logger = LogManager.getLogger(TestHelpers.class);
 
-    public static Response makeRequest(RestClient client, String method, String endpoint, Map<String, String> params,
-                                       String jsonEntity, List<Header> headers) throws IOException {
+    public static Response makeRequest(
+        RestClient client,
+        String method,
+        String endpoint,
+        Map<String, String> params,
+        String jsonEntity,
+        List<Header> headers
+    ) throws IOException {
         HttpEntity httpEntity = Strings.isBlank(jsonEntity) ? null : new NStringEntity(jsonEntity, ContentType.APPLICATION_JSON);
         return makeRequest(client, method, endpoint, params, httpEntity, headers);
     }
 
-    public static Response makeRequest(RestClient client, String method, String endpoint, Map<String, String> params,
-                                       HttpEntity entity, List<Header> headers) throws IOException {
+    public static Response makeRequest(
+        RestClient client,
+        String method,
+        String endpoint,
+        Map<String, String> params,
+        HttpEntity entity,
+        List<Header> headers
+    ) throws IOException {
         Request request = new Request(method, endpoint);
 
         RequestOptions.Builder options = RequestOptions.DEFAULT.toBuilder();
@@ -130,38 +141,41 @@ public class TestHelpers {
         return new NamedXContentRegistry(searchModule.getNamedXContents());
     }
 
-
     public static AnomalyDetector randomAnomalyDetector(Map<String, Object> uiMetadata, Instant lastUpdateTime) throws IOException {
         return new AnomalyDetector(
-                randomAlphaOfLength(10), randomLong(),randomAlphaOfLength(20), randomAlphaOfLength(30),
-                randomAlphaOfLength(5),
-                ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
-                ImmutableList.of(randomFeature()),
-                randomQuery(),
-                randomIntervalTimeConfiguration(),
-                randomIntervalTimeConfiguration(),
-                uiMetadata,
-                randomInt(),
-                lastUpdateTime
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomFeature()),
+            randomQuery(),
+            randomIntervalTimeConfiguration(),
+            randomIntervalTimeConfiguration(),
+            uiMetadata,
+            randomInt(),
+            lastUpdateTime
         );
     }
 
     public static SearchSourceBuilder randomFeatureQuery() throws IOException {
-        String query = "{\"query\":{\"match\":{\"user\":{\"query\":\"kimchy\",\"operator\":\"OR\",\"prefix_length\":0," +
-                "\"max_expansions\":50,\"fuzzy_transpositions\":true,\"lenient\":false,\"zero_terms_query\":\"NONE\"," +
-                "\"auto_generate_synonyms_phrase_query\":true,\"boost\":1}}}}";
+        String query = "{\"query\":{\"match\":{\"user\":{\"query\":\"kimchy\",\"operator\":\"OR\",\"prefix_length\":0,"
+            + "\"max_expansions\":50,\"fuzzy_transpositions\":true,\"lenient\":false,\"zero_terms_query\":\"NONE\","
+            + "\"auto_generate_synonyms_phrase_query\":true,\"boost\":1}}}}";
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
-        XContentParser parser = XContentType.JSON.xContent().createParser(
-                new NamedXContentRegistry(searchModule.getNamedXContents()), LoggingDeprecationHandler.INSTANCE, query);
+        XContentParser parser = XContentType.JSON
+            .xContent()
+            .createParser(new NamedXContentRegistry(searchModule.getNamedXContents()), LoggingDeprecationHandler.INSTANCE, query);
         searchSourceBuilder.parseXContent(parser);
         return searchSourceBuilder;
     }
 
     public static QueryBuilder randomQuery() throws IOException {
-        String query = "{\"bool\":{\"must\":{\"term\":{\"user\":\"kimchy\"}},\"filter\":{\"term\":{\"tag\":" +
-                "\"tech\"}},\"must_not\":{\"range\":{\"age\":{\"gte\":10,\"lte\":20}}},\"should\":[{\"term\":" +
-                "{\"tag\":\"wow\"}},{\"term\":{\"tag\":\"elasticsearch\"}}],\"minimum_should_match\":1,\"boost\":1}}";
+        String query = "{\"bool\":{\"must\":{\"term\":{\"user\":\"kimchy\"}},\"filter\":{\"term\":{\"tag\":"
+            + "\"tech\"}},\"must_not\":{\"range\":{\"age\":{\"gte\":10,\"lte\":20}}},\"should\":[{\"term\":"
+            + "{\"tag\":\"wow\"}},{\"term\":{\"tag\":\"elasticsearch\"}}],\"minimum_should_match\":1,\"boost\":1}}";
         XContentParser parser = TestHelpers.parser(query);
         return parseInnerQueryBuilder(parser);
     }
@@ -189,15 +203,14 @@ public class TestHelpers {
             logger.error("Fail to generate test aggregation");
             throw new RuntimeException();
         }
-        return new Feature(randomAlphaOfLength(5), randomAlphaOfLength(5),
-                ESRestTestCase.randomBoolean(), testAggregation);
+        return new Feature(randomAlphaOfLength(5), randomAlphaOfLength(5), ESRestTestCase.randomBoolean(), testAggregation);
     }
 
-    public static <S,T> void assertFailWith(Class<S> clazz, Callable<T> callable) throws Exception {
+    public static <S, T> void assertFailWith(Class<S> clazz, Callable<T> callable) throws Exception {
         assertFailWith(clazz, null, callable);
     }
 
-    public static <S,T> void assertFailWith(Class<S> clazz, String message, Callable<T> callable) throws Exception {
+    public static <S, T> void assertFailWith(Class<S> clazz, String message, Callable<T> callable) throws Exception {
         try {
             callable.call();
         } catch (Throwable e) {
@@ -215,20 +228,29 @@ public class TestHelpers {
     }
 
     public static AnomalyResult randomAnomalyDetectResult() {
-        return new AnomalyResult(randomAlphaOfLength(5), randomDouble(), randomDouble(),
-                randomDouble(), ImmutableList.of(randomFeatureData(), randomFeatureData()),
-                Instant.now().truncatedTo(ChronoUnit.SECONDS), Instant.now().truncatedTo(ChronoUnit.SECONDS));
+        return new AnomalyResult(
+            randomAlphaOfLength(5),
+            randomDouble(),
+            randomDouble(),
+            randomDouble(),
+            ImmutableList.of(randomFeatureData(), randomFeatureData()),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        );
     }
 
     public static AnomalyDetectorExecutionInput randomAnomalyDetectorExecutionInput() {
-        return new AnomalyDetectorExecutionInput(randomAlphaOfLength(5),
-                Instant.now().minus(10, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.SECONDS),
-                Instant.now().truncatedTo(ChronoUnit.SECONDS));
+        return new AnomalyDetectorExecutionInput(
+            randomAlphaOfLength(5),
+            Instant.now().minus(10, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.SECONDS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        );
     }
 
     public static ActionListener<CreateIndexResponse> createActionListener(
-            CheckedConsumer<CreateIndexResponse, ? extends Exception> consumer,
-            Consumer<Exception> failureConsumer) {
+        CheckedConsumer<CreateIndexResponse, ? extends Exception> consumer,
+        Consumer<Exception> failureConsumer
+    ) {
         return ActionListener.wrap(consumer, failureConsumer);
     }
 
@@ -237,8 +259,13 @@ public class TestHelpers {
     }
 
     public static ClusterService createClusterService(ThreadPool threadPool, ClusterSettings clusterSettings) {
-        DiscoveryNode discoveryNode = new DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), Collections.emptyMap(),
-                EnumSet.allOf(DiscoveryNode.Role.class), Version.CURRENT);
+        DiscoveryNode discoveryNode = new DiscoveryNode(
+            "node",
+            ESTestCase.buildNewFakeTransportAddress(),
+            Collections.emptyMap(),
+            EnumSet.allOf(DiscoveryNode.Role.class),
+            Version.CURRENT
+        );
         return ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
     }
 }

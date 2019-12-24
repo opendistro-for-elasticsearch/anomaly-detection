@@ -29,29 +29,45 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
-
 public class DeleteModelTransportAction extends
-        TransportNodesAction<DeleteModelRequest, DeleteModelResponse, DeleteModelNodeRequest, DeleteModelNodeResponse> {
+    TransportNodesAction<DeleteModelRequest, DeleteModelResponse, DeleteModelNodeRequest, DeleteModelNodeResponse> {
     private static final Logger LOG = LogManager.getLogger(DeleteModelTransportAction.class);
     private ADStateManager transportStateManager;
     private ModelManager modelManager;
     private FeatureManager featureManager;
 
     @Inject
-    public DeleteModelTransportAction(ThreadPool threadPool, ClusterService clusterService,
-            TransportService transportService, ActionFilters actionFilters, ADStateManager tarnsportStatemanager,
-            ModelManager modelManager, FeatureManager featureManager) {
-        super(DeleteModelAction.NAME, threadPool, clusterService, transportService, actionFilters,
-                DeleteModelRequest::new, DeleteModelNodeRequest::new, ThreadPool.Names.MANAGEMENT,
-                DeleteModelNodeResponse.class);
+    public DeleteModelTransportAction(
+        ThreadPool threadPool,
+        ClusterService clusterService,
+        TransportService transportService,
+        ActionFilters actionFilters,
+        ADStateManager tarnsportStatemanager,
+        ModelManager modelManager,
+        FeatureManager featureManager
+    ) {
+        super(
+            DeleteModelAction.NAME,
+            threadPool,
+            clusterService,
+            transportService,
+            actionFilters,
+            DeleteModelRequest::new,
+            DeleteModelNodeRequest::new,
+            ThreadPool.Names.MANAGEMENT,
+            DeleteModelNodeResponse.class
+        );
         this.transportStateManager = tarnsportStatemanager;
         this.modelManager = modelManager;
         this.featureManager = featureManager;
     }
 
     @Override
-    protected DeleteModelResponse newResponse(DeleteModelRequest request, List<DeleteModelNodeResponse> responses,
-            List<FailedNodeException> failures) {
+    protected DeleteModelResponse newResponse(
+        DeleteModelRequest request,
+        List<DeleteModelNodeResponse> responses,
+        List<FailedNodeException> failures
+    ) {
         return new DeleteModelResponse(clusterService.getClusterName(), responses, failures);
     }
 

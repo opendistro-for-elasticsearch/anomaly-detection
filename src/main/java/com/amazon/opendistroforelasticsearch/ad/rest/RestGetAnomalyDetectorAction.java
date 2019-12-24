@@ -71,8 +71,8 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         String detectorId = request.param(DETECTOR_ID);
         GetRequest getRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId)
-                .version(RestActions.parseVersion(request))
-                .fetchSourceContext(RestHandlerUtils.getSourceContext(request));
+            .version(RestActions.parseVersion(request))
+            .fetchSourceContext(RestHandlerUtils.getSourceContext(request));
         return channel -> client.get(getRequest, getDetectorResponse(channel));
     }
 
@@ -85,20 +85,24 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
                     return new BytesRestResponse(RestStatus.NOT_FOUND, channel.newBuilder());
                 }
 
-                XContentBuilder builder = channel.newBuilder()
-                        .startObject()
-                        .field(RestHandlerUtils._ID, response.getId())
-                        .field(RestHandlerUtils._VERSION, response.getVersion())
-                        .field(RestHandlerUtils._PRIMARY_TERM, response.getPrimaryTerm())
-                        .field(RestHandlerUtils._SEQ_NO, response.getSeqNo());
+                XContentBuilder builder = channel
+                    .newBuilder()
+                    .startObject()
+                    .field(RestHandlerUtils._ID, response.getId())
+                    .field(RestHandlerUtils._VERSION, response.getVersion())
+                    .field(RestHandlerUtils._PRIMARY_TERM, response.getPrimaryTerm())
+                    .field(RestHandlerUtils._SEQ_NO, response.getSeqNo());
                 if (!response.isSourceEmpty()) {
-                    XContentParser parser = XContentHelper.createParser(channel.request().getXContentRegistry(),
+                    XContentParser parser = XContentHelper
+                        .createParser(
+                            channel.request().getXContentRegistry(),
                             LoggingDeprecationHandler.INSTANCE,
-                            response.getSourceAsBytesRef(), XContentType.JSON);
+                            response.getSourceAsBytesRef(),
+                            XContentType.JSON
+                        );
                     try {
                         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
-                        AnomalyDetector detector = parser.namedObject(AnomalyDetector.class,
-                                AnomalyDetector.PARSE_FIELD_NAME, null);
+                        AnomalyDetector detector = parser.namedObject(AnomalyDetector.class, AnomalyDetector.PARSE_FIELD_NAME, null);
                         builder.field(RestHandlerUtils.ANOMALY_DETECTOR, detector);
                     } catch (Throwable t) {
                         logger.error("Fail to parse detector", t);

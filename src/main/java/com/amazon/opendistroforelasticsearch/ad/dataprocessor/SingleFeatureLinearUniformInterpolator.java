@@ -54,20 +54,20 @@ public class SingleFeatureLinearUniformInterpolator {
              determines a interval [t_i, t_(i+1)]. For each interpolant we determine
              which interval it lies inside and then scale the value of t,
              accordingly to compute the interpolant value.
-
+            
              for numerical stability reasons we omit processing the final
              interpolant in this loop since this last interpolant is always equal
              to the last sample.
             */
             for (int interpolantIndex = 0; interpolantIndex < (numInterpolants - 1); interpolantIndex++) {
-                double tGlobal = ((double)interpolantIndex)/(numInterpolants - 1.0);
-                double tInterval = tGlobal*(numSamples - 1.0);
-                int intervalIndex = (int)Math.floor(tInterval);
+                double tGlobal = ((double) interpolantIndex) / (numInterpolants - 1.0);
+                double tInterval = tGlobal * (numSamples - 1.0);
+                int intervalIndex = (int) Math.floor(tInterval);
                 tInterval -= intervalIndex;
 
                 double leftSample = samples[intervalIndex];
                 double rightSample = samples[intervalIndex + 1];
-                double interpolant = (1.0 - tInterval)*leftSample + tInterval*rightSample;
+                double interpolant = (1.0 - tInterval) * leftSample + tInterval * rightSample;
                 interpolants[interpolantIndex] = interpolant;
             }
 

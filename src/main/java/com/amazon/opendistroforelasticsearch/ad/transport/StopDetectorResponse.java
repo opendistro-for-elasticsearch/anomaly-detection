@@ -63,11 +63,9 @@ public class StopDetectorResponse extends ActionResponse implements ToXContentOb
             return (StopDetectorResponse) actionResponse;
         }
 
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
             actionResponse.writeTo(osso);
-            try (InputStreamStreamInput input = new InputStreamStreamInput(
-                    new ByteArrayInputStream(baos.toByteArray()))) {
+            try (InputStreamStreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
                 return new StopDetectorResponse(input);
             }
         } catch (IOException e) {

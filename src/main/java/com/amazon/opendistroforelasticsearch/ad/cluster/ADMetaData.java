@@ -59,10 +59,17 @@ public class ADMetaData implements Custom {
 
     static {
         PARSER = new ObjectParser<>("ad_meta", true, Builder::new);
-        PARSER.declareObjectArray(Builder::addAllDeletedDetector, AnomalyDetectorGraveyard.getParser(),
-                new ParseField(DETECTOR_GRAVEYARD_FIELD));
-        XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(MetaData.Custom.class, new ParseField(TYPE),
-                it -> PARSER.parse(it, null).build());
+        PARSER
+            .declareObjectArray(
+                Builder::addAllDeletedDetector,
+                AnomalyDetectorGraveyard.getParser(),
+                new ParseField(DETECTOR_GRAVEYARD_FIELD)
+            );
+        XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
+            MetaData.Custom.class,
+            new ParseField(TYPE),
+            it -> PARSER.parse(it, null).build()
+        );
     }
 
     private Set<AnomalyDetectorGraveyard> deadDetectors;
@@ -75,7 +82,7 @@ public class ADMetaData implements Custom {
 
     public ADMetaData(AnomalyDetectorGraveyard... deadDetectors) {
         Set<AnomalyDetectorGraveyard> deletedDetectorSet = new HashSet<>();
-        for(AnomalyDetectorGraveyard deletedDetector : deadDetectors) {
+        for (AnomalyDetectorGraveyard deletedDetector : deadDetectors) {
             deletedDetectorSet.add(deletedDetector);
         }
         this.deadDetectors = Collections.unmodifiableSet(deletedDetectorSet);
@@ -84,7 +91,7 @@ public class ADMetaData implements Custom {
     public ADMetaData(StreamInput in) throws IOException {
         int size = in.readVInt();
         Set<AnomalyDetectorGraveyard> deadDetectors = new HashSet<>();
-        for (int i=0; i<size; i++) {
+        for (int i = 0; i < size; i++) {
             deadDetectors.add(new AnomalyDetectorGraveyard(in));
         }
         this.deadDetectors = Collections.unmodifiableSet(deadDetectors);
@@ -92,14 +99,14 @@ public class ADMetaData implements Custom {
 
     @Override
     public Diff<Custom> diff(Custom previousState) {
-        return new ADMetaDataDiff((ADMetaData)previousState, this);
+        return new ADMetaDataDiff((ADMetaData) previousState, this);
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.write(deadDetectors.size());
-        for(AnomalyDetectorGraveyard deadDetector : deadDetectors) {
-             deadDetector.writeTo(out);
+        for (AnomalyDetectorGraveyard deadDetector : deadDetectors) {
+            deadDetector.writeTo(out);
         }
     }
 
@@ -116,7 +123,7 @@ public class ADMetaData implements Custom {
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startArray(DETECTOR_GRAVEYARD_FIELD);
-        for(AnomalyDetectorGraveyard deadDetector : deadDetectors) {
+        for (AnomalyDetectorGraveyard deadDetector : deadDetectors) {
             deadDetector.toXContent(builder, params);
         }
         builder.endArray();
@@ -145,8 +152,10 @@ public class ADMetaData implements Custom {
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         ADMetaData that = (ADMetaData) o;
         return Objects.equal(deadDetectors, that.getAnomalyDetectorGraveyard());
     }
@@ -194,14 +203,14 @@ public class ADMetaData implements Custom {
         }
 
         public ADMetaDataDiff(StreamInput in) throws IOException {
-            this.addedDetectorGraveyard =  Collections.unmodifiableSet(in.readSet(AnomalyDetectorGraveyard::new));
-            this.removedDetectorGraveyard =  Collections.unmodifiableSet(in.readSet(AnomalyDetectorGraveyard::new));
+            this.addedDetectorGraveyard = Collections.unmodifiableSet(in.readSet(AnomalyDetectorGraveyard::new));
+            this.removedDetectorGraveyard = Collections.unmodifiableSet(in.readSet(AnomalyDetectorGraveyard::new));
         }
 
         @Override
         public Custom apply(Custom current) {
             // currentDeadDetectors is unmodifiable
-            Set<AnomalyDetectorGraveyard> currentDeadDetectors = ((ADMetaData)current).deadDetectors;
+            Set<AnomalyDetectorGraveyard> currentDeadDetectors = ((ADMetaData) current).deadDetectors;
             Set<AnomalyDetectorGraveyard> newDeadDetectors = new HashSet<>(currentDeadDetectors);
             newDeadDetectors.addAll(addedDetectorGraveyard);
             newDeadDetectors.removeAll(removedDetectorGraveyard);

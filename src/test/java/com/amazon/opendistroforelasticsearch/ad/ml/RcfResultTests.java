@@ -39,15 +39,14 @@ public class RcfResultTests {
 
     private Object[] equalsData() {
         return new Object[] {
-            new Object[]{rcfResult, null, false},
-            new Object[]{rcfResult, rcfResult, true},
-            new Object[]{rcfResult, 1, false},
-            new Object[]{rcfResult, new RcfResult(score, confidence, forestSize), true},
-            new Object[]{rcfResult, new RcfResult(score + 1, confidence, forestSize), false},
-            new Object[]{rcfResult, new RcfResult(score, confidence, forestSize + 1), false},
-            new Object[]{rcfResult, new RcfResult(score + 1, confidence, forestSize + 1), false},
-            new Object[]{rcfResult, new RcfResult(score, confidence + 1, forestSize), false},
-        };
+            new Object[] { rcfResult, null, false },
+            new Object[] { rcfResult, rcfResult, true },
+            new Object[] { rcfResult, 1, false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize), true },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1), false },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence + 1, forestSize), false }, };
     }
 
     @Test
@@ -58,11 +57,10 @@ public class RcfResultTests {
 
     private Object[] hashCodeData() {
         return new Object[] {
-            new Object[]{rcfResult, new RcfResult(score, confidence, forestSize), true},
-            new Object[]{rcfResult, new RcfResult(score + 1, confidence, forestSize), false},
-            new Object[]{rcfResult, new RcfResult(score, confidence, forestSize + 1), false},
-            new Object[]{rcfResult, new RcfResult(score + 1, confidence, forestSize + 1), false},
-        };
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize), true },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1), false },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1), false }, };
     }
 
     @Test

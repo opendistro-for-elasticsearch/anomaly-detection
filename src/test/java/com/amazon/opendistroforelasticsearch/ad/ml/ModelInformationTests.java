@@ -49,28 +49,23 @@ public class ModelInformationTests extends ESTestCase {
     }
 
     public void testIsThreshold() {
-        assertEquals("isThreshold returns incorrect value", ModelInformation.THRESHOLD_TYPE_VALUE,
-                modelInformation.getModelType());
+        assertEquals("isThreshold returns incorrect value", ModelInformation.THRESHOLD_TYPE_VALUE, modelInformation.getModelType());
     }
 
     public void testToXContent() throws IOException, JsonPathNotFoundException {
         XContentBuilder builder = jsonBuilder();
         modelInformation.toXContent(builder, ToXContent.EMPTY_PARAMS);
         String json = Strings.toString(builder);
-        assertEquals(JsonDeserializer.getTextValue(json, ModelInformation.MODEL_ID_KEY),
-                modelId);
-        assertEquals(JsonDeserializer.getTextValue(json, ModelInformation.DETECTOR_ID_KEY),
-                detectorId);
-        assertEquals(JsonDeserializer.getTextValue(json, ModelInformation.MODEL_TYPE_KEY),
-                modelInformation.getModelType());
+        assertEquals(JsonDeserializer.getTextValue(json, ModelInformation.MODEL_ID_KEY), modelId);
+        assertEquals(JsonDeserializer.getTextValue(json, ModelInformation.DETECTOR_ID_KEY), detectorId);
+        assertEquals(JsonDeserializer.getTextValue(json, ModelInformation.MODEL_TYPE_KEY), modelInformation.getModelType());
 
         // Check that toXContent also returns the correct model type when isThreshold is flipped
         modelInformation = new ModelInformation(modelId, detectorId, ModelInformation.RCF_TYPE_VALUE);
         builder = jsonBuilder();
         modelInformation.toXContent(builder, ToXContent.EMPTY_PARAMS);
         json = Strings.toString(builder);
-        assertEquals(JsonDeserializer.getTextValue(json, ModelInformation.MODEL_TYPE_KEY),
-                modelInformation.getModelType());
+        assertEquals(JsonDeserializer.getTextValue(json, ModelInformation.MODEL_TYPE_KEY), modelInformation.getModelType());
     }
 
     public void testEquals() {

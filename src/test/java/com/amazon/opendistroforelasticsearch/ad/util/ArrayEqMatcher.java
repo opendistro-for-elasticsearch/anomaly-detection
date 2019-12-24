@@ -40,6 +40,6 @@ public class ArrayEqMatcher<T> implements ArgumentMatcher<T> {
 
     @Override
     public boolean matches(T actual) {
-        return Arrays.deepEquals((Object[])expected, (Object[])actual);
+        return Arrays.deepEquals((Object[]) expected, (Object[]) actual);
     }
 }

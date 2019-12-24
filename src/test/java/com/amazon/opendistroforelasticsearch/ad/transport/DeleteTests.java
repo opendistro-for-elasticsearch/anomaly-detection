@@ -93,10 +93,22 @@ public class DeleteTests extends AbstractADTest {
         node2 = "node2";
         nodename1 = "nodename1";
         nodename2 = "nodename2";
-        DiscoveryNode discoveryNode1 = new DiscoveryNode(nodename1, node1,
-                new TransportAddress(TransportAddress.META_ADDRESS, 9300), emptyMap(), emptySet(), Version.CURRENT);
-        DiscoveryNode discoveryNode2 = new DiscoveryNode(nodename2, node2,
-                new TransportAddress(TransportAddress.META_ADDRESS, 9301), emptyMap(), emptySet(), Version.CURRENT);
+        DiscoveryNode discoveryNode1 = new DiscoveryNode(
+            nodename1,
+            node1,
+            new TransportAddress(TransportAddress.META_ADDRESS, 9300),
+            emptyMap(),
+            emptySet(),
+            Version.CURRENT
+        );
+        DiscoveryNode discoveryNode2 = new DiscoveryNode(
+            nodename2,
+            node2,
+            new TransportAddress(TransportAddress.META_ADDRESS, 9301),
+            emptyMap(),
+            emptySet(),
+            Version.CURRENT
+        );
         List<DiscoveryNode> discoveryNodes = new ArrayList<DiscoveryNode>(2);
         discoveryNodes.add(discoveryNode1);
         discoveryNodes.add(discoveryNode2);
@@ -116,15 +128,14 @@ public class DeleteTests extends AbstractADTest {
 
         clusterService = mock(ClusterService.class);
         when(clusterService.localNode()).thenReturn(discoveryNode1);
-        when(clusterService.state()).thenReturn(
-                ClusterCreation.state(new ClusterName("test"), discoveryNode2, discoveryNode1, discoveryNodes));
+        when(clusterService.state())
+            .thenReturn(ClusterCreation.state(new ClusterName("test"), discoveryNode2, discoveryNode1, discoveryNodes));
 
         transportService = mock(TransportService.class);
         threadPool = mock(ThreadPool.class);
         indexNameResolver = mock(IndexNameExpressionResolver.class);
         actionFilters = mock(ActionFilters.class);
-        Settings settings = Settings.builder()
-                .put("ml.anomaly_detectors.request_timeout", TimeValue.timeValueSeconds(10)).build();
+        Settings settings = Settings.builder().put("ml.anomaly_detectors.request_timeout", TimeValue.timeValueSeconds(10)).build();
         task = mock(Task.class);
         when(task.getId()).thenReturn(1000L);
         client = mock(Client.class);
@@ -160,8 +171,12 @@ public class DeleteTests extends AbstractADTest {
         assertThat(e, is(nullValue()));
     }
 
-    public <R extends ActionRequest> void testSerialzationTemplate(R request, R readRequest,
-            Supplier<String> requestSupplier, Supplier<String> readRequestSupplier) throws IOException {
+    public <R extends ActionRequest> void testSerialzationTemplate(
+        R request,
+        R readRequest,
+        Supplier<String> requestSupplier,
+        Supplier<String> readRequestSupplier
+    ) throws IOException {
         BytesStreamOutput output = new BytesStreamOutput();
         request.writeTo(output);
 
@@ -184,14 +199,13 @@ public class DeleteTests extends AbstractADTest {
         testSerialzationTemplate(request, readRequest, request::getAdID, readRequest::getAdID);
     }
 
-    public <R extends ToXContent> void testJsonRequestTemplate(R request, Supplier<String> requestSupplier)
-            throws IOException, JsonPathNotFoundException {
+    public <R extends ToXContent> void testJsonRequestTemplate(R request, Supplier<String> requestSupplier) throws IOException,
+        JsonPathNotFoundException {
         XContentBuilder builder = jsonBuilder();
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = Strings.toString(builder);
-        assertEquals(JsonDeserializer.getTextValue(json, CommonMessageAttributes.ID_JSON_KEY),
-                requestSupplier.get());
+        assertEquals(JsonDeserializer.getTextValue(json, CommonMessageAttributes.ID_JSON_KEY), requestSupplier.get());
     }
 
     public void testJsonRequestDeleteDetector() throws IOException, JsonPathNotFoundException {
@@ -213,15 +227,15 @@ public class DeleteTests extends AbstractADTest {
     }
 
     private enum DetectorExecutionMode {
-        DELETE_MODEL_NORMAL, DELETE_MODEL_FAILURE
+        DELETE_MODEL_NORMAL,
+        DELETE_MODEL_FAILURE
     }
 
     @SuppressWarnings("unchecked")
     public void deleteDetectorResponseTemplate(DetectorExecutionMode mode) throws Exception {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                    args.length >= 3);
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 3);
             assertTrue(args[2] instanceof ActionListener);
 
             ActionListener<DeleteModelResponse> listener = (ActionListener<DeleteModelResponse>) args[2];
@@ -244,8 +258,7 @@ public class DeleteTests extends AbstractADTest {
         DeleteDetector deleteDetector = mock(DeleteDetector.class);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                    args.length == 2);
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
             assertTrue(args[1] instanceof ActionListener);
 
             ActionListener<Void> listener = (ActionListener<Void>) args[1];
@@ -255,8 +268,15 @@ public class DeleteTests extends AbstractADTest {
             return null;
         }).when(deleteDetector).markAnomalyResultDeleted(any(String.class), any());
 
-        DeleteDetectorTransportAction action = new DeleteDetectorTransportAction(transportService, clusterService,
-                threadPool, actionFilters, indexNameResolver, client, deleteDetector);
+        DeleteDetectorTransportAction action = new DeleteDetectorTransportAction(
+            transportService,
+            clusterService,
+            threadPool,
+            actionFilters,
+            indexNameResolver,
+            client,
+            deleteDetector
+        );
 
         DeleteDetectorRequest request = new DeleteDetectorRequest().adID(detectorID);
         PlainActionFuture<AcknowledgedResponse> listener = new PlainActionFuture<>();

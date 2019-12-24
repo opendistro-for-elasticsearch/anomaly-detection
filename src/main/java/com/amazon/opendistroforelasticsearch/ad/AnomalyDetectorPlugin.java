@@ -42,7 +42,6 @@ import com.amazon.opendistroforelasticsearch.ad.rest.RestExecuteAnomalyDetectorA
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
-
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorAction;
@@ -125,36 +124,48 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         AccessController.doPrivileged((PrivilegedAction<Void>) AnomalyDetectorPlugin::initGson);
     }
 
-    public AnomalyDetectorPlugin() {
-    }
+    public AnomalyDetectorPlugin() {}
 
     @Override
-    public List<RestHandler> getRestHandlers(Settings settings,
-                                             RestController restController,
-                                             ClusterSettings clusterSettings,
-                                             IndexScopedSettings indexScopedSettings,
-                                             SettingsFilter settingsFilter,
-                                             IndexNameExpressionResolver indexNameExpressionResolver,
-                                             Supplier<DiscoveryNodes> nodesInCluster) {
-        RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(settings,
-                restController);
-        RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(settings,
-                restController, clusterService, anomalyDetectionIndices);
-        RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction(settings,
-                restController);
-        RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction(settings,
-                restController);
-        RestDeleteAnomalyDetectorAction deleteAnomalyDetectorAction = new RestDeleteAnomalyDetectorAction(settings,
-                restController, clusterService);
-        RestExecuteAnomalyDetectorAction executeAnomalyDetectorAction = new RestExecuteAnomalyDetectorAction(settings,
-            restController, clusterService, anomalyDetectorRunner);
+    public List<RestHandler> getRestHandlers(
+        Settings settings,
+        RestController restController,
+        ClusterSettings clusterSettings,
+        IndexScopedSettings indexScopedSettings,
+        SettingsFilter settingsFilter,
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        Supplier<DiscoveryNodes> nodesInCluster
+    ) {
+        RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(settings, restController);
+        RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(
+            settings,
+            restController,
+            clusterService,
+            anomalyDetectionIndices
+        );
+        RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction(settings, restController);
+        RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction(settings, restController);
+        RestDeleteAnomalyDetectorAction deleteAnomalyDetectorAction = new RestDeleteAnomalyDetectorAction(
+            settings,
+            restController,
+            clusterService
+        );
+        RestExecuteAnomalyDetectorAction executeAnomalyDetectorAction = new RestExecuteAnomalyDetectorAction(
+            settings,
+            restController,
+            clusterService,
+            anomalyDetectorRunner
+        );
 
-        return ImmutableList.of(restGetAnomalyDetectorAction,
+        return ImmutableList
+            .of(
+                restGetAnomalyDetectorAction,
                 restIndexAnomalyDetectorAction,
                 searchAnomalyDetectorAction,
                 searchAnomalyResultAction,
                 deleteAnomalyDetectorAction,
-                executeAnomalyDetectorAction);
+                executeAnomalyDetectorAction
+            );
     }
 
     private static Void initGson() {
@@ -163,67 +174,115 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     }
 
     @Override
-    public Collection<Object> createComponents(Client client, ClusterService clusterService, ThreadPool threadPool,
-                                               ResourceWatcherService resourceWatcherService, ScriptService scriptService,
-                                               NamedXContentRegistry xContentRegistry, Environment environment,
-                                               NodeEnvironment nodeEnvironment,
-                                               NamedWriteableRegistry namedWriteableRegistry) {
+    public Collection<Object> createComponents(
+        Client client,
+        ClusterService clusterService,
+        ThreadPool threadPool,
+        ResourceWatcherService resourceWatcherService,
+        ScriptService scriptService,
+        NamedXContentRegistry xContentRegistry,
+        Environment environment,
+        NodeEnvironment nodeEnvironment,
+        NamedWriteableRegistry namedWriteableRegistry
+    ) {
         Settings settings = environment.settings();
         ClientUtil clientUtil = new ClientUtil(settings);
-        anomalyDetectionIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings,
-                clientUtil);
+        anomalyDetectionIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings, clientUtil);
         this.clusterService = clusterService;
 
         SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
-                new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
+            new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
         Interpolator interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
-        SearchFeatureDao searchFeatureDao = new SearchFeatureDao(client, scriptService, xContentRegistry, interpolator,
-                clientUtil);
+        SearchFeatureDao searchFeatureDao = new SearchFeatureDao(client, scriptService, xContentRegistry, interpolator, clientUtil);
 
         JvmService jvmService = new JvmService(environment.settings());
         RandomCutForestSerDe rcfSerde = new RandomCutForestSerDe();
         CheckpointDao checkpoint = new CheckpointDao(client, clientUtil, CommonName.CHECKPOINT_INDEX_NAME);
         Clock clock = Clock.systemUTC();
 
-        ModelManager modelManager = new ModelManager(clusterService, jvmService, rcfSerde, checkpoint, gson, clock,
-                AnomalyDetectorSettings.DESIRED_MODEL_SIZE_PERCENTAGE,
-                AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE, AnomalyDetectorSettings.NUM_TREES,
-                AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE, AnomalyDetectorSettings.TIME_DECAY,
-                AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE, AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-                AnomalyDetectorSettings.THRESHOLD_MAX_SCORE, AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-                AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES, AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
-                HybridThresholdingModel.class, AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
-                AnomalyDetectorSettings.HOURLY_MAINTENANCE, AnomalyDetectorSettings.HOURLY_MAINTENANCE);
+        ModelManager modelManager = new ModelManager(
+            clusterService,
+            jvmService,
+            rcfSerde,
+            checkpoint,
+            gson,
+            clock,
+            AnomalyDetectorSettings.DESIRED_MODEL_SIZE_PERCENTAGE,
+            AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
+            AnomalyDetectorSettings.NUM_TREES,
+            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
+            AnomalyDetectorSettings.TIME_DECAY,
+            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
+            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
+            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
+            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
+            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
+            HybridThresholdingModel.class,
+            AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+        );
 
         HashRing hashRing = new HashRing(clusterService, clock, settings);
-        ADStateManager stateManager = new ADStateManager(client, xContentRegistry, modelManager, settings, clientUtil,
-                clock, AnomalyDetectorSettings.HOURLY_MAINTENANCE);
+        ADStateManager stateManager = new ADStateManager(
+            client,
+            xContentRegistry,
+            modelManager,
+            settings,
+            clientUtil,
+            clock,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+        );
         ColdStartRunner runner = new ColdStartRunner();
-        FeatureManager featureManager = new FeatureManager(searchFeatureDao, interpolator, clock,
-                AnomalyDetectorSettings.MAX_TRAIN_SAMPLE, AnomalyDetectorSettings.MAX_SAMPLE_STRIDE, AnomalyDetectorSettings.SHINGLE_SIZE,
-                AnomalyDetectorSettings.MAX_MISSING_POINTS, AnomalyDetectorSettings.MAX_NEIGHBOR_DISTANCE,
-                AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES, AnomalyDetectorSettings.HOURLY_MAINTENANCE);
+        FeatureManager featureManager = new FeatureManager(
+            searchFeatureDao,
+            interpolator,
+            clock,
+            AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
+            AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
+            AnomalyDetectorSettings.SHINGLE_SIZE,
+            AnomalyDetectorSettings.MAX_MISSING_POINTS,
+            AnomalyDetectorSettings.MAX_NEIGHBOR_DISTANCE,
+            AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+        );
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager);
 
         DeleteDetector deleteUtil = new DeleteDetector(clusterService, clock);
-        DailyCron dailyCron = new DailyCron(deleteUtil, clock, client,
-                AnomalyDetectorSettings.CHECKPOINT_TTL);
+        DailyCron dailyCron = new DailyCron(deleteUtil, clock, client, AnomalyDetectorSettings.CHECKPOINT_TTL);
         HourlyCron hourlyCron = new HourlyCron(clusterService, client);
 
         ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
 
-        return ImmutableList.of(anomalyDetectionIndices, anomalyDetectorRunner, searchFeatureDao,
-                singleFeatureLinearUniformInterpolator, interpolator, gson, jvmService, hashRing, featureManager,
-                modelManager, clock, stateManager, runner,
+        return ImmutableList
+            .of(
+                anomalyDetectionIndices,
+                anomalyDetectorRunner,
+                searchFeatureDao,
+                singleFeatureLinearUniformInterpolator,
+                interpolator,
+                gson,
+                jvmService,
+                hashRing,
+                featureManager,
+                modelManager,
+                clock,
+                stateManager,
+                runner,
                 new ADClusterEventListener(clusterService, hashRing, modelManager),
-                deleteUtil, dailyCron, hourlyCron, adCircuitBreakerService,
+                deleteUtil,
+                dailyCron,
+                hourlyCron,
+                adCircuitBreakerService,
                 new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock)
-                );
+            );
     }
 
     @Override
     public List<Setting<?>> getSettings() {
-        return ImmutableList.of(
+        return ImmutableList
+            .of(
                 AnomalyDetectorSettings.MAX_ANOMALY_DETECTORS,
                 AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
                 AnomalyDetectorSettings.REQUEST_TIMEOUT,
@@ -238,21 +297,21 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.BACKOFF_MINUTES,
                 AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY,
                 AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF
-        );
+            );
     }
 
     @Override
     public List<NamedXContentRegistry.Entry> getNamedXContent() {
-        return ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY,
-                ADMetaData.XCONTENT_REGISTRY);
+        return ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY, ADMetaData.XCONTENT_REGISTRY);
     }
 
     @Override
     public List<NamedWriteableRegistry.Entry> getNamedWriteables() {
-        return Arrays.asList(
+        return Arrays
+            .asList(
                 new NamedWriteableRegistry.Entry(Custom.class, ADMetaData.TYPE, ADMetaData::new),
-                new NamedWriteableRegistry.Entry(NamedDiff.class, ADMetaData.TYPE , ADMetaDataDiff::new)
-                );
+                new NamedWriteableRegistry.Entry(NamedDiff.class, ADMetaData.TYPE, ADMetaDataDiff::new)
+            );
     }
 
     /*
@@ -260,7 +319,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
      */
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
-        return Arrays.asList(
+        return Arrays
+            .asList(
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
                 new ActionHandler<>(DeleteDetectorAction.INSTANCE, DeleteDetectorTransportAction.class),
                 new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
@@ -268,6 +328,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(ThresholdResultAction.INSTANCE, ThresholdResultTransportAction.class),
                 new ActionHandler<>(AnomalyResultAction.INSTANCE, AnomalyResultTransportAction.class),
                 new ActionHandler<>(CronAction.INSTANCE, CronTransportAction.class)
-        );
+            );
     }
 }

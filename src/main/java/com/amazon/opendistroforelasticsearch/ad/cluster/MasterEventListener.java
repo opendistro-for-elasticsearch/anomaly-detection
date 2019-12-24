@@ -38,8 +38,13 @@ public class MasterEventListener implements LocalNodeMasterListener {
     private Client client;
     private Clock clock;
 
-    public MasterEventListener(ClusterService clusterService, ThreadPool threadPool, DeleteDetector deleteUtil,
-            Client client, Clock clock) {
+    public MasterEventListener(
+        ClusterService clusterService,
+        ThreadPool threadPool,
+        DeleteDetector deleteUtil,
+        Client client,
+        Clock clock
+    ) {
         this.clusterService = clusterService;
         this.threadPool = threadPool;
         this.deleteUtil = deleteUtil;
@@ -51,8 +56,8 @@ public class MasterEventListener implements LocalNodeMasterListener {
     @Override
     public void onMaster() {
         if (hourlyCron == null) {
-            hourlyCron = threadPool.scheduleWithFixedDelay(new HourlyCron(clusterService, client),
-                    TimeValue.timeValueHours(1), executorName());
+            hourlyCron = threadPool
+                .scheduleWithFixedDelay(new HourlyCron(clusterService, client), TimeValue.timeValueHours(1), executorName());
             clusterService.addLifecycleListener(new LifecycleListener() {
                 @Override
                 public void beforeStop() {
@@ -63,9 +68,12 @@ public class MasterEventListener implements LocalNodeMasterListener {
         }
 
         if (dailyCron == null) {
-            dailyCron = threadPool.scheduleWithFixedDelay(
+            dailyCron = threadPool
+                .scheduleWithFixedDelay(
                     new DailyCron(deleteUtil, clock, client, AnomalyDetectorSettings.CHECKPOINT_TTL),
-                    TimeValue.timeValueHours(24), executorName());
+                    TimeValue.timeValueHours(24),
+                    executorName()
+                );
             clusterService.addLifecycleListener(new LifecycleListener() {
                 @Override
                 public void beforeStop() {

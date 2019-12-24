@@ -73,8 +73,15 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
         ModelManager modelManager = mock(ModelManager.class);
         FeatureManager featureManager = mock(FeatureManager.class);
 
-        action = new DeleteModelTransportAction(threadPool, clusterService, transportService, actionFilters,
-                tarnsportStatemanager, modelManager, featureManager);
+        action = new DeleteModelTransportAction(
+            threadPool,
+            clusterService,
+            transportService,
+            actionFilters,
+            tarnsportStatemanager,
+            modelManager,
+            featureManager
+        );
     }
 
     public void testNormal() throws IOException, JsonPathNotFoundException {
@@ -93,8 +100,7 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
         DeleteModelNodeResponse nodeResponse1 = action.nodeOperation(nodeResponseRead);
         DeleteModelNodeResponse nodeResponse2 = action.nodeOperation(new DeleteModelNodeRequest("foo2", request));
 
-        DeleteModelResponse response = action.newResponse(request, Arrays.asList(nodeResponse1, nodeResponse2),
-                Collections.emptyList());
+        DeleteModelResponse response = action.newResponse(request, Arrays.asList(nodeResponse1, nodeResponse2), Collections.emptyList());
 
         assertEquals(2, response.getNodes().size());
         assertTrue(!response.hasFailures());
@@ -113,8 +119,10 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
             }
             return null;
         };
-        assertArrayEquals(JsonDeserializer.getArrayValue(json, function, CronResponse.NODES_JSON_KEY),
-                new String[] { localNodeID, localNodeID });
+        assertArrayEquals(
+            JsonDeserializer.getArrayValue(json, function, CronResponse.NODES_JSON_KEY),
+            new String[] { localNodeID, localNodeID }
+        );
     }
 
     public void testEmptyDetectorID() {

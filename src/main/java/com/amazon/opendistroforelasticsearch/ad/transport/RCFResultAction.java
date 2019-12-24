@@ -22,7 +22,9 @@ public class RCFResultAction extends Action<RCFResultResponse> {
     public static final RCFResultAction INSTANCE = new RCFResultAction();
     public static final String NAME = "cluster:admin/ad/rcf/result";
 
-    private RCFResultAction() {super(NAME); }
+    private RCFResultAction() {
+        super(NAME);
+    }
 
     @Override
     public RCFResultResponse newResponse() {

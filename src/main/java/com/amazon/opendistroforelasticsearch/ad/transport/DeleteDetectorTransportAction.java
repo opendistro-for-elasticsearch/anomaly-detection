@@ -45,11 +45,23 @@ public class DeleteDetectorTransportAction extends TransportMasterNodeAction<Del
 
     @Inject
     public DeleteDetectorTransportAction(
-            TransportService transportService, ClusterService clusterService, ThreadPool threadPool,
-            ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
-            Client client, DeleteDetector deleteUtil) {
-        super(DeleteDetectorAction.NAME, transportService, clusterService, threadPool, actionFilters,
-                indexNameExpressionResolver, DeleteDetectorRequest::new);
+        TransportService transportService,
+        ClusterService clusterService,
+        ThreadPool threadPool,
+        ActionFilters actionFilters,
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        Client client,
+        DeleteDetector deleteUtil
+    ) {
+        super(
+            DeleteDetectorAction.NAME,
+            transportService,
+            clusterService,
+            threadPool,
+            actionFilters,
+            indexNameExpressionResolver,
+            DeleteDetectorRequest::new
+        );
         this.client = client;
         this.clusterService = clusterService;
         this.deleteUtil = deleteUtil;
@@ -73,40 +85,41 @@ public class DeleteDetectorTransportAction extends TransportMasterNodeAction<Del
     }
 
     @Override
-    protected void masterOperation(DeleteDetectorRequest request, ClusterState state,
-            ActionListener<AcknowledgedResponse> listener) throws Exception {
+    protected void masterOperation(DeleteDetectorRequest request, ClusterState state, ActionListener<AcknowledgedResponse> listener)
+        throws Exception {
         throw new UnsupportedOperationException("Need a task ID");
     }
 
     @Override
-    protected void masterOperation(Task task, DeleteDetectorRequest request, ClusterState state,
-            ActionListener<AcknowledgedResponse> listener) throws Exception {
+    protected void masterOperation(
+        Task task,
+        DeleteDetectorRequest request,
+        ClusterState state,
+        ActionListener<AcknowledgedResponse> listener
+    ) throws Exception {
 
         String adID = request.getAdID();
         deleteUtil.markAnomalyResultDeleted(adID, ActionListener.wrap(success -> {
-            DiscoveryNode[] dataNodes = clusterService.state().nodes().getDataNodes().values()
-                    .toArray(DiscoveryNode.class);
+            DiscoveryNode[] dataNodes = clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class);
 
             DeleteModelRequest modelDeleteRequest = new DeleteModelRequest(adID, dataNodes);
-            client.execute(DeleteModelAction.INSTANCE, modelDeleteRequest,
-                     ActionListener.wrap(response -> {
-                        if (response.hasFailures()) {
-                            LOG.warn("Cannot delete all models of detector {}", adID);
-                            for (FailedNodeException failedNodeException : response.failures()) {
-                                LOG.warn("Deleting models of node has exception", failedNodeException);
-                            }
-                            // if customers are using an updated detector and we haven't deleted old
-                            // checkpoints, customer would have trouble
-                            listener.onResponse(new AcknowledgedResponse(false));
-                        } else {
-                            LOG.info("models of detector {} get deleted", adID);
-                            listener.onResponse(new AcknowledgedResponse(true));
-                        }
-                    }, exception -> {
-                        LOG.error(new ParameterizedMessage("Deletion of detector [{}] has exception.", adID),
-                                exception);
-                        listener.onResponse(new AcknowledgedResponse(false));
-                    }));
+            client.execute(DeleteModelAction.INSTANCE, modelDeleteRequest, ActionListener.wrap(response -> {
+                if (response.hasFailures()) {
+                    LOG.warn("Cannot delete all models of detector {}", adID);
+                    for (FailedNodeException failedNodeException : response.failures()) {
+                        LOG.warn("Deleting models of node has exception", failedNodeException);
+                    }
+                    // if customers are using an updated detector and we haven't deleted old
+                    // checkpoints, customer would have trouble
+                    listener.onResponse(new AcknowledgedResponse(false));
+                } else {
+                    LOG.info("models of detector {} get deleted", adID);
+                    listener.onResponse(new AcknowledgedResponse(true));
+                }
+            }, exception -> {
+                LOG.error(new ParameterizedMessage("Deletion of detector [{}] has exception.", adID), exception);
+                listener.onResponse(new AcknowledgedResponse(false));
+            }));
         }, listener::onFailure));
 
     }

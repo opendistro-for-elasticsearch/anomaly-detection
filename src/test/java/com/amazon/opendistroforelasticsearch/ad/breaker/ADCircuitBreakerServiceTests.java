@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.breaker;
 
 import org.elasticsearch.monitor.jvm.JvmService;
+import org.elasticsearch.monitor.jvm.JvmStats;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InjectMocks;
@@ -23,9 +24,11 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.Mockito.when;
 
 public class ADCircuitBreakerServiceTests {
 
@@ -34,6 +37,12 @@ public class ADCircuitBreakerServiceTests {
 
     @Mock
     JvmService jvmService;
+
+    @Mock
+    JvmStats jvmStats;
+
+    @Mock
+    JvmStats.Mem mem;
 
     @Before
     public void setup() {
@@ -88,4 +97,23 @@ public class ADCircuitBreakerServiceTests {
         assertThat(adCircuitBreakerService.init(), is(notNullValue()));
     }
 
+    @Test
+    public void testIsOpen() {
+        when(jvmService.stats()).thenReturn(jvmStats);
+        when(jvmStats.getMem()).thenReturn(mem);
+        when(mem.getHeapUsedPercent()).thenReturn((short)50);
+
+        adCircuitBreakerService.registerBreaker(BreakerName.MEM.getName(), new MemoryCircuitBreaker(jvmService));
+        assertThat(adCircuitBreakerService.isOpen(), equalTo(false));
+    }
+
+    @Test
+    public void testIsOpen1() {
+        when(jvmService.stats()).thenReturn(jvmStats);
+        when(jvmStats.getMem()).thenReturn(mem);
+        when(mem.getHeapUsedPercent()).thenReturn((short)90);
+
+        adCircuitBreakerService.registerBreaker(BreakerName.MEM.getName(), new MemoryCircuitBreaker(jvmService));
+        assertThat(adCircuitBreakerService.isOpen(), equalTo(true));
+    }
 }

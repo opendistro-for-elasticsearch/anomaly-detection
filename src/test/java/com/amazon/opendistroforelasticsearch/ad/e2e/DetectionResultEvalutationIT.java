@@ -71,9 +71,11 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
         double positiveAnomalies = testResults[2];
         double errors = testResults[3];
 
+        // precision = predicted anomaly points that are true / predicted anomaly points
         double precision = positives > 0 ? truePositives / positives : 1;
         assertTrue(precision >= minPrecision);
 
+        // recall = windows containing predicted anomaly points / total anomaly windows
         double recall = anomalies.size() > 0 ? positiveAnomalies / anomalies.size() : 1;
         assertTrue(recall >= minRecall);
 
@@ -107,7 +109,6 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
                 Map<String, Object> response = entityAsMap(client.performRequest(request));
                 double anomalyGrade = (double)response.get("anomalyGrade");
                 if (anomalyGrade > 0) {
-                    System.out.println("LLL," + begin + "," + anomalyGrade);
                     positives++;
                     int result = isAnomaly(begin, anomalies);
                     if (result != -1) {

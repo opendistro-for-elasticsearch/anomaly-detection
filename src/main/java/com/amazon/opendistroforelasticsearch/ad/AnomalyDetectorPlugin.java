@@ -34,6 +34,7 @@ import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestExecuteAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestGetAnomalyDetectorAction;
@@ -44,8 +45,14 @@ import com.amazon.opendistroforelasticsearch.ad.rest.RestStatsAnomalyDetectorAct
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
 
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 
+import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.DocumentCountSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsTransportAction;
@@ -65,11 +72,13 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -121,6 +130,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private AnomalyDetectionIndices anomalyDetectionIndices;
     private AnomalyDetectorRunner anomalyDetectorRunner;
     private ClusterService clusterService;
+    private ADStats adStats;
 
     static {
         SpecialPermission.check();
@@ -153,7 +163,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         RestExecuteAnomalyDetectorAction executeAnomalyDetectorAction = new RestExecuteAnomalyDetectorAction(settings,
             restController, clusterService, anomalyDetectorRunner);
         RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(settings,
-                restController);
+                restController, adStats);
 
         return ImmutableList.of(restGetAnomalyDetectorAction,
                 restIndexAnomalyDetectorAction,
@@ -218,7 +228,22 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.CHECKPOINT_TTL);
         HourlyCron hourlyCron = new HourlyCron(clusterService, client);
 
-        ADStats adStats = new ADStats(indexUtils, modelManager);
+        Map<String, ADStat<?>> stats = ImmutableMap.<String, ADStat<?>>builder()
+            .put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false,
+                    new CounterSupplier()))
+            .put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.MODEL_INFORMATION.getName(), new ADStat<>(false,
+                    new ModelsOnNodeSupplier(modelManager)))
+            .put(StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(), new ADStat<>(true,
+                    new IndexStatusSupplier(indexUtils, AnomalyDetector.ANOMALY_DETECTORS_INDEX)))
+            .put(StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(), new ADStat<>(true,
+                    new IndexStatusSupplier(indexUtils, AnomalyResult.ANOMALY_RESULT_INDEX)))
+            .put(StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(), new ADStat<>(true,
+                    new IndexStatusSupplier(indexUtils, CommonName.CHECKPOINT_INDEX_NAME)))
+            .put(StatNames.DETECTOR_COUNT.getName(), new ADStat<>(true,
+                    new DocumentCountSupplier(indexUtils, AnomalyDetector.ANOMALY_DETECTORS_INDEX))).build();
+
+        adStats = new ADStats(indexUtils, modelManager, stats);
         ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
 
         return ImmutableList.of(anomalyDetectionIndices, anomalyDetectorRunner, searchFeatureDao,

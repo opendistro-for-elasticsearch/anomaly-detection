@@ -18,6 +18,9 @@ package com.amazon.opendistroforelasticsearch.ad.stats;
 import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.randomcutforest.RandomCutForest;
 import org.elasticsearch.test.ESTestCase;
@@ -30,6 +33,7 @@ import org.mockito.MockitoAnnotations;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -41,9 +45,12 @@ import static org.mockito.Mockito.when;
 
 public class ADStatsTests extends ESTestCase {
 
+    private Map<String, ADStat<?>> statsMap;
     private ADStats adStats;
     private RandomCutForest rcf;
     private HybridThresholdingModel thresholdingModel;
+    private String clusterStatName1, clusterStatName2;
+    private String nodeStatName1, nodeStatName2;
 
     @Mock
     private Clock clock;
@@ -75,13 +82,31 @@ public class ADStatsTests extends ESTestCase {
 
         when(indexUtils.getIndexHealthStatus(anyString())).thenReturn("yellow");
         when(indexUtils.getNumberOfDocumentsInIndex(anyString())).thenReturn(100L);
-        adStats = new ADStats(indexUtils, modelManager);
+
+        clusterStatName1 = "clusterStat1";
+        clusterStatName2 = "clusterStat2";
+
+        nodeStatName1 = "nodeStat1";
+        nodeStatName2 = "nodeStat2";
+
+        statsMap = new HashMap<String, ADStat<?>>() {
+            {
+                put(nodeStatName1, new ADStat<>(false, new CounterSupplier()));
+                put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager)));
+                put(clusterStatName1, new ADStat<>(true, new IndexStatusSupplier(indexUtils,
+                        "index1")));
+                put(clusterStatName2, new ADStat<>(true, new IndexStatusSupplier(indexUtils,
+                        "index2")));
+            }
+        };
+
+        adStats = new ADStats(indexUtils, modelManager, statsMap);
     }
 
     @Test
     public void testStatNamesGetNames() {
         assertEquals("getNames of StatNames returns the incorrect number of stats",
-                ADStats.StatNames.getNames().size(), ADStats.StatNames.values().length);
+                StatNames.getNames().size(), StatNames.values().length);
     }
 
     @Test
@@ -89,7 +114,7 @@ public class ADStatsTests extends ESTestCase {
         Map<String, ADStat<?>> stats = adStats.getStats();
 
         assertEquals("getStats returns the incorrect number of stats",
-                stats.size(), ADStats.StatNames.values().length);
+                stats.size(), statsMap.size());
 
         for (Map.Entry<String, ADStat<?>> stat : stats.entrySet()) {
             assertTrue("getStats returns incorrect stats",
@@ -100,11 +125,11 @@ public class ADStatsTests extends ESTestCase {
 
     @Test
     public void testGetStat() {
-        ADStat<?> stat = adStats.getStat(ADStats.StatNames.AD_EXECUTE_REQUEST_COUNT.getName());
+        ADStat<?> stat = adStats.getStat(clusterStatName1);
 
         assertTrue("getStat returns incorrect stat",
-                adStats.getStats().containsKey(stat.getName()) &&
-                        adStats.getStats().get(stat.getName()) == stat);
+                adStats.getStats().containsKey(clusterStatName1) &&
+                        adStats.getStats().get(clusterStatName1) == stat);
     }
 
     @Test
@@ -113,7 +138,9 @@ public class ADStatsTests extends ESTestCase {
         Set<ADStat<?>> nodeStats = new HashSet<>(adStats.getNodeStats().values());
 
         for (ADStat<?> stat : stats.values()) {
-            assertTrue("getNodeStats returns incorrect stats", stat.isClusterLevel() || nodeStats.contains(stat));
+            assertTrue("getNodeStats returns incorrect stat",
+                    (stat.isClusterLevel() && !nodeStats.contains(stat)) ||
+                            (!stat.isClusterLevel() && nodeStats.contains(stat)));
         }
     }
 
@@ -123,7 +150,9 @@ public class ADStatsTests extends ESTestCase {
         Set<ADStat<?>> clusterStats = new HashSet<>(adStats.getClusterStats().values());
 
         for (ADStat<?> stat : stats.values()) {
-            assertTrue("getNodeStats returns incorrect stats", !stat.isClusterLevel() || clusterStats.contains(stat));
+            assertTrue("getClusterStats returns incorrect stat",
+                    (stat.isClusterLevel() && clusterStats.contains(stat)) ||
+                            (!stat.isClusterLevel() && !clusterStats.contains(stat)));
         }
     }
 }

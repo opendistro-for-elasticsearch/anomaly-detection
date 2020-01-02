@@ -24,7 +24,7 @@ import java.io.IOException;
 /**
  *  ADStatsNodeRequest to get a nodes stat
  */
-class ADStatsNodeRequest extends BaseNodeRequest {
+public class ADStatsNodeRequest extends BaseNodeRequest {
     private ADStatsRequest request;
 
     /**
@@ -46,7 +46,7 @@ class ADStatsNodeRequest extends BaseNodeRequest {
     }
 
     /**
-     * getADStatsRequest
+     * Get ADStatsRequest
      *
      * @return ADStatsRequest for this node
      */

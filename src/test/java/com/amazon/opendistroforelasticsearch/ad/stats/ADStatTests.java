@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
-import com.amazon.opendistroforelasticsearch.ad.stats.counters.BasicCounter;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Test;
@@ -25,39 +24,33 @@ import java.util.function.Supplier;
 public class ADStatTests extends ESTestCase {
 
     @Test
-    public void testGetName() {
-        ADStat<String> stat1 = new ADStat<>("stat1", true, new TestSupplier());
-        assertEquals("getName returns the wrong value", "stat1", stat1.getName());
-    }
-
-    @Test
     public void testIsClusterLevel() {
-        ADStat<String> stat1 = new ADStat<>("stat1", true, new TestSupplier());
+        ADStat<String> stat1 = new ADStat<>(true, new TestSupplier());
         assertTrue("isCluster returns the wrong value", stat1.isClusterLevel());
-        ADStat<String> stat2 = new ADStat<>("stat2", false, new TestSupplier());
+        ADStat<String> stat2 = new ADStat<>(false, new TestSupplier());
         assertTrue("isCluster returns the wrong value", !stat2.isClusterLevel());
     }
 
     @Test
     public void testGetValue() {
-        ADStat<Long> stat1 = new ADStat<>("stat1", false, new CounterSupplier(new BasicCounter()));
+        ADStat<Long> stat1 = new ADStat<>(false, new CounterSupplier());
         assertEquals("GetValue returns the incorrect value", 0L, (long)(stat1.getValue()));
 
-        ADStat<String> stat2 = new ADStat<>("stat2", false, new TestSupplier());
+        ADStat<String> stat2 = new ADStat<>(false, new TestSupplier());
         assertEquals("GetValue returns the incorrect value", "test", stat2.getValue());
     }
 
     @Test
     public void testIncrement() {
-        ADStat<Long> incrementStat = new ADStat<>("stat1", false, new CounterSupplier(new BasicCounter()));
+        ADStat<Long> incrementStat = new ADStat<>(false, new CounterSupplier());
 
         for (Long i = 0L; i < 100; i++) {
             assertEquals("increment does not work", i, incrementStat.getValue());
             incrementStat.increment();
         }
 
-        // Ensure that no problems occur for a stat that cannot be indexed
-        ADStat<String> nonIncStat = new ADStat<>("stat1", false, new TestSupplier());
+        // Ensure that no problems occur for a stat that cannot be incremented
+        ADStat<String> nonIncStat = new ADStat<>(false, new TestSupplier());
         nonIncStat.increment();
     }
 

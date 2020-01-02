@@ -15,99 +15,92 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import org.elasticsearch.action.support.nodes.BaseNodesRequest;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * ADStatsRequest implements a request to obtain stats about the AD plugin
  */
 public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
 
+    /**
+     * Key indicating all stats should be retrieved
+     */
     public static final String ALL_STATS_KEY = "_all";
 
-    private Map<String, Boolean> statsRetrievalMap;
+    private Set<String> validStats;
+    private Set<String> statsToBeRetrieved;
+
+    /**
+     * Empty constructor needed for ADStatsTransportAction
+     */
+    public ADStatsRequest() {}
 
     /**
      * Constructor
      *
+     * @param validStats a set of stat names that the user could potentially query
      * @param nodeIds nodeIds of nodes' stats to be retrieved
      */
-    public ADStatsRequest(String... nodeIds) {
+    public ADStatsRequest(Set<String> validStats, String... nodeIds) {
         super(nodeIds);
-        statsRetrievalMap = initStatsMap();
+        this.validStats = validStats;
+        statsToBeRetrieved = new HashSet<>();
     }
 
     /**
-     * Initialize map that stores which stats should be retrieved
-     */
-    private Map<String, Boolean> initStatsMap() {
-        Map<String, Boolean> stats = new HashMap<>();
-        for (String statName : ADStats.StatNames.getNames()) {
-            stats.put(statName, true);
-        }
-        return stats;
-    }
-
-    /**
-     * Sets every stats retrieval status to true
+     * Add all stats to be retrieved
      */
     public void all() {
-        for (Map.Entry<String, Boolean> entry : statsRetrievalMap.entrySet()) {
-            entry.setValue(true);
-        }
+        statsToBeRetrieved.addAll(validStats);
     }
 
     /**
-     * Sets every stats retrieval status to false
+     * Remove all stats from retrieval set
      */
     public void clear() {
-        for (Map.Entry<String, Boolean> entry : statsRetrievalMap.entrySet()) {
-            entry.setValue(false);
-        }
+        statsToBeRetrieved.clear();
     }
 
     /**
-     * Sets a stats retrieval status to true if it is a valid stat
+     * Adds a stat to the set of stats to be retrieved
      *
-     * @param stat stat name
-     * @return true if the stats's retrieval status is successfully update; false otherwise
+     * @param stat name of the stat
+     * @return true if the stat is valid and marked for retrieval; false otherwise
      */
     public boolean addStat(String stat) {
-        if (statsRetrievalMap.containsKey(stat)) {
-            statsRetrievalMap.put(stat, true);
+        if (validStats.contains(stat)) {
+            statsToBeRetrieved.add(stat);
             return true;
         }
         return false;
     }
 
     /**
-     * Get the map that tracks which stats should be retrieved
+     * Get the set that tracks which stats should be retrieved
      *
-     * @return the map that contains the stat names to retrieval status mapping
+     * @return the set that contains the stat names marked for retrieval
      */
-    public Map<String, Boolean> getStatsRetrievalMap() {
-        return statsRetrievalMap;
+    public Set<String> getStatsToBeRetrieved() {
+        return statsToBeRetrieved;
     }
 
     @Override
     public void readFrom(StreamInput in) throws IOException {
         super.readFrom(in);
-        for (Map.Entry<String, Boolean> entry : statsRetrievalMap.entrySet()) {
-            entry.setValue(in.readBoolean());
-        }
+        validStats = in.readSet(StreamInput::readString);
+        statsToBeRetrieved = in.readSet(StreamInput::readString);
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        for (Map.Entry<String, Boolean> entry : statsRetrievalMap.entrySet()) {
-            out.writeBoolean(entry.getValue());
-        }
+        out.writeStringCollection(validStats);
+        out.writeStringCollection(statsToBeRetrieved);
     }
 }

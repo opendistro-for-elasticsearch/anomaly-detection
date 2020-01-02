@@ -47,6 +47,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
+import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.apache.logging.log4j.LogManager;
@@ -210,12 +211,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         AnomalyResultRequest request = AnomalyResultRequest.fromActionRequest(actionRequest);
         String adID = request.getAdID();
 
-        adStats.getStat(ADStats.StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
+        adStats.getStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
 
         try {
             Optional<AnomalyDetector> detector = stateManager.getAnomalyDetector(adID);
             if (!detector.isPresent()) {
-                adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                 listener.onFailure(new EndRunException(adID, "AnomalyDetector is not available.", true));
                 return;
             }
@@ -223,7 +224,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             String thresholdModelID = modelManager.getThresholdModelId(adID);
             Optional<DiscoveryNode> thresholdNode = hashRing.getOwningNode(thresholdModelID);
             if (!thresholdNode.isPresent()) {
-                adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                 listener.onFailure(new InternalFailure(adID, "Threshold model node is not available."));
                 return;
             }
@@ -255,7 +256,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     LOG.info("Return at least current feature for {}", adID);
                     listener.onResponse(new AnomalyResultResponse(Double.NaN, Double.NaN, featureInResponse));
                 }
-                adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                 return;
             }
 
@@ -297,13 +298,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.debug("Wait for RCF results...");
                 rcfLatch.await(latchWaitSecs, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
-                adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                 listener.onFailure(new InternalFailure(adID, CommonErrorMessages.WAIT_ERR_MSG, e));
                 return;
             }
 
             if (coldStartIfNoModel(failure, detector.get()) || rcfResults.isEmpty()) {
-                adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                 listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                 return;
             }
@@ -328,13 +329,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.debug("Wait for threshold results...");
                 thresholdLatch.await(latchWaitSecs, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
-                adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                 listener.onFailure(new InternalFailure(adID, WAIT_FOR_THRESHOLD_ERR_MSG, e));
                 return;
             }
 
             if (coldStartIfNoModel(failure, detector.get())) {
-                adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                 listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                 return;
             }
@@ -349,22 +350,22 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         featureInResponse, Instant.ofEpochMilli(request.getStart()),
                         Instant.ofEpochMilli(request.getEnd())));
             } else if (failure.get() != null) {
-                adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                 listener.onFailure(failure.get());
             } else {
-                adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                 listener.onFailure(new InternalFailure(adID, "Unexpected exception"));
             }
         } catch (ClientException clientException) {
-            adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+            adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
             listener.onFailure(clientException);
         }
         catch (AnomalyDetectionException adEx) {
-            adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+            adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
             listener.onFailure(new InternalFailure(adEx));
         } catch (Exception throwable) {
             Throwable cause = ExceptionsHelper.unwrapCause(throwable);
-            adStats.getStat(ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+            adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
             listener.onFailure(new InternalFailure(adID, cause));
         }
 

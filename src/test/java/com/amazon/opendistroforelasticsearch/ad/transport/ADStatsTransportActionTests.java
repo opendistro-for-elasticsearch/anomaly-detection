@@ -16,7 +16,11 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import org.elasticsearch.action.FailedNodeException;
@@ -29,6 +33,7 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +45,9 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
 
     private ADStatsTransportAction action;
     private ADStats adStats;
+    private Map<String, ADStat<?>> statsMap;
+    private String clusterStatName1, clusterStatName2;
+    private String nodeStatName1, nodeStatName2;
 
     @Before
     public void setUp() throws Exception {
@@ -47,7 +55,24 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
 
         IndexUtils indexUtils = new IndexUtils(client(), new ClientUtil(Settings.EMPTY), clusterService());
         ModelManager modelManager = mock(ModelManager.class);
-        adStats = new ADStats(indexUtils, modelManager);
+
+        clusterStatName1 = "clusterStat1";
+        clusterStatName2 = "clusterStat2";
+        nodeStatName1 = "nodeStat1";
+        nodeStatName2 = "nodeStat2";
+
+        statsMap = new HashMap<String, ADStat<?>>() {
+            {
+                put(nodeStatName1, new ADStat<>(false, new CounterSupplier()));
+                put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager)));
+                put(clusterStatName1, new ADStat<>(true, new IndexStatusSupplier(indexUtils,
+                        "index1")));
+                put(clusterStatName2, new ADStat<>(true, new IndexStatusSupplier(indexUtils,
+                        "index2")));
+            }
+        };
+
+        adStats = new ADStats(indexUtils, modelManager, statsMap);
 
         action = new ADStatsTransportAction(
                 client().threadPool(),
@@ -61,29 +86,29 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
     @Test
     public void testNewResponse() {
         String nodeId = clusterService().localNode().getId();
-        ADStatsRequest adStatsRequest = new ADStatsRequest((nodeId));
+        ADStatsRequest adStatsRequest = new ADStatsRequest(statsMap.keySet(), (nodeId));
         adStatsRequest.clear();
 
         Set<String> clusterStatsToBeRetrieved = new HashSet<>(Arrays.asList(
-                ADStats.StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(),
-                ADStats.StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName()
+                clusterStatName1,
+                clusterStatName2
         ));
 
         for (String stat : clusterStatsToBeRetrieved) {
-            adStatsRequest.addStat(stat);
+            assertTrue("Failed to add stat", adStatsRequest.addStat(stat));
         }
 
         List<ADStatsNodeResponse> responses = new ArrayList<>();
         List<FailedNodeException> failures = new ArrayList<>();
 
         ADStatsResponse adStatsResponse = action.newResponse(adStatsRequest, responses, failures);
-        assertEquals(adStatsResponse.getClusterStats().size(), clusterStatsToBeRetrieved.size());
+        assertEquals(clusterStatsToBeRetrieved.size(), adStatsResponse.getClusterStats().size());
     }
 
     @Test
     public void testNewNodeRequest() {
         String nodeId = "nodeId1";
-        ADStatsRequest adStatsRequest = new ADStatsRequest(nodeId);
+        ADStatsRequest adStatsRequest = new ADStatsRequest(statsMap.keySet(), nodeId);
 
         ADStatsNodeRequest adStatsNodeRequest1 = new ADStatsNodeRequest(nodeId, adStatsRequest);
         ADStatsNodeRequest adStatsNodeRequest2 = action.newNodeRequest(nodeId, adStatsRequest);
@@ -99,12 +124,12 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
     @Test
     public void testNodeOperation() {
         String nodeId = clusterService().localNode().getId();
-        ADStatsRequest adStatsRequest = new ADStatsRequest((nodeId));
+        ADStatsRequest adStatsRequest = new ADStatsRequest(statsMap.keySet(), (nodeId));
         adStatsRequest.clear();
 
         Set<String> statsToBeRetrieved = new HashSet<>(Arrays.asList(
-                ADStats.StatNames.AD_EXECUTE_FAIL_COUNT.getName(),
-                ADStats.StatNames.AD_EXECUTE_REQUEST_COUNT.getName()
+                nodeStatName1,
+                nodeStatName2
             )
         );
 

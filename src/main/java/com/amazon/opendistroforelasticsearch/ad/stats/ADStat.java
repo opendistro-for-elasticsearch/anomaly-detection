@@ -23,26 +23,32 @@ import java.util.function.Supplier;
  * Class represents a stat the plugin keeps track of
  */
 public class ADStat<T> {
-    private String name;
     private Boolean clusterLevel;
     private Supplier<T> supplier;
 
-    public ADStat(String name, Boolean clusterLevel, Supplier<T> supplier) {
-        this.name = name;
+    /**
+     * Constructor
+     *
+     * @param clusterLevel whether the stat has clusterLevel scope or nodeLevel scope
+     * @param supplier supplier that returns the stat's value
+     */
+    public ADStat(Boolean clusterLevel, Supplier<T> supplier) {
         this.clusterLevel = clusterLevel;
         this.supplier = supplier;
     }
 
-    public String getName() {
-        return name;
-    }
-
+    /**
+     * Determines whether the stat is cluster specific or node specific
+     *
+     * @return true is stat is cluster level; false otherwise
+     */
     public Boolean isClusterLevel() {
         return clusterLevel;
     }
 
     /**
-     * Get the value
+     * Get the value of the statistic
+     *
      * @return T value of the stat
      */
     public T getValue() {
@@ -50,7 +56,7 @@ public class ADStat<T> {
     }
 
     /**
-     * If the supplier can be incremented, increment it
+     * Increments the supplier if it can be incremented
      */
     public void increment() {
         if (supplier instanceof CounterSupplier) {

@@ -43,7 +43,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -71,7 +73,10 @@ import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
+import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
@@ -228,7 +233,16 @@ public class AnomalyResultTests extends AbstractADTest {
 
         ClientUtil clientUtil = new ClientUtil(Settings.EMPTY);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
-        adStats = new ADStats(indexUtils, normalModelManager);
+
+        Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
+            {
+                put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false,
+                        new CounterSupplier()));
+                put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
+            }
+        };
+
+        adStats = new ADStats(indexUtils, normalModelManager, statsMap);
     }
 
     public void setupTestNodes(Settings settings) {

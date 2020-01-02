@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsRequest;
 import org.elasticsearch.client.node.NodeClient;
@@ -33,24 +34,27 @@ import java.util.TreeSet;
 import static com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin.AD_BASE_URI;
 
 /**
- * RestStatsAnomalyDetectorAction consists of the REST handler to get the metrics from the anomaly detector plugin.
+ * RestStatsAnomalyDetectorAction consists of the REST handler to get the stats from the anomaly detector plugin.
  */
 public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
 
     private static final String STATS_ANOMALY_DETECTOR_ACTION = "stats_anomaly_detector";
+    private ADStats adStats;
 
     /**
      * Constructor
      *
      * @param settings  Settings
      * @param controller Rest Controller
+     * @param adStats ADStats object
      */
-    public RestStatsAnomalyDetectorAction(Settings settings, RestController controller) {
+    public RestStatsAnomalyDetectorAction(Settings settings, RestController controller, ADStats adStats) {
         super(settings);
         controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/",this);
         controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/{stat}",this);
         controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/stats/",this);
         controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/stats/{stat}",this);
+        this.adStats = adStats;
     }
 
     @Override
@@ -79,7 +83,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
             nodeIdsArr = nodesIdsStr.split(",");
         }
 
-        ADStatsRequest adStatsRequest = new ADStatsRequest(nodeIdsArr);
+        ADStatsRequest adStatsRequest = new ADStatsRequest(adStats.getStats().keySet(), nodeIdsArr);
         adStatsRequest.timeout(request.param("timeout"));
 
         // parse the stats the user wants to see
@@ -98,7 +102,6 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
                     + " and individual stats");
         } else {
             Set<String> invalidStats = new TreeSet<>();
-            adStatsRequest.clear();
             for (String stat : statsSet) {
                 if (!adStatsRequest.addStat(stat)) {
                     invalidStats.add(stat);
@@ -107,7 +110,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
 
             if (!invalidStats.isEmpty()) {
                 throw new IllegalArgumentException(unrecognized(request, invalidStats,
-                        adStatsRequest.getStatsRetrievalMap().keySet(), "stat"));
+                        adStatsRequest.getStatsToBeRetrieved(), "stat"));
             }
         }
         return adStatsRequest;

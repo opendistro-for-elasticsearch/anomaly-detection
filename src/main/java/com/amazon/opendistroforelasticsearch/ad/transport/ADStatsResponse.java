@@ -33,15 +33,29 @@ import java.util.Map;
  */
 public class ADStatsResponse extends BaseNodesResponse<ADStatsNodeResponse> implements ToXContentObject {
 
-    public static final String NODES_KEY = "nodes";
+    private static final String NODES_KEY = "nodes";
     private Map<String, Object> clusterStats;
 
-    ADStatsResponse(StreamInput in) throws IOException {
+    /**
+     * Constructor
+     *
+     * @param in StreamInput
+     * @throws IOException thrown when unable to read from stream
+     */
+    public ADStatsResponse(StreamInput in) throws IOException {
         super(new ClusterName(in), in.readList(ADStatsNodeResponse::readStats), in.readList(FailedNodeException::new));
         clusterStats = in.readMap();
     }
 
-    ADStatsResponse(ClusterName clusterName, List<ADStatsNodeResponse> nodes, List<FailedNodeException> failures,
+    /**
+     * Constructor
+     *
+     * @param clusterName name of cluster
+     * @param nodes List of ADStatsNodeResponses from nodes
+     * @param failures List of failures from nodes
+     * @param clusterStats Cluster level stats only obtained from a single node
+     */
+    public ADStatsResponse(ClusterName clusterName, List<ADStatsNodeResponse> nodes, List<FailedNodeException> failures,
                      Map<String, Object> clusterStats) {
         super(clusterName, nodes, failures);
         this.clusterStats = clusterStats;

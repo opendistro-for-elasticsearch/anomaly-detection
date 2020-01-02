@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
-import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
+import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.cluster.ClusterName;
@@ -33,10 +33,10 @@ import org.junit.Test;
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,27 +46,19 @@ import static java.util.Collections.emptySet;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 public class ADStatsTests extends ESTestCase {
-    String node1, node2, nodeName1, nodeName2, clusterName;
-    HashMap<String, Object> clusterStats;
-    DiscoveryNode discoveryNode1, discoveryNode2;
-    List<DiscoveryNode> discoveryNodes;
+    String node1, nodeName1, clusterName;
+    Map<String, Object> clusterStats;
+    DiscoveryNode discoveryNode1;
 
     @Before
     public void setUp() throws Exception {
         super.setUp();
         node1 = "node1";
-        node2 = "node2";
         nodeName1 = "nodename1";
-        nodeName2 = "nodename2";
         clusterName = "test-cluster-name";
         discoveryNode1 = new DiscoveryNode(nodeName1, node1,
-                new TransportAddress(TransportAddress.META_ADDRESS, 9300), emptyMap(), emptySet(), Version.CURRENT);
-        discoveryNode2 = new DiscoveryNode(nodeName2, node2,
-                new TransportAddress(TransportAddress.META_ADDRESS, 9301), emptyMap(), emptySet(), Version.CURRENT);
-        discoveryNodes = new ArrayList<>(2);
-        discoveryNodes.add(discoveryNode1);
-        discoveryNodes.add(discoveryNode2);
-
+                new TransportAddress(TransportAddress.META_ADDRESS, 9300), emptyMap(), emptySet(),
+                Version.CURRENT);
         clusterStats = new HashMap<>();
     }
 
@@ -75,7 +67,7 @@ public class ADStatsTests extends ESTestCase {
         ADStatsNodeRequest adStatsNodeRequest1 = new ADStatsNodeRequest();
         assertNull("ADStatsNodeRequest default constructor failed", adStatsNodeRequest1.getADStatsRequest());
 
-        ADStatsRequest adStatsRequest = new ADStatsRequest();
+        ADStatsRequest adStatsRequest = new ADStatsRequest(new HashSet<>(Arrays.asList("stat1", "stat2")));
         ADStatsNodeRequest adStatsNodeRequest2 = new ADStatsNodeRequest(node1, adStatsRequest);
         assertEquals("ADStatsNodeRequest has the wrong ADStatsRequest", adStatsNodeRequest2.getADStatsRequest(), adStatsRequest);
 
@@ -84,8 +76,8 @@ public class ADStatsTests extends ESTestCase {
         adStatsNodeRequest2.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
         adStatsNodeRequest1.readFrom(streamInput);
-        assertEquals("readStats failed", adStatsNodeRequest2.getADStatsRequest().getStatsRetrievalMap(),
-                adStatsNodeRequest1.getADStatsRequest().getStatsRetrievalMap());
+        assertEquals("readStats failed", adStatsNodeRequest2.getADStatsRequest().getStatsToBeRetrieved(),
+                adStatsNodeRequest1.getADStatsRequest().getStatsToBeRetrieved());
     }
 
     @Test
@@ -115,26 +107,30 @@ public class ADStatsTests extends ESTestCase {
 
     @Test
     public void testADStatsRequest() throws IOException {
-        ADStatsRequest adStatsRequest = new ADStatsRequest();
-        List<String>  allStats = Arrays.stream(ADStats.StatNames.values()).map(ADStats.StatNames::getName).collect(Collectors.toList());
+        List<String>  allStats = Arrays.stream(StatNames.values()).map(StatNames::getName).collect(Collectors.toList());
+        ADStatsRequest adStatsRequest = new ADStatsRequest(new HashSet<>(allStats));
 
         // Test clear()
         adStatsRequest.clear();
         for (String stat : allStats) {
-            assertTrue("clear() fails", !adStatsRequest.getStatsRetrievalMap().get(stat));
+            assertTrue("clear() fails", !adStatsRequest.getStatsToBeRetrieved().contains(stat));
         }
 
         // Test all()
         adStatsRequest.all();
         for (String stat : allStats) {
-            assertTrue("all() fails", adStatsRequest.getStatsRetrievalMap().get(stat));
+            assertTrue("all() fails", adStatsRequest.getStatsToBeRetrieved().contains(stat));
         }
 
         // Test add stat
         adStatsRequest.clear();
-        adStatsRequest.addStat(ADStats.StatNames.AD_EXECUTE_REQUEST_COUNT.getName());
-        assertTrue("addStat fails", adStatsRequest.getStatsRetrievalMap().containsKey(
-                ADStats.StatNames.AD_EXECUTE_REQUEST_COUNT.getName()));
+        adStatsRequest.addStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName());
+        assertTrue("addStat fails", adStatsRequest.getStatsToBeRetrieved().contains(
+                StatNames.AD_EXECUTE_REQUEST_COUNT.getName()));
+
+        // Test add invalid stat
+        adStatsRequest.clear();
+        assertFalse("Adding invalid stat failed", adStatsRequest.addStat("NON-EXISTENT STAT"));
 
         // Test Serialization
         BytesStreamOutput output = new BytesStreamOutput();
@@ -142,7 +138,7 @@ public class ADStatsTests extends ESTestCase {
         StreamInput streamInput = output.bytes().streamInput();
         ADStatsRequest readRequest = new ADStatsRequest();
         readRequest.readFrom(streamInput);
-        assertEquals("Serialization fails", readRequest.getStatsRetrievalMap(), adStatsRequest.getStatsRetrievalMap());
+        assertEquals("Serialization fails", readRequest.getStatsToBeRetrieved(), adStatsRequest.getStatsToBeRetrieved());
     }
 
     @Test

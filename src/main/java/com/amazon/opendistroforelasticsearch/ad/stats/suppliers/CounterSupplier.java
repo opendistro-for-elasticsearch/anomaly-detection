@@ -15,24 +15,30 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import com.amazon.opendistroforelasticsearch.ad.stats.counters.Counter;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 
 /**
  * CounterSupplier provides a stateful count as the value
  */
 public class CounterSupplier implements Supplier<Long> {
-    private Counter counter;
+    private LongAdder counter;
 
-    public CounterSupplier(Counter counter) {
-        this.counter = counter;
+    /**
+     * Constructor
+     */
+    public CounterSupplier() {
+        this.counter = new LongAdder();
     }
 
     @Override
     public Long get() {
-        return counter.getValue();
+        return counter.longValue();
     }
 
+    /**
+     * Increments the value of the counter by 1
+     */
     public void increment() {
         counter.increment();
     }

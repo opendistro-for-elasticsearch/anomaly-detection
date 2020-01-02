@@ -27,6 +27,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  *  ADStatsTransportAction contains the logic to extract the stats from the nodes
@@ -34,8 +35,17 @@ import java.util.Map;
 public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest, ADStatsResponse,
         ADStatsNodeRequest, ADStatsNodeResponse> {
 
-    ADStats adStats;
+    private ADStats adStats;
 
+    /**
+     * Constructor
+     *
+     * @param threadPool ThreadPool to use
+     * @param clusterService ClusterService
+     * @param transportService TransportService
+     * @param actionFilters Action Filters
+     * @param adStats ADStats object
+     */
     @Inject
     public ADStatsTransportAction(
             ThreadPool threadPool,
@@ -54,10 +64,10 @@ public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest,
                                            List<FailedNodeException> failures) {
 
         Map<String, Object> clusterStats = new HashMap<>();
-        Map<String, Boolean>statsToBeRetrieved = request.getStatsRetrievalMap();
+        Set<String> statsToBeRetrieved = request.getStatsToBeRetrieved();
 
         for (String statName : adStats.getClusterStats().keySet()) {
-            if (statsToBeRetrieved.get(statName)) {
+            if (statsToBeRetrieved.contains(statName)) {
                 clusterStats.put(statName, adStats.getStats().get(statName).getValue());
             }
         }
@@ -87,10 +97,10 @@ public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest,
 
     private ADStatsNodeResponse createADStatsNodeResponse(ADStatsRequest adStatsRequest) {
         Map<String, Object> statValues = new HashMap<>();
-        Map<String, Boolean> statsToBeRetrieved = adStatsRequest.getStatsRetrievalMap();
+        Set<String> statsToBeRetrieved = adStatsRequest.getStatsToBeRetrieved();
 
         for (String statName : adStats.getNodeStats().keySet()) {
-            if (statsToBeRetrieved.get(statName)) {
+            if (statsToBeRetrieved.contains(statName)) {
                 statValues.put(statName, adStats.getStats().get(statName).getValue());
             }
         }

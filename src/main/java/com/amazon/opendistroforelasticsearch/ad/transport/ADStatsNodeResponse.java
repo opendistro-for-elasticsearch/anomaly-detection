@@ -82,6 +82,14 @@ public class ADStatsNodeResponse extends BaseNodeResponse implements ToXContentF
         out.writeMap(statsMap, StreamOutput::writeString, StreamOutput::writeGenericValue);
     }
 
+    /**
+     * Converts statsMap to xContent
+     *
+     * @param builder XContentBuilder
+     * @param params Params
+     * @return XContentBuilder
+     * @throws IOException thrown by builder for invalid field
+     */
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         for (String stat : statsMap.keySet()) {
             builder.field(stat, statsMap.get(stat));

@@ -15,14 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import com.amazon.opendistroforelasticsearch.ad.stats.counters.BasicCounter;
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Test;
 
 public class CounterSupplierTests extends ESTestCase {
     @Test
     public void testGetAndIncrement() {
-        CounterSupplier counterSupplier = new CounterSupplier(new BasicCounter());
+        CounterSupplier counterSupplier = new CounterSupplier();
         assertEquals("get returns incorrect value", (Long) 0L, counterSupplier.get());
         counterSupplier.increment();
         assertEquals("get returns incorrect value", (Long) 1L, counterSupplier.get());

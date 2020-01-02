@@ -30,7 +30,7 @@ public class ADStatsNodeRequest extends BaseNodeRequest {
     /**
      * Constructor
      */
-    ADStatsNodeRequest() {
+    public ADStatsNodeRequest() {
         super();
     }
 
@@ -40,7 +40,7 @@ public class ADStatsNodeRequest extends BaseNodeRequest {
      * @param nodeId nodeId
      * @param request ADStatsRequest
      */
-    ADStatsNodeRequest(String nodeId, ADStatsRequest request) {
+    public ADStatsNodeRequest(String nodeId, ADStatsRequest request) {
         super(nodeId);
         this.request = request;
     }
@@ -50,7 +50,7 @@ public class ADStatsNodeRequest extends BaseNodeRequest {
      *
      * @return ADStatsRequest for this node
      */
-    ADStatsRequest getADStatsRequest() {
+    public ADStatsRequest getADStatsRequest() {
         return request;
     }
 

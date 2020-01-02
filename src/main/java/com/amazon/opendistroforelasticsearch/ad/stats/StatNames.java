@@ -36,10 +36,20 @@ public enum StatNames {
         this.name = name;
     }
 
+    /**
+     * Get stat name
+     *
+     * @return name
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Get set of stat names
+     *
+     * @return set of stat names
+     */
     public static Set<String> getNames() {
         Set<String> names = new HashSet<>();
 

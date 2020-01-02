@@ -38,6 +38,8 @@ public class IndexUtils {
      * Status string when an alias exists, but does not point to an index
      */
     public static final String ALIAS_EXISTS_NO_INDICES_STATUS = "alias exists, but does not point to any indices";
+    public static final String ALIAS_POINTS_TO_MULTIPLE_INDICES_STATUS = "alias exists, but does not point to any " +
+            "indices";
 
     private static final Logger logger = LogManager.getLogger(IndexUtils.class);
 
@@ -61,10 +63,14 @@ public class IndexUtils {
     /**
      * Gets the cluster index health for a particular index or the index an alias points to
      *
-     * @param indexOrAliasName String of the index or alias name to get health of
+     * If an alias is passed in, it will only return the health status of an index it points to if it only points to a
+     * single index. If it points to multiple indices, it will throw an exception.
+     *
+     * @param indexOrAliasName String of the index or alias name to get health of.
      * @return String represents the status of the index: "red", "yellow" or "green"
+     * @throws IllegalArgumentException Thrown when an alias is passed in that points to more than one index
      */
-    public String getIndexHealthStatus(String indexOrAliasName) {
+    public String getIndexHealthStatus(String indexOrAliasName) throws IllegalArgumentException {
         if (!clusterService.state().getRoutingTable().hasIndex(indexOrAliasName)) {
             // Check if the index is actually an alias
             if (clusterService.state().getMetaData().hasAlias(indexOrAliasName)) {
@@ -73,6 +79,8 @@ public class IndexUtils {
                         .get(indexOrAliasName).getIndices();
                 if (indexMetaDataList.size() == 0) {
                     return ALIAS_EXISTS_NO_INDICES_STATUS;
+                } else if (indexMetaDataList.size() > 1) {
+                    throw new IllegalArgumentException("Cannot get health for alias that points to multiple indices");
                 } else {
                     indexOrAliasName = indexMetaDataList.get(0).getIndex().getName();
                 }

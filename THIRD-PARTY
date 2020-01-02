@@ -28,10 +28,6 @@ The Apache Software Foundation (http://www.apache.org/).
 
 Prior to moving to ASF, the software for this project was developed at
 Yahoo (now Verizon Media) (https://developer.yahoo.com).
-** byte-buddy; version 1.9.15 -- https://github.com/raphw/byte-buddy
-Copyright ${project.inceptionYear} - ${current.year} ${copyright.holder}
-** byte-buddy-agent; version 1.9.15 -- https://github.com/raphw/byte-buddy
-Copyright ${project.inceptionYear} - ${current.year} ${copyright.holder}
 ** Elasticsearch; version 7.1 -- https://github.com/elastic/elasticsearch
 Elasticsearch
 Copyright 2009-2018 Elasticsearch
@@ -55,8 +51,6 @@ Joda.org (http://www.joda.org/).
 Copyright (C) The Guava Authors
 ** Gson; version 2.8.5 -- https://github.com/google/gson
 Copyright 2008 Google Inc.
-** JUnitParams; version 1.1.1 -- https://github.com/Pragmatists/JUnitParams
-Copyright © 2015 Pragmatists. All rights reserved.
 ** memory; version 0.12.2 -- https://datasketches.github.io/
 Apache DataSketches Java (incubating)
 Copyright 2019 - The Apache Software Foundation
@@ -69,8 +63,6 @@ The Apache Software Foundation (http://www.apache.org/).
 
 Prior to moving to ASF, the software for this project was developed at
 Yahoo (now Verizon Media) (https://developer.yahoo.com).
-** PowerMock; version 2.0.2 -- http://www.powermock.org
-Copyright 2016 the original author or authors.
 
 Apache License
 
@@ -298,10 +290,6 @@ limitations under the License.
 
     Prior to moving to ASF, the software for this project was developed at
     Yahoo (now Verizon Media) (https://developer.yahoo.com).
-* For byte-buddy see also this required NOTICE:
-    Copyright ${project.inceptionYear} - ${current.year} ${copyright.holder}
-* For byte-buddy-agent see also this required NOTICE:
-    Copyright ${project.inceptionYear} - ${current.year} ${copyright.holder}
 * For Elasticsearch see also this required NOTICE:
     Elasticsearch
     Copyright 2009-2018 Elasticsearch
@@ -324,8 +312,6 @@ limitations under the License.
     Copyright (C) The Guava Authors
 * For Gson see also this required NOTICE:
     Copyright 2008 Google Inc.
-* For JUnitParams see also this required NOTICE:
-    Copyright © 2015 Pragmatists. All rights reserved.
 * For memory see also this required NOTICE:
     Apache DataSketches Java (incubating)
     Copyright 2019 - The Apache Software Foundation
@@ -338,32 +324,3 @@ limitations under the License.
 
     Prior to moving to ASF, the software for this project was developed at
     Yahoo (now Verizon Media) (https://developer.yahoo.com).
-* For PowerMock see also this required NOTICE:
-    Copyright 2016 the original author or authors.
-
-------
-
-** Mockito; version 3.0.0 -- https://github.com/mockito/mockito
-Copyright (c) 2007 Mockito contributors
-
-The MIT License
-
-Copyright (c) 2007 Mockito contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.

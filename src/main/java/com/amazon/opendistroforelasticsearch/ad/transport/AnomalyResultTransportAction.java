@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.time.Instant;
 
+import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ClientException;
@@ -123,13 +124,14 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final ThreadPool threadPool;
     private final BackoffPolicy resultSavingBackoffPolicy;
     private final ADStats adStats;
+    private final ADCircuitBreakerService adCircuitBreakerService;
 
     @Inject
     public AnomalyResultTransportAction(ActionFilters actionFilters, TransportService transportService, Client client,
             Settings settings, ADStateManager manager, ColdStartRunner eventExecutor,
             AnomalyDetectionIndices anomalyDetectionIndices, FeatureManager featureManager, ModelManager modelManager,
             HashRing hashRing, ClusterService clusterService, IndexNameExpressionResolver indexNameExpressionResolver,
-            ThreadPool threadPool, ADStats adStats) {
+            ThreadPool threadPool, ADCircuitBreakerService adCircuitBreakerService, ADStats adStats) {
         super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);
         this.transportService = transportService;
         this.client = client;
@@ -148,6 +150,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.threadPool = threadPool;
         this.resultSavingBackoffPolicy = BackoffPolicy.exponentialBackoff(AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY.get(settings),
                 AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF.get(settings));
+        this.adCircuitBreakerService = adCircuitBreakerService;
         this.adStats = adStats;
     }
 
@@ -217,6 +220,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         String adID = request.getAdID();
 
         adStats.getStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
+
+        if (adCircuitBreakerService.isOpen()) {
+            listenerWithStats.onFailure(new LimitExceededException(adID, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
+            return;
+        }
 
         try {
             Optional<AnomalyDetector> detector = stateManager.getAnomalyDetector(adID);

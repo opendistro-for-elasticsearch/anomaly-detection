@@ -27,6 +27,8 @@ public class ModelState<T> {
     public static String MODEL_ID_KEY = "model_id";
     public static String DETECTOR_ID_KEY = "detector_id";
     public static String MODEL_TYPE_KEY = "model_type";
+    public static String LAST_USED_TIME_KEY = "last_used_time";
+    public static String LAST_CHECKPOINT_TIME_KEY = "last_checkpoint_time";
 
     private T model;
     private String modelId;
@@ -39,7 +41,7 @@ public class ModelState<T> {
      * Constructor.
      *
      * @param model ML model
-     * @param modelId Id of Model this model partition is a part of
+     * @param modelId Id of model partition
      * @param detectorId Id of detector this model partition is used for
      * @param modelType type of model
      * @param lastUsedTime time when the ML model was used last time
@@ -63,7 +65,7 @@ public class ModelState<T> {
     }
 
     /**
-     * Gets the model ID of the model
+     * Gets the model ID
      *
      * @return modelId of model
      */
@@ -90,16 +92,16 @@ public class ModelState<T> {
     }
 
     /**
-     * Returns the time when the ML model was used last time.
+     * Returns the time when the ML model was last used.
      *
-     * @return the time when the ML model was used last time
+     * @return the time when the ML model was last used
      */
     public Instant getLastUsedTime() {
         return this.lastUsedTime;
     }
 
     /**
-     * Sets the time when ML model was used last time.
+     * Sets the time when ML model was last used.
      *
      * @param lastUsedTime time when the ML model was used last time
      */
@@ -135,6 +137,8 @@ public class ModelState<T> {
             put(MODEL_ID_KEY, modelId);
             put(DETECTOR_ID_KEY, detectorId);
             put(MODEL_TYPE_KEY, modelType);
+            put(LAST_USED_TIME_KEY, lastUsedTime);
+            put(LAST_CHECKPOINT_TIME_KEY, lastCheckpointTime);
         }};
     }
 }

@@ -26,6 +26,12 @@ public class IndexStatusSupplier implements Supplier<String> {
     private IndexUtils indexUtils;
     private String indexName;
 
+    /**
+     * Constructor
+     *
+     * @param indexUtils Utility for getting information about indices
+     * @param indexName Name of index to extract stats from
+     */
     public IndexStatusSupplier(IndexUtils indexUtils, String indexName) {
         this.indexUtils = indexUtils;
         this.indexName = indexName;

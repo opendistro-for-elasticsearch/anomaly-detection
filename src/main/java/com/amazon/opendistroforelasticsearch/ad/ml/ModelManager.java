@@ -342,8 +342,9 @@ public class ModelManager {
     }
 
     /**
-     * getAllModels
-     * @return list of modelState
+     * Gets modelStates of all model partitions hosted on a node
+     *
+     * @return list of modelStates
      */
     public List<ModelState<?>> getAllModels() {
         return Stream.concat(forests.values().stream(), thresholds.values().stream())

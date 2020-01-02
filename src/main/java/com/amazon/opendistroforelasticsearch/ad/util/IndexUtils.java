@@ -29,8 +29,16 @@ import java.util.List;
 import java.util.Optional;
 
 public class IndexUtils {
+    /**
+     * Status string of index that does not exist
+     */
     public static final String NONEXISTENT_INDEX_STATUS = "non-existent";
+
+    /**
+     * Status string when an alias exists, but does not point to an index
+     */
     public static final String ALIAS_EXISTS_NO_INDICES_STATUS = "alias exists, but does not point to any indices";
+
     private static final Logger logger = LogManager.getLogger(IndexUtils.class);
 
     private Client client;
@@ -85,7 +93,8 @@ public class IndexUtils {
      * Gets the number of documents in an index.
      *
      * @param indexName Name of the index
-     * @return number of docs in the index
+     * @return The number of documents in an index. 0 is returned if the index does not exist. -1 is returned if the
+     * request fails.
      */
     public Long getNumberOfDocumentsInIndex(String indexName) {
         if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {

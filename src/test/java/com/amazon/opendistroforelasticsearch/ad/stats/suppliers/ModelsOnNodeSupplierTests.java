@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier.MODEL_STATE_STAT_KEYS;
 import static org.mockito.Mockito.when;
 
 public class ModelsOnNodeSupplierTests extends ESTestCase {
@@ -71,6 +72,9 @@ public class ModelsOnNodeSupplierTests extends ESTestCase {
         ModelsOnNodeSupplier modelsOnNodeSupplier = new ModelsOnNodeSupplier(modelManager);
         List<Map<String, Object>> results = modelsOnNodeSupplier.get();
         assertEquals("get fails to return correct result",
-                expectedResults.stream().map(ModelState::getModelStateAsMap).collect(Collectors.toList()), results);
+                expectedResults.stream().map(modelState -> modelState.getModelStateAsMap().entrySet().stream()
+                        .filter(entry -> MODEL_STATE_STAT_KEYS.contains(entry.getKey()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
+                        .collect(Collectors.toList()), results);
     }
 }

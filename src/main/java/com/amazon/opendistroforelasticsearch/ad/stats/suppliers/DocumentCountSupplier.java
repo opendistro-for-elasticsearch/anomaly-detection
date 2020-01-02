@@ -26,6 +26,12 @@ public class DocumentCountSupplier implements Supplier<Long> {
     private IndexUtils indexUtils;
     private String indexName;
 
+    /**
+     * Constructor
+     *
+     * @param indexUtils Utility for getting information about indices
+     * @param indexName Name of index to extract stats from
+     */
     public DocumentCountSupplier(IndexUtils indexUtils, String indexName) {
         this.indexUtils = indexUtils;
         this.indexName = indexName;

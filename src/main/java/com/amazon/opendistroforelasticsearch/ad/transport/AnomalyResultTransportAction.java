@@ -209,6 +209,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     @Override
     protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<AnomalyResultResponse> listener) {
         AnomalyResultRequest request = AnomalyResultRequest.fromActionRequest(actionRequest);
+        ActionListener<AnomalyResultResponse> listenerWithStats = ActionListener.wrap(listener::onResponse, e -> {
+            adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+            listener.onFailure(e);
+        });
+
         String adID = request.getAdID();
 
         adStats.getStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
@@ -216,22 +221,20 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         try {
             Optional<AnomalyDetector> detector = stateManager.getAnomalyDetector(adID);
             if (!detector.isPresent()) {
-                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-                listener.onFailure(new EndRunException(adID, "AnomalyDetector is not available.", true));
+                listenerWithStats.onFailure(new EndRunException(adID, "AnomalyDetector is not available.", true));
                 return;
             }
 
             String thresholdModelID = modelManager.getThresholdModelId(adID);
             Optional<DiscoveryNode> thresholdNode = hashRing.getOwningNode(thresholdModelID);
             if (!thresholdNode.isPresent()) {
-                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-                listener.onFailure(new InternalFailure(adID, "Threshold model node is not available."));
+                listenerWithStats.onFailure(new InternalFailure(adID, "Threshold model node is not available."));
                 return;
             }
 
             String thresholdNodeId = thresholdNode.get().getId();
 
-            if (!shouldStart(listener, adID, detector.get(), thresholdNodeId, thresholdModelID)) {
+            if (!shouldStart(listenerWithStats, adID, detector.get(), thresholdNodeId, thresholdModelID)) {
                 return;
             }
 
@@ -251,12 +254,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     // Feature not available is common when we have data holes. Respond empty response
                     // so that alerting will not print stack trace to avoid bloating our logs.
                     LOG.info("No data in current detection window for {}", adID);
-                    listener.onResponse(new AnomalyResultResponse(Double.NaN, Double.NaN, new ArrayList<FeatureData>()));
+                    listenerWithStats.onResponse(new AnomalyResultResponse(Double.NaN, Double.NaN, new ArrayList<FeatureData>()));
                 } else {
                     LOG.info("Return at least current feature for {}", adID);
-                    listener.onResponse(new AnomalyResultResponse(Double.NaN, Double.NaN, featureInResponse));
+                    listenerWithStats.onResponse(new AnomalyResultResponse(Double.NaN, Double.NaN, featureInResponse));
                 }
-                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                 return;
             }
 
@@ -298,14 +300,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.debug("Wait for RCF results...");
                 rcfLatch.await(latchWaitSecs, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
-                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-                listener.onFailure(new InternalFailure(adID, CommonErrorMessages.WAIT_ERR_MSG, e));
+                listenerWithStats.onFailure(new InternalFailure(adID, CommonErrorMessages.WAIT_ERR_MSG, e));
                 return;
             }
 
             if (coldStartIfNoModel(failure, detector.get()) || rcfResults.isEmpty()) {
-                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-                listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
+                listenerWithStats.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                 return;
             }
 
@@ -329,14 +329,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.debug("Wait for threshold results...");
                 thresholdLatch.await(latchWaitSecs, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
-                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-                listener.onFailure(new InternalFailure(adID, WAIT_FOR_THRESHOLD_ERR_MSG, e));
+                listenerWithStats.onFailure(new InternalFailure(adID, WAIT_FOR_THRESHOLD_ERR_MSG, e));
                 return;
             }
 
             if (coldStartIfNoModel(failure, detector.get())) {
-                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-                listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
+                listenerWithStats.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                 return;
             }
 
@@ -344,29 +342,24 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 AnomalyResultResponse response = anomalyResultResponse.get();
                 double confidence = response.getConfidence() * combinedResult.getConfidence();
                 response = new AnomalyResultResponse(response.getAnomalyGrade(), confidence, response.getFeatures());
-                listener.onResponse(response);
+                listenerWithStats.onResponse(response);
                 indexAnomalyResult(new AnomalyResult(adID, Double.valueOf(combinedScore),
                         Double.valueOf(response.getAnomalyGrade()), Double.valueOf(confidence),
                         featureInResponse, Instant.ofEpochMilli(request.getStart()),
                         Instant.ofEpochMilli(request.getEnd())));
             } else if (failure.get() != null) {
-                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-                listener.onFailure(failure.get());
+                listenerWithStats.onFailure(failure.get());
             } else {
-                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-                listener.onFailure(new InternalFailure(adID, "Unexpected exception"));
+                listenerWithStats.onFailure(new InternalFailure(adID, "Unexpected exception"));
             }
         } catch (ClientException clientException) {
-            adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-            listener.onFailure(clientException);
+            listenerWithStats.onFailure(clientException);
         }
         catch (AnomalyDetectionException adEx) {
-            adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-            listener.onFailure(new InternalFailure(adEx));
+            listenerWithStats.onFailure(new InternalFailure(adEx));
         } catch (Exception throwable) {
             Throwable cause = ExceptionsHelper.unwrapCause(throwable);
-            adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-            listener.onFailure(new InternalFailure(adID, cause));
+            listenerWithStats.onFailure(new InternalFailure(adID, cause));
         }
 
     }

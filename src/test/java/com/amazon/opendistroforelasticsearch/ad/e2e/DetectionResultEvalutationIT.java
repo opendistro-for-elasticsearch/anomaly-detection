@@ -95,7 +95,6 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
     private double[] getTestResults(String detectorId, List<JsonObject> data, int trainTestSplit, int intervalMinutes,
         List<Entry<Instant, Instant>> anomalies, RestClient client) throws Exception {
 
-        Request request = new Request("POST", String.format("/_opendistro/_anomaly_detection/detectors/%s/_run", detectorId));
         double positives = 0;
         double truePositives = 0;
         Set<Integer> positiveAnomalies = new HashSet<>();
@@ -103,10 +102,8 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
         for (int i = trainTestSplit; i < data.size(); i++) {
             Instant begin = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(i).get("timestamp").getAsString()));
             Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
-            String requestBody = String.format("{ \"period_start\": %d, \"period_end\": %d }", begin.toEpochMilli(), end.toEpochMilli());
-            request.setJsonEntity(requestBody);
             try {
-                Map<String, Object> response = entityAsMap(client.performRequest(request));
+                Map<String, Object> response = getDetectionResult(detectorId, begin, end, client);
                 double anomalyGrade = (double)response.get("anomalyGrade");
                 if (anomalyGrade > 0) {
                     positives++;
@@ -140,21 +137,20 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
     private void startDetector(String detectorId, List<JsonObject> data, int trainTestSplit, int shingleSize, int intervalMinutes,
         RestClient client) throws Exception {
 
-        Request request = new Request("POST", String.format("/_opendistro/_anomaly_detection/detectors/%s/_run", detectorId));
         Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(trainTestSplit-1).get("timestamp").getAsString()));
 
+        Instant begin = null;
+        Instant end = null;
         for (int i = 0; i < shingleSize; i++) {
-            Instant begin = trainTime.minus(intervalMinutes * (shingleSize - 1 - i), ChronoUnit.MINUTES);
-            Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
-            String requestBody = String.format("{ \"period_start\": %d, \"period_end\": %d }", begin.toEpochMilli(), end.toEpochMilli());
-            request.setJsonEntity(requestBody);
+            begin = trainTime.minus(intervalMinutes * (shingleSize - 1 - i), ChronoUnit.MINUTES);
+            end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
             try {
-                client.performRequest(request);
+                getDetectionResult(detectorId, begin, end, client);
             } catch (Exception e) {
             }
         }
         Thread.sleep(5_000);
-        client.performRequest(request);
+        getDetectionResult(detectorId, begin, end, client);
     }
 
     private String createDetector(String datasetName, int intervalMinutes, RestClient client) throws Exception {
@@ -202,7 +198,7 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
                 } catch (Exception e ) {
                     throw new RuntimeException(e);
                 } });
-        Thread.sleep(1000);
+        Thread.sleep(1_000);
     }
 
     private List<JsonObject> getData(String datasetFileName) throws Exception {
@@ -211,5 +207,15 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
         List<JsonObject> list = new ArrayList<>(jsonArray.size());
         jsonArray.iterator().forEachRemaining(i -> list.add(i.getAsJsonObject()));
         return list;
+    }
+
+    private Map<String, Object> getDetectionResult(String detectorId, Instant begin, Instant end, RestClient client) {
+        try {
+            Request request = new Request("POST", String.format("/_opendistro/_anomaly_detection/detectors/%s/_run", detectorId));
+            request.setJsonEntity(String.format("{ \"period_start\": %d, \"period_end\": %d }", begin.toEpochMilli(), end.toEpochMilli()));
+            return entityAsMap(client.performRequest(request));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

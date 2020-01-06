@@ -38,7 +38,14 @@ public class IndexSupplierTests extends ESTestCase {
 
     @Test
     public void testGet() {
-        IndexStatusSupplier indexStatusSupplier = new IndexStatusSupplier(indexUtils, indexName);
-        assertEquals("Get method for IndexSupplier does not work", indexStatus, indexStatusSupplier.get());
+        IndexStatusSupplier indexStatusSupplier1 = new IndexStatusSupplier(indexUtils, indexName);
+        assertEquals("Get method for IndexSupplier does not work", indexStatus, indexStatusSupplier1.get());
+
+        String invalidIndex = "invalid";
+        when(indexUtils.getIndexHealthStatus(invalidIndex)).thenThrow(IllegalArgumentException.class);
+        IndexStatusSupplier indexStatusSupplier2 = new IndexStatusSupplier(indexUtils, invalidIndex);
+        assertEquals("Get method does not return correct response onf exception",
+                IndexStatusSupplier.UNABLE_TO_RETRIEVE_HEALTH_MESSAGE,
+                indexStatusSupplier2.get());
     }
 }

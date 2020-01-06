@@ -26,7 +26,7 @@ public class IndexStatusSupplier implements Supplier<String> {
     private IndexUtils indexUtils;
     private String indexName;
 
-    private final String UNABLE_TO_RETRIEVE_HEALTH_MESSAGE = "unable to retrieve health";
+    public static final String UNABLE_TO_RETRIEVE_HEALTH_MESSAGE = "unable to retrieve health";
 
     /**
      * Constructor

@@ -26,7 +26,9 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.Collections;
 
+import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
@@ -59,8 +61,11 @@ public class RCFResultTests extends ESTestCase {
                 TransportService.NOOP_TRANSPORT_INTERCEPTOR, x -> null, null, Collections.emptySet());
 
         ModelManager manager = mock(ModelManager.class);
-        RCFResultTransportAction action = new RCFResultTransportAction(mock(ActionFilters.class), transportService, manager);
+        ADCircuitBreakerService adCircuitBreakerService = mock(ADCircuitBreakerService.class);
+        RCFResultTransportAction action = new RCFResultTransportAction(mock(ActionFilters.class), transportService, manager,
+                adCircuitBreakerService);
         when(manager.getRcfResult(any(String.class), any(String.class), any(double[].class))).thenReturn(new RcfResult(0, 0, 25));
+        when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
         RCFResultRequest request = new RCFResultRequest("123", "123-rcf-1", new double[] {0});
@@ -76,8 +81,11 @@ public class RCFResultTests extends ESTestCase {
                 TransportService.NOOP_TRANSPORT_INTERCEPTOR, x -> null, null, Collections.emptySet());
 
         ModelManager manager = mock(ModelManager.class);
-        RCFResultTransportAction action = new RCFResultTransportAction(mock(ActionFilters.class), transportService, manager);
+        ADCircuitBreakerService adCircuitBreakerService = mock(ADCircuitBreakerService.class);
+        RCFResultTransportAction action = new RCFResultTransportAction(mock(ActionFilters.class), transportService, manager,
+                adCircuitBreakerService);
         doThrow(NullPointerException.class).when(manager).getRcfResult(any(String.class), any(String.class), any(double[].class));
+        when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
         RCFResultRequest request = new RCFResultRequest("123", "123-rcf-1", new double[] {0});
@@ -144,5 +152,23 @@ public class RCFResultTests extends ESTestCase {
                 request.getAdID());
         assertArrayEquals(JsonDeserializer.getDoubleArrayValue(json, CommonMessageAttributes.FEATURE_JSON_KEY),
                 request.getFeatures(), 0.001);
+    }
+
+    public void testCircuitBreaker() {
+        TransportService transportService = new TransportService(Settings.EMPTY, mock(Transport.class), null,
+                TransportService.NOOP_TRANSPORT_INTERCEPTOR, x -> null, null, Collections.emptySet());
+
+        ModelManager manager = mock(ModelManager.class);
+        ADCircuitBreakerService breakerService = mock(ADCircuitBreakerService.class);
+        RCFResultTransportAction action = new RCFResultTransportAction(mock(ActionFilters.class), transportService, manager,
+                breakerService);
+        when(manager.getRcfResult(any(String.class), any(String.class), any(double[].class))).thenReturn(new RcfResult(0, 0, 25));
+        when(breakerService.isOpen()).thenReturn(true);
+
+        final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
+        RCFResultRequest request = new RCFResultRequest("123", "123-rcf-1", new double[] {0});
+        action.doExecute(mock(Task.class), request, future);
+
+        expectThrows(LimitExceededException.class, () -> future.actionGet());
     }
 }

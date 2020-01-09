@@ -23,4 +23,5 @@ public class CommonErrorMessages {
     public static final String NO_CHECKPOINT_ERR_MSG = "No checkpoints found for model id ";
     public static final String MEMORY_LIMIT_EXCEEDED_ERR_MSG = "AD models memory usage exceeds our limit.";
     public static final String FEATURE_NOT_AVAILABLE_ERR_MSG = "No Feature in current detection window.";
+    public static final String MEMORY_CIRCUIT_BROKEN_ERR_MSG = "AD memory circuit is broken.";
 }

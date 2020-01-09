@@ -15,6 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.RcfResult;
 import org.apache.logging.log4j.LogManager;
@@ -30,16 +33,23 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
 
     private static final Logger LOG = LogManager.getLogger(RCFResultTransportAction.class);
     private ModelManager manager;
+    private ADCircuitBreakerService adCircuitBreakerService;
 
     @Inject
     public RCFResultTransportAction(ActionFilters actionFilters, TransportService transportService,
-            ModelManager manager) {
+            ModelManager manager, ADCircuitBreakerService adCircuitBreakerService) {
         super(RCFResultAction.NAME, transportService, actionFilters, RCFResultRequest::new);
         this.manager = manager;
+        this.adCircuitBreakerService = adCircuitBreakerService;
     }
 
     @Override
     protected void doExecute(Task task, RCFResultRequest request, ActionListener<RCFResultResponse> listener) {
+
+        if (adCircuitBreakerService.isOpen()) {
+            listener.onFailure(new LimitExceededException(request.getAdID(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
+            return;
+        }
 
         try {
             LOG.info("Serve rcf request for {}", request.getModelID());

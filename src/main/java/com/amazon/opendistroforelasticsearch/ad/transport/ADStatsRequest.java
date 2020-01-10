@@ -33,31 +33,34 @@ public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
      */
     public static final String ALL_STATS_KEY = "_all";
 
-    private Set<String> validStats;
     private Set<String> statsToBeRetrieved;
-
-    /**
-     * Empty constructor needed for ADStatsTransportAction
-     */
-    public ADStatsRequest() {}
 
     /**
      * Constructor
      *
-     * @param validStats a set of stat names that the user could potentially query
      * @param nodeIds nodeIds of nodes' stats to be retrieved
      */
-    public ADStatsRequest(Set<String> validStats, String... nodeIds) {
+    public ADStatsRequest(String... nodeIds) {
         super(nodeIds);
-        this.validStats = validStats;
         statsToBeRetrieved = new HashSet<>();
     }
 
     /**
-     * Add all stats to be retrieved
+     * Adds a stat to the set of stats to be retrieved
+     *
+     * @param stat name of the stat
      */
-    public void all() {
-        statsToBeRetrieved.addAll(validStats);
+    public void addStat(String stat) {
+        statsToBeRetrieved.add(stat);
+    }
+
+    /**
+     * Add all stats to be retrieved
+     *
+     * @param statsToBeAdded set of stats to be retrieved
+     */
+    public void addAll(Set<String> statsToBeAdded) {
+        statsToBeRetrieved.addAll(statsToBeAdded);
     }
 
     /**
@@ -67,19 +70,6 @@ public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
         statsToBeRetrieved.clear();
     }
 
-    /**
-     * Adds a stat to the set of stats to be retrieved
-     *
-     * @param stat name of the stat
-     * @return true if the stat is valid and marked for retrieval; false otherwise
-     */
-    public boolean addStat(String stat) {
-        if (validStats.contains(stat)) {
-            statsToBeRetrieved.add(stat);
-            return true;
-        }
-        return false;
-    }
 
     /**
      * Get the set that tracks which stats should be retrieved
@@ -93,14 +83,12 @@ public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
     @Override
     public void readFrom(StreamInput in) throws IOException {
         super.readFrom(in);
-        validStats = in.readSet(StreamInput::readString);
         statsToBeRetrieved = in.readSet(StreamInput::readString);
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeStringCollection(validStats);
         out.writeStringCollection(statsToBeRetrieved);
     }
 }

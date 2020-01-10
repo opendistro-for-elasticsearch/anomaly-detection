@@ -67,7 +67,7 @@ public class ADStatsTests extends ESTestCase {
         ADStatsNodeRequest adStatsNodeRequest1 = new ADStatsNodeRequest();
         assertNull("ADStatsNodeRequest default constructor failed", adStatsNodeRequest1.getADStatsRequest());
 
-        ADStatsRequest adStatsRequest = new ADStatsRequest(new HashSet<>(Arrays.asList("stat1", "stat2")));
+        ADStatsRequest adStatsRequest = new ADStatsRequest();
         ADStatsNodeRequest adStatsNodeRequest2 = new ADStatsNodeRequest(node1, adStatsRequest);
         assertEquals("ADStatsNodeRequest has the wrong ADStatsRequest", adStatsNodeRequest2.getADStatsRequest(), adStatsRequest);
 
@@ -108,7 +108,7 @@ public class ADStatsTests extends ESTestCase {
     @Test
     public void testADStatsRequest() throws IOException {
         List<String>  allStats = Arrays.stream(StatNames.values()).map(StatNames::getName).collect(Collectors.toList());
-        ADStatsRequest adStatsRequest = new ADStatsRequest(new HashSet<>(allStats));
+        ADStatsRequest adStatsRequest = new ADStatsRequest();
 
         // Test clear()
         adStatsRequest.clear();
@@ -117,7 +117,7 @@ public class ADStatsTests extends ESTestCase {
         }
 
         // Test all()
-        adStatsRequest.all();
+        adStatsRequest.addAll(new HashSet<>(allStats));
         for (String stat : allStats) {
             assertTrue("all() fails", adStatsRequest.getStatsToBeRetrieved().contains(stat));
         }
@@ -127,10 +127,6 @@ public class ADStatsTests extends ESTestCase {
         adStatsRequest.addStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName());
         assertTrue("addStat fails", adStatsRequest.getStatsToBeRetrieved().contains(
                 StatNames.AD_EXECUTE_REQUEST_COUNT.getName()));
-
-        // Test add invalid stat
-        adStatsRequest.clear();
-        assertFalse("Adding invalid stat failed", adStatsRequest.addStat("NON-EXISTENT STAT"));
 
         // Test Serialization
         BytesStreamOutput output = new BytesStreamOutput();

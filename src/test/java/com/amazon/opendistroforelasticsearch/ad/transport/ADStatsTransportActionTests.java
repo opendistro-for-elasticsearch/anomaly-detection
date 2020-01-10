@@ -86,7 +86,7 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
     @Test
     public void testNewResponse() {
         String nodeId = clusterService().localNode().getId();
-        ADStatsRequest adStatsRequest = new ADStatsRequest(statsMap.keySet(), (nodeId));
+        ADStatsRequest adStatsRequest = new ADStatsRequest((nodeId));
         adStatsRequest.clear();
 
         Set<String> clusterStatsToBeRetrieved = new HashSet<>(Arrays.asList(
@@ -95,7 +95,7 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
         ));
 
         for (String stat : clusterStatsToBeRetrieved) {
-            assertTrue("Failed to add stat", adStatsRequest.addStat(stat));
+            adStatsRequest.addStat(stat);
         }
 
         List<ADStatsNodeResponse> responses = new ArrayList<>();
@@ -108,7 +108,7 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
     @Test
     public void testNewNodeRequest() {
         String nodeId = "nodeId1";
-        ADStatsRequest adStatsRequest = new ADStatsRequest(statsMap.keySet(), nodeId);
+        ADStatsRequest adStatsRequest = new ADStatsRequest(nodeId);
 
         ADStatsNodeRequest adStatsNodeRequest1 = new ADStatsNodeRequest(nodeId, adStatsRequest);
         ADStatsNodeRequest adStatsNodeRequest2 = action.newNodeRequest(nodeId, adStatsRequest);
@@ -124,7 +124,7 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
     @Test
     public void testNodeOperation() {
         String nodeId = clusterService().localNode().getId();
-        ADStatsRequest adStatsRequest = new ADStatsRequest(statsMap.keySet(), (nodeId));
+        ADStatsRequest adStatsRequest = new ADStatsRequest((nodeId));
         adStatsRequest.clear();
 
         Set<String> statsToBeRetrieved = new HashSet<>(Arrays.asList(

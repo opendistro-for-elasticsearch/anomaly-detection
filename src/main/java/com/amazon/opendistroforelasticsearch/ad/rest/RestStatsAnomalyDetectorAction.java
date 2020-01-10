@@ -79,11 +79,13 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
         // parse the nodes the user wants to query the stats for
         String[] nodeIdsArr = null;
         String nodesIdsStr = request.param("nodeId");
+        Set<String> validStats = adStats.getStats().keySet();
+
         if (!Strings.isEmpty(nodesIdsStr)) {
             nodeIdsArr = nodesIdsStr.split(",");
         }
 
-        ADStatsRequest adStatsRequest = new ADStatsRequest(adStats.getStats().keySet(), nodeIdsArr);
+        ADStatsRequest adStatsRequest = new ADStatsRequest(nodeIdsArr);
         adStatsRequest.timeout(request.param("timeout"));
 
         // parse the stats the user wants to see
@@ -94,16 +96,18 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
         }
 
         if (statsSet == null) {
-            adStatsRequest.all(); // retrieve all stats if none are specified
+            adStatsRequest.addAll(validStats); // retrieve all stats if none are specified
         } else if (statsSet.size() == 1 && statsSet.contains(ADStatsRequest.ALL_STATS_KEY)) {
-            adStatsRequest.all();
+            adStatsRequest.addAll(validStats);
         } else if (statsSet.contains(ADStatsRequest.ALL_STATS_KEY)) {
             throw new IllegalArgumentException("Request " + request.path() + " contains " + ADStatsRequest.ALL_STATS_KEY
                     + " and individual stats");
         } else {
             Set<String> invalidStats = new TreeSet<>();
             for (String stat : statsSet) {
-                if (!adStatsRequest.addStat(stat)) {
+                if (validStats.contains(stat)) {
+                    adStatsRequest.addStat(stat);
+                } else {
                     invalidStats.add(stat);
                 }
             }

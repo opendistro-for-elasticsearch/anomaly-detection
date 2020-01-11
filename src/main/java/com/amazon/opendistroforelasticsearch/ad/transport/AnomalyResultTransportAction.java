@@ -46,6 +46,7 @@ import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
+import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
@@ -233,6 +234,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 listener.onFailure(new EndRunException(adID, "AnomalyDetector is not available.", true));
                 return;
             }
+            AnomalyDetector anomalyDetector = detector.get();
 
             String thresholdModelID = modelManager.getThresholdModelId(adID);
             Optional<DiscoveryNode> thresholdNode = hashRing.getOwningNode(thresholdModelID);
@@ -247,8 +249,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
 
-            SinglePointFeatures featureOptional = featureManager.getCurrentFeatures(detector.get(),
-                    request.getStart(), request.getEnd());
+            long delayMillis = Optional.ofNullable((IntervalTimeConfiguration)anomalyDetector.getWindowDelay())
+                .map(t -> t.toDuration().toMillis()).orElse(0L);
+            long startTime = request.getStart() - delayMillis;
+            long endTime = request.getEnd() - delayMillis;
+
+            SinglePointFeatures featureOptional = featureManager.getCurrentFeatures(anomalyDetector,
+                    startTime, endTime);
 
             List<FeatureData> featureInResponse = null;
 
@@ -354,8 +361,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 listener.onResponse(response);
                 indexAnomalyResult(new AnomalyResult(adID, Double.valueOf(combinedScore),
                         Double.valueOf(response.getAnomalyGrade()), Double.valueOf(confidence),
-                        featureInResponse, Instant.ofEpochMilli(request.getStart()),
-                        Instant.ofEpochMilli(request.getEnd())));
+                        featureInResponse, Instant.ofEpochMilli(startTime),
+                        Instant.ofEpochMilli(endTime)));
             } else if (failure.get() != null) {
                 listener.onFailure(failure.get());
             } else {

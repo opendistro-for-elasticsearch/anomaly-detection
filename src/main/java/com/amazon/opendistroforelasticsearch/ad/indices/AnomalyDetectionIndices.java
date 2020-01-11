@@ -31,19 +31,15 @@ import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsReques
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest;
 import org.elasticsearch.action.admin.indices.rollover.RolloverResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.AdminClient;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterChangedEvent;
 import org.elasticsearch.cluster.ClusterStateListener;
 import org.elasticsearch.cluster.LocalNodeMasterListener;
-import org.elasticsearch.cluster.health.ClusterIndexHealth;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -306,56 +302,5 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
             lastRolloverTime = TimeValue.timeValueMillis(threadPool.absoluteTimeInMillis());
         }
         return response.isRolledOver();
-    }
-
-    /**
-     * Gets the cluster index health for a particular index
-     *
-     * @param indexName String of the index to get health of
-     * @return String represents the status of the index: "red", "yellow" or "green"
-     */
-    public String getIndexHealthStatus(String indexName) {
-        if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
-            return "nonexistent";
-        }
-
-        ClusterIndexHealth indexHealth = new ClusterIndexHealth(
-                clusterService.state().metaData().index(indexName),
-                clusterService.state().getRoutingTable().index(indexName)
-        );
-
-        return indexHealth.getStatus().name().toLowerCase();
-    }
-
-    /**
-     * Used to set cluster service for testing
-     */
-    void setClusterService(ClusterService clusterService) { this.clusterService = clusterService; }
-
-    /**
-     * Gets the number of documents in an index
-     *
-     * @param indexName String of the index
-     * @return number of docs in the index
-     */
-    public Long getNumberOfDocumentsInIndex(String indexName) {
-        if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
-            return 0L;
-        }
-
-        SearchRequest searchRequest = new SearchRequest(indexName);
-
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        sourceBuilder.size(0);
-
-        searchRequest.source(sourceBuilder);
-
-        Optional<SearchResponse> response = requestUtil.timedRequest(searchRequest, logger, client::search);
-
-        if (response.isPresent()) {
-            return response.get().getHits().getTotalHits().value;
-        } else {
-            return 0L;
-        }
     }
 }

@@ -43,7 +43,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -72,7 +74,13 @@ import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
+import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
@@ -142,6 +150,7 @@ public class AnomalyResultTests extends AbstractADTest {
     private String featureId;
     private String featureName;
     private ADCircuitBreakerService adCircuitBreakerService;
+    private ADStats adStats;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -225,6 +234,19 @@ public class AnomalyResultTests extends AbstractADTest {
         }).when(client).index(any(), any());
 
         indexNameResolver = new IndexNameExpressionResolver();
+
+        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY);
+        IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
+
+        Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
+            {
+                put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false,
+                        new CounterSupplier()));
+                put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
+            }
+        };
+
+        adStats = new ADStats(indexUtils, normalModelManager, statsMap);
     }
 
     public void setupTestNodes(Settings settings) {
@@ -305,7 +327,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, runner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService, indexNameResolver,
-                threadPool, adCircuitBreakerService);
+                threadPool, adCircuitBreakerService, adStats);
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -346,7 +368,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager,
                 globalRunner, anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService,
-                indexNameResolver, threadPool, adCircuitBreakerService);
+                indexNameResolver, threadPool, adCircuitBreakerService, adStats);
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -402,7 +424,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, mockRunner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService, indexNameResolver,
-                threadPool, adCircuitBreakerService);
+                threadPool, adCircuitBreakerService, adStats);
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -426,7 +448,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, runner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService, indexNameResolver,
-                threadPool, adCircuitBreakerService);
+                threadPool, adCircuitBreakerService, adStats);
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -450,7 +472,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, runner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService, indexNameResolver,
-                threadPool, adCircuitBreakerService);
+                threadPool, adCircuitBreakerService, adStats);
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -473,7 +495,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, runner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService, indexNameResolver,
-                threadPool, breakerService);
+                threadPool, breakerService, adStats);
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -522,7 +544,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), exceptionTransportService, client, settings, stateManager,
                 runner, anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, hackedClusterService,
-                indexNameResolver, threadPool, adCircuitBreakerService);
+                indexNameResolver, threadPool, adCircuitBreakerService, adStats);
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -573,7 +595,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, muteStateManager, runner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService, indexNameResolver,
-                threadPool, adCircuitBreakerService);
+                threadPool, adCircuitBreakerService, adStats);
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
@@ -593,7 +615,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = spy(
                 new AnomalyResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, client,
                         settings, stateManager, runner, anomalyDetectionIndices, featureQuery, normalModelManager,
-                        hashRing, clusterService, indexNameResolver, threadPool, adCircuitBreakerService));
+                        hashRing, clusterService, indexNameResolver, threadPool, adCircuitBreakerService, adStats));
 
         CountDownLatch latch = mock(CountDownLatch.class);
         doThrow(InterruptedException.class).when(latch).await(anyLong(), any(TimeUnit.class));
@@ -617,7 +639,8 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = spy(
                 new AnomalyResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, client,
                         settings, stateManager, new ColdStartRunner(), anomalyDetectionIndices, featureQuery,
-                        normalModelManager, hashRing, clusterService, indexNameResolver, threadPool, adCircuitBreakerService));
+                        normalModelManager, hashRing, clusterService, indexNameResolver, threadPool,
+                                adCircuitBreakerService, adStats));
 
         CountDownLatch latch = mock(CountDownLatch.class);
         doThrow(InterruptedException.class).when(latch).await(anyLong(), any(TimeUnit.class));
@@ -641,7 +664,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
         new AnomalyResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, client, settings,
                 stateManager, runner, anomalyDetectionIndices, featureQuery, normalModelManager, hashRing,
-                clusterService, indexNameResolver, threadPool, adCircuitBreakerService);
+                clusterService, indexNameResolver, threadPool, adCircuitBreakerService, adStats);
 
         TransportRequestOptions option = TransportRequestOptions.builder().withType(TransportRequestOptions.Type.STATE)
                 .withTimeout(6000).build();
@@ -769,7 +792,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager,
                 new ColdStartRunner(), anomalyDetectionIndices, featureQuery, normalModelManager, hashRing,
-                clusterService, indexNameResolver, threadPool, adCircuitBreakerService);
+                clusterService, indexNameResolver, threadPool, adCircuitBreakerService, adStats);
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(null, null, null, null);
         listener.onFailure(null);
     }
@@ -780,7 +803,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, runner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService, indexNameResolver,
-                threadPool, adCircuitBreakerService);
+                threadPool, adCircuitBreakerService, adStats);
 
         AnomalyResultTransportAction.ColdStartJob job = action.new ColdStartJob(detector);
         expectThrows(AnomalyDetectionException.class, () -> job.call());
@@ -795,7 +818,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, runner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService, indexNameResolver,
-                threadPool, adCircuitBreakerService);
+                threadPool, adCircuitBreakerService, adStats);
 
         AnomalyResultTransportAction.ColdStartJob job = action.new ColdStartJob(detector);
         expectThrows(ClientException.class, () -> job.call());
@@ -857,7 +880,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, badClient, backoffSettings, stateManager,
                 runner, anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService,
-                indexNameResolver, threadPool, adCircuitBreakerService);
+                indexNameResolver, threadPool, adCircuitBreakerService, adStats);
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -902,7 +925,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, runner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService, indexNameResolver,
-                threadPool, adCircuitBreakerService);
+                threadPool, adCircuitBreakerService, adStats);
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -965,7 +988,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, runner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, hackedClusterService,
-                indexNameResolver, threadPool, adCircuitBreakerService);
+                indexNameResolver, threadPool, adCircuitBreakerService, adStats);
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -1019,7 +1042,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, runner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, hackedClusterService,
-                indexNameResolver, threadPool, adCircuitBreakerService);
+                indexNameResolver, threadPool, adCircuitBreakerService, adStats);
         action.indexAnomalyResult(TestHelpers.randomAnomalyDetectResult());
 
         assertTrue(testAppender.containsMessage(AnomalyResultTransportAction.CANNOT_SAVE_ERR_MSG));
@@ -1029,7 +1052,7 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
                 new ActionFilters(Collections.emptySet()), transportService, client, settings, stateManager, runner,
                 anomalyDetectionIndices, featureQuery, normalModelManager, hashRing, clusterService,
-                indexNameResolver, threadPool, adCircuitBreakerService);
+                indexNameResolver, threadPool, adCircuitBreakerService, adStats);
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(null, "123-rcf-0", null, "123");
         listener.onResponse(null);
         assertTrue(testAppender.containsMessage(AnomalyResultTransportAction.NULL_RESPONSE));

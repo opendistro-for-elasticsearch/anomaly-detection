@@ -33,39 +33,52 @@ import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
 import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.rest.RestExecuteAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestGetAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestIndexAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.rest.RestExecuteAnomalyDetectorAction;
-
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyResultAction;
+import com.amazon.opendistroforelasticsearch.ad.rest.RestStatsAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
 
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
+
+import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.DocumentCountSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
-import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.CronTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFResultAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.RCFResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
-
-import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelTransportAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorTransportAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.RCFResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultTransportAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTransportAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.CronTransportAction;
-
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -117,6 +130,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private AnomalyDetectionIndices anomalyDetectionIndices;
     private AnomalyDetectorRunner anomalyDetectorRunner;
     private ClusterService clusterService;
+    private ADStats adStats;
 
     static {
         SpecialPermission.check();
@@ -148,13 +162,16 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 restController, clusterService);
         RestExecuteAnomalyDetectorAction executeAnomalyDetectorAction = new RestExecuteAnomalyDetectorAction(settings,
             restController, clusterService, anomalyDetectorRunner);
+        RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(settings,
+                restController, adStats);
 
         return ImmutableList.of(restGetAnomalyDetectorAction,
                 restIndexAnomalyDetectorAction,
                 searchAnomalyDetectorAction,
                 searchAnomalyResultAction,
                 deleteAnomalyDetectorAction,
-                executeAnomalyDetectorAction);
+                executeAnomalyDetectorAction,
+                statsAnomalyDetectorAction);
     }
 
     private static Void initGson() {
@@ -170,6 +187,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                                                NamedWriteableRegistry namedWriteableRegistry) {
         Settings settings = environment.settings();
         ClientUtil clientUtil = new ClientUtil(settings);
+        IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
         anomalyDetectionIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings,
                 clientUtil);
         this.clusterService = clusterService;
@@ -210,13 +228,29 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.CHECKPOINT_TTL);
         HourlyCron hourlyCron = new HourlyCron(clusterService, client);
 
+        Map<String, ADStat<?>> stats = ImmutableMap.<String, ADStat<?>>builder()
+            .put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false,
+                    new CounterSupplier()))
+            .put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.MODEL_INFORMATION.getName(), new ADStat<>(false,
+                    new ModelsOnNodeSupplier(modelManager)))
+            .put(StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(), new ADStat<>(true,
+                    new IndexStatusSupplier(indexUtils, AnomalyDetector.ANOMALY_DETECTORS_INDEX)))
+            .put(StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(), new ADStat<>(true,
+                    new IndexStatusSupplier(indexUtils, AnomalyResult.ANOMALY_RESULT_INDEX)))
+            .put(StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(), new ADStat<>(true,
+                    new IndexStatusSupplier(indexUtils, CommonName.CHECKPOINT_INDEX_NAME)))
+            .put(StatNames.DETECTOR_COUNT.getName(), new ADStat<>(true,
+                    new DocumentCountSupplier(indexUtils, AnomalyDetector.ANOMALY_DETECTORS_INDEX))).build();
+
+        adStats = new ADStats(indexUtils, modelManager, stats);
         ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
 
         return ImmutableList.of(anomalyDetectionIndices, anomalyDetectorRunner, searchFeatureDao,
                 singleFeatureLinearUniformInterpolator, interpolator, gson, jvmService, hashRing, featureManager,
                 modelManager, clock, stateManager, runner,
                 new ADClusterEventListener(clusterService, hashRing, modelManager),
-                deleteUtil, dailyCron, hourlyCron, adCircuitBreakerService,
+                deleteUtil, dailyCron, hourlyCron, adCircuitBreakerService, adStats,
                 new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock)
                 );
     }
@@ -267,7 +301,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(RCFResultAction.INSTANCE, RCFResultTransportAction.class),
                 new ActionHandler<>(ThresholdResultAction.INSTANCE, ThresholdResultTransportAction.class),
                 new ActionHandler<>(AnomalyResultAction.INSTANCE, AnomalyResultTransportAction.class),
-                new ActionHandler<>(CronAction.INSTANCE, CronTransportAction.class)
+                new ActionHandler<>(CronAction.INSTANCE, CronTransportAction.class),
+                new ActionHandler<>(ADStatsAction.INSTANCE, ADStatsTransportAction.class)
         );
     }
 }

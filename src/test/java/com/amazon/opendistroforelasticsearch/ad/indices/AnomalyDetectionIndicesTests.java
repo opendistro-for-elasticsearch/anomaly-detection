@@ -140,44 +140,6 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
         }
     }
 
-    public void testAnomalyDetectorsIndexStatus() throws  IOException {
-        // Initialize index if it is not there
-        indices.initAnomalyDetectorIndexIfAbsent(TestHelpers.createActionListener(
-                response -> response.isAcknowledged(),
-                failure -> {
-                    throw new RuntimeException("should not recreate index");
-                }));
-        TestHelpers.waitForIndexCreationToComplete(client(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-
-        // check status
-        String status = indices.getIndexHealthStatus(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-        assertTrue(status.equals("yellow")  || status.equals("green")  || status.equals("red") || status.equals("nonexistent"));
-    }
-
-    public void testAnomalyDetectorsGetNumberOfDocuments() throws  IOException {
-        String indexName = "test_index";
-
-        indices.setClusterService(clusterService());
-
-        createIndex(indexName);
-
-        flushAndRefresh();
-        assertTrue("Index does not exist", clusterService().state().getRoutingTable().hasIndex(indexName));
-
-        Long numOfDetectors = 10L;
-        for (int i = 0; i < numOfDetectors; i++) {
-            createRandomDetector(indexName);
-        }
-
-        flushAndRefresh();
-
-        Long numOfActualDetectorsCreated = indices.getNumberOfDocumentsInIndex(indexName);
-        assertEquals("Total number of detectors is incorrect", numOfDetectors, numOfActualDetectorsCreated);
-
-        // Manually reset the clusterService to the original
-        indices.setClusterService(clusterService);
-    }
-
     private void createRandomDetector(String indexName) throws IOException {
         // creates a random anomaly detector and indexes it
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);

@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.ad.dataprocessor;
 
-
 /*
  * A piecewise linear interpolator with uniformly spaced points.
  *
@@ -55,8 +54,7 @@ public class LinearUniformInterpolator implements Interpolator {
         double[][] interpolants = new double[numFeatures][numInterpolants];
 
         for (int featureIndex = 0; featureIndex < numFeatures; featureIndex++) {
-            interpolants[featureIndex] = this.singleFeatureLinearUniformInterpolator
-                .interpolate(samples[featureIndex], numInterpolants);
+            interpolants[featureIndex] = this.singleFeatureLinearUniformInterpolator.interpolate(samples[featureIndex], numInterpolants);
         }
         return interpolants;
     }

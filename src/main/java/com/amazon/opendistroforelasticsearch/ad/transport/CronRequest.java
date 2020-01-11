@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 import org.elasticsearch.action.support.nodes.BaseNodesRequest;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 
-
 /**
  * Request should be sent from the handler logic of transport delete detector API
  *

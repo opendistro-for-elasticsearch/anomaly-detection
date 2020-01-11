@@ -66,15 +66,15 @@ public class Feature implements ToXContentObject {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        XContentBuilder xContentBuilder = builder.startObject()
-                .field(FEATURE_ID_FIELD, id)
-                .field(FEATURE_NAME_FIELD, name)
-                .field(FEATURE_ENABLED_FIELD, enabled)
-                .field(AGGREGATION_QUERY)
-                .startObject()
-                .value(aggregation)
-                .endObject()
-                ;
+        XContentBuilder xContentBuilder = builder
+            .startObject()
+            .field(FEATURE_ID_FIELD, id)
+            .field(FEATURE_NAME_FIELD, name)
+            .field(FEATURE_ENABLED_FIELD, enabled)
+            .field(AGGREGATION_QUERY)
+            .startObject()
+            .value(aggregation)
+            .endObject();
         return xContentBuilder.endObject();
     }
 
@@ -120,13 +120,15 @@ public class Feature implements ToXContentObject {
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         Feature feature = (Feature) o;
-        return Objects.equal(getId(), feature.getId()) &&
-                Objects.equal(getName(), feature.getName()) &&
-                Objects.equal(getEnabled(), feature.getEnabled()) &&
-                Objects.equal(getAggregation(), feature.getAggregation());
+        return Objects.equal(getId(), feature.getId())
+            && Objects.equal(getName(), feature.getName())
+            && Objects.equal(getEnabled(), feature.getEnabled())
+            && Objects.equal(getAggregation(), feature.getAggregation());
     }
 
     @Generated

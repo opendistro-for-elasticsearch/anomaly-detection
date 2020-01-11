@@ -55,8 +55,12 @@ public class ADStatsResponse extends BaseNodesResponse<ADStatsNodeResponse> impl
      * @param failures List of failures from nodes
      * @param clusterStats Cluster level stats only obtained from a single node
      */
-    public ADStatsResponse(ClusterName clusterName, List<ADStatsNodeResponse> nodes, List<FailedNodeException> failures,
-                     Map<String, Object> clusterStats) {
+    public ADStatsResponse(
+        ClusterName clusterName,
+        List<ADStatsNodeResponse> nodes,
+        List<FailedNodeException> failures,
+        Map<String, Object> clusterStats
+    ) {
         super(clusterName, nodes, failures);
         this.clusterStats = clusterStats;
     }

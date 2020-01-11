@@ -139,14 +139,29 @@ public class ModelManager {
      * @param modelTtl time to live for hosted models
      * @param checkpointInterval interval between checkpoints
      */
-    public ModelManager(ClusterService clusterService, JvmService jvmService,
-        RandomCutForestSerDe rcfSerde, CheckpointDao checkpointDao, Gson gson, Clock clock,
-        double modelDesiredSizePercentage, double modelMaxSizePercentage,
-        int rcfNumTrees, int rcfNumSamplesInTree, double rcfTimeDecay,
-        double thresholdMinPvalue, double thresholdMaxRankError, double thresholdMaxScore, int thresholdNumLogNormalQuantiles,
-        int thresholdDownsamples, long thresholdMaxSamples, Class<? extends ThresholdingModel> thresholdingModelClass,
+    public ModelManager(
+        ClusterService clusterService,
+        JvmService jvmService,
+        RandomCutForestSerDe rcfSerde,
+        CheckpointDao checkpointDao,
+        Gson gson,
+        Clock clock,
+        double modelDesiredSizePercentage,
+        double modelMaxSizePercentage,
+        int rcfNumTrees,
+        int rcfNumSamplesInTree,
+        double rcfTimeDecay,
+        double thresholdMinPvalue,
+        double thresholdMaxRankError,
+        double thresholdMaxScore,
+        int thresholdNumLogNormalQuantiles,
+        int thresholdDownsamples,
+        long thresholdMaxSamples,
+        Class<? extends ThresholdingModel> thresholdingModelClass,
         int minPreviewSize,
-        Duration modelTtl, Duration checkpointInterval) {
+        Duration modelTtl,
+        Duration checkpointInterval
+    ) {
 
         this.clusterService = clusterService;
         this.jvmService = jvmService;
@@ -194,8 +209,8 @@ public class ModelManager {
                 combinedResult = new CombinedRcfResult(0, 0);
             } else {
                 double score = rcfResults.stream().mapToDouble(r -> r.getScore() * r.getForestSize()).sum() / totalForestSize;
-                double confidence = rcfResults.stream().mapToDouble(r -> r.getConfidence() * r.getForestSize()).sum()
-                    / Math.max(rcfNumTrees, totalForestSize);
+                double confidence = rcfResults.stream().mapToDouble(r -> r.getConfidence() * r.getForestSize()).sum() / Math
+                    .max(rcfNumTrees, totalForestSize);
                 combinedResult = new CombinedRcfResult(score, confidence);
             }
         }
@@ -236,19 +251,19 @@ public class ModelManager {
         long heapSize = jvmService.info().getMem().getHeapMax().getBytes();
 
         // desired partitioning
-        long partitionSize = (long)(Math.min(heapSize * modelDesiredSizePercentage, totalSize));
-        int numPartitions = (int)Math.ceil((double)totalSize / (double)partitionSize);
-        int forestSize = (int)Math.ceil((double)forest.getNumberOfTrees() / (double)numPartitions);
+        long partitionSize = (long) (Math.min(heapSize * modelDesiredSizePercentage, totalSize));
+        int numPartitions = (int) Math.ceil((double) totalSize / (double) partitionSize);
+        int forestSize = (int) Math.ceil((double) forest.getNumberOfTrees() / (double) numPartitions);
 
         int numNodes = clusterService.state().nodes().getDataNodes().size();
         if (numPartitions > numNodes) {
             // partition by cluster size
-            partitionSize = (long)Math.ceil((double)totalSize / (double)numNodes);
-            long maxPartitionSize = (long)(heapSize * modelMaxSizePercentage);
+            partitionSize = (long) Math.ceil((double) totalSize / (double) numNodes);
+            long maxPartitionSize = (long) (heapSize * modelMaxSizePercentage);
             // verify against max size limit
             if (partitionSize <= maxPartitionSize) {
                 numPartitions = numNodes;
-                forestSize = (int)Math.ceil((double)forest.getNumberOfTrees() / (double)numNodes);
+                forestSize = (int) Math.ceil((double) forest.getNumberOfTrees() / (double) numNodes);
             } else {
                 throw new LimitExceededException(detectorId, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG);
             }
@@ -264,12 +279,8 @@ public class ModelManager {
      * @return estimated model size in bytes
      */
     public long estimateModelSize(RandomCutForest forest) {
-        return (long)forest.getNumberOfTrees()
-            * (long)forest.getSampleSize()
-            * BOUNDING_BOXES
-            * VECTORS_IN_BOUNDING_BOX
-            * forest.getDimensions()
-            * (Long.SIZE / Byte.SIZE);
+        return (long) forest.getNumberOfTrees() * (long) forest.getSampleSize() * BOUNDING_BOXES * VECTORS_IN_BOUNDING_BOX * forest
+            .getDimensions() * (Long.SIZE / Byte.SIZE);
     }
 
     /**
@@ -286,13 +297,18 @@ public class ModelManager {
      */
     @Deprecated
     public RcfResult getRcfResult(String detectorId, String modelId, double[] point) {
-        ModelState<RandomCutForest> modelState = forests.computeIfAbsent(modelId,
-            model -> checkpointDao.getModelCheckpoint(model)
-                .map(checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) ()
-                    -> rcfSerde.fromJson(checkpoint)))
-                .filter(rcf -> isHostingAllowed(detectorId, rcf))
-                .map(rcf -> new ModelState<>(rcf, modelId, detectorId, ModelType.RCF.getName(), clock.instant()))
-                .orElseThrow(() -> new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId)));
+        ModelState<RandomCutForest> modelState = forests
+            .computeIfAbsent(
+                modelId,
+                model -> checkpointDao
+                    .getModelCheckpoint(model)
+                    .map(
+                        checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) () -> rcfSerde.fromJson(checkpoint))
+                    )
+                    .filter(rcf -> isHostingAllowed(detectorId, rcf))
+                    .map(rcf -> new ModelState<>(rcf, modelId, detectorId, ModelType.RCF.getName(), clock.instant()))
+                    .orElseThrow(() -> new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId))
+            );
 
         RandomCutForest rcf = modelState.getModel();
         double score = rcf.getAnomalyScore(point);
@@ -316,13 +332,18 @@ public class ModelManager {
      */
     @Deprecated
     public ThresholdingResult getThresholdingResult(String detectorId, String modelId, double score) {
-        ModelState<ThresholdingModel> modelState = thresholds.computeIfAbsent(modelId,
-            model -> checkpointDao.getModelCheckpoint(model)
-                .map(checkpoint -> AccessController.doPrivileged((PrivilegedAction<ThresholdingModel>)
-                    () -> gson.fromJson(checkpoint, thresholdingModelClass)))
-                .map(threshold -> new ModelState<>(threshold, modelId, detectorId, ModelType.THRESHOLD.getName(),
-                        clock.instant())).orElseThrow(() -> new ResourceNotFoundException(detectorId,
-                            CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId)));
+        ModelState<ThresholdingModel> modelState = thresholds
+            .computeIfAbsent(
+                modelId,
+                model -> checkpointDao
+                    .getModelCheckpoint(model)
+                    .map(
+                        checkpoint -> AccessController
+                            .doPrivileged((PrivilegedAction<ThresholdingModel>) () -> gson.fromJson(checkpoint, thresholdingModelClass))
+                    )
+                    .map(threshold -> new ModelState<>(threshold, modelId, detectorId, ModelType.THRESHOLD.getName(), clock.instant()))
+                    .orElseThrow(() -> new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId))
+            );
 
         ThresholdingModel threshold = modelState.getModel();
         double grade = threshold.grade(score);
@@ -347,8 +368,7 @@ public class ModelManager {
      * @return list of modelStates
      */
     public List<ModelState<?>> getAllModels() {
-        return Stream.concat(forests.values().stream(), thresholds.values().stream())
-                .collect(Collectors.toList());
+        return Stream.concat(forests.values().stream(), thresholds.values().stream()).collect(Collectors.toList());
     }
 
     /**
@@ -368,11 +388,13 @@ public class ModelManager {
 
     private <T> void stopModel(Map<String, ModelState<T>> models, String modelId, Function<T, String> toCheckpoint) {
         Instant now = clock.instant();
-        Optional.ofNullable(models.remove(modelId))
+        Optional
+            .ofNullable(models.remove(modelId))
             .filter(model -> model.getLastCheckpointTime().plus(checkpointInterval).isBefore(now))
             .ifPresent(model -> {
                 checkpointDao.putModelCheckpoint(modelId, toCheckpoint.apply(model.getModel()));
-                model.setLastCheckpointTime(now);});
+                model.setLastCheckpointTime(now);
+            });
     }
 
     /**
@@ -411,38 +433,56 @@ public class ModelManager {
         int rcfNumFeatures = dataPoints[0].length;
 
         // Create partitioned RCF models
-        Entry<Integer, Integer> partitionResults = getPartitionedForestSizes(RandomCutForest.builder()
-                .dimensions(rcfNumFeatures).sampleSize(rcfNumSamplesInTree).numberOfTrees(rcfNumTrees)
-                .outputAfter(rcfNumSamplesInTree).parallelExecutionEnabled(false).build(), anomalyDetector.getDetectorId());
+        Entry<Integer, Integer> partitionResults = getPartitionedForestSizes(
+            RandomCutForest
+                .builder()
+                .dimensions(rcfNumFeatures)
+                .sampleSize(rcfNumSamplesInTree)
+                .numberOfTrees(rcfNumTrees)
+                .outputAfter(rcfNumSamplesInTree)
+                .parallelExecutionEnabled(false)
+                .build(),
+            anomalyDetector.getDetectorId()
+        );
         int numForests = partitionResults.getKey();
         int forestSize = partitionResults.getValue();
         double[] scores = new double[dataPoints.length];
         Arrays.fill(scores, 0.);
         for (int i = 0; i < numForests; i++) {
-            RandomCutForest rcf = RandomCutForest.builder().dimensions(rcfNumFeatures).sampleSize(rcfNumSamplesInTree) 
-                .numberOfTrees(forestSize).lambda(rcfTimeDecay).outputAfter(rcfNumSamplesInTree).parallelExecutionEnabled(false).build();
+            RandomCutForest rcf = RandomCutForest
+                .builder()
+                .dimensions(rcfNumFeatures)
+                .sampleSize(rcfNumSamplesInTree)
+                .numberOfTrees(forestSize)
+                .lambda(rcfTimeDecay)
+                .outputAfter(rcfNumSamplesInTree)
+                .parallelExecutionEnabled(false)
+                .build();
             for (int j = 0; j < dataPoints.length; j++) {
                 scores[j] += rcf.getAnomalyScore(dataPoints[j]);
                 rcf.update(dataPoints[j]);
             }
             String modelId = getRcfModelId(anomalyDetector.getDetectorId(), i);
-            String checkpoint = AccessController.doPrivileged(
-                (PrivilegedAction<String>) () -> rcfSerde.toJson(rcf));
+            String checkpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> rcfSerde.toJson(rcf));
             checkpointDao.putModelCheckpoint(modelId, checkpoint);
         }
 
-        scores = DoubleStream.of(scores).filter(score -> score > 0).map(score -> score/numForests).toArray();
+        scores = DoubleStream.of(scores).filter(score -> score > 0).map(score -> score / numForests).toArray();
 
         // Train thresholding model
         ThresholdingModel threshold = new HybridThresholdingModel(
-            thresholdMinPvalue, thresholdMaxRankError, thresholdMaxScore, thresholdNumLogNormalQuantiles,
-            thresholdDownsamples, thresholdMaxSamples);
+            thresholdMinPvalue,
+            thresholdMaxRankError,
+            thresholdMaxScore,
+            thresholdNumLogNormalQuantiles,
+            thresholdDownsamples,
+            thresholdMaxSamples
+        );
         threshold.train(scores);
 
         // Persist thresholding model
         String modelId = getThresholdModelId(anomalyDetector.getDetectorId());
-        String checkpoint = AccessController.doPrivileged(
-            (PrivilegedAction<String>) () -> gson.toJson(threshold));
+        String checkpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> gson.toJson(threshold));
         checkpointDao.putModelCheckpoint(modelId, checkpoint);
     }
 
@@ -468,33 +508,31 @@ public class ModelManager {
     }
 
     private void clearModels(String detectorId, Map<String, ?> models) {
-        models.keySet().stream()
-            .filter(modelId -> getDetectorIdForModelId(modelId).equals(detectorId))
-            .forEach(modelId -> {
-                models.remove(modelId);
-                checkpointDao.deleteModelCheckpoint(modelId); });
+        models.keySet().stream().filter(modelId -> getDetectorIdForModelId(modelId).equals(detectorId)).forEach(modelId -> {
+            models.remove(modelId);
+            checkpointDao.deleteModelCheckpoint(modelId);
+        });
     }
 
     private boolean isHostingAllowed(String detectorId, RandomCutForest rcf) {
-        long total = forests.values().stream().mapToLong(f -> estimateModelSize(f.getModel())).sum()
-            + estimateModelSize(rcf);
+        long total = forests.values().stream().mapToLong(f -> estimateModelSize(f.getModel())).sum() + estimateModelSize(rcf);
         double heapLimit = jvmService.info().getMem().getHeapMax().getBytes() * modelMaxSizePercentage;
         if (total <= heapLimit) {
             return true;
         } else {
-            throw new LimitExceededException(detectorId,
-                String.format("Exceeded memory limit. New size is %d and max limit is %f", total, heapLimit));
+            throw new LimitExceededException(
+                detectorId,
+                String.format("Exceeded memory limit. New size is %d and max limit is %f", total, heapLimit)
+            );
         }
     }
 
     private String toCheckpoint(RandomCutForest forest) {
-        return AccessController.doPrivileged((PrivilegedAction<String>)
-            () -> rcfSerde.toJson(forest));
+        return AccessController.doPrivileged((PrivilegedAction<String>) () -> rcfSerde.toJson(forest));
     }
 
     private String toCheckpoint(ThresholdingModel threshold) {
-        return AccessController.doPrivileged((PrivilegedAction<String>)
-            () -> gson.toJson(threshold));
+        return AccessController.doPrivileged((PrivilegedAction<String>) () -> gson.toJson(threshold));
     }
 
     /**
@@ -525,7 +563,8 @@ public class ModelManager {
                 }
             } catch (Exception e) {
                 logger.warn("Failed to finish maintenance for model id " + modelId, e);
-            }});
+            }
+        });
     }
 
     /**
@@ -542,29 +581,39 @@ public class ModelManager {
         // Train RCF models and collect non-zero scores
         Random random = new Random();
         int rcfNumFeatures = dataPoints[0].length;
-        RandomCutForest forest = RandomCutForest.builder().dimensions(rcfNumFeatures).sampleSize(rcfNumSamplesInTree)
-                .numberOfTrees(rcfNumTrees).lambda(rcfTimeDecay).outputAfter(rcfNumSamplesInTree).parallelExecutionEnabled(false).build();
-        double[] rcfScores = Arrays.stream(dataPoints)
-            .mapToDouble(point -> {
-                double score = forest.getAnomalyScore(point);
-                forest.update(point);
-                return score;})
-            .filter(score -> score > 0.).toArray();
+        RandomCutForest forest = RandomCutForest
+            .builder()
+            .dimensions(rcfNumFeatures)
+            .sampleSize(rcfNumSamplesInTree)
+            .numberOfTrees(rcfNumTrees)
+            .lambda(rcfTimeDecay)
+            .outputAfter(rcfNumSamplesInTree)
+            .parallelExecutionEnabled(false)
+            .build();
+        double[] rcfScores = Arrays.stream(dataPoints).mapToDouble(point -> {
+            double score = forest.getAnomalyScore(point);
+            forest.update(point);
+            return score;
+        }).filter(score -> score > 0.).toArray();
         // Train thresholding model
         ThresholdingModel threshold = new HybridThresholdingModel(
-            thresholdMinPvalue, thresholdMaxRankError, thresholdMaxScore, thresholdNumLogNormalQuantiles,
-            thresholdDownsamples, thresholdMaxSamples);
+            thresholdMinPvalue,
+            thresholdMaxRankError,
+            thresholdMaxScore,
+            thresholdNumLogNormalQuantiles,
+            thresholdDownsamples,
+            thresholdMaxSamples
+        );
         threshold.train(rcfScores);
 
         // Get results from trained models
-        return Arrays.stream(dataPoints)
-            .map(point -> {
-                double rcfScore = forest.getAnomalyScore(point);
-                forest.update(point);
-                ThresholdingResult result = new ThresholdingResult(threshold.grade(rcfScore), threshold.confidence());
-                threshold.update(rcfScore);
-                return result;})
-            .collect(Collectors.toList());
+        return Arrays.stream(dataPoints).map(point -> {
+            double rcfScore = forest.getAnomalyScore(point);
+            forest.update(point);
+            ThresholdingResult result = new ThresholdingResult(threshold.grade(rcfScore), threshold.confidence());
+            threshold.update(rcfScore);
+            return result;
+        }).collect(Collectors.toList());
     }
 
     /**
@@ -578,8 +627,7 @@ public class ModelManager {
             return 1.;
         } else {
             double eTotal = Math.exp(totalExponent);
-            double confidence = (eTotal - Math.exp(lambda * Math.min(total, forest.getSampleSize())))
-                / (eTotal - 1);
+            double confidence = (eTotal - Math.exp(lambda * Math.min(total, forest.getSampleSize()))) / (eTotal - 1);
             return Math.max(0, confidence); // Replaces -0 wth 0 for cosmetic purpose.
         }
     }

@@ -56,8 +56,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
-    public AbstractSearchAction(Settings settings, RestController controller, String urlPath, String index,
-                                Class<T> clazz) {
+    public AbstractSearchAction(Settings settings, RestController controller, String urlPath, String index, Class<T> clazz) {
         super(settings);
         this.index = index;
         this.clazz = clazz;
@@ -71,12 +70,9 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
         searchSourceBuilder.fetchSource(getSourceContext(request));
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
-        SearchRequest searchRequest = new SearchRequest()
-                .source(searchSourceBuilder)
-                .indices(this.index);
+        SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
         return channel -> client.search(searchRequest, search(channel, this.clazz));
     }
-
 
     private RestResponseListener<SearchResponse> search(RestChannel channel, Class<T> clazz) {
         return new RestResponseListener<SearchResponse>(channel) {
@@ -87,8 +83,9 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
                 }
 
                 for (SearchHit hit : response.getHits()) {
-                    XContentParser parser = XContentType.JSON.xContent().createParser(channel.request().getXContentRegistry(),
-                            LoggingDeprecationHandler.INSTANCE, hit.getSourceAsString());
+                    XContentParser parser = XContentType.JSON
+                        .xContent()
+                        .createParser(channel.request().getXContentRegistry(), LoggingDeprecationHandler.INSTANCE, hit.getSourceAsString());
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
 
                     if (clazz == AnomalyDetector.class) {

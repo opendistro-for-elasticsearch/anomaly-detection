@@ -23,7 +23,6 @@ import com.google.gson.annotations.JsonAdapter;
 
 import com.yahoo.sketches.kll.KllFloatsSketch;
 
-
 /**
  * A model for converting raw anomaly scores into anomaly grades.
  *
@@ -103,14 +102,21 @@ public class HybridThresholdingModel implements ThresholdingModel {
      *
      * @see KllFloatsSketchSerDe
      */
-    public HybridThresholdingModel(double minPvalueThreshold, double maxRankError, double maxScore, int numLogNormalQuantiles,
-                                   int downsampleNumSamples, long downsampleMaxNumObservations) {
+    public HybridThresholdingModel(
+        double minPvalueThreshold,
+        double maxRankError,
+        double maxScore,
+        int numLogNormalQuantiles,
+        int downsampleNumSamples,
+        long downsampleMaxNumObservations
+    ) {
         if ((minPvalueThreshold <= 0.0) || (1.0 <= minPvalueThreshold)) {
             throw new IllegalArgumentException("minPvalueThreshold must be strictly between 0 and 1.");
         }
         if (maxRankError > (1.0 - minPvalueThreshold)) {
-            throw new IllegalArgumentException("maxRankError must be smaller than 1 - minPvalueThreshold in order to accurately "
-                                               + "estimate that threshold.");
+            throw new IllegalArgumentException(
+                "maxRankError must be smaller than 1 - minPvalueThreshold in order to accurately " + "estimate that threshold."
+            );
         }
         if (maxRankError <= 0.0) {
             throw new IllegalArgumentException("maxRankError must be positive.");
@@ -125,8 +131,9 @@ public class HybridThresholdingModel implements ThresholdingModel {
             throw new IllegalArgumentException("Number of downsamples must be greater than one.");
         }
         if (downsampleNumSamples >= downsampleMaxNumObservations) {
-            throw new IllegalArgumentException("The number of samples to downsample to must be less than the number of observations "
-                                               + "before downsampling is triggered.");
+            throw new IllegalArgumentException(
+                "The number of samples to downsample to must be less than the number of observations " + "before downsampling is triggered."
+            );
         }
 
         this.minPvalueThreshold = minPvalueThreshold;
@@ -232,7 +239,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
           raw anomaly scores are positive and non-zero.
         */
         final double maxScorePvalue = computeLogNormalCdf(maxScore, mu, sigma);
-        final double pvalueStep = maxScorePvalue / ((double)numLogNormalQuantiles + 1.0);
+        final double pvalueStep = maxScorePvalue / ((double) numLogNormalQuantiles + 1.0);
         for (double pvalue = pvalueStep; pvalue < maxScorePvalue; pvalue += pvalueStep) {
             double currentScore = computeLogNormalQuantile(pvalue, mu, sigma);
             update(currentScore);
@@ -250,7 +257,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
      * @return              the p-value of the input anomaly score
      */
     private double computeLogNormalCdf(double anomalyScore, double mu, double sigma) {
-        return (1.0 + Erf.erf((Math.log(anomalyScore) - mu)/(Math.sqrt(2.0)*sigma)))/2.0;
+        return (1.0 + Erf.erf((Math.log(anomalyScore) - mu) / (Math.sqrt(2.0) * sigma))) / 2.0;
     }
 
     /**
@@ -265,7 +272,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
      * @return        anomaly score at the given p-value quantile
      */
     private double computeLogNormalQuantile(double pvalue, double mu, double sigma) {
-        return Math.exp(mu + Math.sqrt(2.0)*sigma*Erf.erfInv(2.0*pvalue - 1.0));
+        return Math.exp(mu + Math.sqrt(2.0) * sigma * Erf.erfInv(2.0 * pvalue - 1.0));
     }
 
     /**
@@ -280,7 +287,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
      */
     @Override
     public void update(double anomalyScore) {
-        quantileSketch.update((float)anomalyScore);
+        quantileSketch.update((float) anomalyScore);
 
         long totalNumObservations = quantileSketch.getN();
         if (totalNumObservations >= downsampleMaxNumObservations) {
@@ -299,9 +306,9 @@ public class HybridThresholdingModel implements ThresholdingModel {
      */
     @Override
     public double grade(double anomalyScore) {
-        final double scale = 1.0/(1.0 - minPvalueThreshold);
-        final double pvalue = quantileSketch.getRank((float)anomalyScore);
-        final double anomalyGrade = scale*(pvalue - minPvalueThreshold);
+        final double scale = 1.0 / (1.0 - minPvalueThreshold);
+        final double pvalue = quantileSketch.getRank((float) anomalyScore);
+        final double anomalyGrade = scale * (pvalue - minPvalueThreshold);
         return Math.max(0.0, anomalyGrade);
     }
 
@@ -320,7 +327,6 @@ public class HybridThresholdingModel implements ThresholdingModel {
         return CONFIDENCE;
     }
 
-
     /**
      * Replaces the model's ECDF sketch with a downsampled version.
      *
@@ -337,12 +343,12 @@ public class HybridThresholdingModel implements ThresholdingModel {
      */
     private void downsample() {
         KllFloatsSketch downsampledQuantileSketch = new KllFloatsSketch(quantileSketch.getK());
-        double pvalueStep = 1.0/((double)downsampleNumSamples - 1.0);
+        double pvalueStep = 1.0 / ((double) downsampleNumSamples - 1.0);
         for (double pvalue = 0.0; pvalue < 1.0; pvalue += pvalueStep) {
             float score = quantileSketch.getQuantile(pvalue);
             downsampledQuantileSketch.update(score);
         }
-        downsampledQuantileSketch.update((float)maxScore);
+        downsampledQuantileSketch.update((float) maxScore);
         this.quantileSketch = downsampledQuantileSketch;
     }
 }

@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.e2e;
 
 import java.io.File;
-import java.io.FileReader; 
+import java.io.FileReader;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -43,8 +43,15 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
         verifyAnomaly("synthetic", 1, 1500, 8, .9, .9, 10);
     }
 
-    private void verifyAnomaly(String datasetName, int intervalMinutes, int trainTestSplit, int shingleSize,
-        double minPrecision, double minRecall, double maxError) throws Exception {
+    private void verifyAnomaly(
+        String datasetName,
+        int intervalMinutes,
+        int trainTestSplit,
+        int shingleSize,
+        double minPrecision,
+        double minRecall,
+        double maxError
+    ) throws Exception {
 
         RestClient client = client();
 
@@ -63,8 +70,13 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
         verifyTestResults(testResults, anomalies, minPrecision, minRecall, maxError);
     }
 
-    private void verifyTestResults(double[] testResults, List<Entry<Instant, Instant>> anomalies, double minPrecision, double minRecall,
-        double maxError) {
+    private void verifyTestResults(
+        double[] testResults,
+        List<Entry<Instant, Instant>> anomalies,
+        double minPrecision,
+        double minRecall,
+        double maxError
+    ) {
 
         double positives = testResults[0];
         double truePositives = testResults[1];
@@ -85,15 +97,21 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
     private int isAnomaly(Instant time, List<Entry<Instant, Instant>> labels) {
         for (int i = 0; i < labels.size(); i++) {
             Entry<Instant, Instant> window = labels.get(i);
-            if (time.compareTo(window.getKey()) >=0 && time.compareTo(window.getValue()) <= 0) {
+            if (time.compareTo(window.getKey()) >= 0 && time.compareTo(window.getValue()) <= 0) {
                 return i;
             }
         }
         return -1;
     }
 
-    private double[] getTestResults(String detectorId, List<JsonObject> data, int trainTestSplit, int intervalMinutes,
-        List<Entry<Instant, Instant>> anomalies, RestClient client) throws Exception {
+    private double[] getTestResults(
+        String detectorId,
+        List<JsonObject> data,
+        int trainTestSplit,
+        int intervalMinutes,
+        List<Entry<Instant, Instant>> anomalies,
+        RestClient client
+    ) throws Exception {
 
         double positives = 0;
         double truePositives = 0;
@@ -104,7 +122,7 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
             Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
             try {
                 Map<String, Object> response = getDetectionResult(detectorId, begin, end, client);
-                double anomalyGrade = (double)response.get("anomalyGrade");
+                double anomalyGrade = (double) response.get("anomalyGrade");
                 if (anomalyGrade > 0) {
                     positives++;
                     int result = isAnomaly(begin, anomalies);
@@ -118,26 +136,32 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
                 e.printStackTrace();
             }
         }
-        return new double[] {positives, truePositives, positiveAnomalies.size(), errors};
+        return new double[] { positives, truePositives, positiveAnomalies.size(), errors };
     }
 
     private void indexTestData(List<JsonObject> data, String datasetName, int trainTestSplit, RestClient client) throws Exception {
-        data.stream().skip(trainTestSplit)
-            .forEach(r -> {
-                try {
-                    Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
-                    req.setJsonEntity(r.toString());
-                    client.performRequest(req);
-                } catch (Exception e ) {
-                    throw new RuntimeException(e);
-                } });
+        data.stream().skip(trainTestSplit).forEach(r -> {
+            try {
+                Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
+                req.setJsonEntity(r.toString());
+                client.performRequest(req);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
         Thread.sleep(1_000);
     }
 
-    private void startDetector(String detectorId, List<JsonObject> data, int trainTestSplit, int shingleSize, int intervalMinutes,
-        RestClient client) throws Exception {
+    private void startDetector(
+        String detectorId,
+        List<JsonObject> data,
+        int trainTestSplit,
+        int shingleSize,
+        int intervalMinutes,
+        RestClient client
+    ) throws Exception {
 
-        Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(trainTestSplit-1).get("timestamp").getAsString()));
+        Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(trainTestSplit - 1).get("timestamp").getAsString()));
 
         Instant begin = null;
         Instant end = null;
@@ -146,8 +170,7 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
             end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
             try {
                 getDetectionResult(detectorId, begin, end, client);
-            } catch (Exception e) {
-            }
+            } catch (Exception e) {}
         }
         Thread.sleep(5_000);
         getDetectionResult(detectorId, begin, end, client);
@@ -155,21 +178,27 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
 
     private String createDetector(String datasetName, int intervalMinutes, RestClient client) throws Exception {
         Request request = new Request("POST", "/_opendistro/_anomaly_detection/detectors/");
-        String requestBody = String.format("{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
-            + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
-            + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
-            + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
-            + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }, "
-            + "\"schema_version\": 0 }", datasetName, intervalMinutes);
+        String requestBody = String
+            .format(
+                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                    + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                    + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                    + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }, "
+                    + "\"schema_version\": 0 }",
+                datasetName,
+                intervalMinutes
+            );
         request.setJsonEntity(requestBody);
         Map<String, Object> response = entityAsMap(client.performRequest(request));
-        String detectorId = (String)response.get("_id");
+        String detectorId = (String) response.get("_id");
         Thread.sleep(1_000);
         return detectorId;
     }
 
     private List<Entry<Instant, Instant>> getAnomalyWindows(String labalFileName) throws Exception {
-        JsonArray windows = new JsonParser().parse(new FileReader(new File(getClass().getResource(labalFileName).toURI())))
+        JsonArray windows = new JsonParser()
+            .parse(new FileReader(new File(getClass().getResource(labalFileName).toURI())))
             .getAsJsonArray();
         List<Entry<Instant, Instant>> anomalies = new ArrayList<>(windows.size());
         for (int i = 0; i < windows.size(); i++) {
@@ -189,20 +218,21 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
         client.performRequest(request);
         Thread.sleep(1_000);
 
-        data.stream().limit(trainTestSplit)
-            .forEach(r -> {
-                try {
-                    Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
-                    req.setJsonEntity(r.toString());
-                    client.performRequest(req);
-                } catch (Exception e ) {
-                    throw new RuntimeException(e);
-                } });
+        data.stream().limit(trainTestSplit).forEach(r -> {
+            try {
+                Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
+                req.setJsonEntity(r.toString());
+                client.performRequest(req);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
         Thread.sleep(1_000);
     }
 
     private List<JsonObject> getData(String datasetFileName) throws Exception {
-        JsonArray jsonArray = new JsonParser().parse(new FileReader(new File(getClass().getResource(datasetFileName).toURI())))
+        JsonArray jsonArray = new JsonParser()
+            .parse(new FileReader(new File(getClass().getResource(datasetFileName).toURI())))
             .getAsJsonArray();
         List<JsonObject> list = new ArrayList<>(jsonArray.size());
         jsonArray.iterator().forEachRemaining(i -> list.add(i.getAsJsonObject()));

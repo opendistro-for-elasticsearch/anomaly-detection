@@ -105,9 +105,20 @@ public class FeatureManagerTests {
         when(detector.getDetectionInterval()).thenReturn(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES));
 
         Interpolator interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
-        this.featureManager = spy(new FeatureManager(searchFeatureDao, interpolator, clock,
-            maxTrainSamples, maxSampleStride, shingleSize, maxMissingPoints, maxNeighborDistance, maxPreviewSamples,
-            featureBufferTtl));
+        this.featureManager = spy(
+            new FeatureManager(
+                searchFeatureDao,
+                interpolator,
+                clock,
+                maxTrainSamples,
+                maxSampleStride,
+                shingleSize,
+                maxMissingPoints,
+                maxNeighborDistance,
+                maxPreviewSamples,
+                featureBufferTtl
+            )
+        );
     }
 
     private Object[] getCurrentFeaturesData() {
@@ -115,179 +126,97 @@ public class FeatureManagerTests {
         return new Object[] {
 
             new Object[] {
-                new long[0][0] ,
+                new long[0][0],
                 new double[0][0],
                 new long[0][0],
-                new long[] {120_000, 180_000},
-                new SinglePointFeatures(empty(), empty())
-            },
+                new long[] { 120_000, 180_000 },
+                new SinglePointFeatures(empty(), empty()) },
 
             new Object[] {
-                new long[][]{
-                    {0, 60_000},
-                    {60_000, 120_000},
-                    {120_000, 180_000},
-                    {180_000, 240_000},
-                },
-                new double[][] {
-                    {1, 2},
-                    {3, 4},
-                    {5, 6},
-                    {7, 8},
-                },
-                new long[][] {
-                    {0, 60_000},
-                    {60_000, 120_000},
-                    {120_000, 180_000},
-                },
-                new long[] {180_000, 240_000},
-                new SinglePointFeatures(of(new double[]{7, 8}), of(new double[]{1, 2, 3, 4, 5, 6, 7, 8})),
-            },
+                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, { 180_000, 240_000 }, },
+                new double[][] { { 1, 2 }, { 3, 4 }, { 5, 6 }, { 7, 8 }, },
+                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, },
+                new long[] { 180_000, 240_000 },
+                new SinglePointFeatures(of(new double[] { 7, 8 }), of(new double[] { 1, 2, 3, 4, 5, 6, 7, 8 })), },
 
             new Object[] {
-                new long[][]{
-                    {0, 60_000},
-                    {60_000, 120_000},
-                    {120_000, 180_000},
-                    {180_000, 240_000},
-                },
-                new double[][] {
-                    {1, 2},
-                    {3, 4},
-                    {5, 6},
-                    {7, 8},
-                },
-                new long[][] {
-                    {0, 60_000},
-                    {60_000, 120_000},
-                    {120_000, 180_000},
-                    {180_000, 240_000},
-                },
-                new long[] {180_000, 240_000},
-                new SinglePointFeatures(of(new double[]{7, 8}), of(new double[]{1, 2, 3, 4, 5, 6, 7, 8})),
-            },
+                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, { 180_000, 240_000 }, },
+                new double[][] { { 1, 2 }, { 3, 4 }, { 5, 6 }, { 7, 8 }, },
+                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, { 180_000, 240_000 }, },
+                new long[] { 180_000, 240_000 },
+                new SinglePointFeatures(of(new double[] { 7, 8 }), of(new double[] { 1, 2, 3, 4, 5, 6, 7, 8 })), },
 
             new Object[] {
-                new long[][]{
-                    {0, 60_000},
-                    {60_000, 120_000},
-                    {120_000, 180_000},
-                    {180_000, 240_000},
-                    {240_000, 300_000},
-                },
-                new double[][] {
-                    {1, 2},
-                    {3, 4},
-                    {5, 6},
-                    {7, 8},
-                    {9, 10},
-                },
-                new long[][] {
-                    {0, 60_000},
-                    {60_000, 120_000},
-                    {120_000, 180_000},
-                    {180_000, 240_000},
-                },
-                new long[] {240_000, 300_000},
-                new SinglePointFeatures(of(new double[]{9, 10}), of(new double[]{3, 4, 5, 6, 7, 8, 9, 10})),
-            },
+                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, { 180_000, 240_000 }, { 240_000, 300_000 }, },
+                new double[][] { { 1, 2 }, { 3, 4 }, { 5, 6 }, { 7, 8 }, { 9, 10 }, },
+                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, { 180_000, 240_000 }, },
+                new long[] { 240_000, 300_000 },
+                new SinglePointFeatures(of(new double[] { 9, 10 }), of(new double[] { 3, 4, 5, 6, 7, 8, 9, 10 })), },
 
             new Object[] {
-                new long[][]{
-                    {1_000, 61_000},
-                    {40_000, 100_000},
-                    {122_000, 182_000},
-                    {180_000, 240_000},
-                },
-                new double[][] {
-                    {1, 2},
-                    {3, 4},
-                    {5, 6},
-                    {7, 8},
-                },
-                new long[][] {
-                    {1_000, 61_000},
-                    {40_000, 100_000},
-                    {122_000, 182_000},
-                },
-                new long[] {180_000, 240_000},
-                new SinglePointFeatures(of(new double[]{7, 8}), of(new double[]{1, 2, 3, 4, 5, 6, 7, 8})),
-            },
+                new long[][] { { 1_000, 61_000 }, { 40_000, 100_000 }, { 122_000, 182_000 }, { 180_000, 240_000 }, },
+                new double[][] { { 1, 2 }, { 3, 4 }, { 5, 6 }, { 7, 8 }, },
+                new long[][] { { 1_000, 61_000 }, { 40_000, 100_000 }, { 122_000, 182_000 }, },
+                new long[] { 180_000, 240_000 },
+                new SinglePointFeatures(of(new double[] { 7, 8 }), of(new double[] { 1, 2, 3, 4, 5, 6, 7, 8 })), },
 
             new Object[] {
-                new long[][]{
-                    {0, 60_000},
-                    {180_000, 240_000},
-                },
-                new double[][] {
-                    {1, 2},
-                    {7, 8},
-                },
-                new long[][] {
-                    {0, 60_000},
-                },
-                new long[] {180_000, 240_000},
-                new SinglePointFeatures(of(new double[]{7, 8}), of(new double[]{1, 2, 1, 2, 7, 8, 7, 8})),
-            },
+                new long[][] { { 0, 60_000 }, { 180_000, 240_000 }, },
+                new double[][] { { 1, 2 }, { 7, 8 }, },
+                new long[][] { { 0, 60_000 }, },
+                new long[] { 180_000, 240_000 },
+                new SinglePointFeatures(of(new double[] { 7, 8 }), of(new double[] { 1, 2, 1, 2, 7, 8, 7, 8 })), },
 
             new Object[] {
-                new long[][]{
-                    {39_000, 99_000},
-                    {180_000, 240_000},
-                },
-                new double[][] {
-                    {3, 4},
-                    {7, 8},
-                },
-                new long[][] {
-                    {39_000, 99_000},
-                },
-                new long[] {180_000, 240_000},
-                new SinglePointFeatures(of(new double[]{7, 8}), of(new double[]{3, 4, 3, 4, 7, 8, 7, 8})),
-            },
+                new long[][] { { 39_000, 99_000 }, { 180_000, 240_000 }, },
+                new double[][] { { 3, 4 }, { 7, 8 }, },
+                new long[][] { { 39_000, 99_000 }, },
+                new long[] { 180_000, 240_000 },
+                new SinglePointFeatures(of(new double[] { 7, 8 }), of(new double[] { 3, 4, 3, 4, 7, 8, 7, 8 })), },
 
             new Object[] {
-                new long[][]{
-                    {179_000, 239_000},
-                    {180_000, 240_000},
-                },
-                new double[][] {
-                    {5, 6},
-                    {7, 8},
-                },
-                new long[][] {
-                    {179_000, 239_000},
-                },
-                new long[] {180_000, 240_000},
-                new SinglePointFeatures(of(new double[]{7, 8}), empty()),
-            },
+                new long[][] { { 179_000, 239_000 }, { 180_000, 240_000 }, },
+                new double[][] { { 5, 6 }, { 7, 8 }, },
+                new long[][] { { 179_000, 239_000 }, },
+                new long[] { 180_000, 240_000 },
+                new SinglePointFeatures(of(new double[] { 7, 8 }), empty()), },
 
             new Object[] {
-                new long[][]{ 
-                    {180_000, 240_000},
-                },
-                new double[][] {
-                    {7, 8},
-                },
+                new long[][] { { 180_000, 240_000 }, },
+                new double[][] { { 7, 8 }, },
                 new long[0][0],
-                new long[] {180_000, 240_000},
-                new SinglePointFeatures(of(new double[]{7, 8}), empty()),
-            },
-        };
+                new long[] { 180_000, 240_000 },
+                new SinglePointFeatures(of(new double[] { 7, 8 }), empty()), }, };
     }
 
     @Test
     @Parameters(method = "getCurrentFeaturesData")
-    public void getCurrentFeatures_returnExpected(long[][] allRanges, double[][] allPoints, long[][] previousRanges,
-        long[] currentRange, SinglePointFeatures expected) {
+    public void getCurrentFeatures_returnExpected(
+        long[][] allRanges,
+        double[][] allPoints,
+        long[][] previousRanges,
+        long[] currentRange,
+        SinglePointFeatures expected
+    ) {
 
         for (int i = 0; i < allRanges.length; i++) {
             when(searchFeatureDao.getFeaturesForPeriod(detector, allRanges[i][0], allRanges[i][1]))
                 .thenReturn(Optional.ofNullable(allPoints[i]));
         }
-        this.featureManager = spy(new FeatureManager(searchFeatureDao, interpolator, clock,
-            maxTrainSamples, maxSampleStride, 4, maxMissingPoints, maxNeighborDistance, maxPreviewSamples,
-            featureBufferTtl));
+        this.featureManager = spy(
+            new FeatureManager(
+                searchFeatureDao,
+                interpolator,
+                clock,
+                maxTrainSamples,
+                maxSampleStride,
+                4,
+                maxMissingPoints,
+                maxNeighborDistance,
+                maxPreviewSamples,
+                featureBufferTtl
+            )
+        );
         for (int i = 0; i < previousRanges.length; i++) {
             featureManager.getCurrentFeatures(detector, previousRanges[i][0], previousRanges[i][1]);
         }
@@ -299,13 +228,12 @@ public class FeatureManagerTests {
     }
 
     private Object[] getColdStartDataTestData() {
-        double[][] samples = new double[][]{{1.0}};
-        return new Object[]{
-            new Object[]{1L, new SimpleEntry<>(samples, 1), 1, samples},
-            new Object[]{1L, null, 1, null},
-            new Object[]{null, new SimpleEntry<>(samples, 1), 1, null},
-            new Object[]{null, null, 1, null},
-        };
+        double[][] samples = new double[][] { { 1.0 } };
+        return new Object[] {
+            new Object[] { 1L, new SimpleEntry<>(samples, 1), 1, samples },
+            new Object[] { 1L, null, 1, null },
+            new Object[] { null, new SimpleEntry<>(samples, 1), 1, null },
+            new Object[] { null, null, 1, null }, };
     }
 
     @Test
@@ -327,16 +255,18 @@ public class FeatureManagerTests {
     }
 
     private Object[] batchShingleData() {
-        return new Object[]{
-            new Object[]{new double[][]{{1.0}}, 1, new double[][]{{1.0}}},
-            new Object[]{new double[][]{{1.0, 2.0}}, 1, new double[][]{{1.0, 2.0}}},
-            new Object[]{new double[][]{{1.0}, {2,0}, {3.0}}, 1, new double[][]{{1.0}, {2.0}, {3.0}}},
-            new Object[]{new double[][]{{1.0}, {2,0}, {3.0}}, 2, new double[][]{{1.0, 2.0}, {2.0, 3.0}}},
-            new Object[]{new double[][]{{1.0}, {2,0}, {3.0}}, 3, new double[][]{{1.0, 2.0, 3.0}}},
-            new Object[]{new double[][]{{1.0, 2.0}, {3.0, 4.0}}, 1, new double[][]{{1.0, 2.0}, {3.0, 4.0}}},
-            new Object[]{new double[][]{{1.0, 2.0}, {3.0, 4.0}}, 2, new double[][]{{1.0, 2.0, 3.0, 4.0}}},
-            new Object[]{new double[][]{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}}, 3, new double[][]{{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}}}
-        };
+        return new Object[] {
+            new Object[] { new double[][] { { 1.0 } }, 1, new double[][] { { 1.0 } } },
+            new Object[] { new double[][] { { 1.0, 2.0 } }, 1, new double[][] { { 1.0, 2.0 } } },
+            new Object[] { new double[][] { { 1.0 }, { 2, 0 }, { 3.0 } }, 1, new double[][] { { 1.0 }, { 2.0 }, { 3.0 } } },
+            new Object[] { new double[][] { { 1.0 }, { 2, 0 }, { 3.0 } }, 2, new double[][] { { 1.0, 2.0 }, { 2.0, 3.0 } } },
+            new Object[] { new double[][] { { 1.0 }, { 2, 0 }, { 3.0 } }, 3, new double[][] { { 1.0, 2.0, 3.0 } } },
+            new Object[] { new double[][] { { 1.0, 2.0 }, { 3.0, 4.0 } }, 1, new double[][] { { 1.0, 2.0 }, { 3.0, 4.0 } } },
+            new Object[] { new double[][] { { 1.0, 2.0 }, { 3.0, 4.0 } }, 2, new double[][] { { 1.0, 2.0, 3.0, 4.0 } } },
+            new Object[] {
+                new double[][] { { 1.0, 2.0 }, { 3.0, 4.0 }, { 5.0, 6.0 } },
+                3,
+                new double[][] { { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 } } } };
     };
 
     @Test
@@ -346,23 +276,22 @@ public class FeatureManagerTests {
     }
 
     private Object[] batchShingleIllegalArgumentData() {
-        return new Object[]{
-            new Object[]{new double[][]{{1.0}}, 0},
-            new Object[]{new double[][]{{1.0}}, 2},
-            new Object[]{new double[][]{{1.0, 2.0}}, 0},
-            new Object[]{new double[][]{{1.0, 2.0}}, 2},
-            new Object[]{new double[][]{{1.0}, {2.0}}, 0},
-            new Object[]{new double[][]{{1.0}, {2.0}}, 3},
-            new Object[]{new double[][]{}, 0},
-            new Object[]{new double[][]{}, 1},
-            new Object[]{new double[][]{{}, {}}, 0},
-            new Object[]{new double[][]{{}, {}}, 1},
-            new Object[]{new double[][]{{}, {}}, 2},
-            new Object[]{new double[][]{{}, {}}, 3},
-        };
+        return new Object[] {
+            new Object[] { new double[][] { { 1.0 } }, 0 },
+            new Object[] { new double[][] { { 1.0 } }, 2 },
+            new Object[] { new double[][] { { 1.0, 2.0 } }, 0 },
+            new Object[] { new double[][] { { 1.0, 2.0 } }, 2 },
+            new Object[] { new double[][] { { 1.0 }, { 2.0 } }, 0 },
+            new Object[] { new double[][] { { 1.0 }, { 2.0 } }, 3 },
+            new Object[] { new double[][] {}, 0 },
+            new Object[] { new double[][] {}, 1 },
+            new Object[] { new double[][] { {}, {} }, 0 },
+            new Object[] { new double[][] { {}, {} }, 1 },
+            new Object[] { new double[][] { {}, {} }, 2 },
+            new Object[] { new double[][] { {}, {} }, 3 }, };
     };
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     @Parameters(method = "batchShingleIllegalArgumentData")
     public void batchShingle_throwExpected_forInvalidInput(double[][] points, int shingleSize) {
         featureManager.batchShingle(points, shingleSize);
@@ -375,7 +304,7 @@ public class FeatureManagerTests {
         for (int i = 1; i <= shingleSize; i++) {
             start = i * 10;
             end = (i + 1) * 10;
-            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[]{i}));
+            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
             featureManager.getCurrentFeatures(detector, start, end);
         }
         SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end);
@@ -396,7 +325,7 @@ public class FeatureManagerTests {
         for (int i = 1; i <= shingleSize; i++) {
             start = i * 10;
             end = (i + 1) * 10;
-            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[]{i}));
+            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
             featureManager.getCurrentFeatures(detector, start, end);
         }
         SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end);
@@ -418,7 +347,7 @@ public class FeatureManagerTests {
         for (int i = 1; i <= shingleSize; i++) {
             start = i * 10;
             end = (i + 1) * 10;
-            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[]{i}));
+            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
             featureManager.getCurrentFeatures(detector, start, end);
         }
         SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end);
@@ -448,19 +377,23 @@ public class FeatureManagerTests {
         when(detector.getDetectionInterval()).thenReturn(detectionInterval);
 
         List<Entry<Long, Long>> sampleRanges = Arrays.asList(new SimpleEntry<>(0L, 60_000L), new SimpleEntry<>(120_000L, 180_000L));
-        List<Optional<double[]>> samplesResults = Arrays.asList(Optional.of(new double[]{1}), Optional.of(new double[]{3}));
+        List<Optional<double[]>> samplesResults = Arrays.asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 3 }));
         when(searchFeatureDao.getFeatureSamplesForPeriods(detector, sampleRanges)).thenReturn(samplesResults);
 
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][]{{1, 3}})), eq(3)))
-            .thenReturn(new double[][]{{1, 2, 3}});
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][]{{0, 120000}})), eq(3)))
-            .thenReturn(new double[][]{{0, 60000, 120000}});
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][]{{60000, 180000}})), eq(3)))
-            .thenReturn(new double[][]{{60000, 120000, 180000}});
+        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 1, 3 } })), eq(3)))
+            .thenReturn(new double[][] { { 1, 2, 3 } });
+        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 0, 120000 } })), eq(3)))
+            .thenReturn(new double[][] { { 0, 60000, 120000 } });
+        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 60000, 180000 } })), eq(3)))
+            .thenReturn(new double[][] { { 60000, 120000, 180000 } });
 
         Features previewFeatures = featureManager.getPreviewFeatures(detector, start, end);
 
-        Features expected = new Features(asList(new SimpleEntry<>(120_000L, 180_000L)), new double[][]{{3}}, new double[][]{{1, 2, 3}});
+        Features expected = new Features(
+            asList(new SimpleEntry<>(120_000L, 180_000L)),
+            new double[][] { { 3 } },
+            new double[][] { { 1, 2, 3 } }
+        );
         assertEquals(expected, previewFeatures);
     }
 
@@ -472,7 +405,7 @@ public class FeatureManagerTests {
         when(detector.getDetectionInterval()).thenReturn(detectionInterval);
 
         List<Entry<Long, Long>> sampleRanges = Arrays.asList(new SimpleEntry<>(0L, 60_000L), new SimpleEntry<>(120_000L, 180_000L));
-        List<Optional<double[]>> samplesResults = Arrays.asList(Optional.of(new double[]{1}), Optional.of(new double[]{3}));
+        List<Optional<double[]>> samplesResults = Arrays.asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 3 }));
         RuntimeException exception = new RuntimeException();
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -492,12 +425,12 @@ public class FeatureManagerTests {
             return null;
         }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), any());
 
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][]{{1, 3}})), eq(3)))
-            .thenReturn(new double[][]{{1, 2, 3}});
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][]{{0, 120000}})), eq(3)))
-            .thenReturn(new double[][]{{0, 60000, 120000}});
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][]{{60000, 180000}})), eq(3)))
-            .thenReturn(new double[][]{{60000, 120000, 180000}});
+        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 1, 3 } })), eq(3)))
+            .thenReturn(new double[][] { { 1, 2, 3 } });
+        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 0, 120000 } })), eq(3)))
+            .thenReturn(new double[][] { { 0, 60000, 120000 } });
+        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 60000, 180000 } })), eq(3)))
+            .thenReturn(new double[][] { { 60000, 120000, 180000 } });
 
         ActionListener<Features> listener = mock(ActionListener.class);
         featureManager.getPreviewFeatures(detector, start, end, listener);
@@ -505,7 +438,11 @@ public class FeatureManagerTests {
         if (fail) {
             verify(listener).onFailure(exception);
         } else {
-            Features expected = new Features(asList(new SimpleEntry<>(120_000L, 180_000L)), new double[][]{{3}}, new double[][]{{1, 2, 3}});
+            Features expected = new Features(
+                asList(new SimpleEntry<>(120_000L, 180_000L)),
+                new double[][] { { 3 } },
+                new double[][] { { 1, 2, 3 } }
+            );
             verify(listener).onResponse(expected);
         }
 

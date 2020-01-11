@@ -39,11 +39,7 @@ public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>>
     /**
      * Set that contains the model stats that should be exposed.
      */
-    public static Set<String> MODEL_STATE_STAT_KEYS = new HashSet<>(Arrays.asList(
-            MODEL_ID_KEY,
-            DETECTOR_ID_KEY,
-            MODEL_TYPE_KEY
-    ));
+    public static Set<String> MODEL_STATE_STAT_KEYS = new HashSet<>(Arrays.asList(MODEL_ID_KEY, DETECTOR_ID_KEY, MODEL_TYPE_KEY));
 
     /**
      * Constructor
@@ -57,11 +53,19 @@ public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>>
     @Override
     public List<Map<String, Object>> get() {
         List<Map<String, Object>> values = new ArrayList<>();
-        modelManager.getAllModels().forEach(
-                modelState -> values.add(modelState.getModelStateAsMap().entrySet().stream()
-                        .filter(entry -> MODEL_STATE_STAT_KEYS.contains(entry.getKey()))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
-        );
+        modelManager
+            .getAllModels()
+            .forEach(
+                modelState -> values
+                    .add(
+                        modelState
+                            .getModelStateAsMap()
+                            .entrySet()
+                            .stream()
+                            .filter(entry -> MODEL_STATE_STAT_KEYS.contains(entry.getKey()))
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+                    )
+            );
 
         return values;
     }

@@ -29,8 +29,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 public class DeleteModelResponse extends BaseNodesResponse<DeleteModelNodeResponse> implements ToXContentFragment {
     static String NODES_JSON_KEY = "nodes";
 
-    public DeleteModelResponse() {
-    }
+    public DeleteModelResponse() {}
 
     public DeleteModelResponse(ClusterName clusterName, List<DeleteModelNodeResponse> nodes, List<FailedNodeException> failures) {
         super(clusterName, nodes, failures);

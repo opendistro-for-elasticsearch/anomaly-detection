@@ -37,23 +37,10 @@ public class IntegerSensitiveSingleFeatureLinearUniformInterpolatorTests {
     }
 
     private Object[] interpolateData() {
-        return new Object[]{
-            new Object[]{
-                new double[]{25.25, 25.75},
-                3,
-                new double[]{25.25, 25.5, 25.75}
-            },
-            new Object[]{
-                new double[]{25, 75},
-                3,
-                new double[]{25, 50, 75}
-            },
-            new Object[]{
-                new double[]{25, 75.5},
-                3,
-                new double[]{25, 50.25, 75.5}
-            },
-        };
+        return new Object[] {
+            new Object[] { new double[] { 25.25, 25.75 }, 3, new double[] { 25.25, 25.5, 25.75 } },
+            new Object[] { new double[] { 25, 75 }, 3, new double[] { 25, 50, 75 } },
+            new Object[] { new double[] { 25, 75.5 }, 3, new double[] { 25, 50.25, 75.5 } }, };
     }
 
     @Test

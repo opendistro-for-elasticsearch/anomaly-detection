@@ -56,11 +56,12 @@ public class ThresholdingResult {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         ThresholdingResult that = (ThresholdingResult) o;
-        return Objects.equals(this.grade, that.grade)
-            && Objects.equals(this.confidence, that.confidence);
+        return Objects.equals(this.grade, that.grade) && Objects.equals(this.confidence, that.confidence);
     }
 
     @Override

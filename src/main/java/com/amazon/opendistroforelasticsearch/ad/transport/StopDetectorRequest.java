@@ -79,8 +79,7 @@ public class StopDetectorRequest extends ActionRequest implements ToXContentObje
             return (StopDetectorRequest) actionRequest;
         }
 
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
             actionRequest.writeTo(osso);
             try (StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
                 return new StopDetectorRequest(input);

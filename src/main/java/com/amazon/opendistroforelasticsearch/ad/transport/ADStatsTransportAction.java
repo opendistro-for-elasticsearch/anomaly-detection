@@ -32,8 +32,7 @@ import java.util.Set;
 /**
  *  ADStatsTransportAction contains the logic to extract the stats from the nodes
  */
-public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest, ADStatsResponse,
-        ADStatsNodeRequest, ADStatsNodeResponse> {
+public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest, ADStatsResponse, ADStatsNodeRequest, ADStatsNodeResponse> {
 
     private ADStats adStats;
 
@@ -48,20 +47,28 @@ public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest,
      */
     @Inject
     public ADStatsTransportAction(
-            ThreadPool threadPool,
-            ClusterService clusterService,
-            TransportService transportService,
-            ActionFilters actionFilters,
-            ADStats adStats
+        ThreadPool threadPool,
+        ClusterService clusterService,
+        TransportService transportService,
+        ActionFilters actionFilters,
+        ADStats adStats
     ) {
-        super(ADStatsAction.NAME, threadPool, clusterService, transportService, actionFilters, ADStatsRequest::new,
-                ADStatsNodeRequest::new, ThreadPool.Names.MANAGEMENT, ADStatsNodeResponse.class);
+        super(
+            ADStatsAction.NAME,
+            threadPool,
+            clusterService,
+            transportService,
+            actionFilters,
+            ADStatsRequest::new,
+            ADStatsNodeRequest::new,
+            ThreadPool.Names.MANAGEMENT,
+            ADStatsNodeResponse.class
+        );
         this.adStats = adStats;
     }
 
     @Override
-    protected ADStatsResponse newResponse(ADStatsRequest request, List<ADStatsNodeResponse> responses,
-                                           List<FailedNodeException> failures) {
+    protected ADStatsResponse newResponse(ADStatsRequest request, List<ADStatsNodeResponse> responses, List<FailedNodeException> failures) {
 
         Map<String, Object> clusterStats = new HashMap<>();
         Set<String> statsToBeRetrieved = request.getStatsToBeRetrieved();
@@ -72,12 +79,7 @@ public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest,
             }
         }
 
-        return new ADStatsResponse(
-                clusterService.getClusterName(),
-                responses,
-                failures,
-                clusterStats
-        );
+        return new ADStatsResponse(clusterService.getClusterName(), responses, failures, clusterStats);
     }
 
     @Override

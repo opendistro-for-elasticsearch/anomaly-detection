@@ -87,8 +87,13 @@ public class DeleteDetector {
         }
     }
 
-    private void deleteDetectorResult(AnomalyDetectorGraveyard detectorToDelete, AtomicInteger count, int total, Client client,
-            Set<AnomalyDetectorGraveyard> failToDelete) {
+    private void deleteDetectorResult(
+        AnomalyDetectorGraveyard detectorToDelete,
+        AtomicInteger count,
+        int total,
+        Client client,
+        Set<AnomalyDetectorGraveyard> failToDelete
+    ) {
         // A bulk delete request is performed for each batch of matching documents. If a
         // search or bulk request is rejected, the requests are retried up to 10 times,
         // with exponential back off. If the maximum retry limit is reached, processing
@@ -96,41 +101,44 @@ public class DeleteDetector {
         // requests that completed successfully still stick, they are not rolled back.
         String detectorID = detectorToDelete.getDetectorID();
         long deleteBeforeEpochMillis = detectorToDelete.getDeleteEpochMillis();
-        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(
-                AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN)
-                        .setQuery(new BoolQueryBuilder()
-                                .filter(QueryBuilders.termsQuery(AnomalyResult.DETECTOR_ID_FIELD, detectorID))
-                                .filter(QueryBuilders.rangeQuery(AnomalyResult.END_TIME_FIELD)
-                                        .lte(deleteBeforeEpochMillis).format(CommonName.EPOCH_MILLIS_FORMAT)))
-                        .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN)
-                        .setAbortOnVersionConflict(false) // when current delete happens, previous might not finish.
-                                                          // Retry in this case
-                        .setRequestsPerSecond(500); // throttle delete requests
+        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN)
+            .setQuery(
+                new BoolQueryBuilder()
+                    .filter(QueryBuilders.termsQuery(AnomalyResult.DETECTOR_ID_FIELD, detectorID))
+                    .filter(
+                        QueryBuilders
+                            .rangeQuery(AnomalyResult.END_TIME_FIELD)
+                            .lte(deleteBeforeEpochMillis)
+                            .format(CommonName.EPOCH_MILLIS_FORMAT)
+                    )
+            )
+            .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN)
+            .setAbortOnVersionConflict(false) // when current delete happens, previous might not finish.
+                                              // Retry in this case
+            .setRequestsPerSecond(500); // throttle delete requests
         LOG.info("Delete anomaly results of detector {}", detectorID);
-        client.execute(DeleteByQueryAction.INSTANCE, deleteRequest,
-                ActionListener.wrap(response -> {
-                    if (response.isTimedOut() || !response.getBulkFailures().isEmpty()
-                            || !response.getSearchFailures().isEmpty()) {
-                        logFailure(response, detectorID);
-                        failToDelete.add(detectorToDelete);
-                    }
-                    // if 0 docs get deleted, it means we cannot find matching docs
-                    LOG.info("{} " + DOC_GOT_DELETED_LOG_MSG, response.getDeleted());
-                    if (count.incrementAndGet() == total) {
-                        wrapUp(failToDelete);
-                    }
-                }, exception -> {
-                    if (exception instanceof IndexNotFoundException) {
-                        LOG.info(INDEX_DELETED_LOG_MSG + " {}", detectorID);
-                    } else {
-                        // Gonna eventually delete in maintenance window.
-                        LOG.error(NOT_ABLE_TO_DELETE_LOG_MSG, exception);
-                        failToDelete.add(detectorToDelete);
-                    }
-                    if (count.incrementAndGet() == total) {
-                        wrapUp(failToDelete);
-                    }
-                }));
+        client.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(response -> {
+            if (response.isTimedOut() || !response.getBulkFailures().isEmpty() || !response.getSearchFailures().isEmpty()) {
+                logFailure(response, detectorID);
+                failToDelete.add(detectorToDelete);
+            }
+            // if 0 docs get deleted, it means we cannot find matching docs
+            LOG.info("{} " + DOC_GOT_DELETED_LOG_MSG, response.getDeleted());
+            if (count.incrementAndGet() == total) {
+                wrapUp(failToDelete);
+            }
+        }, exception -> {
+            if (exception instanceof IndexNotFoundException) {
+                LOG.info(INDEX_DELETED_LOG_MSG + " {}", detectorID);
+            } else {
+                // Gonna eventually delete in maintenance window.
+                LOG.error(NOT_ABLE_TO_DELETE_LOG_MSG, exception);
+                failToDelete.add(detectorToDelete);
+            }
+            if (count.incrementAndGet() == total) {
+                wrapUp(failToDelete);
+            }
+        }));
     }
 
     private void wrapUp(Set<AnomalyDetectorGraveyard> failToDelete) {
@@ -181,8 +189,7 @@ public class DeleteDetector {
             }
 
             @Override
-            public void clusterStateProcessed(final String source,
-                                              final ClusterState oldState, final ClusterState newState) {
+            public void clusterStateProcessed(final String source, final ClusterState oldState, final ClusterState newState) {
                 listener.onResponse(null);
             }
         });

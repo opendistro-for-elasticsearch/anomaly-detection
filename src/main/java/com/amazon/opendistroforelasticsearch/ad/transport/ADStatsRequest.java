@@ -70,7 +70,6 @@ public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
         statsToBeRetrieved.clear();
     }
 
-
     /**
      * Get the set that tracks which stats should be retrieved
      *

@@ -59,11 +59,19 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
         super(settings);
         this.clusterService = clusterService;
         // delete anomaly detector document
-        controller.registerHandler(RestRequest.Method.DELETE,
-                String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID), this);
+        controller
+            .registerHandler(
+                RestRequest.Method.DELETE,
+                String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                this
+            );
         // stop running anomaly detector: clear model, cache, checkpoint, ad result
-        controller.registerHandler(RestRequest.Method.POST,
-                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP), this);
+        controller
+            .registerHandler(
+                RestRequest.Method.POST,
+                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP),
+                this
+            );
     }
 
     @Override
@@ -75,9 +83,8 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         String detectorId = request.param(DETECTOR_ID);
 
-        WriteRequest.RefreshPolicy refreshPolicy = WriteRequest.RefreshPolicy.parse(request.param(REFRESH,
-                WriteRequest.RefreshPolicy.IMMEDIATE.getValue()));
-
+        WriteRequest.RefreshPolicy refreshPolicy = WriteRequest.RefreshPolicy
+            .parse(request.param(REFRESH, WriteRequest.RefreshPolicy.IMMEDIATE.getValue()));
 
         return channel -> {
             if (channel.request().method() == RestRequest.Method.POST) {
@@ -86,18 +93,27 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
                 client.execute(DeleteDetectorAction.INSTANCE, deleteDetectorRequest, stopAdDetectorListener(channel, detectorId));
             } else if (channel.request().method() == RestRequest.Method.DELETE) {
                 logger.info("Delete anomaly detector {}", detectorId);
-                handler.getMonitorUsingDetector(clusterService, client, detectorId,
+                handler
+                    .getMonitorUsingDetector(
+                        clusterService,
+                        client,
+                        detectorId,
                         channel,
-                        () -> deleteAnomalyDetectorDoc(client, detectorId, channel, refreshPolicy));
+                        () -> deleteAnomalyDetectorDoc(client, detectorId, channel, refreshPolicy)
+                    );
             }
         };
     }
 
-    private void deleteAnomalyDetectorDoc(NodeClient client, String detectorId, RestChannel channel,
-                                          WriteRequest.RefreshPolicy refreshPolicy) {
+    private void deleteAnomalyDetectorDoc(
+        NodeClient client,
+        String detectorId,
+        RestChannel channel,
+        WriteRequest.RefreshPolicy refreshPolicy
+    ) {
         logger.info("Delete anomaly detector {}", detectorId);
         DeleteRequest deleteRequest = new DeleteRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detectorId)
-                .setRefreshPolicy(refreshPolicy);
+            .setRefreshPolicy(refreshPolicy);
         client.delete(deleteRequest, new RestStatusToXContentListener<>(channel));
     }
 

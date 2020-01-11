@@ -50,19 +50,23 @@ public class ModelsOnNodeSupplierTests extends ESTestCase {
 
         clock = Clock.systemUTC();
         rcf = RandomCutForest.builder().dimensions(1).sampleSize(1).numberOfTrees(1).build();
-        thresholdingModel = new HybridThresholdingModel(1e-8, 1e-5, 200,
-                10_000, 2, 5_000_000);
+        thresholdingModel = new HybridThresholdingModel(1e-8, 1e-5, 200, 10_000, 2, 5_000_000);
 
-        expectedResults = new ArrayList<>(Arrays.asList(
-                new ModelState<>(rcf, "rcf-model-1", "detector-1",
-                        ModelManager.ModelType.RCF.getName(), clock.instant()),
-                new ModelState<>(thresholdingModel,"thr-model-1",  "detector-1",
-                        ModelManager.ModelType.RCF.getName(), clock.instant()),
-                new ModelState<>(rcf, "rcf-model-2",  "detector-2",
-                        ModelManager.ModelType.THRESHOLD.getName(), clock.instant()),
-                new ModelState<>(thresholdingModel,"thr-model-2", "detector-2",
-                        ModelManager.ModelType.THRESHOLD.getName(), clock.instant())
-            ));
+        expectedResults = new ArrayList<>(
+            Arrays
+                .asList(
+                    new ModelState<>(rcf, "rcf-model-1", "detector-1", ModelManager.ModelType.RCF.getName(), clock.instant()),
+                    new ModelState<>(thresholdingModel, "thr-model-1", "detector-1", ModelManager.ModelType.RCF.getName(), clock.instant()),
+                    new ModelState<>(rcf, "rcf-model-2", "detector-2", ModelManager.ModelType.THRESHOLD.getName(), clock.instant()),
+                    new ModelState<>(
+                        thresholdingModel,
+                        "thr-model-2",
+                        "detector-2",
+                        ModelManager.ModelType.THRESHOLD.getName(),
+                        clock.instant()
+                    )
+                )
+        );
 
         when(modelManager.getAllModels()).thenReturn(expectedResults);
     }
@@ -71,10 +75,20 @@ public class ModelsOnNodeSupplierTests extends ESTestCase {
     public void testGet() {
         ModelsOnNodeSupplier modelsOnNodeSupplier = new ModelsOnNodeSupplier(modelManager);
         List<Map<String, Object>> results = modelsOnNodeSupplier.get();
-        assertEquals("get fails to return correct result",
-                expectedResults.stream().map(modelState -> modelState.getModelStateAsMap().entrySet().stream()
+        assertEquals(
+            "get fails to return correct result",
+            expectedResults
+                .stream()
+                .map(
+                    modelState -> modelState
+                        .getModelStateAsMap()
+                        .entrySet()
+                        .stream()
                         .filter(entry -> MODEL_STATE_STAT_KEYS.contains(entry.getKey()))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
-                        .collect(Collectors.toList()), results);
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+                )
+                .collect(Collectors.toList()),
+            results
+        );
     }
 }

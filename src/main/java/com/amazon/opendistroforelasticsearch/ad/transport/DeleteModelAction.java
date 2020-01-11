@@ -21,7 +21,9 @@ public class DeleteModelAction extends Action<DeleteModelResponse> {
     public static final DeleteModelAction INSTANCE = new DeleteModelAction();
     public static final String NAME = "cluster:admin/ad/model/delete";
 
-    private DeleteModelAction() {super(NAME); }
+    private DeleteModelAction() {
+        super(NAME);
+    }
 
     @Override
     public DeleteModelResponse newResponse() {

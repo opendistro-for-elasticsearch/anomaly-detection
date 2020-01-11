@@ -38,8 +38,7 @@ public class IndexUtils {
      * Status string when an alias exists, but does not point to an index
      */
     public static final String ALIAS_EXISTS_NO_INDICES_STATUS = "alias exists, but does not point to any indices";
-    public static final String ALIAS_POINTS_TO_MULTIPLE_INDICES_STATUS = "alias exists, but does not point to any " +
-            "indices";
+    public static final String ALIAS_POINTS_TO_MULTIPLE_INDICES_STATUS = "alias exists, but does not point to any " + "indices";
 
     private static final Logger logger = LogManager.getLogger(IndexUtils.class);
 
@@ -75,8 +74,12 @@ public class IndexUtils {
             // Check if the index is actually an alias
             if (clusterService.state().getMetaData().hasAlias(indexOrAliasName)) {
                 // List of all indices the alias refers to
-                List<IndexMetaData> indexMetaDataList = clusterService.state().getMetaData().getAliasAndIndexLookup()
-                        .get(indexOrAliasName).getIndices();
+                List<IndexMetaData> indexMetaDataList = clusterService
+                    .state()
+                    .getMetaData()
+                    .getAliasAndIndexLookup()
+                    .get(indexOrAliasName)
+                    .getIndices();
                 if (indexMetaDataList.size() == 0) {
                     return ALIAS_EXISTS_NO_INDICES_STATUS;
                 } else if (indexMetaDataList.size() > 1) {
@@ -90,8 +93,8 @@ public class IndexUtils {
         }
 
         ClusterIndexHealth indexHealth = new ClusterIndexHealth(
-                clusterService.state().metaData().index(indexOrAliasName),
-                clusterService.state().getRoutingTable().index(indexOrAliasName)
+            clusterService.state().metaData().index(indexOrAliasName),
+            clusterService.state().getRoutingTable().index(indexOrAliasName)
         );
 
         return indexHealth.getStatus().name().toLowerCase();

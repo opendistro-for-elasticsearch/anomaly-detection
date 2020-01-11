@@ -133,12 +133,14 @@ public class ModelState<T> {
      * @return Map of ModelStates
      */
     public Map<String, Object> getModelStateAsMap() {
-        return new HashMap<String, Object>() {{
-            put(MODEL_ID_KEY, modelId);
-            put(DETECTOR_ID_KEY, detectorId);
-            put(MODEL_TYPE_KEY, modelType);
-            put(LAST_USED_TIME_KEY, lastUsedTime);
-            put(LAST_CHECKPOINT_TIME_KEY, lastCheckpointTime);
-        }};
+        return new HashMap<String, Object>() {
+            {
+                put(MODEL_ID_KEY, modelId);
+                put(DETECTOR_ID_KEY, detectorId);
+                put(MODEL_TYPE_KEY, modelType);
+                put(LAST_USED_TIME_KEY, lastUsedTime);
+                put(LAST_CHECKPOINT_TIME_KEY, lastCheckpointTime);
+            }
+        };
     }
 }

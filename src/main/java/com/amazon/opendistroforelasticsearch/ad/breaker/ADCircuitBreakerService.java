@@ -71,7 +71,7 @@ public class ADCircuitBreakerService {
      * @return ADCircuitBreakerService
      */
     public ADCircuitBreakerService init() {
-        //Register memory circuit breaker
+        // Register memory circuit breaker
         registerBreaker(BreakerName.MEM.getName(), new MemoryCircuitBreaker(this.jvmService));
         logger.info("Registered memory breaker.");
 

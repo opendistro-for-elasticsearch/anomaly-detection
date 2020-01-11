@@ -76,9 +76,12 @@ public class CheckpointDao {
         source.put(FIELD_MODEL, modelCheckpoint);
         source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
 
-        clientUtil.<IndexRequest, IndexResponse>timedRequest(
-            new IndexRequest(indexName, DOC_TYPE, modelId).source(source),
-            logger, client::index);
+        clientUtil
+            .<IndexRequest, IndexResponse>timedRequest(
+                new IndexRequest(indexName, DOC_TYPE, modelId).source(source),
+                logger,
+                client::index
+            );
     }
 
     /**
@@ -88,11 +91,11 @@ public class CheckpointDao {
      * @return model checkpoint, or empty if not found
      */
     public Optional<String> getModelCheckpoint(String modelId) {
-        return clientUtil.<GetRequest, GetResponse>timedRequest(
-            new GetRequest(indexName, DOC_TYPE, modelId), logger, client::get)
+        return clientUtil
+            .<GetRequest, GetResponse>timedRequest(new GetRequest(indexName, DOC_TYPE, modelId), logger, client::get)
             .filter(GetResponse::isExists)
             .map(GetResponse::getSource)
-            .map(source -> (String)source.get(FIELD_MODEL));
+            .map(source -> (String) source.get(FIELD_MODEL));
     }
 
     /**
@@ -101,8 +104,6 @@ public class CheckpointDao {
      * @param modelId ID of the model checkpoint
      */
     public void deleteModelCheckpoint(String modelId) {
-        clientUtil.<DeleteRequest, DeleteResponse>timedRequest(
-            new DeleteRequest(indexName, DOC_TYPE, modelId),
-            logger, client::delete);
+        clientUtil.<DeleteRequest, DeleteResponse>timedRequest(new DeleteRequest(indexName, DOC_TYPE, modelId), logger, client::delete);
     }
 }

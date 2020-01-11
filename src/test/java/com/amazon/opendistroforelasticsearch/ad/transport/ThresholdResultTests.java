@@ -51,14 +51,19 @@ import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 public class ThresholdResultTests extends ESTestCase {
 
     public void testNormal() {
-        TransportService transportService = new TransportService(Settings.EMPTY, mock(Transport.class), null,
-                TransportService.NOOP_TRANSPORT_INTERCEPTOR, x -> null, null, Collections.emptySet());
+        TransportService transportService = new TransportService(
+            Settings.EMPTY,
+            mock(Transport.class),
+            null,
+            TransportService.NOOP_TRANSPORT_INTERCEPTOR,
+            x -> null,
+            null,
+            Collections.emptySet()
+        );
 
         ModelManager manager = mock(ModelManager.class);
-        ThresholdResultTransportAction action = new ThresholdResultTransportAction(mock(ActionFilters.class),
-                transportService, manager);
-        when(manager.getThresholdingResult(any(String.class), any(String.class), anyDouble()))
-                .thenReturn(new ThresholdingResult(0, 1.0d));
+        ThresholdResultTransportAction action = new ThresholdResultTransportAction(mock(ActionFilters.class), transportService, manager);
+        when(manager.getThresholdingResult(any(String.class), any(String.class), anyDouble())).thenReturn(new ThresholdingResult(0, 1.0d));
 
         final PlainActionFuture<ThresholdResultResponse> future = new PlainActionFuture<>();
         ThresholdResultRequest request = new ThresholdResultRequest("123", "123-threshold", 2);
@@ -70,13 +75,19 @@ public class ThresholdResultTests extends ESTestCase {
     }
 
     public void testExecutionException() {
-        TransportService transportService = new TransportService(Settings.EMPTY, mock(Transport.class), null,
-                TransportService.NOOP_TRANSPORT_INTERCEPTOR, x -> null, null, Collections.emptySet());
+        TransportService transportService = new TransportService(
+            Settings.EMPTY,
+            mock(Transport.class),
+            null,
+            TransportService.NOOP_TRANSPORT_INTERCEPTOR,
+            x -> null,
+            null,
+            Collections.emptySet()
+        );
 
         ModelManager manager = mock(ModelManager.class);
         ThresholdResultTransportAction action = new ThresholdResultTransportAction(mock(ActionFilters.class), transportService, manager);
-        doThrow(NullPointerException.class).when(manager).getThresholdingResult(any(String.class),
-                any(String.class), anyDouble());
+        doThrow(NullPointerException.class).when(manager).getThresholdingResult(any(String.class), any(String.class), anyDouble());
 
         final PlainActionFuture<ThresholdResultResponse> future = new PlainActionFuture<>();
         ThresholdResultRequest request = new ThresholdResultRequest("123", "123-threshold", 2);
@@ -106,10 +117,12 @@ public class ThresholdResultTests extends ESTestCase {
         response.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = Strings.toString(builder);
-        assertEquals(JsonDeserializer.getDoubleValue(json, CommonMessageAttributes.ANOMALY_GRADE_JSON_KEY),
-                response.getAnomalyGrade(), 0.001);
-        assertEquals(JsonDeserializer.getDoubleValue(json, CommonMessageAttributes.CONFIDENCE_JSON_KEY),
-                response.getConfidence(), 0.001);
+        assertEquals(
+            JsonDeserializer.getDoubleValue(json, CommonMessageAttributes.ANOMALY_GRADE_JSON_KEY),
+            response.getAnomalyGrade(),
+            0.001
+        );
+        assertEquals(JsonDeserializer.getDoubleValue(json, CommonMessageAttributes.CONFIDENCE_JSON_KEY), response.getConfidence(), 0.001);
     }
 
     public void testEmptyID() {
@@ -134,9 +147,7 @@ public class ThresholdResultTests extends ESTestCase {
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = Strings.toString(builder);
-        assertEquals(JsonDeserializer.getTextValue(json, CommonMessageAttributes.ID_JSON_KEY),
-                request.getAdID());
-        assertEquals(JsonDeserializer.getDoubleValue(json, CommonMessageAttributes.RCF_SCORE_JSON_KEY),
-                request.getRCFScore(), 0.001);
+        assertEquals(JsonDeserializer.getTextValue(json, CommonMessageAttributes.ID_JSON_KEY), request.getAdID());
+        assertEquals(JsonDeserializer.getDoubleValue(json, CommonMessageAttributes.RCF_SCORE_JSON_KEY), request.getRCFScore(), 0.001);
     }
 }

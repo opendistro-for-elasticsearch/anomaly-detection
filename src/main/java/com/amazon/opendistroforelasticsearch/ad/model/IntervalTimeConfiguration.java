@@ -40,8 +40,8 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
      * @param unit     time unit
      */
     public IntervalTimeConfiguration(long interval, ChronoUnit unit) {
-        if (interval <= 0) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Interval %s should be positive", interval));
+        if (interval < 0) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Interval %s should be non-negative", interval));
         }
         if (!SUPPORTED_UNITS.contains(unit)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Timezone %s is not supported", unit));

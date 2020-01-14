@@ -283,6 +283,7 @@ public class FeatureManager {
      * @param endMilli end of the range in epoch milliseconds
      * @param listener onResponse is called with time ranges, unprocessed features,
      *                                      and processed features of the data points from the period
+     *                 onFailure is called with IllegalArgumentException when there is no data to preview
      */
     public void getPreviewFeatures(AnomalyDetector detector, long startMilli, long endMilli, ActionListener<Features> listener) {
         Entry<List<Entry<Long, Long>>, Integer> sampleRangeResults = getSampleRanges(detector, startMilli, endMilli);
@@ -291,6 +292,10 @@ public class FeatureManager {
 
         getSamplesForRanges(detector, sampleRanges, ActionListener.wrap(samples -> {
             List<Entry<Long, Long>> searchTimeRange = samples.getKey();
+            if (searchTimeRange.size() == 0) {
+                listener.onFailure(new IllegalArgumentException("No data to preview anomaly detection."));
+                return;
+            }
             double[][] sampleFeatures = samples.getValue();
 
             List<Entry<Long, Long>> previewRanges = getPreviewRanges(searchTimeRange, stride);

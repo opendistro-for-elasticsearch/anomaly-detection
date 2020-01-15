@@ -29,6 +29,7 @@ import org.elasticsearch.action.ActionListener;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -70,11 +71,15 @@ public final class AnomalyDetectorRunner {
                 List<ThresholdingResult> results = modelManager.getPreviewResults(features.getProcessedFeatures());
                 listener.onResponse(sample(parsePreviewResult(detector, features, results), 200));
             } catch (Exception e) {
-                logger.error("Fail to execute anomaly detector " + detector.getDetectorId(), e);
-                listener.onResponse(parsePreviewResult(detector, features, null));
+                onFailure(e, listener, detector.getDetectorId());
             }
-        }, listener::onFailure));
+        }, e -> onFailure(e, listener, detector.getDetectorId())));
 
+    }
+
+    private void onFailure(Exception e, ActionListener<List<AnomalyResult>> listener, String detectorId) {
+        logger.info("Fail to preview anomaly detector " + detectorId, e);
+        listener.onResponse(Collections.emptyList());
     }
 
     private List<AnomalyResult> parsePreviewResult(AnomalyDetector detector, Features features, List<ThresholdingResult> results) {

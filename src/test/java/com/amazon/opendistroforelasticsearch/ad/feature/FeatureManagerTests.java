@@ -398,15 +398,13 @@ public class FeatureManagerTests {
     }
 
     @SuppressWarnings("unchecked")
-    private void getPreviewFeaturesTemplate(boolean fail) {
+    private void getPreviewFeaturesTemplate(List<Optional<double[]>> samplesResults, boolean querySuccess, boolean previewSuccess) {
         long start = 0L;
         long end = 240_000L;
         IntervalTimeConfiguration detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         when(detector.getDetectionInterval()).thenReturn(detectionInterval);
 
         List<Entry<Long, Long>> sampleRanges = Arrays.asList(new SimpleEntry<>(0L, 60_000L), new SimpleEntry<>(120_000L, 180_000L));
-        List<Optional<double[]>> samplesResults = Arrays.asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 3 }));
-        RuntimeException exception = new RuntimeException();
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
 
@@ -416,10 +414,10 @@ public class FeatureManagerTests {
                 listener = (ActionListener<List<Optional<double[]>>>) args[2];
             }
 
-            if (fail) {
-                listener.onFailure(exception);
-            } else {
+            if (querySuccess) {
                 listener.onResponse(samplesResults);
+            } else {
+                listener.onFailure(new RuntimeException());
             }
 
             return null;
@@ -435,26 +433,31 @@ public class FeatureManagerTests {
         ActionListener<Features> listener = mock(ActionListener.class);
         featureManager.getPreviewFeatures(detector, start, end, listener);
 
-        if (fail) {
-            verify(listener).onFailure(exception);
-        } else {
+        if (previewSuccess) {
             Features expected = new Features(
                 asList(new SimpleEntry<>(120_000L, 180_000L)),
                 new double[][] { { 3 } },
                 new double[][] { { 1, 2, 3 } }
             );
             verify(listener).onResponse(expected);
+        } else {
+            verify(listener).onFailure(any(Exception.class));
         }
 
     }
 
     @Test
     public void getPreviewFeatures_returnExpectedToListener() {
-        getPreviewFeaturesTemplate(false);
+        getPreviewFeaturesTemplate(asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 3 })), true, true);
     }
 
     @Test
-    public void getPreviewFeatures_returnExceptionToListener() {
-        getPreviewFeaturesTemplate(true);
+    public void getPreviewFeatures_returnExceptionToListener_whenNoDataToPreview() {
+        getPreviewFeaturesTemplate(asList(), true, false);
+    }
+
+    @Test
+    public void getPreviewFeatures_returnExceptionToListener_whenQueryFail() {
+        getPreviewFeaturesTemplate(asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 3 })), false, false);
     }
 }

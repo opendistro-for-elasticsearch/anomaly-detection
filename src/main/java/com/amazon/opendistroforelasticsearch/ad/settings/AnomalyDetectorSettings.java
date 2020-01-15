@@ -51,9 +51,9 @@ public final class AnomalyDetectorSettings {
         );
 
     public static final Setting<TimeValue> DETECTION_WINDOW_DELAY = Setting
-        .positiveTimeSetting(
+        .timeSetting(
             "ml.anomaly_detectors.detection_window_delay",
-            TimeValue.timeValueSeconds(30),
+            TimeValue.timeValueMinutes(0),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );

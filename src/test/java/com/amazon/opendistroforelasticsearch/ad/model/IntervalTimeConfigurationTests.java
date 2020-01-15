@@ -54,8 +54,8 @@ public class IntervalTimeConfigurationTests extends ESTestCase {
         TestHelpers
             .assertFailWith(
                 IllegalArgumentException.class,
-                "should be positive",
-                () -> new IntervalTimeConfiguration(randomLongBetween(-100, 0), ChronoUnit.MINUTES)
+                "should be non-negative",
+                () -> new IntervalTimeConfiguration(randomLongBetween(-100, -1), ChronoUnit.MINUTES)
             );
     }
 

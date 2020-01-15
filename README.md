@@ -46,6 +46,7 @@ Currently we just put RCF jar in lib as dependency. Plan to publish to Maven and
 1. `./gradlew :run` launches a single node cluster with the AD plugin installed
 1. `./gradlew :integTest` launches a single node cluster with the AD plugin installed and runs all integration tests
 1. ` ./gradlew :integTest --tests="**.test execute foo"` runs a single integration test class or method
+1. `./gradlew spotlessApply` formats code. And/or import formatting rules in `.eclipseformat.xml` with IDE.
 
 When launching a cluster using one of the above commands logs are placed in `/build/cluster/run node0/elasticsearch-<version>/logs`. Though the logs are teed to the console, in practices it's best to check the actual log file.
 

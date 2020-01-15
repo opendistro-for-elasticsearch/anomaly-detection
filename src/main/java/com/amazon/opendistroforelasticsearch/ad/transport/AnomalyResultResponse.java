@@ -52,7 +52,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         confidence = in.readDouble();
         int size = in.readVInt();
         features = new ArrayList<FeatureData>();
-        for (int i=0; i<size; i++) {
+        for (int i = 0; i < size; i++) {
             String featureId = in.readString();
             String featureName = in.readString();
             double featureValue = in.readDouble();
@@ -78,7 +78,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         out.writeDouble(anomalyGrade);
         out.writeDouble(confidence);
         out.writeVInt(features.size());
-        for(FeatureData feature : features) {
+        for (FeatureData feature : features) {
             out.writeString(feature.getFeatureId());
             out.writeString(feature.getFeatureName());
             out.writeDouble(feature.getData());
@@ -105,11 +105,9 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             return (AnomalyResultResponse) actionResponse;
         }
 
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
             actionResponse.writeTo(osso);
-            try (InputStreamStreamInput input = new InputStreamStreamInput(
-                    new ByteArrayInputStream(baos.toByteArray()))) {
+            try (InputStreamStreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
                 return new AnomalyResultResponse(input);
             }
         } catch (IOException e) {

@@ -60,8 +60,12 @@ public class DeleteDetectorTests extends AbstractADTest {
     }
 
     private enum DetectorExecutionMode {
-        DELETE_RESULT_NORMAL, DELETE_RESULT_INDEX_NOT_FOUND, DELETE_RESULT_FAILURE,
-        DELETE_PARTIAL_FAILURE, MARK_NORMAL, MARK_FAILURE
+        DELETE_RESULT_NORMAL,
+        DELETE_RESULT_INDEX_NOT_FOUND,
+        DELETE_RESULT_FAILURE,
+        DELETE_PARTIAL_FAILURE,
+        MARK_NORMAL,
+        MARK_FAILURE
     }
 
     @Override
@@ -78,17 +82,15 @@ public class DeleteDetectorTests extends AbstractADTest {
         BulkByScrollResponse deleteByQueryResponse = mock(BulkByScrollResponse.class);
         when(deleteByQueryResponse.getDeleted()).thenReturn(deletedDocNum);
 
-        AnomalyDetectorGraveyard daedDetector = new AnomalyDetectorGraveyard( "123", 1L);
+        AnomalyDetectorGraveyard daedDetector = new AnomalyDetectorGraveyard("123", 1L);
         Set<AnomalyDetectorGraveyard> deadDetectors = new HashSet<>();
         deadDetectors.add(daedDetector);
         MetaData metaData = MetaData.builder().putCustom(ADMetaData.TYPE, new ADMetaData(deadDetectors)).build();
-        ClusterState clusterState = ClusterState.builder(new ClusterName("test cluster")).metaData(metaData)
-                .build();
+        ClusterState clusterState = ClusterState.builder(new ClusterName("test cluster")).metaData(metaData).build();
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                    args.length >= 3);
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 3);
             assertTrue(args[2] instanceof ActionListener);
 
             ActionListener<BulkByScrollResponse> listener = (ActionListener<BulkByScrollResponse>) args[2];
@@ -101,8 +103,10 @@ public class DeleteDetectorTests extends AbstractADTest {
             } else {
                 if (mode == DetectorExecutionMode.DELETE_PARTIAL_FAILURE) {
                     when(deleteByQueryResponse.getSearchFailures())
-                            .thenReturn(Collections.singletonList(new ScrollableHitSource.SearchFailure(
-                                    new ElasticsearchException("foo"), "bar", 1, "blah")));
+                        .thenReturn(
+                            Collections
+                                .singletonList(new ScrollableHitSource.SearchFailure(new ElasticsearchException("foo"), "bar", 1, "blah"))
+                        );
                 }
                 listener.onResponse(deleteByQueryResponse);
             }
@@ -112,15 +116,13 @@ public class DeleteDetectorTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                    args.length == 2);
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
             assertTrue(args[1] instanceof ClusterStateUpdateTask);
 
             ClusterStateUpdateTask task = (ClusterStateUpdateTask) args[1];
 
             ClusterState newState = task.execute(clusterState);
-            if (mode == DetectorExecutionMode.DELETE_RESULT_FAILURE
-                    || mode == DetectorExecutionMode.DELETE_PARTIAL_FAILURE) {
+            if (mode == DetectorExecutionMode.DELETE_RESULT_FAILURE || mode == DetectorExecutionMode.DELETE_PARTIAL_FAILURE) {
                 assertTrue(ADMetaData.getADMetaData(newState).equals(new ADMetaData(deadDetectors)));
             } else {
                 assertTrue(ADMetaData.getADMetaData(newState) == ADMetaData.EMPTY_METADATA);
@@ -170,8 +172,7 @@ public class DeleteDetectorTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                    args.length == 2);
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
             assertTrue(args[1] instanceof ClusterStateUpdateTask);
 
             ClusterStateUpdateTask task = (ClusterStateUpdateTask) args[1];
@@ -179,8 +180,11 @@ public class DeleteDetectorTests extends AbstractADTest {
             if (mode == DetectorExecutionMode.MARK_NORMAL) {
                 ClusterState newState = task.execute(clusterState);
 
-                assertTrue(ADMetaData.getADMetaData(newState)
-                        .equals(new ADMetaData(Collections.singleton(new AnomalyDetectorGraveyard(detectorID, epoch)))));
+                assertTrue(
+                    ADMetaData
+                        .getADMetaData(newState)
+                        .equals(new ADMetaData(Collections.singleton(new AnomalyDetectorGraveyard(detectorID, epoch))))
+                );
 
                 return newState;
             } else {
@@ -190,8 +194,7 @@ public class DeleteDetectorTests extends AbstractADTest {
 
         }).when(clusterService).submitStateUpdateTask(any(String.class), any());
 
-        deleteDetector.markAnomalyResultDeleted(detectorID, ActionListener.wrap(response -> {
-        }, e -> {
+        deleteDetector.markAnomalyResultDeleted(detectorID, ActionListener.wrap(response -> {}, e -> {
             if (mode == DetectorExecutionMode.MARK_NORMAL) {
                 fail(e.getMessage());
             } else {

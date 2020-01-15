@@ -56,9 +56,14 @@ public class ADStatsTests extends ESTestCase {
         node1 = "node1";
         nodeName1 = "nodename1";
         clusterName = "test-cluster-name";
-        discoveryNode1 = new DiscoveryNode(nodeName1, node1,
-                new TransportAddress(TransportAddress.META_ADDRESS, 9300), emptyMap(), emptySet(),
-                Version.CURRENT);
+        discoveryNode1 = new DiscoveryNode(
+            nodeName1,
+            node1,
+            new TransportAddress(TransportAddress.META_ADDRESS, 9300),
+            emptyMap(),
+            emptySet(),
+            Version.CURRENT
+        );
         clusterStats = new HashMap<>();
     }
 
@@ -76,15 +81,20 @@ public class ADStatsTests extends ESTestCase {
         adStatsNodeRequest2.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
         adStatsNodeRequest1.readFrom(streamInput);
-        assertEquals("readStats failed", adStatsNodeRequest2.getADStatsRequest().getStatsToBeRetrieved(),
-                adStatsNodeRequest1.getADStatsRequest().getStatsToBeRetrieved());
+        assertEquals(
+            "readStats failed",
+            adStatsNodeRequest2.getADStatsRequest().getStatsToBeRetrieved(),
+            adStatsNodeRequest1.getADStatsRequest().getStatsToBeRetrieved()
+        );
     }
 
     @Test
     public void testADStatsNodeResponse() throws IOException, JsonPathNotFoundException {
-        Map<String, Object> stats = new HashMap<String, Object>() {{
-            put("testKey", "testValue");
-        }};
+        Map<String, Object> stats = new HashMap<String, Object>() {
+            {
+                put("testKey", "testValue");
+            }
+        };
 
         // Test serialization
         ADStatsNodeResponse adStatsNodeResponse = new ADStatsNodeResponse(discoveryNode1, stats);
@@ -100,14 +110,13 @@ public class ADStatsTests extends ESTestCase {
         String json = Strings.toString(builder);
 
         for (Map.Entry<String, Object> stat : stats.entrySet()) {
-            assertEquals("toXContent does not work", JsonDeserializer.getTextValue(json, stat.getKey()),
-                    stat.getValue());
+            assertEquals("toXContent does not work", JsonDeserializer.getTextValue(json, stat.getKey()), stat.getValue());
         }
     }
 
     @Test
     public void testADStatsRequest() throws IOException {
-        List<String>  allStats = Arrays.stream(StatNames.values()).map(StatNames::getName).collect(Collectors.toList());
+        List<String> allStats = Arrays.stream(StatNames.values()).map(StatNames::getName).collect(Collectors.toList());
         ADStatsRequest adStatsRequest = new ADStatsRequest();
 
         // Test clear()
@@ -125,8 +134,7 @@ public class ADStatsTests extends ESTestCase {
         // Test add stat
         adStatsRequest.clear();
         adStatsRequest.addStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName());
-        assertTrue("addStat fails", adStatsRequest.getStatsToBeRetrieved().contains(
-                StatNames.AD_EXECUTE_REQUEST_COUNT.getName()));
+        assertTrue("addStat fails", adStatsRequest.getStatsToBeRetrieved().contains(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()));
 
         // Test Serialization
         BytesStreamOutput output = new BytesStreamOutput();
@@ -139,19 +147,21 @@ public class ADStatsTests extends ESTestCase {
 
     @Test
     public void testADStatsResponse() throws IOException, JsonPathNotFoundException {
-        Map<String, Object> nodeStats = new HashMap<String, Object>() {{
-            put("testNodeKey", "testNodeValue");
-        }};
+        Map<String, Object> nodeStats = new HashMap<String, Object>() {
+            {
+                put("testNodeKey", "testNodeValue");
+            }
+        };
 
-        Map<String, Object> clusterStats = new HashMap<String, Object>() {{
-            put("testClusterKey", "testClusterValue");
-        }};
+        Map<String, Object> clusterStats = new HashMap<String, Object>() {
+            {
+                put("testClusterKey", "testClusterValue");
+            }
+        };
         ADStatsNodeResponse adStatsNodeResponse = new ADStatsNodeResponse(discoveryNode1, nodeStats);
         List<ADStatsNodeResponse> adStatsNodeResponses = Collections.singletonList(adStatsNodeResponse);
         List<FailedNodeException> failures = Collections.emptyList();
-        ADStatsResponse adStatsResponse = new ADStatsResponse(new ClusterName(clusterName), adStatsNodeResponses,
-                failures, clusterStats);
-
+        ADStatsResponse adStatsResponse = new ADStatsResponse(new ClusterName(clusterName), adStatsNodeResponses, failures, clusterStats);
 
         // Test toXContent
         XContentBuilder builder = jsonBuilder();
@@ -162,8 +172,7 @@ public class ADStatsTests extends ESTestCase {
 
         // clusterStats
         for (Map.Entry<String, Object> stat : clusterStats.entrySet()) {
-            assertEquals("toXContent does not work for cluster stats", JsonDeserializer.getTextValue(json, stat.getKey()),
-                    stat.getValue());
+            assertEquals("toXContent does not work for cluster stats", JsonDeserializer.getTextValue(json, stat.getKey()), stat.getValue());
         }
 
         // nodeStats
@@ -171,8 +180,11 @@ public class ADStatsTests extends ESTestCase {
         String node1Json = JsonDeserializer.getChildNode(nodesJson, node1).toString();
 
         for (Map.Entry<String, Object> stat : nodeStats.entrySet()) {
-            assertEquals("toXContent does not work for node stats", JsonDeserializer.getTextValue(node1Json, stat.getKey()),
-                    stat.getValue());
+            assertEquals(
+                "toXContent does not work for node stats",
+                JsonDeserializer.getTextValue(node1Json, stat.getKey()),
+                stat.getValue()
+            );
         }
 
         // Test Serialization
@@ -183,12 +195,11 @@ public class ADStatsTests extends ESTestCase {
         ADStatsResponse readRequest = new ADStatsResponse(streamInput);
 
         builder = jsonBuilder();
-        String readJson = Strings.toString(readRequest.toXContent(builder.startObject(),
-                ToXContent.EMPTY_PARAMS).endObject());
+        String readJson = Strings.toString(readRequest.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject());
         assertEquals("Serialization fails", readJson, json);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testADStatsAction_newResponse() {
         ADStatsAction adStatsAction = ADStatsAction.INSTANCE;
         adStatsAction.newResponse();

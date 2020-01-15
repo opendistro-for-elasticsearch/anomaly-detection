@@ -87,8 +87,9 @@ public class AnomalyResultRequest extends ActionRequest implements ToXContentObj
         }
         if (start <= 0 || end <= 0 || start > end) {
             validationException = addValidationError(
-                    String.format(Locale.ROOT, "%s: start %d, end %d", INVALID_TIMESTAMP_ERR_MSG, start, end),
-                    validationException);
+                String.format(Locale.ROOT, "%s: start %d, end %d", INVALID_TIMESTAMP_ERR_MSG, start, end),
+                validationException
+            );
         }
         return validationException;
     }
@@ -108,8 +109,7 @@ public class AnomalyResultRequest extends ActionRequest implements ToXContentObj
             return (AnomalyResultRequest) actionRequest;
         }
 
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
             actionRequest.writeTo(osso);
             try (StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
                 return new AnomalyResultRequest(input);

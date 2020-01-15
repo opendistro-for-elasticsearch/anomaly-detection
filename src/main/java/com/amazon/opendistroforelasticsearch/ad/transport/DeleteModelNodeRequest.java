@@ -28,8 +28,7 @@ public class DeleteModelNodeRequest extends BaseNodeRequest {
 
     private String adID;
 
-    DeleteModelNodeRequest() {
-    }
+    DeleteModelNodeRequest() {}
 
     DeleteModelNodeRequest(String nodeID, DeleteModelRequest request) {
         super(nodeID);
@@ -51,4 +50,4 @@ public class DeleteModelNodeRequest extends BaseNodeRequest {
     public String getAdID() {
         return adID;
     }
- }
+}

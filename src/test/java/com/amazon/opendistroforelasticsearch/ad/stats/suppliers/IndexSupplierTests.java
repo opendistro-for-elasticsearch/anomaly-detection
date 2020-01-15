@@ -44,8 +44,10 @@ public class IndexSupplierTests extends ESTestCase {
         String invalidIndex = "invalid";
         when(indexUtils.getIndexHealthStatus(invalidIndex)).thenThrow(IllegalArgumentException.class);
         IndexStatusSupplier indexStatusSupplier2 = new IndexStatusSupplier(indexUtils, invalidIndex);
-        assertEquals("Get method does not return correct response onf exception",
-                IndexStatusSupplier.UNABLE_TO_RETRIEVE_HEALTH_MESSAGE,
-                indexStatusSupplier2.get());
+        assertEquals(
+            "Get method does not return correct response onf exception",
+            IndexStatusSupplier.UNABLE_TO_RETRIEVE_HEALTH_MESSAGE,
+            indexStatusSupplier2.get()
+        );
     }
 }

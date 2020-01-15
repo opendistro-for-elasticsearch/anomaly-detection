@@ -36,8 +36,12 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
     private ADCircuitBreakerService adCircuitBreakerService;
 
     @Inject
-    public RCFResultTransportAction(ActionFilters actionFilters, TransportService transportService,
-            ModelManager manager, ADCircuitBreakerService adCircuitBreakerService) {
+    public RCFResultTransportAction(
+        ActionFilters actionFilters,
+        TransportService transportService,
+        ModelManager manager,
+        ADCircuitBreakerService adCircuitBreakerService
+    ) {
         super(RCFResultAction.NAME, transportService, actionFilters, RCFResultRequest::new);
         this.manager = manager;
         this.adCircuitBreakerService = adCircuitBreakerService;

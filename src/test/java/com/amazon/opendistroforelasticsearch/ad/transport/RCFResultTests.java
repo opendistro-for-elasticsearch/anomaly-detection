@@ -57,18 +57,29 @@ public class RCFResultTests extends ESTestCase {
     Gson gson = new GsonBuilder().create();
 
     public void testNormal() {
-        TransportService transportService = new TransportService(Settings.EMPTY, mock(Transport.class), null,
-                TransportService.NOOP_TRANSPORT_INTERCEPTOR, x -> null, null, Collections.emptySet());
+        TransportService transportService = new TransportService(
+            Settings.EMPTY,
+            mock(Transport.class),
+            null,
+            TransportService.NOOP_TRANSPORT_INTERCEPTOR,
+            x -> null,
+            null,
+            Collections.emptySet()
+        );
 
         ModelManager manager = mock(ModelManager.class);
         ADCircuitBreakerService adCircuitBreakerService = mock(ADCircuitBreakerService.class);
-        RCFResultTransportAction action = new RCFResultTransportAction(mock(ActionFilters.class), transportService, manager,
-                adCircuitBreakerService);
+        RCFResultTransportAction action = new RCFResultTransportAction(
+            mock(ActionFilters.class),
+            transportService,
+            manager,
+            adCircuitBreakerService
+        );
         when(manager.getRcfResult(any(String.class), any(String.class), any(double[].class))).thenReturn(new RcfResult(0, 0, 25));
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
-        RCFResultRequest request = new RCFResultRequest("123", "123-rcf-1", new double[] {0});
+        RCFResultRequest request = new RCFResultRequest("123", "123-rcf-1", new double[] { 0 });
         action.doExecute(mock(Task.class), request, future);
 
         RCFResultResponse response = future.actionGet();
@@ -77,18 +88,29 @@ public class RCFResultTests extends ESTestCase {
     }
 
     public void testExecutionException() {
-        TransportService transportService = new TransportService(Settings.EMPTY, mock(Transport.class), null,
-                TransportService.NOOP_TRANSPORT_INTERCEPTOR, x -> null, null, Collections.emptySet());
+        TransportService transportService = new TransportService(
+            Settings.EMPTY,
+            mock(Transport.class),
+            null,
+            TransportService.NOOP_TRANSPORT_INTERCEPTOR,
+            x -> null,
+            null,
+            Collections.emptySet()
+        );
 
         ModelManager manager = mock(ModelManager.class);
         ADCircuitBreakerService adCircuitBreakerService = mock(ADCircuitBreakerService.class);
-        RCFResultTransportAction action = new RCFResultTransportAction(mock(ActionFilters.class), transportService, manager,
-                adCircuitBreakerService);
+        RCFResultTransportAction action = new RCFResultTransportAction(
+            mock(ActionFilters.class),
+            transportService,
+            manager,
+            adCircuitBreakerService
+        );
         doThrow(NullPointerException.class).when(manager).getRcfResult(any(String.class), any(String.class), any(double[].class));
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
-        RCFResultRequest request = new RCFResultRequest("123", "123-rcf-1", new double[] {0});
+        RCFResultRequest request = new RCFResultRequest("123", "123-rcf-1", new double[] { 0 });
         action.doExecute(mock(Task.class), request, future);
 
         expectThrows(NullPointerException.class, () -> future.actionGet());
@@ -115,14 +137,12 @@ public class RCFResultTests extends ESTestCase {
         response.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = Strings.toString(builder);
-        assertEquals(JsonDeserializer.getDoubleValue(json, RCFResultResponse.RCF_SCORE_JSON_KEY),
-                response.getRCFScore(), 0.001);
-        assertEquals(JsonDeserializer.getDoubleValue(json, RCFResultResponse.FOREST_SIZE_JSON_KEY),
-                response.getForestSize(), 0.001);
+        assertEquals(JsonDeserializer.getDoubleValue(json, RCFResultResponse.RCF_SCORE_JSON_KEY), response.getRCFScore(), 0.001);
+        assertEquals(JsonDeserializer.getDoubleValue(json, RCFResultResponse.FOREST_SIZE_JSON_KEY), response.getForestSize(), 0.001);
     }
 
     public void testEmptyID() {
-        ActionRequestValidationException e = new RCFResultRequest(null, "123-rcf-1", new double[] {0}).validate();
+        ActionRequestValidationException e = new RCFResultRequest(null, "123-rcf-1", new double[] { 0 }).validate();
         assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
     }
 
@@ -132,7 +152,7 @@ public class RCFResultTests extends ESTestCase {
     }
 
     public void testSerialzationRequest() throws IOException {
-        RCFResultRequest response = new RCFResultRequest("123", "123-rcf-1", new double[] {0});
+        RCFResultRequest response = new RCFResultRequest("123", "123-rcf-1", new double[] { 0 });
         BytesStreamOutput output = new BytesStreamOutput();
         response.writeTo(output);
 
@@ -143,30 +163,43 @@ public class RCFResultTests extends ESTestCase {
     }
 
     public void testJsonRequest() throws IOException, JsonPathNotFoundException {
-        RCFResultRequest request = new RCFResultRequest("123", "123-rcf-1", new double[] {0});
+        RCFResultRequest request = new RCFResultRequest("123", "123-rcf-1", new double[] { 0 });
         XContentBuilder builder = jsonBuilder();
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = Strings.toString(builder);
-        assertEquals(JsonDeserializer.getTextValue(json, CommonMessageAttributes.ID_JSON_KEY),
-                request.getAdID());
-        assertArrayEquals(JsonDeserializer.getDoubleArrayValue(json, CommonMessageAttributes.FEATURE_JSON_KEY),
-                request.getFeatures(), 0.001);
+        assertEquals(JsonDeserializer.getTextValue(json, CommonMessageAttributes.ID_JSON_KEY), request.getAdID());
+        assertArrayEquals(
+            JsonDeserializer.getDoubleArrayValue(json, CommonMessageAttributes.FEATURE_JSON_KEY),
+            request.getFeatures(),
+            0.001
+        );
     }
 
     public void testCircuitBreaker() {
-        TransportService transportService = new TransportService(Settings.EMPTY, mock(Transport.class), null,
-                TransportService.NOOP_TRANSPORT_INTERCEPTOR, x -> null, null, Collections.emptySet());
+        TransportService transportService = new TransportService(
+            Settings.EMPTY,
+            mock(Transport.class),
+            null,
+            TransportService.NOOP_TRANSPORT_INTERCEPTOR,
+            x -> null,
+            null,
+            Collections.emptySet()
+        );
 
         ModelManager manager = mock(ModelManager.class);
         ADCircuitBreakerService breakerService = mock(ADCircuitBreakerService.class);
-        RCFResultTransportAction action = new RCFResultTransportAction(mock(ActionFilters.class), transportService, manager,
-                breakerService);
+        RCFResultTransportAction action = new RCFResultTransportAction(
+            mock(ActionFilters.class),
+            transportService,
+            manager,
+            breakerService
+        );
         when(manager.getRcfResult(any(String.class), any(String.class), any(double[].class))).thenReturn(new RcfResult(0, 0, 25));
         when(breakerService.isOpen()).thenReturn(true);
 
         final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
-        RCFResultRequest request = new RCFResultRequest("123", "123-rcf-1", new double[] {0});
+        RCFResultRequest request = new RCFResultRequest("123", "123-rcf-1", new double[] { 0 });
         action.doExecute(mock(Task.class), request, future);
 
         expectThrows(LimitExceededException.class, () -> future.actionGet());

@@ -34,7 +34,7 @@ public class ADStatTests extends ESTestCase {
     @Test
     public void testGetValue() {
         ADStat<Long> stat1 = new ADStat<>(false, new CounterSupplier());
-        assertEquals("GetValue returns the incorrect value", 0L, (long)(stat1.getValue()));
+        assertEquals("GetValue returns the incorrect value", 0L, (long) (stat1.getValue()));
 
         ADStat<String> stat2 = new ADStat<>(false, new TestSupplier());
         assertEquals("GetValue returns the incorrect value", "test", stat2.getValue());

@@ -65,21 +65,19 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
             {
                 put(nodeStatName1, new ADStat<>(false, new CounterSupplier()));
                 put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager)));
-                put(clusterStatName1, new ADStat<>(true, new IndexStatusSupplier(indexUtils,
-                        "index1")));
-                put(clusterStatName2, new ADStat<>(true, new IndexStatusSupplier(indexUtils,
-                        "index2")));
+                put(clusterStatName1, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index1")));
+                put(clusterStatName2, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index2")));
             }
         };
 
         adStats = new ADStats(indexUtils, modelManager, statsMap);
 
         action = new ADStatsTransportAction(
-                client().threadPool(),
-                clusterService(),
-                mock(TransportService.class),
-                mock(ActionFilters.class),
-                adStats
+            client().threadPool(),
+            clusterService(),
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            adStats
         );
     }
 
@@ -89,10 +87,7 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
         ADStatsRequest adStatsRequest = new ADStatsRequest((nodeId));
         adStatsRequest.clear();
 
-        Set<String> clusterStatsToBeRetrieved = new HashSet<>(Arrays.asList(
-                clusterStatName1,
-                clusterStatName2
-        ));
+        Set<String> clusterStatsToBeRetrieved = new HashSet<>(Arrays.asList(clusterStatName1, clusterStatName2));
 
         for (String stat : clusterStatsToBeRetrieved) {
             adStatsRequest.addStat(stat);
@@ -127,11 +122,7 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
         ADStatsRequest adStatsRequest = new ADStatsRequest((nodeId));
         adStatsRequest.clear();
 
-        Set<String> statsToBeRetrieved = new HashSet<>(Arrays.asList(
-                nodeStatName1,
-                nodeStatName2
-            )
-        );
+        Set<String> statsToBeRetrieved = new HashSet<>(Arrays.asList(nodeStatName1, nodeStatName2));
 
         for (String stat : statsToBeRetrieved) {
             adStatsRequest.addStat(stat);

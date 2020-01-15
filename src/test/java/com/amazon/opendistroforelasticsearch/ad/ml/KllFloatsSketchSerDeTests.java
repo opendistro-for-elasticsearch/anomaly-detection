@@ -34,9 +34,13 @@ public class KllFloatsSketchSerDeTests {
     public void setup() {
         gson = new Gson();
 
-        hybridModel = new HybridThresholdingModel(
-            /*minPvalueThreshold*/ 0.95, /*maxRankError*/ 1e-4, /*maxScore*/ 4, /*numLogNormalQuantiles*/ 10000,
-            /*downsampleNumSamples*/ 100_000, /*downsampleMaxNumObservations*/ 200_000L);
+        hybridModel = new HybridThresholdingModel(/*minPvalueThreshold*/ 0.95,
+            /*maxRankError*/ 1e-4,
+            /*maxScore*/ 4,
+            /*numLogNormalQuantiles*/ 10000,
+            /*downsampleNumSamples*/ 100_000,
+            /*downsampleMaxNumObservations*/ 200_000L
+        );
     }
 
     @Test

@@ -66,7 +66,7 @@ public class ClusterCreation {
     public static ImmutableOpenMap<String, DiscoveryNode> createDataNodes(int numDataNodes) {
         ImmutableOpenMap.Builder<String, DiscoveryNode> dataNodes = ImmutableOpenMap.builder();
         for (int i = 0; i < numDataNodes; i++) {
-            dataNodes.put("foo" + i , mock(DiscoveryNode.class));
+            dataNodes.put("foo" + i, mock(DiscoveryNode.class));
         }
         return dataNodes.build();
     }
@@ -77,13 +77,28 @@ public class ClusterCreation {
      * @return the cluster state
      */
     public static ClusterState state(int numDataNodes) {
-        DiscoveryNode masterNode = new DiscoveryNode("foo0", "foo0", new TransportAddress(InetAddress.getLoopbackAddress(), 9300),
-                Collections.emptyMap(), Collections.singleton(DiscoveryNode.Role.MASTER), Version.CURRENT);
+        DiscoveryNode masterNode = new DiscoveryNode(
+            "foo0",
+            "foo0",
+            new TransportAddress(InetAddress.getLoopbackAddress(), 9300),
+            Collections.emptyMap(),
+            Collections.singleton(DiscoveryNode.Role.MASTER),
+            Version.CURRENT
+        );
         List<DiscoveryNode> allNodes = new ArrayList<>();
         allNodes.add(masterNode);
-        for (int i = 1; i <= numDataNodes-1; i++) {
-            allNodes.add(new DiscoveryNode("foo" + i, "foo" + i, new TransportAddress(InetAddress.getLoopbackAddress(), 9300 + i),
-                    Collections.emptyMap(), Collections.singleton(DiscoveryNode.Role.DATA), Version.CURRENT));
+        for (int i = 1; i <= numDataNodes - 1; i++) {
+            allNodes
+                .add(
+                    new DiscoveryNode(
+                        "foo" + i,
+                        "foo" + i,
+                        new TransportAddress(InetAddress.getLoopbackAddress(), 9300 + i),
+                        Collections.emptyMap(),
+                        Collections.singleton(DiscoveryNode.Role.DATA),
+                        Version.CURRENT
+                    )
+                );
         }
         return state(new ClusterName("test"), masterNode, masterNode, allNodes);
     }

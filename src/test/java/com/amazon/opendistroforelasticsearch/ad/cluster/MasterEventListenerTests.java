@@ -54,14 +54,12 @@ public class MasterEventListenerTests extends AbstractADTest {
         hourlyCancellable = mock(Cancellable.class);
         dailyCancellable = mock(Cancellable.class);
         when(threadPool.scheduleWithFixedDelay(any(HourlyCron.class), any(TimeValue.class), any(String.class)))
-                .thenReturn(hourlyCancellable);
-        when(threadPool.scheduleWithFixedDelay(any(DailyCron.class), any(TimeValue.class), any(String.class)))
-                .thenReturn(dailyCancellable);
+            .thenReturn(hourlyCancellable);
+        when(threadPool.scheduleWithFixedDelay(any(DailyCron.class), any(TimeValue.class), any(String.class))).thenReturn(dailyCancellable);
         deleteUtil = mock(DeleteDetector.class);
         client = mock(Client.class);
         clock = mock(Clock.class);
-        masterService = new MasterEventListener(clusterService, threadPool, deleteUtil,
-                client, clock);
+        masterService = new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock);
     }
 
     public void testOnOffMaster() {
@@ -78,8 +76,7 @@ public class MasterEventListenerTests extends AbstractADTest {
     public void testBeforeStop() {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                    args.length == 1);
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 1);
 
             LifecycleListener listener = null;
             if (args[0] instanceof LifecycleListener) {

@@ -27,27 +27,40 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
-public class CronTransportAction
-        extends TransportNodesAction<CronRequest, CronResponse, CronNodeRequest, CronNodeResponse> {
+public class CronTransportAction extends TransportNodesAction<CronRequest, CronResponse, CronNodeRequest, CronNodeResponse> {
 
     private ADStateManager transportStateManager;
     private ModelManager modelManager;
     private FeatureManager featureManager;
 
     @Inject
-    public CronTransportAction(ThreadPool threadPool, ClusterService clusterService, TransportService transportService,
-            ActionFilters actionFilters, ADStateManager tarnsportStatemanager, ModelManager modelManager,
-            FeatureManager featureManager) {
-        super(CronAction.NAME, threadPool, clusterService, transportService, actionFilters, CronRequest::new,
-                CronNodeRequest::new, ThreadPool.Names.MANAGEMENT, CronNodeResponse.class);
+    public CronTransportAction(
+        ThreadPool threadPool,
+        ClusterService clusterService,
+        TransportService transportService,
+        ActionFilters actionFilters,
+        ADStateManager tarnsportStatemanager,
+        ModelManager modelManager,
+        FeatureManager featureManager
+    ) {
+        super(
+            CronAction.NAME,
+            threadPool,
+            clusterService,
+            transportService,
+            actionFilters,
+            CronRequest::new,
+            CronNodeRequest::new,
+            ThreadPool.Names.MANAGEMENT,
+            CronNodeResponse.class
+        );
         this.transportStateManager = tarnsportStatemanager;
         this.modelManager = modelManager;
         this.featureManager = featureManager;
     }
 
     @Override
-    protected CronResponse newResponse(CronRequest request, List<CronNodeResponse> responses,
-            List<FailedNodeException> failures) {
+    protected CronResponse newResponse(CronRequest request, List<CronNodeResponse> responses, List<FailedNodeException> failures) {
         return new CronResponse(clusterService.getClusterName(), responses, failures);
     }
 

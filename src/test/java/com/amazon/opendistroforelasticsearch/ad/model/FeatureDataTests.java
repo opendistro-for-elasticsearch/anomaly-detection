@@ -26,10 +26,10 @@ public class FeatureDataTests extends ESTestCase {
 
     public void testParseAnomalyDetector() throws IOException {
         FeatureData featureData = TestHelpers.randomFeatureData();
-        String featureDataString = TestHelpers.xContentBuilderToString(featureData.toXContent(TestHelpers.builder(),
-                ToXContent.EMPTY_PARAMS));
-        featureDataString = featureDataString.replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",",
-                randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        String featureDataString = TestHelpers
+            .xContentBuilderToString(featureData.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        featureDataString = featureDataString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         FeatureData parsedFeatureData = FeatureData.parse(TestHelpers.parser(featureDataString));
         assertEquals("Parsing feature data doesn't work", featureData, parsedFeatureData);
     }

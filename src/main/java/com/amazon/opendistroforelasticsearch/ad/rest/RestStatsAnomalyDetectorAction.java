@@ -50,10 +50,10 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
      */
     public RestStatsAnomalyDetectorAction(Settings settings, RestController controller, ADStats adStats) {
         super(settings);
-        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/",this);
-        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/{stat}",this);
-        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/stats/",this);
-        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/stats/{stat}",this);
+        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/", this);
+        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/{stat}", this);
+        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/stats/", this);
+        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/stats/{stat}", this);
         this.adStats = adStats;
     }
 
@@ -65,8 +65,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) {
         ADStatsRequest adStatsRequest = getRequest(request);
-        return channel -> client.execute(ADStatsAction.INSTANCE, adStatsRequest,
-                new RestActions.NodesResponseRestListener<>(channel));
+        return channel -> client.execute(ADStatsAction.INSTANCE, adStatsRequest, new RestActions.NodesResponseRestListener<>(channel));
     }
 
     /**
@@ -100,8 +99,9 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
         } else if (statsSet.size() == 1 && statsSet.contains(ADStatsRequest.ALL_STATS_KEY)) {
             adStatsRequest.addAll(validStats);
         } else if (statsSet.contains(ADStatsRequest.ALL_STATS_KEY)) {
-            throw new IllegalArgumentException("Request " + request.path() + " contains " + ADStatsRequest.ALL_STATS_KEY
-                    + " and individual stats");
+            throw new IllegalArgumentException(
+                "Request " + request.path() + " contains " + ADStatsRequest.ALL_STATS_KEY + " and individual stats"
+            );
         } else {
             Set<String> invalidStats = new TreeSet<>();
             for (String stat : statsSet) {
@@ -113,8 +113,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
             }
 
             if (!invalidStats.isEmpty()) {
-                throw new IllegalArgumentException(unrecognized(request, invalidStats,
-                        adStatsRequest.getStatsToBeRetrieved(), "stat"));
+                throw new IllegalArgumentException(unrecognized(request, invalidStats, adStatsRequest.getStatsToBeRetrieved(), "stat"));
             }
         }
         return adStatsRequest;

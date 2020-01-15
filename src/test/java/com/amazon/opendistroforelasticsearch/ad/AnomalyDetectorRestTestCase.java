@@ -63,8 +63,15 @@ public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
         }
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(uiMetadata, null);
         String indexName = detector.getIndices().get(0);
-        TestHelpers.makeRequest(client(), "POST", "/" + indexName + "/_doc/" + randomAlphaOfLength(5) + "?refresh=true", ImmutableMap.of(),
-                toHttpEntity("{\"name\": \"test\"}"), null);
+        TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                "/" + indexName + "/_doc/" + randomAlphaOfLength(5) + "?refresh=true",
+                ImmutableMap.of(),
+                toHttpEntity("{\"name\": \"test\"}"),
+                null
+            );
         AnomalyDetector createdDetector = createAnomalyDetector(detector, refresh);
 
         if (withMetadata) {
@@ -74,18 +81,28 @@ public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
     }
 
     protected AnomalyDetector createAnomalyDetector(AnomalyDetector detector, Boolean refresh) throws IOException {
-        Response response = TestHelpers.makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(),
-                toHttpEntity(detector), null);
+        Response response = TestHelpers
+            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null);
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, restStatus(response));
 
-        Map<String, Object> detectorJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY,
-                LoggingDeprecationHandler.INSTANCE, response.getEntity().getContent()).map();
-        return new AnomalyDetector((String) detectorJson.get("_id"),
-                ((Integer) detectorJson.get("_version")).longValue(),
-                detector.getName(), detector.getDescription(), detector.getTimeField(), detector.getIndices(),
-                detector.getFeatureAttributes(), detector.getFilterQuery(), detector.getDetectionInterval(),
-                detector.getWindowDelay(), detector.getUiMetadata(),
-                detector.getSchemaVersion(), detector.getLastUpdateTime());
+        Map<String, Object> detectorJson = jsonXContent
+            .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getEntity().getContent())
+            .map();
+        return new AnomalyDetector(
+            (String) detectorJson.get("_id"),
+            ((Integer) detectorJson.get("_version")).longValue(),
+            detector.getName(),
+            detector.getDescription(),
+            detector.getTimeField(),
+            detector.getIndices(),
+            detector.getFeatureAttributes(),
+            detector.getFilterQuery(),
+            detector.getDetectionInterval(),
+            detector.getWindowDelay(),
+            detector.getUiMetadata(),
+            detector.getSchemaVersion(),
+            detector.getLastUpdateTime()
+        );
     }
 
     public AnomalyDetector getAnomalyDetector(String detectorId) throws IOException {
@@ -94,13 +111,12 @@ public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
     }
 
     public AnomalyDetector getAnomalyDetector(String detectorId, BasicHeader header) throws IOException {
-        Response response = TestHelpers.makeRequest(client(), "GET", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId,
-                null, "", ImmutableList.of(header));
+        Response response = TestHelpers
+            .makeRequest(client(), "GET", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId, null, "", ImmutableList.of(header));
         assertEquals("Unable to get anomaly detector " + detectorId, RestStatus.OK, restStatus(response));
         XContentParser parser = createAdParser(XContentType.JSON.xContent(), response.getEntity().getContent());
         XContentParser.Token token = parser.nextToken();
-        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(),
-                parser::getTokenLocation);
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
 
         String id = null;
         Long version = null;
@@ -121,10 +137,21 @@ public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
             }
         }
 
-        return new AnomalyDetector(id, version, detector.getName(), detector.getDescription(), detector.getTimeField(),
-                detector.getIndices(), detector.getFeatureAttributes(),
-                detector.getFilterQuery(), detector.getDetectionInterval(), detector.getWindowDelay(),
-                detector.getUiMetadata(), detector.getSchemaVersion(), detector.getLastUpdateTime());
+        return new AnomalyDetector(
+            id,
+            version,
+            detector.getName(),
+            detector.getDescription(),
+            detector.getTimeField(),
+            detector.getIndices(),
+            detector.getFeatureAttributes(),
+            detector.getFilterQuery(),
+            detector.getDetectionInterval(),
+            detector.getWindowDelay(),
+            detector.getUiMetadata(),
+            detector.getSchemaVersion(),
+            detector.getLastUpdateTime()
+        );
     }
 
     protected HttpEntity toHttpEntity(ToXContentObject object) throws IOException {

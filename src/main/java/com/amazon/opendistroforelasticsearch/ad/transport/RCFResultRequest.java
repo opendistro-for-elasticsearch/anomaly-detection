@@ -44,7 +44,7 @@ public class RCFResultRequest extends ActionRequest implements ToXContentObject 
         modelID = in.readString();
         int size = in.readVInt();
         features = new double[size];
-        for (int i=0; i<size; i++) {
+        for (int i = 0; i < size; i++) {
             features[i] = in.readDouble();
         }
     }
@@ -74,7 +74,7 @@ public class RCFResultRequest extends ActionRequest implements ToXContentObject 
         out.writeString(adID);
         out.writeString(modelID);
         out.writeVInt(features.length);
-        for(double feature : features) {
+        for (double feature : features) {
             out.writeDouble(feature);
         }
     }
@@ -82,7 +82,7 @@ public class RCFResultRequest extends ActionRequest implements ToXContentObject 
     @Override
     public ActionRequestValidationException validate() {
         ActionRequestValidationException validationException = null;
-        if (features==null || features.length == 0) {
+        if (features == null || features.length == 0) {
             validationException = addValidationError(RCFResultRequest.INVALID_FEATURE_MSG, validationException);
         }
         if (Strings.isEmpty(adID)) {

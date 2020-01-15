@@ -25,6 +25,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 
 public class DeleteModelNodeResponse extends BaseNodeResponse implements ToXContentObject {
     static String NODE_ID = "node_id";
+
     public DeleteModelNodeResponse() {}
 
     public DeleteModelNodeResponse(DiscoveryNode node) {

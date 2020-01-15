@@ -29,8 +29,11 @@ public class IntervalTimeConfigurationTests extends ESTestCase {
     public void testParseIntervalSchedule() throws IOException {
         TimeConfiguration schedule = TestHelpers.randomIntervalTimeConfiguration();
         String scheduleString = TestHelpers.xContentBuilderToString(schedule.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
-        scheduleString = scheduleString.replaceFirst("\"interval", String.format(Locale.ROOT, "\"%s\":\"%s\",\"interval",
-                randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        scheduleString = scheduleString
+            .replaceFirst(
+                "\"interval",
+                String.format(Locale.ROOT, "\"%s\":\"%s\",\"interval", randomAlphaOfLength(5), randomAlphaOfLength(5))
+            );
         TimeConfiguration parsedSchedule = TimeConfiguration.parse(TestHelpers.parser(scheduleString));
         assertEquals("Parsing interval schedule doesn't work", schedule, parsedSchedule);
     }
@@ -39,18 +42,30 @@ public class IntervalTimeConfigurationTests extends ESTestCase {
         TimeConfiguration schedule = TestHelpers.randomIntervalTimeConfiguration();
         String scheduleString = TestHelpers.xContentBuilderToString(schedule.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         String finalScheduleString = scheduleString.replaceFirst("period", randomAlphaOfLength(5));
-        TestHelpers.assertFailWith(IllegalArgumentException.class, "Find no schedule definition",
-                () -> TimeConfiguration.parse(TestHelpers.parser(finalScheduleString)));
+        TestHelpers
+            .assertFailWith(
+                IllegalArgumentException.class,
+                "Find no schedule definition",
+                () -> TimeConfiguration.parse(TestHelpers.parser(finalScheduleString))
+            );
     }
 
     public void testWrongInterval() throws Exception {
-        TestHelpers.assertFailWith(IllegalArgumentException.class, "should be positive",
-                () -> new IntervalTimeConfiguration(randomLongBetween(-100, 0), ChronoUnit.MINUTES));
+        TestHelpers
+            .assertFailWith(
+                IllegalArgumentException.class,
+                "should be positive",
+                () -> new IntervalTimeConfiguration(randomLongBetween(-100, 0), ChronoUnit.MINUTES)
+            );
     }
 
     public void testWrongUnit() throws Exception {
-        TestHelpers.assertFailWith(IllegalArgumentException.class, "is not supported",
-                () -> new IntervalTimeConfiguration(randomLongBetween(1, 100), ChronoUnit.MILLIS));
+        TestHelpers
+            .assertFailWith(
+                IllegalArgumentException.class,
+                "is not supported",
+                () -> new IntervalTimeConfiguration(randomLongBetween(1, 100), ChronoUnit.MILLIS)
+            );
     }
 
     public void testToDuration() {

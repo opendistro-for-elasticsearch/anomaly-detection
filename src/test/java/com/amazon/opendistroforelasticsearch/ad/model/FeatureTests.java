@@ -27,15 +27,18 @@ public class FeatureTests extends ESTestCase {
     public void testParseFeature() throws IOException {
         Feature feature = TestHelpers.randomFeature();
         String featureString = TestHelpers.xContentBuilderToString(feature.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
-        featureString = featureString.replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",",
-                randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        featureString = featureString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         Feature parsedFeature = Feature.parse(TestHelpers.parser(featureString));
         assertEquals("Parsing feature doesn't work", feature, parsedFeature);
     }
 
     public void testNullName() throws Exception {
-        TestHelpers.assertFailWith(IllegalArgumentException.class,
-                () -> new Feature(randomAlphaOfLength(5), null, true, TestHelpers.randomAggregation()));
+        TestHelpers
+            .assertFailWith(
+                IllegalArgumentException.class,
+                () -> new Feature(randomAlphaOfLength(5), null, true, TestHelpers.randomAggregation())
+            );
     }
 
 }

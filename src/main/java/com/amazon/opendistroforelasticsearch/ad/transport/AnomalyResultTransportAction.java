@@ -95,7 +95,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
     private static final Logger LOG = LogManager.getLogger(AnomalyResultTransportAction.class);
     static final String NO_MODEL_ERR_MSG = "No RCF models are available either because RCF"
-            + " models are not ready or all nodes are unresponsive or the system might have bugs.";
+        + " models are not ready or all nodes are unresponsive or the system might have bugs.";
     static final String WAIT_FOR_THRESHOLD_ERR_MSG = "Exception in waiting for threshold result";
     static final String NODE_UNRESPONSIVE_ERR_MSG = "Model node is unresponsive.  Mute model";
     static final String FAIL_TO_SAVE_ERR_MSG = "Fail to save anomaly index: ";
@@ -105,9 +105,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String INDEX_READ_BLOCKED = "Cannot read user index due to read block.";
     static final String CANNOT_SAVE_ERR_MSG = "Cannot save anomaly result due to write block.";
     static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
-            .getExceptionName(new LimitExceededException("", ""));
+        .getExceptionName(new LimitExceededException("", ""));
     static final String RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
-            .getExceptionName(new ResourceNotFoundException("", ""));
+        .getExceptionName(new ResourceNotFoundException("", ""));
     static final String NULL_RESPONSE = "Received null response from";
 
     private final TransportService transportService;
@@ -128,11 +128,23 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final ADCircuitBreakerService adCircuitBreakerService;
 
     @Inject
-    public AnomalyResultTransportAction(ActionFilters actionFilters, TransportService transportService, Client client,
-            Settings settings, ADStateManager manager, ColdStartRunner eventExecutor,
-            AnomalyDetectionIndices anomalyDetectionIndices, FeatureManager featureManager, ModelManager modelManager,
-            HashRing hashRing, ClusterService clusterService, IndexNameExpressionResolver indexNameExpressionResolver,
-            ThreadPool threadPool, ADCircuitBreakerService adCircuitBreakerService, ADStats adStats) {
+    public AnomalyResultTransportAction(
+        ActionFilters actionFilters,
+        TransportService transportService,
+        Client client,
+        Settings settings,
+        ADStateManager manager,
+        ColdStartRunner eventExecutor,
+        AnomalyDetectionIndices anomalyDetectionIndices,
+        FeatureManager featureManager,
+        ModelManager modelManager,
+        HashRing hashRing,
+        ClusterService clusterService,
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        ThreadPool threadPool,
+        ADCircuitBreakerService adCircuitBreakerService,
+        ADStats adStats
+    ) {
         super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);
         this.transportService = transportService;
         this.client = client;
@@ -144,13 +156,15 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.modelManager = modelManager;
         this.hashRing = hashRing;
         this.requestTimeout = AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings);
-        this.option = TransportRequestOptions.builder().withType(TransportRequestOptions.Type.REG)
-                .withTimeout(requestTimeout).build();
+        this.option = TransportRequestOptions.builder().withType(TransportRequestOptions.Type.REG).withTimeout(requestTimeout).build();
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.threadPool = threadPool;
-        this.resultSavingBackoffPolicy = BackoffPolicy.exponentialBackoff(AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY.get(settings),
-                AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF.get(settings));
+        this.resultSavingBackoffPolicy = BackoffPolicy
+            .exponentialBackoff(
+                AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY.get(settings),
+                AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF.get(settings)
+            );
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.adStats = adStats;
     }
@@ -249,24 +263,24 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
 
-            long delayMillis = Optional.ofNullable((IntervalTimeConfiguration)anomalyDetector.getWindowDelay())
-                .map(t -> t.toDuration().toMillis()).orElse(0L);
+            long delayMillis = Optional
+                .ofNullable((IntervalTimeConfiguration) anomalyDetector.getWindowDelay())
+                .map(t -> t.toDuration().toMillis())
+                .orElse(0L);
             long startTime = request.getStart() - delayMillis;
             long endTime = request.getEnd() - delayMillis;
 
-            SinglePointFeatures featureOptional = featureManager.getCurrentFeatures(anomalyDetector,
-                    startTime, endTime);
+            SinglePointFeatures featureOptional = featureManager.getCurrentFeatures(anomalyDetector, startTime, endTime);
 
             List<FeatureData> featureInResponse = null;
 
             if (featureOptional.getUnprocessedFeatures().isPresent()) {
-                featureInResponse = getFeatureData(featureOptional.getUnprocessedFeatures().get(),
-                        detector.get());
+                featureInResponse = getFeatureData(featureOptional.getUnprocessedFeatures().get(), detector.get());
             }
 
             if (!featureOptional.getProcessedFeatures().isPresent()) {
                 LOG.info("No full shingle in current detection window for {}", adID);
-                if(!featureOptional.getUnprocessedFeatures().isPresent()) {
+                if (!featureOptional.getUnprocessedFeatures().isPresent()) {
                     // Feature not available is common when we have data holes. Respond empty response
                     // so that alerting will not print stack trace to avoid bloating our logs.
                     LOG.info("No data in current detection window for {}", adID);
@@ -303,10 +317,17 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
                 LOG.info("Sending RCF request to {} for model {}", rcfNodeId, rcfModelID);
                 LatchedActionListener<RCFResultResponse> rcfListener = new LatchedActionListener<>(
-                        new RCFActionListener(rcfResults, rcfModelID.toString(), failure, rcfNodeId), rcfLatch);
-                transportService.sendRequest(rcfNode.get(), RCFResultAction.NAME,
-                        new RCFResultRequest(adID, rcfModelID, featureOptional.getProcessedFeatures().get()), option,
-                        new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new));
+                    new RCFActionListener(rcfResults, rcfModelID.toString(), failure, rcfNodeId),
+                    rcfLatch
+                );
+                transportService
+                    .sendRequest(
+                        rcfNode.get(),
+                        RCFResultAction.NAME,
+                        new RCFResultRequest(adID, rcfModelID, featureOptional.getProcessedFeatures().get()),
+                        option,
+                        new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
+                    );
             }
 
             // wait a bit longer than transport timeout
@@ -334,12 +355,17 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
             LOG.info("Sending threshold request to {} for model {}", thresholdNodeId, thresholdModelID);
             LatchedActionListener<ThresholdResultResponse> thresholdListener = new LatchedActionListener<>(
-                    new ThresholdActionListener(anomalyResultResponse, featureInResponse, thresholdModelID,
-                            failure, thresholdNodeId),
-                    thresholdLatch);
-            transportService.sendRequest(thresholdNode.get(), ThresholdResultAction.NAME,
-                    new ThresholdResultRequest(adID, thresholdModelID, combinedScore), option,
-                    new ActionListenerResponseHandler<>(thresholdListener, ThresholdResultResponse::new));
+                new ThresholdActionListener(anomalyResultResponse, featureInResponse, thresholdModelID, failure, thresholdNodeId),
+                thresholdLatch
+            );
+            transportService
+                .sendRequest(
+                    thresholdNode.get(),
+                    ThresholdResultAction.NAME,
+                    new ThresholdResultRequest(adID, thresholdModelID, combinedScore),
+                    option,
+                    new ActionListenerResponseHandler<>(thresholdListener, ThresholdResultResponse::new)
+                );
 
             try {
                 LOG.debug("Wait for threshold results...");
@@ -359,10 +385,17 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 double confidence = response.getConfidence() * combinedResult.getConfidence();
                 response = new AnomalyResultResponse(response.getAnomalyGrade(), confidence, response.getFeatures());
                 listener.onResponse(response);
-                indexAnomalyResult(new AnomalyResult(adID, Double.valueOf(combinedScore),
-                        Double.valueOf(response.getAnomalyGrade()), Double.valueOf(confidence),
-                        featureInResponse, Instant.ofEpochMilli(startTime),
-                        Instant.ofEpochMilli(endTime)));
+                indexAnomalyResult(
+                    new AnomalyResult(
+                        adID,
+                        Double.valueOf(combinedScore),
+                        Double.valueOf(response.getAnomalyGrade()),
+                        Double.valueOf(confidence),
+                        featureInResponse,
+                        Instant.ofEpochMilli(startTime),
+                        Instant.ofEpochMilli(endTime)
+                    )
+                );
             } else if (failure.get() != null) {
                 listener.onFailure(failure.get());
             } else {
@@ -370,8 +403,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
         } catch (ClientException clientException) {
             listener.onFailure(clientException);
-        }
-        catch (AnomalyDetectionException adEx) {
+        } catch (AnomalyDetectionException adEx) {
             listener.onFailure(new InternalFailure(adEx));
         } catch (Exception throwable) {
             Throwable cause = ExceptionsHelper.unwrapCause(throwable);
@@ -401,7 +433,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *      RCF/Threshold model node failing to get checkpoint to restore model before timeout.
      */
     private boolean coldStartIfNoModel(AtomicReference<AnomalyDetectionException> failure, AnomalyDetector detector)
-            throws AnomalyDetectionException {
+        throws AnomalyDetectionException {
         AnomalyDetectionException exp = failure.get();
         if (exp != null) {
             if (exp instanceof ResourceNotFoundException) {
@@ -423,8 +455,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
 
         Exception causeException = (Exception) cause;
-        if (isException(causeException, ResourceNotFoundException.class,
-                RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)) {
+        if (isException(causeException, ResourceNotFoundException.class, RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)) {
             // fetch previous cold start exception
             Optional<? extends AnomalyDetectionException> previousException = globalRunner.fetchException(adID);
 
@@ -434,8 +465,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             } else {
                 failure.set(new ResourceNotFoundException(adID, causeException.getMessage()));
             }
-        } else if (isException(causeException, LimitExceededException.class,
-                LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE)) {
+        } else if (isException(causeException, LimitExceededException.class, LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE)) {
             failure.set(new LimitExceededException(adID, causeException.getMessage()));
         } else if (causeException instanceof ElasticsearchTimeoutException) {
             // we can have ElasticsearchTimeoutException when a node tries to load RCF or
@@ -473,8 +503,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         // ElasticsearchException.getExceptionName(exception) returns exception
         // separated by underscore. For example, ResourceNotFoundException is converted
         // to "resource_not_found_exception".
-        if (exception instanceof NotSerializableExceptionWrapper
-                && exception.getMessage().trim().startsWith(expectedErrorName)) {
+        if (exception instanceof NotSerializableExceptionWrapper && exception.getMessage().trim().startsWith(expectedErrorName)) {
             return true;
         }
         return false;
@@ -500,29 +529,41 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      */
     void indexAnomalyResult(AnomalyResult anomalyResult) {
         try {
-            if (checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE,
-                    AnomalyResult.ANOMALY_RESULT_INDEX)) {
+            if (checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, AnomalyResult.ANOMALY_RESULT_INDEX)) {
                 LOG.warn(CANNOT_SAVE_ERR_MSG);
                 return;
             }
             if (!anomalyDetectionIndices.doesAnomalyResultIndexExist()) {
-                anomalyDetectionIndices.initAnomalyResultIndex(ActionListener.wrap(
-                        initResponse -> onCreateAnomalyResultIndexResponse(initResponse, anomalyResult), exception -> {
+                anomalyDetectionIndices
+                    .initAnomalyResultIndex(
+                        ActionListener.wrap(initResponse -> onCreateAnomalyResultIndexResponse(initResponse, anomalyResult), exception -> {
                             if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
                                 // It is possible the index has been created while we sending the create request
                                 saveDetectorResult(anomalyResult);
                             } else {
-                                throw new AnomalyDetectionException(anomalyResult.getDetectorId(),
-                                        "Unexpected error creating anomaly result index", exception);
+                                throw new AnomalyDetectionException(
+                                    anomalyResult.getDetectorId(),
+                                    "Unexpected error creating anomaly result index",
+                                    exception
+                                );
                             }
-                        }));
+                        })
+                    );
             } else {
                 saveDetectorResult(anomalyResult);
             }
         } catch (Exception e) {
-            throw new AnomalyDetectionException(anomalyResult.getDetectorId(),
-                    String.format(Locale.ROOT, "Error in saving anomaly index for ID %s from %s to %s",
-                            anomalyResult.getDetectorId(), anomalyResult.getStartTime(), anomalyResult.getEndTime()));
+            throw new AnomalyDetectionException(
+                anomalyResult.getDetectorId(),
+                String
+                    .format(
+                        Locale.ROOT,
+                        "Error in saving anomaly index for ID %s from %s to %s",
+                        anomalyResult.getDetectorId(),
+                        anomalyResult.getStartTime(),
+                        anomalyResult.getEndTime()
+                    )
+            );
         }
     }
 
@@ -530,48 +571,65 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         if (response.isAcknowledged()) {
             saveDetectorResult(anomalyResult);
         } else {
-            throw new AnomalyDetectionException(anomalyResult.getDetectorId(),
-                    "Creating anomaly result index with mappings call not acknowledged.");
+            throw new AnomalyDetectionException(
+                anomalyResult.getDetectorId(),
+                "Creating anomaly result index with mappings call not acknowledged."
+            );
         }
     }
 
     private void saveDetectorResult(AnomalyResult anomalyResult) {
         try (XContentBuilder builder = jsonBuilder()) {
             IndexRequest indexRequest = new IndexRequest(AnomalyResult.ANOMALY_RESULT_INDEX)
-                    .source(anomalyResult.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
-            saveDetectorResult(indexRequest,
-                    String.format(Locale.ROOT, "ID %s from %s to %s", anomalyResult.getDetectorId(),
-                            anomalyResult.getStartTime(), anomalyResult.getEndTime()),
-                    resultSavingBackoffPolicy.iterator());
+                .source(anomalyResult.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
+            saveDetectorResult(
+                indexRequest,
+                String
+                    .format(
+                        Locale.ROOT,
+                        "ID %s from %s to %s",
+                        anomalyResult.getDetectorId(),
+                        anomalyResult.getStartTime(),
+                        anomalyResult.getEndTime()
+                    ),
+                resultSavingBackoffPolicy.iterator()
+            );
         } catch (Exception e) {
             throw new AnomalyDetectionException(anomalyResult.getDetectorId(), "Cannot save result");
         }
     }
 
     void saveDetectorResult(IndexRequest indexRequest, String context, Iterator<TimeValue> backoff) {
-        client.index(indexRequest,
-                ActionListener.<IndexResponse>wrap(response -> LOG.debug(SUCCESS_SAVING_MSG + context), exception -> {
-                    // Elasticsearch has a thread pool and a queue for write per node. A thread
-                    // pool will have N number of workers ready to handle the requests. When a
-                    // request comes and if a worker is free , this is handled by the worker. Now by
-                    // default the number of workers is equal to the number of cores on that CPU.
-                    // When the workers are full and there are more write requests, the request
-                    // will go to queue. The size of queue is also limited. If by default size is,
-                    // say, 200 and if there happens more parallel requests than this, then those
-                    // requests would be rejected as you can see EsRejectedExecutionException.
-                    // So EsRejectedExecutionException is the way that Elasticsearch tells us that
-                    // it cannot keep up with the current indexing rate.
-                    // When it happens, we should pause indexing a bit before trying again, ideally
-                    // with randomized exponential backoff.
-                    if (!(exception instanceof EsRejectedExecutionException) || !backoff.hasNext()) {
-                        LOG.error(FAIL_TO_SAVE_ERR_MSG + context);
-                    } else {
-                        TimeValue nextDelay = backoff.next();
-                        LOG.info(RETRY_SAVING_ERR_MSG + context);
-                        threadPool.schedule(() -> saveDetectorResult(indexRequest, context, backoff), nextDelay,
-                                ThreadPool.Names.SAME);
-                    }
-                }));
+        client
+            .index(
+                indexRequest,
+                ActionListener
+                    .<IndexResponse>wrap(
+                        response -> LOG.debug(SUCCESS_SAVING_MSG + context),
+                        exception -> {
+                            // Elasticsearch has a thread pool and a queue for write per node. A thread
+                            // pool will have N number of workers ready to handle the requests. When a
+                            // request comes and if a worker is free , this is handled by the worker. Now by
+                            // default the number of workers is equal to the number of cores on that CPU.
+                            // When the workers are full and there are more write requests, the request
+                            // will go to queue. The size of queue is also limited. If by default size is,
+                            // say, 200 and if there happens more parallel requests than this, then those
+                            // requests would be rejected as you can see EsRejectedExecutionException.
+                            // So EsRejectedExecutionException is the way that Elasticsearch tells us that
+                            // it cannot keep up with the current indexing rate.
+                            // When it happens, we should pause indexing a bit before trying again, ideally
+                            // with randomized exponential backoff.
+                            if (!(exception instanceof EsRejectedExecutionException) || !backoff.hasNext()) {
+                                LOG.error(FAIL_TO_SAVE_ERR_MSG + context);
+                            } else {
+                                TimeValue nextDelay = backoff.next();
+                                LOG.info(RETRY_SAVING_ERR_MSG + context);
+                                threadPool
+                                    .schedule(() -> saveDetectorResult(indexRequest, context, backoff), nextDelay, ThreadPool.Names.SAME);
+                            }
+                        }
+                    )
+            );
     }
 
     class RCFActionListener implements ActionListener<RCFResultResponse> {
@@ -580,8 +638,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private AtomicReference<AnomalyDetectionException> failure;
         private String nodeID;
 
-        RCFActionListener(List<RCFResultResponse> rcfResults, String modelID,
-                AtomicReference<AnomalyDetectionException> failure, String nodeID) {
+        RCFActionListener(
+            List<RCFResultResponse> rcfResults,
+            String modelID,
+            AtomicReference<AnomalyDetectionException> failure,
+            String nodeID
+        ) {
             this.rcfResults = rcfResults;
             this.modelID = modelID;
             this.failure = failure;
@@ -611,9 +673,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private AtomicReference<AnomalyDetectionException> failure;
         private String nodeID;
 
-        ThresholdActionListener(AtomicReference<AnomalyResultResponse> anomalyResultResponse,
-                List<FeatureData> features, String modelID, AtomicReference<AnomalyDetectionException> failure,
-                String nodeID) {
+        ThresholdActionListener(
+            AtomicReference<AnomalyResultResponse> anomalyResultResponse,
+            List<FeatureData> features,
+            String modelID,
+            AtomicReference<AnomalyDetectionException> failure,
+            String nodeID
+        ) {
             this.anomalyResultResponse = anomalyResultResponse;
             this.features = features;
             this.modelID = modelID;
@@ -624,8 +690,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         @Override
         public void onResponse(ThresholdResultResponse response) {
             try {
-                anomalyResultResponse.set(new AnomalyResultResponse(response.getAnomalyGrade(),
-                        response.getConfidence(), features));
+                anomalyResultResponse.set(new AnomalyResultResponse(response.getAnomalyGrade(), response.getConfidence(), features));
                 stateManager.resetBackpressureCounter(nodeID);
             } catch (Exception ex) {
                 LOG.error("Unexpected exception", ex);
@@ -638,10 +703,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
     }
 
-    private void handlePredictionFailure(Exception e, String adID, String nodeID,
-            AtomicReference<AnomalyDetectionException> failure) {
-        LOG.error(new ParameterizedMessage("Received an error from node {} when fetch anomaly grade for {}", nodeID,
-                adID), e);
+    private void handlePredictionFailure(Exception e, String adID, String nodeID, AtomicReference<AnomalyDetectionException> failure) {
+        LOG.error(new ParameterizedMessage("Received an error from node {} when fetch anomaly grade for {}", nodeID, adID), e);
         if (e == null) {
             return;
         }
@@ -661,8 +724,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *         right state (being closed) or transport request times out (sent from TimeoutHandler.run)
      */
     private boolean hasConnectionIssue(Throwable e) {
-        return e instanceof ConnectTransportException || e instanceof NodeClosedException
-                || e instanceof ReceiveTimeoutTransportException;
+        return e instanceof ConnectTransportException || e instanceof NodeClosedException || e instanceof ReceiveTimeoutTransportException;
     }
 
     private void handleConnectionException(String node) {
@@ -683,7 +745,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      */
     private boolean checkGlobalBlock(ClusterState state) {
         return state.blocks().globalBlockedException(ClusterBlockLevel.READ) != null
-                || state.blocks().globalBlockedException(ClusterBlockLevel.WRITE) != null;
+            || state.blocks().globalBlockedException(ClusterBlockLevel.WRITE) != null;
     }
 
     /**
@@ -697,8 +759,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private boolean checkIndicesBlocked(ClusterState state, ClusterBlockLevel level, String... indices) {
         // the original index might be an index expression with wildcards like "log*",
         // so we need to expand the expression to concrete index name
-        String[] concreteIndices = indexNameExpressionResolver.concreteIndexNames(state,
-                IndicesOptions.lenientExpandOpen(), indices);
+        String[] concreteIndices = indexNameExpressionResolver.concreteIndexNames(state, IndicesOptions.lenientExpandOpen(), indices);
 
         return state.blocks().indicesBlockedException(level, concreteIndices) != null;
     }
@@ -713,8 +774,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      * @param thresholdModelID the threshold model ID for adID
      * @return if we can start anomaly prediction.
      */
-    private boolean shouldStart(ActionListener<AnomalyResultResponse> listener, String adID, AnomalyDetector detector,
-            String thresholdNodeId, String thresholdModelID) {
+    private boolean shouldStart(
+        ActionListener<AnomalyResultResponse> listener,
+        String adID,
+        AnomalyDetector detector,
+        String thresholdNodeId,
+        String thresholdModelID
+    ) {
         ClusterState state = clusterService.state();
         if (checkGlobalBlock(state)) {
             listener.onFailure(new InternalFailure(adID, READ_WRITE_BLOCKED));
@@ -722,8 +788,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
 
         if (stateManager.isMuted(thresholdNodeId)) {
-            listener.onFailure(new InternalFailure(adID,
-                    String.format(NODE_UNRESPONSIVE_ERR_MSG + " %s", thresholdModelID)));
+            listener.onFailure(new InternalFailure(adID, String.format(NODE_UNRESPONSIVE_ERR_MSG + " %s", thresholdModelID)));
             return false;
         }
 
@@ -755,8 +820,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 }
 
             } catch (ElasticsearchTimeoutException timeoutEx) {
-                throw new InternalFailure(detector.getDetectorId(),
-                        "Time out while indexing cold start checkpoint or get training data", timeoutEx);
+                throw new InternalFailure(
+                    detector.getDetectorId(),
+                    "Time out while indexing cold start checkpoint or get training data",
+                    timeoutEx
+                );
             } catch (Exception ex) {
                 throw new EndRunException(detector.getDetectorId(), "Error while cold start", ex, false);
             }

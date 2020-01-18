@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.action.support.ActionFilters;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.elasticsearch.transport.TransportService;
@@ -53,7 +54,8 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
     public void setUp() throws Exception {
         super.setUp();
 
-        IndexUtils indexUtils = new IndexUtils(client(), new ClientUtil(Settings.EMPTY), clusterService());
+        Client client = client();
+        IndexUtils indexUtils = new IndexUtils(client, new ClientUtil(Settings.EMPTY, client), clusterService());
         ModelManager modelManager = mock(ModelManager.class);
 
         clusterStatName1 = "clusterStat1";

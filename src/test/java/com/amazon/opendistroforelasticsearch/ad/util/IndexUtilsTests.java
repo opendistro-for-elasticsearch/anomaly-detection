@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.util;
 
 import org.elasticsearch.action.support.master.AcknowledgedResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Before;
@@ -27,7 +28,8 @@ public class IndexUtilsTests extends ESIntegTestCase {
 
     @Before
     public void setup() {
-        clientUtil = new ClientUtil(Settings.EMPTY);
+        Client client = client();
+        clientUtil = new ClientUtil(Settings.EMPTY, client);
     }
 
     @Test

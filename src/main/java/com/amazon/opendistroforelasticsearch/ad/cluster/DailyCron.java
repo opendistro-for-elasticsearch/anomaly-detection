@@ -20,6 +20,8 @@ import java.time.Duration;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -41,11 +43,13 @@ public class DailyCron implements Runnable {
     private final Clock clock;
     private final Client client;
     private final Duration checkpointTtl;
+    private final ClientUtil clientUtil;
 
-    public DailyCron(DeleteDetector deleteUtil, Clock clock, Client client, Duration checkpointTtl) {
+    public DailyCron(DeleteDetector deleteUtil, Clock clock, Client client, Duration checkpointTtl, ClientUtil clientUtil) {
         this.deleteUtil = deleteUtil;
         this.clock = clock;
         this.client = client;
+        this.clientUtil = clientUtil;
         this.checkpointTtl = checkpointTtl;
     }
 
@@ -63,7 +67,7 @@ public class DailyCron implements Runnable {
                     )
             )
             .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
-        client
+        clientUtil
             .execute(
                 DeleteByQueryAction.INSTANCE,
                 deleteRequest,

@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.indices;
 
+import static org.mockito.Mockito.mock;
+
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
@@ -24,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Setting;
@@ -46,6 +49,7 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
     private ClientUtil requestUtil;
     private Settings settings;
     private ClusterService clusterService;
+    private Client client;
 
     @Before
     public void setup() {
@@ -65,7 +69,8 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
         clusterSettings.add(AnomalyDetectorSettings.REQUEST_TIMEOUT);
         clusterSetting = new ClusterSettings(settings, clusterSettings);
         clusterService = TestHelpers.createClusterService(client().threadPool(), clusterSetting);
-        requestUtil = new ClientUtil(settings);
+        client = mock(Client.class);
+        requestUtil = new ClientUtil(settings, client);
         indices = new AnomalyDetectionIndices(client(), clusterService, client().threadPool(), settings, requestUtil);
     }
 

@@ -233,7 +233,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
         indexNameResolver = new IndexNameExpressionResolver();
 
-        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY);
+        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY, client);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
 
         Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {

@@ -22,13 +22,17 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchTimeoutException;
+import org.elasticsearch.action.Action;
+import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.LatchedActionListener;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -37,14 +41,16 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 
 public class ClientUtil {
     private volatile TimeValue requestTimeout;
+    private Client client;
 
     @Inject
-    public ClientUtil(Settings setting) {
+    public ClientUtil(Settings setting, Client client) {
         this.requestTimeout = REQUEST_TIMEOUT.get(setting);
+        this.client = client;
     }
 
     /**
-     * Generates a nonblocking request with a timeout. Blocking is not allowed in a
+     * Send a nonblocking request with a timeout and return response. Blocking is not allowed in a
      * transport call context. See BaseFuture.blockingAllowed
      * @param request request like index/search/get
      * @param LOG log
@@ -85,5 +91,65 @@ public class ClientUtil {
             LOG.error(CommonErrorMessages.WAIT_ERR_MSG);
             throw new IllegalStateException(e1);
         }
+    }
+
+    /**
+     * Send an asynchronous request and handle response with the provided listener.
+     * @param <Request> ActionRequest
+     * @param <Response> ActionResponse
+     * @param request request body
+     * @param consumer request method, functional interface to operate as a client request like client::get
+     * @param listener needed to handle response
+     */
+    public <Request extends ActionRequest, Response extends ActionResponse> void asyncRequest(
+        Request request,
+        BiConsumer<Request, ActionListener<Response>> consumer,
+        ActionListener<Response> listener
+    ) {
+        consumer
+            .accept(
+                request,
+                ActionListener.wrap(response -> { listener.onResponse(response); }, exception -> { listener.onFailure(exception); })
+            );
+    }
+
+    /**
+     * Execute a transport action and handle response with the provided listener.
+     * @param <Request> ActionRequest
+     * @param <Response> ActionResponse
+     * @param action transport action
+     * @param request request body
+     * @param listener needed to handle response
+     */
+    public <Request extends ActionRequest, Response extends ActionResponse> void execute(
+        Action<Response> action,
+        Request request,
+        ActionListener<Response> listener
+    ) {
+        client
+            .execute(
+                action,
+                request,
+                ActionListener.wrap(response -> { listener.onResponse(response); }, exception -> { listener.onFailure(exception); })
+            );
+    }
+
+    /**
+     * Send an synchronous request and handle response with the provided listener.
+     *
+     * @deprecated use asyncRequest with listener instead.
+     *
+     * @param <Request> ActionRequest
+     * @param <Response> ActionResponse
+     * @param request request body
+     * @param function request method, functional interface to operate as a client request like client::get
+     * @return the response
+     */
+    @Deprecated
+    public <Request extends ActionRequest, Response extends ActionResponse> Response syncRequest(
+        Request request,
+        Function<Request, ActionFuture<Response>> function
+    ) {
+        return function.apply(request).actionGet(requestTimeout);
     }
 }

@@ -86,7 +86,15 @@ public class ADStateManagerTests extends ESTestCase {
             .build();
         clock = mock(Clock.class);
         duration = Duration.ofHours(1);
-        stateManager = new ADStateManager(client, xContentRegistry(), modelManager, settings, new ClientUtil(settings), clock, duration);
+        stateManager = new ADStateManager(
+            client,
+            xContentRegistry(),
+            modelManager,
+            settings,
+            new ClientUtil(settings, client),
+            clock,
+            duration
+        );
 
     }
 

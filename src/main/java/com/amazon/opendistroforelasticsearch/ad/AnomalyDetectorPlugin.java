@@ -19,10 +19,8 @@ import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADClusterEventListener;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData.ADMetaDataDiff;
-import com.amazon.opendistroforelasticsearch.ad.cluster.DailyCron;
 import com.amazon.opendistroforelasticsearch.ad.cluster.DeleteDetector;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
-import com.amazon.opendistroforelasticsearch.ad.cluster.HourlyCron;
 import com.amazon.opendistroforelasticsearch.ad.cluster.MasterEventListener;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
@@ -202,7 +200,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         NamedWriteableRegistry namedWriteableRegistry
     ) {
         Settings settings = environment.settings();
-        ClientUtil clientUtil = new ClientUtil(settings);
+        ClientUtil clientUtil = new ClientUtil(settings, client);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
         anomalyDetectionIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings, clientUtil);
         this.clusterService = clusterService;
@@ -267,8 +265,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager);
 
         DeleteDetector deleteUtil = new DeleteDetector(clusterService, clock);
-        DailyCron dailyCron = new DailyCron(deleteUtil, clock, client, AnomalyDetectorSettings.CHECKPOINT_TTL);
-        HourlyCron hourlyCron = new HourlyCron(clusterService, client);
 
         Map<String, ADStat<?>> stats = ImmutableMap
             .<String, ADStat<?>>builder()
@@ -313,11 +309,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 runner,
                 new ADClusterEventListener(clusterService, hashRing, modelManager),
                 deleteUtil,
-                dailyCron,
-                hourlyCron,
                 adCircuitBreakerService,
                 adStats,
-                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock)
+                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil)
             );
     }
 

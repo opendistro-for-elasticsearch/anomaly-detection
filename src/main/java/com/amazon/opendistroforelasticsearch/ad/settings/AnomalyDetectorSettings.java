@@ -83,10 +83,12 @@ public final class AnomalyDetectorSettings {
         );
 
     public static final Setting<Long> AD_RESULT_HISTORY_MAX_DOCS = Setting
-        .longSetting("opendistro.anomaly_detection.ad_result_history_max_docs", 10000L, 0L, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .longSetting("opendistro.anomaly_detection.ad_result_history_max_docs", 10000L, 0L,
+            Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     public static final Setting<Integer> MAX_RETRY_FOR_UNRESPONSIVE_NODE = Setting
-        .intSetting("opendistro.anomaly_detection.max_retry_for_unresponsive_node", 5, 0, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting("opendistro.anomaly_detection.max_retry_for_unresponsive_node", 5, 0,
+            Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     public static final Setting<TimeValue> COOLDOWN_MINUTES = Setting
         .positiveTimeSetting(

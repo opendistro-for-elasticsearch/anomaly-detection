@@ -29,14 +29,14 @@ public final class AnomalyDetectorSettings {
     private AnomalyDetectorSettings() {}
 
     public static final Setting<Integer> MAX_ANOMALY_DETECTORS = Setting
-        .intSetting("opendistro.anomaly_detection.max_anomaly_detectors", 1000, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting("ml.anomaly_detectors.max_anomaly_detectors", 1000, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     public static final Setting<Integer> MAX_ANOMALY_FEATURES = Setting
-        .intSetting("opendistro.anomaly_detection.max_anomaly_features", 5, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting("ml.anomaly_detectors.max_anomaly_features", 5, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     public static final Setting<TimeValue> REQUEST_TIMEOUT = Setting
         .positiveTimeSetting(
-            "opendistro.anomaly_detection.request_timeout",
+            "ml.anomaly_detectors.request_timeout",
             TimeValue.timeValueSeconds(10),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -44,7 +44,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> DETECTION_INTERVAL = Setting
         .positiveTimeSetting(
-            "opendistro.anomaly_detection.detection_interval",
+            "ml.anomaly_detectors.detection_interval",
             TimeValue.timeValueMinutes(10),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -52,7 +52,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> DETECTION_WINDOW_DELAY = Setting
         .timeSetting(
-            "opendistro.anomaly_detection.detection_window_delay",
+            "ml.anomaly_detectors.detection_window_delay",
             TimeValue.timeValueMinutes(0),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -60,7 +60,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> AD_RESULT_ROLLOVER_PERIOD = Setting
         .positiveTimeSetting(
-            "opendistro.anomaly_detection.ad_result_rollover_period",
+            "ml.anomaly_detectors.ad_result_rollover_period",
             TimeValue.timeValueHours(12),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -68,7 +68,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> AD_RESULT_HISTORY_ROLLOVER_PERIOD = Setting
         .positiveTimeSetting(
-            "opendistro.anomaly_detection.ad_result_history_rollover_period",
+            "ml.anomaly_detectors.ad_result_history_rollover_period",
             TimeValue.timeValueHours(12),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -76,23 +76,21 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> AD_RESULT_HISTORY_INDEX_MAX_AGE = Setting
         .positiveTimeSetting(
-            "opendistro.anomaly_detection.ad_result_history_max_age",
+            "ml.anomaly_detectors.ad_result_history_max_age",
             TimeValue.timeValueHours(24),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
 
     public static final Setting<Long> AD_RESULT_HISTORY_MAX_DOCS = Setting
-        .longSetting("opendistro.anomaly_detection.ad_result_history_max_docs", 10000L, 0L,
-            Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .longSetting("ml.anomaly_detectors.ad_result_history_max_docs", 10000L, 0L, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     public static final Setting<Integer> MAX_RETRY_FOR_UNRESPONSIVE_NODE = Setting
-        .intSetting("opendistro.anomaly_detection.max_retry_for_unresponsive_node", 5, 0,
-            Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting("ml.anomaly_detectors.max_retry_for_unresponsive_node", 5, 0, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     public static final Setting<TimeValue> COOLDOWN_MINUTES = Setting
         .positiveTimeSetting(
-            "opendistro.anomaly_detection.cooldown_minutes",
+            "ml.anomaly_detectors.cooldown_minutes",
             TimeValue.timeValueMinutes(5),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -100,7 +98,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> BACKOFF_MINUTES = Setting
         .positiveTimeSetting(
-            "opendistro.anomaly_detection.backoff_minutes",
+            "ml.anomaly_detectors.backoff_minutes",
             TimeValue.timeValueMinutes(15),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -108,14 +106,14 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> BACKOFF_INITIAL_DELAY = Setting
         .positiveTimeSetting(
-            "opendistro.anomaly_detection.backoff_initial_delay",
+            "ml.anomaly_detectors.backoff_initial_delay",
             TimeValue.timeValueMillis(1000),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
 
     public static final Setting<Integer> MAX_RETRY_FOR_BACKOFF = Setting
-        .intSetting("opendistro.anomaly_detection.max_retry_for_backoff", 3, 0, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting("ml.anomaly_detectors.max_retry_for_backoff", 3, 0, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     public static final String ANOMALY_DETECTORS_INDEX_MAPPING_FILE = "mappings/anomaly-detectors.json";
     public static final String ANOMALY_RESULTS_INDEX_MAPPING_FILE = "mappings/anomaly-results.json";

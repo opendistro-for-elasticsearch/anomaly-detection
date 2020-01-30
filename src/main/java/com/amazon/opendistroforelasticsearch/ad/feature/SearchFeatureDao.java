@@ -30,6 +30,7 @@ import java.util.stream.Stream;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 import org.apache.logging.log4j.LogManager;
@@ -114,18 +115,24 @@ public class SearchFeatureDao {
     }
 
     /**
-     * Gets features for the given time period.
+     * Gets features for the given time period. This function also add given detector to negative cache before sending es request.
+     * Once we get response/exception within timeout, we treat this request as complete and clear the negative cache.
+     * Otherwise this detector entry remain in the negative to reject further request.
      *
      * @param detector info about indices, documents, feature query
      * @param startTime epoch milliseconds at the beginning of the period
      * @param endTime epoch milliseconds at the end of the period
+     * @param stateManager ADStateManager
      * @throws IllegalStateException when unexpected failures happen
      * @return features from search results, empty when no data found
      */
-    public Optional<double[]> getFeaturesForPeriod(AnomalyDetector detector, long startTime, long endTime) {
+    public Optional<double[]> getFeaturesForPeriod(AnomalyDetector detector, long startTime, long endTime, ADStateManager stateManager) {
         SearchRequest searchRequest = createFeatureSearchRequest(detector, startTime, endTime, Optional.empty());
+        // add (detectorId, filteredQuery) to negative cache
+        stateManager.insertFilteredQuery(detector, searchRequest);
+        // send throttled request: this request will clear the negative cache if the request finished within timeout
         return clientUtil
-            .<SearchRequest, SearchResponse>timedRequest(searchRequest, logger, client::search)
+            .<SearchRequest, SearchResponse>throttledTimedRequest(searchRequest, logger, client::search, stateManager, detector)
             .flatMap(resp -> parseResponse(resp, detector.getEnabledFeatureIds()));
     }
 
@@ -242,20 +249,22 @@ public class SearchFeatureDao {
      * @param maxSamples the maximum number of samples to return
      * @param maxStride the maximum number of periods between samples
      * @param endTime the end time of the latest period
+     * @param stateManager ADStateManager
      * @return sampled features and stride, empty when no data found
      */
     public Optional<Entry<double[][], Integer>> getFeaturesForSampledPeriods(
         AnomalyDetector detector,
         int maxSamples,
         int maxStride,
-        long endTime
+        long endTime,
+        ADStateManager stateManager
     ) {
         Map<Long, double[]> cache = new HashMap<>();
         int currentStride = maxStride;
         Optional<double[][]> features = Optional.empty();
         while (currentStride >= 1) {
             boolean isInterpolatable = currentStride < maxStride;
-            features = getFeaturesForSampledPeriods(detector, maxSamples, currentStride, endTime, cache, isInterpolatable);
+            features = getFeaturesForSampledPeriods(detector, maxSamples, currentStride, endTime, cache, isInterpolatable, stateManager);
             if (!features.isPresent() || features.get().length > maxSamples / 2 || currentStride == 1) {
                 break;
             } else {
@@ -275,7 +284,8 @@ public class SearchFeatureDao {
         int stride,
         long endTime,
         Map<Long, double[]> cache,
-        boolean isInterpolatable
+        boolean isInterpolatable,
+        ADStateManager stateManager
     ) {
         ArrayDeque<double[]> sampledFeatures = new ArrayDeque<>(maxSamples);
         for (int i = 0; i < maxSamples; i++) {
@@ -284,7 +294,7 @@ public class SearchFeatureDao {
             if (cache.containsKey(end)) {
                 sampledFeatures.addFirst(cache.get(end));
             } else {
-                Optional<double[]> features = getFeaturesForPeriod(detector, end - span, end);
+                Optional<double[]> features = getFeaturesForPeriod(detector, end - span, end, stateManager);
                 if (features.isPresent()) {
                     cache.put(end, features.get());
                     sampledFeatures.addFirst(features.get());

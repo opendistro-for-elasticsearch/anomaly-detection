@@ -24,6 +24,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.Action;
@@ -151,5 +153,36 @@ public class ClientUtil {
         Function<Request, ActionFuture<Response>> function
     ) {
         return function.apply(request).actionGet(requestTimeout);
+    }
+
+    public <Request extends ActionRequest, Response extends ActionResponse> Optional<Response> throttledTimedRequest(
+        Request request,
+        Logger LOG,
+        BiConsumer<Request, ActionListener<Response>> consumer,
+        ADStateManager stateManager,
+        AnomalyDetector detector
+    ) {
+        try {
+            AtomicReference<Response> respReference = new AtomicReference<>();
+            final CountDownLatch latch = new CountDownLatch(1);
+
+            consumer.accept(request, new LatchedActionListener<Response>(ActionListener.wrap(response -> {
+                // clear negative cache
+                stateManager.clearFilteredQuery(detector);
+                respReference.set(response);
+            }, exception -> {
+                // clear negative cache
+                stateManager.clearFilteredQuery(detector);
+                LOG.error("Cannot get response for request {}, error: {}", request, exception);
+            }), latch));
+
+            if (!latch.await(requestTimeout.getSeconds(), TimeUnit.SECONDS)) {
+                throw new ElasticsearchTimeoutException("Cannot get response within time limit: " + request.toString());
+            }
+            return Optional.ofNullable(respReference.get());
+        } catch (InterruptedException e1) {
+            LOG.error(CommonErrorMessages.WAIT_ERR_MSG);
+            throw new IllegalStateException(e1);
+        }
     }
 }

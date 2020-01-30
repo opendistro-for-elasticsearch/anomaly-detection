@@ -28,6 +28,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map.Entry;
@@ -38,9 +39,11 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectio
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.google.common.collect.ImmutableMap;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.get.GetResult;
 import org.elasticsearch.index.mapper.MapperService;
@@ -201,5 +204,16 @@ public class ADStateManagerTests extends ESTestCase {
         stateManager.maintenance(states);
         assertEquals(0, states.size());
 
+    }
+
+    public void testNegativeCache() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);
+        SearchRequest dummySearchRequest = new SearchRequest();
+        stateManager.insertFilteredQuery(detector, dummySearchRequest);
+        Optional<Entry<SearchRequest, Instant>> entry = stateManager.getFilteredQuery(detector);
+        assertTrue(entry.isPresent());
+        stateManager.clearFilteredQuery(detector);
+        entry = stateManager.getFilteredQuery(detector);
+        assertFalse(entry.isPresent());
     }
 }

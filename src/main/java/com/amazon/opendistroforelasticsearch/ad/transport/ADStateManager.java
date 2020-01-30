@@ -37,6 +37,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
@@ -55,6 +56,9 @@ public class ADStateManager {
     private static final Logger LOG = LogManager.getLogger(ADStateManager.class);
     private ConcurrentHashMap<String, Entry<AnomalyDetector, Instant>> currentDetectors;
     private ConcurrentHashMap<String, Entry<Integer, Instant>> partitionNumber;
+    // negativeCache is used to reject search query if given detector already has one query running
+    // key is detectorId, value is an entry. Key is QueryBuilder and value is the timestamp
+    private ConcurrentHashMap<String, Entry<SearchRequest, Instant>> negativeCache;
     private Client client;
     private Random random;
     private ModelManager modelManager;
@@ -83,6 +87,7 @@ public class ADStateManager {
         this.partitionNumber = new ConcurrentHashMap<>();
         this.clientUtil = clientUtil;
         this.backpressureMuter = new ConcurrentHashMap<>();
+        this.negativeCache = new ConcurrentHashMap<>();
         this.clock = clock;
         this.settings = settings;
         this.stateTtl = stateTtl;
@@ -117,6 +122,47 @@ public class ADStateManager {
         int partitionNum = modelManager.getPartitionedForestSizes(forest, adID).getKey();
         partitionNumber.putIfAbsent(adID, new SimpleEntry<>(partitionNum, clock.instant()));
         return partitionNum;
+    }
+
+    /**
+     * Get negative cache value(QueryBuilder, Instant) for given detector
+     * If detectorId is null, return Optional.empty()
+     * @param detector AnomalyDetector
+     * @return negative cache value(QueryBuilder, Instant)
+     */
+    public Optional<Entry<SearchRequest, Instant>> getFilteredQuery(AnomalyDetector detector) {
+        if (detector.getDetectorId() == null) {
+            return Optional.empty();
+        }
+        if (negativeCache.containsKey(detector.getDetectorId())) {
+            return Optional.of(negativeCache.get(detector.getDetectorId()));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Insert the negative cache entry for given detector
+     * If detectorId is null, do nothing
+     * @param detector AnomalyDetector
+     * @param searchRequest ES search request
+     */
+    public void insertFilteredQuery(AnomalyDetector detector, SearchRequest searchRequest) {
+        if (detector.getDetectorId() == null) {
+            return;
+        }
+        negativeCache.putIfAbsent(detector.getDetectorId(), new SimpleEntry<>(searchRequest, clock.instant()));
+    }
+
+    /**
+     * Clear the negative cache for given detector.
+     * If detectorId is null, do nothing
+     * @param detector AnomalyDetector
+     */
+    public void clearFilteredQuery(AnomalyDetector detector) {
+        if (detector.getDetectorId() == null) {
+            return;
+        }
+        negativeCache.keySet().removeIf(key -> key.equals(detector.getDetectorId()));
     }
 
     public Optional<AnomalyDetector> getAnomalyDetector(String adID) {

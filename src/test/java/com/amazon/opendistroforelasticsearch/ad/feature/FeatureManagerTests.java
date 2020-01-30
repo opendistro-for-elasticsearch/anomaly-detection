@@ -30,6 +30,7 @@ import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInter
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 
@@ -86,6 +87,9 @@ public class FeatureManagerTests {
 
     @Mock
     private Clock clock;
+
+    @Mock
+    private ADStateManager stateManager;
 
     private FeatureManager featureManager;
 
@@ -200,7 +204,7 @@ public class FeatureManagerTests {
     ) {
 
         for (int i = 0; i < allRanges.length; i++) {
-            when(searchFeatureDao.getFeaturesForPeriod(detector, allRanges[i][0], allRanges[i][1]))
+            when(searchFeatureDao.getFeaturesForPeriod(detector, allRanges[i][0], allRanges[i][1], stateManager))
                 .thenReturn(Optional.ofNullable(allPoints[i]));
         }
         this.featureManager = spy(
@@ -218,10 +222,10 @@ public class FeatureManagerTests {
             )
         );
         for (int i = 0; i < previousRanges.length; i++) {
-            featureManager.getCurrentFeatures(detector, previousRanges[i][0], previousRanges[i][1]);
+            featureManager.getCurrentFeatures(detector, previousRanges[i][0], previousRanges[i][1], stateManager);
         }
 
-        SinglePointFeatures result = featureManager.getCurrentFeatures(detector, currentRange[0], currentRange[1]);
+        SinglePointFeatures result = featureManager.getCurrentFeatures(detector, currentRange[0], currentRange[1], stateManager);
 
         assertTrue(Arrays.equals(expected.getUnprocessedFeatures().orElse(null), result.getUnprocessedFeatures().orElse(null)));
         assertTrue(Arrays.equals(expected.getProcessedFeatures().orElse(null), result.getProcessedFeatures().orElse(null)));
@@ -241,7 +245,7 @@ public class FeatureManagerTests {
     public void getColdStartData_returnExpected(Long latestTime, Entry<double[][], Integer> data, int interpolants, double[][] expected) {
         when(searchFeatureDao.getLatestDataTime(detector)).thenReturn(ofNullable(latestTime));
         if (latestTime != null) {
-            when(searchFeatureDao.getFeaturesForSampledPeriods(detector, maxTrainSamples, maxSampleStride, latestTime))
+            when(searchFeatureDao.getFeaturesForSampledPeriods(detector, maxTrainSamples, maxSampleStride, latestTime, stateManager))
                 .thenReturn(ofNullable(data));
         }
         if (data != null) {
@@ -249,7 +253,7 @@ public class FeatureManagerTests {
             doReturn(data.getKey()).when(featureManager).batchShingle(argThat(new ArrayEqMatcher<>(data.getKey())), eq(shingleSize));
         }
 
-        Optional<double[][]> results = featureManager.getColdStartData(detector);
+        Optional<double[][]> results = featureManager.getColdStartData(detector, stateManager);
 
         assertTrue(Arrays.deepEquals(expected, results.orElse(null)));
     }
@@ -304,16 +308,17 @@ public class FeatureManagerTests {
         for (int i = 1; i <= shingleSize; i++) {
             start = i * 10;
             end = (i + 1) * 10;
-            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
-            featureManager.getCurrentFeatures(detector, start, end);
+
+            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end, stateManager)).thenReturn(Optional.of(new double[] { i }));
+            featureManager.getCurrentFeatures(detector, start, end, stateManager);
         }
-        SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end, stateManager);
         assertTrue(beforeMaintenance.getUnprocessedFeatures().isPresent());
         assertTrue(beforeMaintenance.getProcessedFeatures().isPresent());
 
         featureManager.clear(detector.getDetectorId());
 
-        SinglePointFeatures afterMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures afterMaintenance = featureManager.getCurrentFeatures(detector, start, end, stateManager);
         assertTrue(afterMaintenance.getUnprocessedFeatures().isPresent());
         assertFalse(afterMaintenance.getProcessedFeatures().isPresent());
     }
@@ -325,17 +330,18 @@ public class FeatureManagerTests {
         for (int i = 1; i <= shingleSize; i++) {
             start = i * 10;
             end = (i + 1) * 10;
-            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
-            featureManager.getCurrentFeatures(detector, start, end);
+
+            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end, stateManager)).thenReturn(Optional.of(new double[] { i }));
+            featureManager.getCurrentFeatures(detector, start, end, stateManager);
         }
-        SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end, stateManager);
         assertTrue(beforeMaintenance.getUnprocessedFeatures().isPresent());
         assertTrue(beforeMaintenance.getProcessedFeatures().isPresent());
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(end + 1).plus(featureBufferTtl));
 
         featureManager.maintenance();
 
-        SinglePointFeatures afterMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures afterMaintenance = featureManager.getCurrentFeatures(detector, start, end, stateManager);
         assertTrue(afterMaintenance.getUnprocessedFeatures().isPresent());
         assertFalse(afterMaintenance.getProcessedFeatures().isPresent());
     }
@@ -347,17 +353,18 @@ public class FeatureManagerTests {
         for (int i = 1; i <= shingleSize; i++) {
             start = i * 10;
             end = (i + 1) * 10;
-            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
-            featureManager.getCurrentFeatures(detector, start, end);
+
+            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end, stateManager)).thenReturn(Optional.of(new double[] { i }));
+            featureManager.getCurrentFeatures(detector, start, end, stateManager);
         }
-        SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end, stateManager);
         assertTrue(beforeMaintenance.getUnprocessedFeatures().isPresent());
         assertTrue(beforeMaintenance.getProcessedFeatures().isPresent());
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(end));
 
         featureManager.maintenance();
 
-        SinglePointFeatures afterMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures afterMaintenance = featureManager.getCurrentFeatures(detector, start, end, stateManager);
         assertTrue(afterMaintenance.getUnprocessedFeatures().isPresent());
         assertTrue(afterMaintenance.getProcessedFeatures().isPresent());
     }

@@ -32,6 +32,7 @@ import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInter
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 import junitparams.JUnitParamsRunner;
@@ -84,6 +85,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.anyLong;
@@ -127,6 +129,8 @@ public class SearchFeatureDaoTests {
     private Aggregations aggs;
     @Mock
     private Max max;
+    @Mock
+    private ADStateManager stateManager;
 
     @Mock
     private AnomalyDetector detector;
@@ -170,6 +174,16 @@ public class SearchFeatureDaoTests {
             .when(clientUtil)
             .timedRequest(eq(searchRequest), anyObject(), Matchers.<BiConsumer<SearchRequest, ActionListener<SearchResponse>>>anyObject());
         when(searchResponse.getAggregations()).thenReturn(aggregations);
+
+        doReturn(Optional.of(searchResponse))
+            .when(clientUtil)
+            .throttledTimedRequest(
+                eq(searchRequest),
+                anyObject(),
+                Matchers.<BiConsumer<SearchRequest, ActionListener<SearchResponse>>>anyObject(),
+                anyObject(),
+                anyObject()
+            );
 
         multiSearchRequest = new MultiSearchRequest();
         SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]))
@@ -282,7 +296,7 @@ public class SearchFeatureDaoTests {
         when(detector.getEnabledFeatureIds()).thenReturn(featureIds);
 
         // test
-        Optional<double[]> result = searchFeatureDao.getFeaturesForPeriod(detector, start, end);
+        Optional<double[]> result = searchFeatureDao.getFeaturesForPeriod(detector, start, end, stateManager);
 
         // verify
         assertTrue(Arrays.equals(expected, result.orElse(null)));
@@ -367,7 +381,7 @@ public class SearchFeatureDaoTests {
         when(searchResponse.getAggregations()).thenReturn(null);
 
         // test
-        Optional<double[]> result = searchFeatureDao.getFeaturesForPeriod(detector, start, end);
+        Optional<double[]> result = searchFeatureDao.getFeaturesForPeriod(detector, start, end, stateManager);
 
         // verify
         assertFalse(result.isPresent());
@@ -383,7 +397,7 @@ public class SearchFeatureDaoTests {
         when(searchResponse.getHits()).thenReturn(new SearchHits(new SearchHit[0], new TotalHits(0L, TotalHits.Relation.EQUAL_TO), 1f));
 
         // test
-        Optional<double[]> result = searchFeatureDao.getFeaturesForPeriod(detector, start, end);
+        Optional<double[]> result = searchFeatureDao.getFeaturesForPeriod(detector, start, end, stateManager);
 
         // verify
         assertFalse(result.isPresent());
@@ -501,15 +515,17 @@ public class SearchFeatureDaoTests {
         Optional<Entry<double[][], Integer>> expected
     ) {
 
-        doReturn(Optional.empty()).when(searchFeatureDao).getFeaturesForPeriod(eq(detector), anyLong(), anyLong());
+        doReturn(Optional.empty())
+            .when(searchFeatureDao)
+            .getFeaturesForPeriod(eq(detector), anyLong(), anyLong(), any(ADStateManager.class));
         for (int i = 0; i < queryRanges.length; i++) {
             doReturn(Optional.of(queryResults[i]))
                 .when(searchFeatureDao)
-                .getFeaturesForPeriod(detector, queryRanges[i][0], queryRanges[i][1]);
+                .getFeaturesForPeriod(detector, queryRanges[i][0], queryRanges[i][1], stateManager);
         }
 
         Optional<Entry<double[][], Integer>> result = searchFeatureDao
-            .getFeaturesForSampledPeriods(detector, maxSamples, maxStride, endTime);
+            .getFeaturesForSampledPeriods(detector, maxSamples, maxStride, endTime, stateManager);
 
         assertEquals(expected.isPresent(), result.isPresent());
         if (expected.isPresent()) {

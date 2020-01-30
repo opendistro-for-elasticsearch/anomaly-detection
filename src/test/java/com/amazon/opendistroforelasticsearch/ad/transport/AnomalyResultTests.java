@@ -40,6 +40,8 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -88,6 +90,7 @@ import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.PlainActionFuture;
 import org.elasticsearch.client.Client;
@@ -188,13 +191,14 @@ public class AnomalyResultTests extends AbstractADTest {
         List<String> userIndex = new ArrayList<>();
         userIndex.add("test*");
         when(detector.getIndices()).thenReturn(userIndex);
+        when(detector.getDetectorId()).thenReturn("testDetectorId");
         when(stateManager.getAnomalyDetector(any(String.class))).thenReturn(Optional.of(detector));
 
         hashRing = mock(HashRing.class);
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(clusterService.state().nodes().getLocalNode()));
         when(hashRing.build()).thenReturn(true);
         featureQuery = mock(FeatureManager.class);
-        when(featureQuery.getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong()))
+        when(featureQuery.getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ADStateManager.class)))
             .thenReturn(new SinglePointFeatures(Optional.of(new double[] { 0.0d }), Optional.of(new double[] { 0 })));
         normalModelManager = mock(ModelManager.class);
         when(normalModelManager.getThresholdingResult(any(String.class), any(String.class), anyDouble()))
@@ -370,7 +374,8 @@ public class AnomalyResultTests extends AbstractADTest {
         when(rcfManager.getRcfModelId(any(String.class), anyInt())).thenReturn(rcfModelID);
 
         doNothing().when(normalModelManager).trainModel(any(AnomalyDetector.class), any(double[][].class));
-        when(featureQuery.getColdStartData(any(AnomalyDetector.class))).thenReturn(Optional.of(new double[][] { { 0 } }));
+        when(featureQuery.getColdStartData(any(AnomalyDetector.class), any(ADStateManager.class)))
+            .thenReturn(Optional.of(new double[][] { { 0 } }));
 
         // These constructors register handler in transport service
         new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, rcfManager, adCircuitBreakerService);
@@ -723,6 +728,39 @@ public class AnomalyResultTests extends AbstractADTest {
         assertThat(exception.getMessage(), containsString(AnomalyResultTransportAction.NODE_UNRESPONSIVE_ERR_MSG));
     }
 
+    public void testRejectRequestBasedOnNegativeCache() {
+        SearchRequest dummyRequest = new SearchRequest();
+        Instant timestamp = Instant.now();
+        Map.Entry<SearchRequest, Instant> dummyEntry = new AbstractMap.SimpleEntry<>(dummyRequest, timestamp);
+        when(stateManager.getFilteredQuery(detector)).thenReturn(Optional.of(dummyEntry));
+        AnomalyResultTransportAction action = spy(
+            new AnomalyResultTransportAction(
+                new ActionFilters(Collections.emptySet()),
+                transportService,
+                client,
+                settings,
+                stateManager,
+                runner,
+                anomalyDetectionIndices,
+                featureQuery,
+                normalModelManager,
+                hashRing,
+                clusterService,
+                indexNameResolver,
+                threadPool,
+                adCircuitBreakerService,
+                adStats
+            )
+        );
+        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+        action.doExecute(null, request, listener);
+        AnomalyResultResponse response = listener.actionGet();
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.001);
+        assertEquals(Double.NaN, response.getConfidence(), 0.001);
+        assertThat(response.getFeatures(), is(empty()));
+    }
+
     public void testRCFLatchAwaitException() throws InterruptedException {
 
         // These constructors register handler in transport service
@@ -997,7 +1035,7 @@ public class AnomalyResultTests extends AbstractADTest {
     }
 
     public void testColdStartNoTrainingData() throws Exception {
-        when(featureQuery.getColdStartData(any(AnomalyDetector.class))).thenReturn(Optional.empty());
+        when(featureQuery.getColdStartData(any(AnomalyDetector.class), any(ADStateManager.class))).thenReturn(Optional.empty());
 
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
@@ -1022,7 +1060,8 @@ public class AnomalyResultTests extends AbstractADTest {
     }
 
     public void testColdStartTimeoutPutCheckpoint() throws Exception {
-        when(featureQuery.getColdStartData(any(AnomalyDetector.class))).thenReturn(Optional.of(new double[][] { { 1.0 } }));
+        when(featureQuery.getColdStartData(any(AnomalyDetector.class), any(ADStateManager.class)))
+            .thenReturn(Optional.of(new double[][] { { 1.0 } }));
         doThrow(new ElasticsearchTimeoutException(""))
             .when(normalModelManager)
             .trainModel(any(AnomalyDetector.class), any(double[][].class));
@@ -1155,14 +1194,16 @@ public class AnomalyResultTests extends AbstractADTest {
 
     public void featureTestTemplate(FeatureTestMode mode) {
         if (mode == FeatureTestMode.FEATURE_NOT_AVAILABLE) {
-            when(featureQuery.getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong()))
+            when(featureQuery.getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ADStateManager.class)))
                 .thenReturn(new SinglePointFeatures(Optional.empty(), Optional.empty()));
         } else if (mode == FeatureTestMode.ILLEGAL_STATE) {
-            doThrow(IllegalArgumentException.class).when(featureQuery).getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong());
+            doThrow(IllegalArgumentException.class)
+                .when(featureQuery)
+                .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ADStateManager.class));
         } else if (mode == FeatureTestMode.AD_EXCEPTION) {
             doThrow(AnomalyDetectionException.class)
                 .when(featureQuery)
-                .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong());
+                .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ADStateManager.class));
         }
 
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(

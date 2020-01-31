@@ -81,8 +81,8 @@ public class ADStateManagerTests extends ESTestCase {
         client = mock(Client.class);
         Settings settings = Settings
             .builder()
-            .put("ml.anomaly_detectors.max_retry_for_unresponsive_node", 3)
-            .put("ml.anomaly_detectors.ad_mute_minutes", TimeValue.timeValueMinutes(10))
+            .put("opendistro.anomaly_detection.max_retry_for_unresponsive_node", 3)
+            .put("opendistro.anomaly_detection.ad_mute_minutes", TimeValue.timeValueMinutes(10))
             .build();
         clock = mock(Clock.class);
         duration = Duration.ofHours(1);

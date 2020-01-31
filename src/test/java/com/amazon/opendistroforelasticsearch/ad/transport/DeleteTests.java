@@ -135,7 +135,7 @@ public class DeleteTests extends AbstractADTest {
         threadPool = mock(ThreadPool.class);
         indexNameResolver = mock(IndexNameExpressionResolver.class);
         actionFilters = mock(ActionFilters.class);
-        Settings settings = Settings.builder().put("ml.anomaly_detectors.request_timeout", TimeValue.timeValueSeconds(10)).build();
+        Settings settings = Settings.builder().put("opendistro.anomaly_detection.request_timeout", TimeValue.timeValueSeconds(10)).build();
         task = mock(Task.class);
         when(task.getId()).thenReturn(1000L);
         client = mock(Client.class);

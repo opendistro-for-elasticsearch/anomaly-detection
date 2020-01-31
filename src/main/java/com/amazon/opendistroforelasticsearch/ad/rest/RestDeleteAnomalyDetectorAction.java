@@ -17,15 +17,15 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorActionHandler;
-import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorResponse;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
@@ -89,8 +89,8 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
         return channel -> {
             if (channel.request().method() == RestRequest.Method.POST) {
                 logger.info("Stop anomaly detector {}", detectorId);
-                DeleteDetectorRequest deleteDetectorRequest = new DeleteDetectorRequest().adID(detectorId);
-                client.execute(DeleteDetectorAction.INSTANCE, deleteDetectorRequest, stopAdDetectorListener(channel, detectorId));
+                StopDetectorRequest stopDetectorRequest = new StopDetectorRequest(detectorId);
+                client.execute(StopDetectorAction.INSTANCE, stopDetectorRequest, stopAdDetectorListener(channel, detectorId));
             } else if (channel.request().method() == RestRequest.Method.DELETE) {
                 logger.info("Delete anomaly detector {}", detectorId);
                 handler
@@ -117,11 +117,11 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
         client.delete(deleteRequest, new RestStatusToXContentListener<>(channel));
     }
 
-    private ActionListener<AcknowledgedResponse> stopAdDetectorListener(RestChannel channel, String detectorId) {
-        return new ActionListener<AcknowledgedResponse>() {
+    private ActionListener<StopDetectorResponse> stopAdDetectorListener(RestChannel channel, String detectorId) {
+        return new ActionListener<StopDetectorResponse>() {
             @Override
-            public void onResponse(AcknowledgedResponse deleteDetectorResponse) {
-                if (deleteDetectorResponse.isAcknowledged()) {
+            public void onResponse(StopDetectorResponse stopDetectorResponse) {
+                if (stopDetectorResponse.success()) {
                     logger.info("AD model deleted successfully for detector {}", detectorId);
                     channel.sendResponse(new BytesRestResponse(RestStatus.OK, "AD model deleted successfully"));
                 } else {

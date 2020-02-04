@@ -42,10 +42,12 @@ public final class AnomalyDetectorRunner {
     private final Logger logger = LogManager.getLogger(AnomalyDetectorRunner.class);
     private final ModelManager modelManager;
     private final FeatureManager featureManager;
+    private final int maxPreviewResults;
 
-    public AnomalyDetectorRunner(ModelManager modelManager, FeatureManager featureManager) {
+    public AnomalyDetectorRunner(ModelManager modelManager, FeatureManager featureManager, int maxPreviewResults) {
         this.modelManager = modelManager;
         this.featureManager = featureManager;
+        this.maxPreviewResults = maxPreviewResults;
     }
 
     /**
@@ -69,7 +71,7 @@ public final class AnomalyDetectorRunner {
         featureManager.getPreviewFeatures(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(features -> {
             try {
                 List<ThresholdingResult> results = modelManager.getPreviewResults(features.getProcessedFeatures());
-                listener.onResponse(sample(parsePreviewResult(detector, features, results), 200));
+                listener.onResponse(sample(parsePreviewResult(detector, features, results), maxPreviewResults));
             } catch (Exception e) {
                 onFailure(e, listener, detector.getDetectorId());
             }

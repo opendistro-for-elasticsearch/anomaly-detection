@@ -64,6 +64,7 @@ public class FeatureManager {
     private final int shingleSize;
     private final int maxMissingPoints;
     private final int maxNeighborDistance;
+    private final double previewSampleRate;
     private final int maxPreviewSamples;
     private final Duration featureBufferTtl;
 
@@ -78,6 +79,7 @@ public class FeatureManager {
      * @param shingleSize size of feature shingles
      * @param maxMissingPoints max number of missing points allowed to generate a shingle
      * @param maxNeighborDistance max distance (number of intervals) between a missing point and a replacement neighbor
+     * @param previewSampleRate number of samples to number of all the data points in the preview time range
      * @param maxPreviewSamples max number of samples from search for preview features
      * @param featureBufferTtl time to live for stale feature buffers
      */
@@ -90,6 +92,7 @@ public class FeatureManager {
         int shingleSize,
         int maxMissingPoints,
         int maxNeighborDistance,
+        double previewSampleRate,
         int maxPreviewSamples,
         Duration featureBufferTtl
     ) {
@@ -101,6 +104,7 @@ public class FeatureManager {
         this.shingleSize = shingleSize;
         this.maxMissingPoints = maxMissingPoints;
         this.maxNeighborDistance = maxNeighborDistance;
+        this.previewSampleRate = previewSampleRate;
         this.maxPreviewSamples = maxPreviewSamples;
         this.featureBufferTtl = featureBufferTtl;
 
@@ -317,7 +321,8 @@ public class FeatureManager {
         long end = truncateToMinute(endMilli);
         long bucketSize = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
         int numBuckets = (int) Math.floor((end - start) / (double) bucketSize);
-        int stride = (int) Math.max(1, Math.floor((double) numBuckets / maxPreviewSamples));
+        int numSamples = (int) Math.max(Math.min(numBuckets * previewSampleRate, maxPreviewSamples), 1);
+        int stride = (int) Math.max(1, Math.floor((double) numBuckets / numSamples));
         int numStrides = (int) Math.ceil(numBuckets / (double) stride);
         List<Entry<Long, Long>> sampleRanges = Stream
             .iterate(start, i -> i + stride * bucketSize)

@@ -163,7 +163,7 @@ public final class AnomalyDetectorSettings {
 
     public static final long THRESHOLD_MAX_SAMPLES = 50_000;
 
-    public static final int MIN_PREVIEW_SIZE = 500; // ok to lower
+    public static final int MIN_PREVIEW_SIZE = 400; // ok to lower
 
     // Feature processing
     public static final int MAX_TRAIN_SAMPLE = 24;
@@ -176,6 +176,9 @@ public final class AnomalyDetectorSettings {
 
     public static final int MAX_NEIGHBOR_DISTANCE = Math.min(2, SHINGLE_SIZE);
 
-    public static final int MAX_PREVIEW_SAMPLES = 60; // ok to adjust, higher for more data, lower for lower latency
+    public static final double PREVIEW_SAMPLE_RATE = 0.25; // ok to adjust, higher for more data, lower for lower latency
 
+    public static final int MAX_PREVIEW_SAMPLES = 300; // ok to adjust, higher for more data, lower for lower latency
+
+    public static final int MAX_PREVIEW_RESULTS = 1_000; // ok to adjust, higher for more data, lower for lower latency
 }

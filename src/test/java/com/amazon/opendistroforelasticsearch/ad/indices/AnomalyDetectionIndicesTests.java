@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
@@ -39,6 +40,7 @@ import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Before;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -70,7 +72,9 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
         clusterSetting = new ClusterSettings(settings, clusterSettings);
         clusterService = TestHelpers.createClusterService(client().threadPool(), clusterSetting);
         client = mock(Client.class);
-        requestUtil = new ClientUtil(settings, client);
+        Clock clock = Clock.systemUTC();
+        Throttler throttler = new Throttler(clock);
+        requestUtil = new ClientUtil(settings, client, throttler);
         indices = new AnomalyDetectionIndices(client(), clusterService, client().threadPool(), settings, requestUtil);
     }
 

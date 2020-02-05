@@ -35,7 +35,6 @@ import java.util.stream.Stream;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
-import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -116,16 +115,15 @@ public class FeatureManager {
      * @param detector anomaly detector for which the features are returned
      * @param startTime start time of the data point in epoch milliseconds
      * @param endTime end time of the data point in epoch milliseconds
-     * @param stateManager ADStateManager
      * @return unprocessed features and processed features for the current data point
      */
     @Deprecated
-    public SinglePointFeatures getCurrentFeatures(AnomalyDetector detector, long startTime, long endTime, ADStateManager stateManager) {
+    public SinglePointFeatures getCurrentFeatures(AnomalyDetector detector, long startTime, long endTime) {
         double[][] currentPoints = null;
         Deque<Entry<Long, double[]>> shingle = detectorIdsToTimeShingles
             .computeIfAbsent(detector.getDetectorId(), id -> new ArrayDeque<Entry<Long, double[]>>(shingleSize));
         if (shingle.isEmpty() || shingle.getLast().getKey() < endTime) {
-            Optional<double[]> point = searchFeatureDao.getFeaturesForPeriod(detector, startTime, endTime, stateManager);
+            Optional<double[]> point = searchFeatureDao.getFeaturesForPeriod(detector, startTime, endTime);
             if (point.isPresent()) {
                 if (shingle.size() == shingleSize) {
                     shingle.remove();
@@ -176,16 +174,13 @@ public class FeatureManager {
      * in dimension via shingling.
      *
      * @param detector contains data info (indices, documents, etc)
-     * @param stateManager ADStateManager
      * @return data for cold-start training, or empty if unavailable
      */
     @Deprecated
-    public Optional<double[][]> getColdStartData(AnomalyDetector detector, ADStateManager stateManager) {
+    public Optional<double[][]> getColdStartData(AnomalyDetector detector) {
         return searchFeatureDao
             .getLatestDataTime(detector)
-            .flatMap(
-                latest -> searchFeatureDao.getFeaturesForSampledPeriods(detector, maxTrainSamples, maxSampleStride, latest, stateManager)
-            )
+            .flatMap(latest -> searchFeatureDao.getFeaturesForSampledPeriods(detector, maxTrainSamples, maxSampleStride, latest))
             .map(
                 samples -> transpose(
                     interpolator.interpolate(transpose(samples.getKey()), samples.getValue() * (samples.getKey().length - 1) + 1)

@@ -28,7 +28,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map.Entry;
@@ -39,6 +38,7 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectio
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import com.google.common.collect.ImmutableMap;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
@@ -67,6 +67,7 @@ public class ADStateManagerTests extends ESTestCase {
     private Client client;
     private Clock clock;
     private Duration duration;
+    private Throttler throttler;
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {
@@ -89,12 +90,13 @@ public class ADStateManagerTests extends ESTestCase {
             .build();
         clock = mock(Clock.class);
         duration = Duration.ofHours(1);
+        throttler = new Throttler(clock);
         stateManager = new ADStateManager(
             client,
             xContentRegistry(),
             modelManager,
             settings,
-            new ClientUtil(settings, client),
+            new ClientUtil(settings, client, throttler),
             clock,
             duration
         );
@@ -206,14 +208,11 @@ public class ADStateManagerTests extends ESTestCase {
 
     }
 
-    public void testNegativeCache() throws IOException {
+    public void testHasRunningQuery() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);
         SearchRequest dummySearchRequest = new SearchRequest();
-        stateManager.insertFilteredQuery(detector, dummySearchRequest);
-        Optional<Entry<SearchRequest, Instant>> entry = stateManager.getFilteredQuery(detector);
-        assertTrue(entry.isPresent());
-        stateManager.clearFilteredQuery(detector);
-        entry = stateManager.getFilteredQuery(detector);
-        assertFalse(entry.isPresent());
+        assertFalse(stateManager.hasRunningQuery(detector));
+        throttler.insertFilteredQuery(detector, dummySearchRequest);
+        assertTrue(stateManager.hasRunningQuery(detector));
     }
 }

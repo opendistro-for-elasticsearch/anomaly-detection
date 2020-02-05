@@ -124,47 +124,6 @@ public class ADStateManager {
         return partitionNum;
     }
 
-    /**
-     * Get negative cache value(QueryBuilder, Instant) for given detector
-     * If detectorId is null, return Optional.empty()
-     * @param detector AnomalyDetector
-     * @return negative cache value(QueryBuilder, Instant)
-     */
-    public Optional<Entry<SearchRequest, Instant>> getFilteredQuery(AnomalyDetector detector) {
-        if (detector.getDetectorId() == null) {
-            return Optional.empty();
-        }
-        if (negativeCache.containsKey(detector.getDetectorId())) {
-            return Optional.of(negativeCache.get(detector.getDetectorId()));
-        }
-        return Optional.empty();
-    }
-
-    /**
-     * Insert the negative cache entry for given detector
-     * If detectorId is null, do nothing
-     * @param detector AnomalyDetector
-     * @param searchRequest ES search request
-     */
-    public void insertFilteredQuery(AnomalyDetector detector, SearchRequest searchRequest) {
-        if (detector.getDetectorId() == null) {
-            return;
-        }
-        negativeCache.putIfAbsent(detector.getDetectorId(), new SimpleEntry<>(searchRequest, clock.instant()));
-    }
-
-    /**
-     * Clear the negative cache for given detector.
-     * If detectorId is null, do nothing
-     * @param detector AnomalyDetector
-     */
-    public void clearFilteredQuery(AnomalyDetector detector) {
-        if (detector.getDetectorId() == null) {
-            return;
-        }
-        negativeCache.keySet().removeIf(key -> key.equals(detector.getDetectorId()));
-    }
-
     public Optional<AnomalyDetector> getAnomalyDetector(String adID) {
         Entry<AnomalyDetector, Instant> detectorAndTime = currentDetectors.get(adID);
         if (detectorAndTime != null) {
@@ -254,5 +213,14 @@ public class ADStateManager {
      */
     public void resetBackpressureCounter(String nodeId) {
         backpressureMuter.remove(nodeId);
+    }
+
+    /**
+     * Check if there is running query on given detector
+     * @param detector Anomaly Detector
+     * @return boolean
+     */
+    public boolean hasRunningQuery(AnomalyDetector detector) {
+        return clientUtil.hasRunningQuery(detector);
     }
 }

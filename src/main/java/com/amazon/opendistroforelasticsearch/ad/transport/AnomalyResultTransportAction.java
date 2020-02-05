@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -68,7 +67,6 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.IndicesOptions;
@@ -251,10 +249,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
             AnomalyDetector anomalyDetector = detector.get();
-            Optional<Entry<SearchRequest, Instant>> queryEntry = stateManager.getFilteredQuery(anomalyDetector);
-            if (queryEntry.isPresent()) {
+            if (stateManager.hasRunningQuery(anomalyDetector)) {
                 LOG.info("There is one query running for detectorId: {}", anomalyDetector.getDetectorId());
-                listener.onResponse(new AnomalyResultResponse(Double.NaN, Double.NaN, new ArrayList<FeatureData>()));
+                listener.onFailure(new EndRunException(adID, "There is one query running on AnomalyDetector", true));
                 return;
             }
 
@@ -278,7 +275,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             long startTime = request.getStart() - delayMillis;
             long endTime = request.getEnd() - delayMillis;
 
-            SinglePointFeatures featureOptional = featureManager.getCurrentFeatures(anomalyDetector, startTime, endTime, stateManager);
+            SinglePointFeatures featureOptional = featureManager.getCurrentFeatures(anomalyDetector, startTime, endTime);
 
             List<FeatureData> featureInResponse = null;
 
@@ -819,7 +816,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         @Override
         public Boolean call() {
             try {
-                Optional<double[][]> traingData = featureManager.getColdStartData(detector, stateManager);
+                Optional<double[][]> traingData = featureManager.getColdStartData(detector);
                 if (traingData.isPresent()) {
                     modelManager.trainModel(detector, traingData.get());
                     return true;

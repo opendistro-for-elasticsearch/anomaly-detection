@@ -37,7 +37,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
@@ -56,9 +55,6 @@ public class ADStateManager {
     private static final Logger LOG = LogManager.getLogger(ADStateManager.class);
     private ConcurrentHashMap<String, Entry<AnomalyDetector, Instant>> currentDetectors;
     private ConcurrentHashMap<String, Entry<Integer, Instant>> partitionNumber;
-    // negativeCache is used to reject search query if given detector already has one query running
-    // key is detectorId, value is an entry. Key is QueryBuilder and value is the timestamp
-    private ConcurrentHashMap<String, Entry<SearchRequest, Instant>> negativeCache;
     private Client client;
     private Random random;
     private ModelManager modelManager;
@@ -87,7 +83,6 @@ public class ADStateManager {
         this.partitionNumber = new ConcurrentHashMap<>();
         this.clientUtil = clientUtil;
         this.backpressureMuter = new ConcurrentHashMap<>();
-        this.negativeCache = new ConcurrentHashMap<>();
         this.clock = clock;
         this.settings = settings;
         this.stateTtl = stateTtl;

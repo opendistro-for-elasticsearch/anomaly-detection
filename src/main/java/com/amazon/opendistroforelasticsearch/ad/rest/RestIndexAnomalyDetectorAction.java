@@ -59,24 +59,31 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
     private volatile TimeValue detectionInterval;
     private volatile TimeValue detectionWindowDelay;
 
-    public RestIndexAnomalyDetectorAction(Settings settings, RestController controller, ClusterService clusterService,
-                                          AnomalyDetectionIndices anomalyDetectionIndices) {
+    public RestIndexAnomalyDetectorAction(
+        Settings settings,
+        RestController controller,
+        ClusterService clusterService,
+        AnomalyDetectionIndices anomalyDetectionIndices
+    ) {
         super(settings);
         controller.registerHandler(RestRequest.Method.POST, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, this); // Create
-        controller.registerHandler(RestRequest.Method.PUT,
-                String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID), this); // update
+        controller
+            .registerHandler(
+                RestRequest.Method.PUT,
+                String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                this
+            ); // update
         this.settings = settings;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         this.detectionInterval = DETECTION_INTERVAL.get(settings);
         this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(settings);
         this.clusterService = clusterService;
-        //TODO: will add more cluster setting consumer later
-        //TODO: inject ClusterSettings only if clusterService is only used to get ClusterSettings
+        // TODO: will add more cluster setting consumer later
+        // TODO: inject ClusterSettings only if clusterService is only used to get ClusterSettings
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(DETECTION_INTERVAL, it -> detectionInterval = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(DETECTION_WINDOW_DELAY,
-                it -> detectionWindowDelay = it);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(DETECTION_WINDOW_DELAY, it -> detectionWindowDelay = it);
     }
 
     @Override
@@ -92,18 +99,27 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
         // TODO: check detection interval < modelTTL
-        AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId, null,
-                detectionInterval, detectionWindowDelay);
+        AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId, null, detectionInterval, detectionWindowDelay);
 
         long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
-        WriteRequest.RefreshPolicy refreshPolicy = request.hasParam(REFRESH) ?
-                WriteRequest.RefreshPolicy.parse(request.param(REFRESH)) : WriteRequest.RefreshPolicy.IMMEDIATE;
+        WriteRequest.RefreshPolicy refreshPolicy = request.hasParam(REFRESH)
+            ? WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
+            : WriteRequest.RefreshPolicy.IMMEDIATE;
 
-        return channel -> new IndexAnomalyDetectorActionHandler(settings, clusterService, client, channel,
-                anomalyDetectionIndices, detectorId, seqNo,
-                primaryTerm, refreshPolicy, detector, requestTimeout).start();
+        return channel -> new IndexAnomalyDetectorActionHandler(
+            settings,
+            clusterService,
+            client,
+            channel,
+            anomalyDetectionIndices,
+            detectorId,
+            seqNo,
+            primaryTerm,
+            refreshPolicy,
+            detector,
+            requestTimeout
+        ).start();
     }
-
 
 }

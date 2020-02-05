@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.util.Arrays;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.client.Client;
@@ -37,7 +38,9 @@ import org.elasticsearch.index.reindex.BulkByScrollResponse;
 public class DailyCronTests extends AbstractADTest {
 
     enum DailyCronTestExecutionMode {
-        NORMAL, INDEX_NOT_EXIST, FAIL
+        NORMAL,
+        INDEX_NOT_EXIST,
+        FAIL
     }
 
     @Override
@@ -57,12 +60,12 @@ public class DailyCronTests extends AbstractADTest {
         DeleteDetector deleteUtil = mock(DeleteDetector.class);
         Clock clock = mock(Clock.class);
         Client client = mock(Client.class);
-        DailyCron cron = new DailyCron(deleteUtil, clock, client, Duration.ofHours(24));
+        ClientUtil clientUtil = mock(ClientUtil.class);
+        DailyCron cron = new DailyCron(deleteUtil, clock, client, Duration.ofHours(24), clientUtil);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                    args.length == 3);
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 3);
             assertTrue(args[2] instanceof ActionListener);
 
             ActionListener<BulkByScrollResponse> listener = (ActionListener<BulkByScrollResponse>) args[2];
@@ -78,7 +81,7 @@ public class DailyCronTests extends AbstractADTest {
             }
 
             return null;
-        }).when(client).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
+        }).when(clientUtil).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
 
         doNothing().when(deleteUtil).deleteDetectorResult(eq(client));
 

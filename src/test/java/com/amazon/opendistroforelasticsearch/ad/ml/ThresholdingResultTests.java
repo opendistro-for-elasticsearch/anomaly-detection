@@ -38,14 +38,13 @@ public class ThresholdingResultTests {
 
     private Object[] equalsData() {
         return new Object[] {
-            new Object[]{thresholdingResult, null, false},
-            new Object[]{thresholdingResult, thresholdingResult, true},
-            new Object[]{thresholdingResult, 1, false},
-            new Object[]{thresholdingResult, new ThresholdingResult(grade, confidence), true},
-            new Object[]{thresholdingResult, new ThresholdingResult(grade + 1, confidence), false},
-            new Object[]{thresholdingResult, new ThresholdingResult(grade, confidence + 1), false},
-            new Object[]{thresholdingResult, new ThresholdingResult(grade + 1, confidence + 1), false},
-        };
+            new Object[] { thresholdingResult, null, false },
+            new Object[] { thresholdingResult, thresholdingResult, true },
+            new Object[] { thresholdingResult, 1, false },
+            new Object[] { thresholdingResult, new ThresholdingResult(grade, confidence), true },
+            new Object[] { thresholdingResult, new ThresholdingResult(grade + 1, confidence), false },
+            new Object[] { thresholdingResult, new ThresholdingResult(grade, confidence + 1), false },
+            new Object[] { thresholdingResult, new ThresholdingResult(grade + 1, confidence + 1), false }, };
     }
 
     @Test
@@ -56,11 +55,10 @@ public class ThresholdingResultTests {
 
     private Object[] hashCodeData() {
         return new Object[] {
-            new Object[]{thresholdingResult, new ThresholdingResult(grade, confidence), true},
-            new Object[]{thresholdingResult, new ThresholdingResult(grade + 1, confidence), false},
-            new Object[]{thresholdingResult, new ThresholdingResult(grade, confidence + 1), false},
-            new Object[]{thresholdingResult, new ThresholdingResult(grade + 1, confidence + 1), false},
-        };
+            new Object[] { thresholdingResult, new ThresholdingResult(grade, confidence), true },
+            new Object[] { thresholdingResult, new ThresholdingResult(grade + 1, confidence), false },
+            new Object[] { thresholdingResult, new ThresholdingResult(grade, confidence + 1), false },
+            new Object[] { thresholdingResult, new ThresholdingResult(grade + 1, confidence + 1), false }, };
     }
 
     @Test

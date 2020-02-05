@@ -27,6 +27,7 @@ import java.time.Clock;
 import java.util.Arrays;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.component.LifecycleListener;
@@ -44,6 +45,7 @@ public class MasterEventListenerTests extends AbstractADTest {
     private Cancellable hourlyCancellable;
     private Cancellable dailyCancellable;
     private MasterEventListener masterService;
+    private ClientUtil clientUtil;
 
     @Override
     @Before
@@ -54,14 +56,13 @@ public class MasterEventListenerTests extends AbstractADTest {
         hourlyCancellable = mock(Cancellable.class);
         dailyCancellable = mock(Cancellable.class);
         when(threadPool.scheduleWithFixedDelay(any(HourlyCron.class), any(TimeValue.class), any(String.class)))
-                .thenReturn(hourlyCancellable);
-        when(threadPool.scheduleWithFixedDelay(any(DailyCron.class), any(TimeValue.class), any(String.class)))
-                .thenReturn(dailyCancellable);
+            .thenReturn(hourlyCancellable);
+        when(threadPool.scheduleWithFixedDelay(any(DailyCron.class), any(TimeValue.class), any(String.class))).thenReturn(dailyCancellable);
         deleteUtil = mock(DeleteDetector.class);
         client = mock(Client.class);
         clock = mock(Clock.class);
-        masterService = new MasterEventListener(clusterService, threadPool, deleteUtil,
-                client, clock);
+        clientUtil = mock(ClientUtil.class);
+        masterService = new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil);
     }
 
     public void testOnOffMaster() {
@@ -78,8 +79,7 @@ public class MasterEventListenerTests extends AbstractADTest {
     public void testBeforeStop() {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                    args.length == 1);
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 1);
 
             LifecycleListener listener = null;
             if (args[0] instanceof LifecycleListener) {

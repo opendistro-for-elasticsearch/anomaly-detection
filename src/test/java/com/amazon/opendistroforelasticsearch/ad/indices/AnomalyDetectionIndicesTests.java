@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.indices;
 
+import static org.mockito.Mockito.mock;
+
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
@@ -24,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Setting;
@@ -39,7 +42,6 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
-
 public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
 
     private AnomalyDetectionIndices indices;
@@ -47,15 +49,17 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
     private ClientUtil requestUtil;
     private Settings settings;
     private ClusterService clusterService;
+    private Client client;
 
     @Before
     public void setup() {
-        settings = Settings.builder()
-                .put("ml.anomaly_detectors.ad_result_history_rollover_period", TimeValue.timeValueHours(12))
-                .put("ml.anomaly_detectors.ad_result_history_max_age", TimeValue.timeValueHours(24))
-                .put("ml.anomaly_detectors.ad_result_history_max_docs", 10000L)
-                .put("ml.anomaly_detectors.request_timeout", TimeValue.timeValueSeconds(10))
-                .build();
+        settings = Settings
+            .builder()
+            .put("opendistro.anomaly_detection.ad_result_history_rollover_period", TimeValue.timeValueHours(12))
+            .put("opendistro.anomaly_detection.ad_result_history_max_age", TimeValue.timeValueHours(24))
+            .put("opendistro.anomaly_detection.ad_result_history_max_docs", 10000L)
+            .put("opendistro.anomaly_detection.request_timeout", TimeValue.timeValueSeconds(10))
+            .build();
 
         Set<Setting<?>> clusterSettings = new HashSet<>();
         clusterSettings.addAll(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
@@ -65,9 +69,9 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
         clusterSettings.add(AnomalyDetectorSettings.REQUEST_TIMEOUT);
         clusterSetting = new ClusterSettings(settings, clusterSettings);
         clusterService = TestHelpers.createClusterService(client().threadPool(), clusterSetting);
-        requestUtil = new ClientUtil(settings);
-        indices = new AnomalyDetectionIndices(client(), clusterService,
-                client().threadPool(), settings, requestUtil);
+        client = mock(Client.class);
+        requestUtil = new ClientUtil(settings, client);
+        indices = new AnomalyDetectionIndices(client(), clusterService, client().threadPool(), settings, requestUtil);
     }
 
     public void testAnomalyDetectorIndexNotExists() {
@@ -76,32 +80,36 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
     }
 
     public void testAnomalyDetectorIndexExists() throws IOException {
-        indices.initAnomalyDetectorIndexIfAbsent(TestHelpers.createActionListener(
-                response -> {
-                    boolean acknowledged = response.isAcknowledged();
-                    assertTrue(acknowledged);
-                },
-                failure -> {
-                    throw new RuntimeException("should not recreate index");
-                }));
+        indices.initAnomalyDetectorIndexIfAbsent(TestHelpers.createActionListener(response -> {
+            boolean acknowledged = response.isAcknowledged();
+            assertTrue(acknowledged);
+        }, failure -> { throw new RuntimeException("should not recreate index"); }));
         TestHelpers.waitForIndexCreationToComplete(client(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
     }
 
     public void testAnomalyDetectorIndexExistsAndNotRecreate() throws IOException {
-        indices.initAnomalyDetectorIndexIfAbsent(TestHelpers.createActionListener(
-                response -> response.isAcknowledged(),
-                failure -> {
-                    throw new RuntimeException("should not recreate index");
-                }));
+        indices
+            .initAnomalyDetectorIndexIfAbsent(
+                TestHelpers
+                    .createActionListener(
+                        response -> response.isAcknowledged(),
+                        failure -> { throw new RuntimeException("should not recreate index"); }
+                    )
+            );
         TestHelpers.waitForIndexCreationToComplete(client(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
         if (client().admin().indices().prepareExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX).get().isExists()) {
-            indices.initAnomalyDetectorIndexIfAbsent(TestHelpers.createActionListener(
-                    response -> {
-                        throw new RuntimeException("should not recreate index " + AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-                    },
-                    failure -> {
-                        throw new RuntimeException("should not recreate index " + AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-                    }));
+            indices
+                .initAnomalyDetectorIndexIfAbsent(
+                    TestHelpers
+                        .createActionListener(
+                            response -> {
+                                throw new RuntimeException("should not recreate index " + AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+                            },
+                            failure -> {
+                                throw new RuntimeException("should not recreate index " + AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+                            }
+                        )
+                );
         }
     }
 
@@ -111,71 +119,33 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
     }
 
     public void testAnomalyResultIndexExists() throws IOException {
-        indices.initAnomalyResultIndexIfAbsent(TestHelpers.createActionListener(
-                response -> {
-                    boolean acknowledged = response.isAcknowledged();
-                    assertTrue(acknowledged);
-                },
-                failure -> {
-                    throw new RuntimeException("should not recreate index");
-                }));
+        indices.initAnomalyResultIndexIfAbsent(TestHelpers.createActionListener(response -> {
+            boolean acknowledged = response.isAcknowledged();
+            assertTrue(acknowledged);
+        }, failure -> { throw new RuntimeException("should not recreate index"); }));
         TestHelpers.waitForIndexCreationToComplete(client(), AnomalyResult.ANOMALY_RESULT_INDEX);
     }
 
     public void testAnomalyResultIndexExistsAndNotRecreate() throws IOException {
-        indices.initAnomalyResultIndexIfAbsent(TestHelpers.createActionListener(
-                response -> response.isAcknowledged(),
-                failure -> {
-                    throw new RuntimeException("should not recreate index");
-                }));
+        indices
+            .initAnomalyResultIndexIfAbsent(
+                TestHelpers
+                    .createActionListener(
+                        response -> response.isAcknowledged(),
+                        failure -> { throw new RuntimeException("should not recreate index"); }
+                    )
+            );
         TestHelpers.waitForIndexCreationToComplete(client(), AnomalyResult.ANOMALY_RESULT_INDEX);
         if (client().admin().indices().prepareExists(AnomalyResult.ANOMALY_RESULT_INDEX).get().isExists()) {
-            indices.initAnomalyResultIndexIfAbsent(TestHelpers.createActionListener(
-                    response -> {
-                        throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX);
-                    },
-                    failure -> {
-                        throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX);
-                    }));
+            indices
+                .initAnomalyResultIndexIfAbsent(
+                    TestHelpers
+                        .createActionListener(
+                            response -> { throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX); },
+                            failure -> { throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX); }
+                        )
+                );
         }
-    }
-
-    public void testAnomalyDetectorsIndexStatus() throws  IOException {
-        // Initialize index if it is not there
-        indices.initAnomalyDetectorIndexIfAbsent(TestHelpers.createActionListener(
-                response -> response.isAcknowledged(),
-                failure -> {
-                    throw new RuntimeException("should not recreate index");
-                }));
-        TestHelpers.waitForIndexCreationToComplete(client(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-
-        // check status
-        String status = indices.getIndexHealthStatus(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-        assertTrue(status.equals("yellow")  || status.equals("green")  || status.equals("red") || status.equals("nonexistent"));
-    }
-
-    public void testAnomalyDetectorsGetNumberOfDocuments() throws  IOException {
-        String indexName = "test_index";
-
-        indices.setClusterService(clusterService());
-
-        createIndex(indexName);
-
-        flushAndRefresh();
-        assertTrue("Index does not exist", clusterService().state().getRoutingTable().hasIndex(indexName));
-
-        Long numOfDetectors = 10L;
-        for (int i = 0; i < numOfDetectors; i++) {
-            createRandomDetector(indexName);
-        }
-
-        flushAndRefresh();
-
-        Long numOfActualDetectorsCreated = indices.getNumberOfDocumentsInIndex(indexName);
-        assertEquals("Total number of detectors is incorrect", numOfDetectors, numOfActualDetectorsCreated);
-
-        // Manually reset the clusterService to the original
-        indices.setClusterService(clusterService);
     }
 
     private void createRandomDetector(String indexName) throws IOException {

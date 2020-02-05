@@ -19,7 +19,7 @@ public class CommonName {
     // ======================================
     // Index name
     // ======================================
-    // index name for anomaly checkpoint of each model.  One model one document.
+    // index name for anomaly checkpoint of each model. One model one document.
     public static final String CHECKPOINT_INDEX_NAME = ".opendistro-anomaly-checkpoints";
 
     // ======================================

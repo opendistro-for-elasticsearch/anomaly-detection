@@ -22,7 +22,9 @@ public class ThresholdResultAction extends Action<ThresholdResultResponse> {
     public static final ThresholdResultAction INSTANCE = new ThresholdResultAction();
     public static final String NAME = "cluster:admin/ad/theshold/result";
 
-    private ThresholdResultAction() {super(NAME); }
+    private ThresholdResultAction() {
+        super(NAME);
+    }
 
     @Override
     public ThresholdResultResponse newResponse() {

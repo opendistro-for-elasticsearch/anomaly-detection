@@ -30,7 +30,6 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
 
-
 /**
  * Request should be sent from the handler logic of DELETE RESTful API
  *

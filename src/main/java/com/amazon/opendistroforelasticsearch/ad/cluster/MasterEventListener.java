@@ -25,6 +25,7 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.Scheduler.Cancellable;
 
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -37,22 +38,30 @@ public class MasterEventListener implements LocalNodeMasterListener {
     private DeleteDetector deleteUtil;
     private Client client;
     private Clock clock;
+    private ClientUtil clientUtil;
 
-    public MasterEventListener(ClusterService clusterService, ThreadPool threadPool, DeleteDetector deleteUtil,
-            Client client, Clock clock) {
+    public MasterEventListener(
+        ClusterService clusterService,
+        ThreadPool threadPool,
+        DeleteDetector deleteUtil,
+        Client client,
+        Clock clock,
+        ClientUtil clientUtil
+    ) {
         this.clusterService = clusterService;
         this.threadPool = threadPool;
         this.deleteUtil = deleteUtil;
         this.client = client;
         this.clusterService.addLocalNodeMasterListener(this);
         this.clock = clock;
+        this.clientUtil = clientUtil;
     }
 
     @Override
     public void onMaster() {
         if (hourlyCron == null) {
-            hourlyCron = threadPool.scheduleWithFixedDelay(new HourlyCron(clusterService, client),
-                    TimeValue.timeValueHours(1), executorName());
+            hourlyCron = threadPool
+                .scheduleWithFixedDelay(new HourlyCron(clusterService, client), TimeValue.timeValueHours(1), executorName());
             clusterService.addLifecycleListener(new LifecycleListener() {
                 @Override
                 public void beforeStop() {
@@ -63,9 +72,12 @@ public class MasterEventListener implements LocalNodeMasterListener {
         }
 
         if (dailyCron == null) {
-            dailyCron = threadPool.scheduleWithFixedDelay(
-                    new DailyCron(deleteUtil, clock, client, AnomalyDetectorSettings.CHECKPOINT_TTL),
-                    TimeValue.timeValueHours(24), executorName());
+            dailyCron = threadPool
+                .scheduleWithFixedDelay(
+                    new DailyCron(deleteUtil, clock, client, AnomalyDetectorSettings.CHECKPOINT_TTL, clientUtil),
+                    TimeValue.timeValueHours(24),
+                    executorName()
+                );
             clusterService.addLifecycleListener(new LifecycleListener() {
                 @Override
                 public void beforeStop() {

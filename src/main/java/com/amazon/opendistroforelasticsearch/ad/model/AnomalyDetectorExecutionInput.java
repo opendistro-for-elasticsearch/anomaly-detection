@@ -47,10 +47,11 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        XContentBuilder xContentBuilder = builder.startObject()
-                .field(DETECTOR_ID_FIELD, detectorId)
-                .field(PERIOD_START_FIELD, periodStart.toEpochMilli())
-                .field(PERIOD_END_FIELD, periodEnd.toEpochMilli());
+        XContentBuilder xContentBuilder = builder
+            .startObject()
+            .field(DETECTOR_ID_FIELD, detectorId)
+            .field(PERIOD_START_FIELD, periodStart.toEpochMilli())
+            .field(PERIOD_END_FIELD, periodEnd.toEpochMilli());
         return xContentBuilder.endObject();
     }
 
@@ -84,12 +85,14 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         AnomalyDetectorExecutionInput that = (AnomalyDetectorExecutionInput) o;
-        return Objects.equal(getPeriodStart(), that.getPeriodStart()) &&
-                Objects.equal(getPeriodEnd(), that.getPeriodEnd()) &&
-                Objects.equal(getDetectorId(), that.getDetectorId());
+        return Objects.equal(getPeriodStart(), that.getPeriodStart())
+            && Objects.equal(getPeriodEnd(), that.getPeriodEnd())
+            && Objects.equal(getDetectorId(), that.getDetectorId());
     }
 
     @Generated

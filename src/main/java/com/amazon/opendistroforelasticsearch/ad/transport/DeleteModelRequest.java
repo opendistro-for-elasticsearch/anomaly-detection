@@ -30,7 +30,6 @@ import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
-
 /**
  * Request should be sent from the handler logic of transport delete detector API
  *

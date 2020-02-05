@@ -68,8 +68,15 @@ public class CronTransportActionTests extends AbstractADTest {
         ModelManager modelManager = mock(ModelManager.class);
         FeatureManager featureManager = mock(FeatureManager.class);
 
-        action = new CronTransportAction(threadPool, clusterService, transportService, actionFilters,
-                tarnsportStatemanager, modelManager, featureManager);
+        action = new CronTransportAction(
+            threadPool,
+            clusterService,
+            transportService,
+            actionFilters,
+            tarnsportStatemanager,
+            modelManager,
+            featureManager
+        );
     }
 
     public void testNormal() throws IOException, JsonPathNotFoundException {
@@ -87,8 +94,7 @@ public class CronTransportActionTests extends AbstractADTest {
         CronNodeResponse nodeResponse1 = action.nodeOperation(nodeResponseRead);
         CronNodeResponse nodeResponse2 = action.nodeOperation(new CronNodeRequest("foo2", request));
 
-        CronResponse response = action.newResponse(request, Arrays.asList(nodeResponse1, nodeResponse2),
-                Collections.emptyList());
+        CronResponse response = action.newResponse(request, Arrays.asList(nodeResponse1, nodeResponse2), Collections.emptyList());
 
         assertEquals(2, response.getNodes().size());
         assertTrue(!response.hasFailures());
@@ -107,8 +113,10 @@ public class CronTransportActionTests extends AbstractADTest {
             }
             return null;
         };
-        assertArrayEquals(JsonDeserializer.getArrayValue(json, function, CronResponse.NODES_JSON_KEY),
-                new String[] { localNodeID, localNodeID });
+        assertArrayEquals(
+            JsonDeserializer.getArrayValue(json, function, CronResponse.NODES_JSON_KEY),
+            new String[] { localNodeID, localNodeID }
+        );
     }
 
 }

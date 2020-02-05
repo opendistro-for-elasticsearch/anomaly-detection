@@ -19,7 +19,7 @@ public class CommonErrorMessages {
     public static final String AD_ID_MISSING_MSG = "AD ID is missing";
     public static final String MODEL_ID_MISSING_MSG = "Model ID is missing";
     public static final String WAIT_ERR_MSG = "Exception in waiting for result";
-    public static final String HASH_ERR_MSG =  "Cannot find an RCF node.  Hashing does not work.";
+    public static final String HASH_ERR_MSG = "Cannot find an RCF node.  Hashing does not work.";
     public static final String NO_CHECKPOINT_ERR_MSG = "No checkpoints found for model id ";
     public static final String MEMORY_LIMIT_EXCEEDED_ERR_MSG = "AD models memory usage exceeds our limit.";
     public static final String FEATURE_NOT_AVAILABLE_ERR_MSG = "No Feature in current detection window.";

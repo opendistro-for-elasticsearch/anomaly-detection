@@ -58,7 +58,7 @@ public class JsonDeserializer {
     public static JsonElement parse(String jsonString) throws IOException {
         try {
             return parser.parse(jsonString);
-        } catch(JsonParseException e) {
+        } catch (JsonParseException e) {
             throw new IOException(e.getCause());
         }
     }
@@ -87,8 +87,7 @@ public class JsonDeserializer {
      * @throws JsonPathNotFoundException if json path is invalid
      * @throws IOException if the underlying input source has IO issues during parsing
      */
-    public static JsonObject getRootNode(String jsonString)
-            throws JsonPathNotFoundException, IOException {
+    public static JsonObject getRootNode(String jsonString) throws JsonPathNotFoundException, IOException {
         if (StringUtils.isBlank(jsonString))
             throw new JsonPathNotFoundException();
 
@@ -229,8 +228,7 @@ public class JsonDeserializer {
      * @throws JsonPathNotFoundException if json path is invalid
      * @throws IOException if the underlying input source has IO issues during parsing
      */
-    public static String getTextValue(String jsonString, String... paths)
-            throws JsonPathNotFoundException, IOException {
+    public static String getTextValue(String jsonString, String... paths) throws JsonPathNotFoundException, IOException {
         if (paths != null && paths.length > 0) {
             JsonElement jsonElement = getChildNode(jsonString, paths);
             if (jsonElement != null) {
@@ -287,8 +285,7 @@ public class JsonDeserializer {
         throw new JsonPathNotFoundException();
     }
 
-    private static String handleJsonPathNotFoundException(boolean returnEmptyStringIfMissing)
-            throws JsonPathNotFoundException {
+    private static String handleJsonPathNotFoundException(boolean returnEmptyStringIfMissing) throws JsonPathNotFoundException {
         if (returnEmptyStringIfMissing) {
             return "";
         } else {
@@ -307,7 +304,7 @@ public class JsonDeserializer {
      * @return the matching string or null in case of no match.
      */
     public static String getTextValue(JsonElement jsonElement, String path, boolean returnEmptyStringIfMissing)
-            throws JsonPathNotFoundException {
+        throws JsonPathNotFoundException {
         try {
             return getTextValue(jsonElement, path);
         } catch (JsonPathNotFoundException e) {
@@ -326,8 +323,8 @@ public class JsonDeserializer {
      * @throws JsonPathNotFoundException if json path is invalid
      * @throws IOException if the underlying input source has IO issues during parsing
      */
-    public static String getTextValue(String jsonString, String paths, boolean returnEmptyStringIfMissing)
-            throws JsonPathNotFoundException, IOException {
+    public static String getTextValue(String jsonString, String paths, boolean returnEmptyStringIfMissing) throws JsonPathNotFoundException,
+        IOException {
         try {
             return getTextValue(jsonString, paths);
         } catch (JsonPathNotFoundException e) {
@@ -346,16 +343,17 @@ public class JsonDeserializer {
      *                                   during parsing
      */
     @SuppressWarnings("unchecked")
-    public static <T>  T[] getArrayValue(String jsonString, Function<JsonElement, T> function, String... paths)
-            throws JsonPathNotFoundException, IOException {
+    public static <T> T[] getArrayValue(String jsonString, Function<JsonElement, T> function, String... paths)
+        throws JsonPathNotFoundException,
+        IOException {
         JsonElement jsonNode = getChildNode(jsonString, paths);
         if (jsonNode != null && jsonNode.isJsonArray()) {
             JsonArray array = jsonNode.getAsJsonArray();
             Object[] values = new Object[array.size()];
-            for (int i=0; i<array.size(); i++) {
+            for (int i = 0; i < array.size(); i++) {
                 values[i] = function.apply(array.get(i));
             }
-            return (T[])values;
+            return (T[]) values;
         }
         throw new JsonPathNotFoundException();
     }
@@ -371,8 +369,7 @@ public class JsonDeserializer {
      * @throws IOException               if the underlying input source has problems
      *                                   during parsing
      */
-    public static double getDoubleValue(String jsonString, String... paths)
-            throws JsonPathNotFoundException, IOException {
+    public static double getDoubleValue(String jsonString, String... paths) throws JsonPathNotFoundException, IOException {
         JsonElement jsonNode = getChildNode(jsonString, paths);
         if (jsonNode != null) {
             return jsonNode.getAsDouble();
@@ -390,27 +387,27 @@ public class JsonDeserializer {
      * @throws IOException               if the underlying input source has problems
      *                                   during parsing
      */
-    public static double[] getDoubleArrayValue(String jsonString, String... paths)
-            throws JsonPathNotFoundException, IOException {
+    public static double[] getDoubleArrayValue(String jsonString, String... paths) throws JsonPathNotFoundException, IOException {
         JsonElement jsonNode = getChildNode(jsonString, paths);
         if (jsonNode != null && jsonNode.isJsonArray()) {
             JsonArray array = jsonNode.getAsJsonArray();
             List<Double> values = new ArrayList<>();
-            for (int i=0; i<array.size(); i++) {
+            for (int i = 0; i < array.size(); i++) {
                 values.add(array.get(i).getAsDouble());
             }
-            return values.stream().mapToDouble(i->i).toArray();
+            return values.stream().mapToDouble(i -> i).toArray();
         }
         throw new JsonPathNotFoundException();
     }
 
     public static <T> List<T> getListValue(String jsonString, Function<JsonElement, T> function, String... paths)
-            throws JsonPathNotFoundException, IOException {
+        throws JsonPathNotFoundException,
+        IOException {
         JsonElement jsonNode = getChildNode(jsonString, paths);
         if (jsonNode != null && jsonNode.isJsonArray()) {
             JsonArray array = jsonNode.getAsJsonArray();
             List<T> values = new ArrayList<>(array.size());
-            for (int i=0; i<array.size(); i++) {
+            for (int i = 0; i < array.size(); i++) {
                 values.add(function.apply(array.get(i)));
             }
             return values;
@@ -418,8 +415,7 @@ public class JsonDeserializer {
         throw new JsonPathNotFoundException();
     }
 
-    public static double getDoubleValue(JsonElement jsonElement, String... paths)
-            throws JsonPathNotFoundException, IOException {
+    public static double getDoubleValue(JsonElement jsonElement, String... paths) throws JsonPathNotFoundException, IOException {
         JsonElement jsonNode = getChildNode(jsonElement, paths);
         if (jsonNode != null) {
             return jsonNode.getAsDouble();
@@ -427,4 +423,3 @@ public class JsonDeserializer {
         throw new JsonPathNotFoundException();
     }
 }
-

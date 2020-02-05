@@ -79,7 +79,7 @@ import static org.mockito.Mockito.when;
 @PowerMockIgnore("javax.management.*")
 @RunWith(PowerMockRunner.class)
 @PowerMockRunnerDelegate(JUnitParamsRunner.class)
-@PrepareForTest({Gson.class})
+@PrepareForTest({ Gson.class })
 public class ModelManagerTests {
 
     private ModelManager modelManager;
@@ -140,7 +140,7 @@ public class ModelManagerTests {
         numTrees = 100;
         numSamples = 10;
         numFeatures = 1;
-        rcfTimeDecay = 1.0/1024;
+        rcfTimeDecay = 1.0 / 1024;
         thresholdMinPvalue = 0.95;
         thresholdMaxRankError = 1e-4;
         thresholdMaxScore = 8.0;
@@ -152,35 +152,52 @@ public class ModelManagerTests {
         modelTtl = Duration.ofHours(1);
         checkpointInterval = Duration.ofHours(1);
 
-        rcf = RandomCutForest.builder().dimensions(numFeatures).sampleSize(numSamples)
-            .numberOfTrees(numTrees).build();
+        rcf = RandomCutForest.builder().dimensions(numFeatures).sampleSize(numSamples).numberOfTrees(numTrees).build();
 
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(10_000_000_000L);
 
         gson = PowerMockito.mock(Gson.class);
 
-        modelManager = spy(new ModelManager(clusterService, jvmService, rcfSerde, checkpointDao, gson, clock,
-            modelDesiredSizePercentage, modelMaxSizePercentage,
-            numTrees, numSamples, rcfTimeDecay,
-            thresholdMinPvalue, thresholdMaxRankError, thresholdMaxScore, thresholdNumLogNormalQuantiles,
-            thresholdDownsamples, thresholdMaxSamples, thresholdingModelClass,
-            minPreviewSize, modelTtl, checkpointInterval));
+        modelManager = spy(
+            new ModelManager(
+                clusterService,
+                jvmService,
+                rcfSerde,
+                checkpointDao,
+                gson,
+                clock,
+                modelDesiredSizePercentage,
+                modelMaxSizePercentage,
+                numTrees,
+                numSamples,
+                rcfTimeDecay,
+                thresholdMinPvalue,
+                thresholdMaxRankError,
+                thresholdMaxScore,
+                thresholdNumLogNormalQuantiles,
+                thresholdDownsamples,
+                thresholdMaxSamples,
+                thresholdingModelClass,
+                minPreviewSize,
+                modelTtl,
+                checkpointInterval
+            )
+        );
 
-        detectorId = "detectorId"; 
+        detectorId = "detectorId";
         modelId = "modelId";
         rcfModelId = "detectorId_model_rcf_1";
         thresholdModelId = "detectorId_model_threshold";
     }
 
     private Object[] getDetectorIdForModelIdData() {
-        return new Object[]{
-            new Object[]{"testId_model_threshold", "testId"},
-            new Object[]{"test_id_model_threshold", "test_id"},
-            new Object[]{"test_model_id_model_threshold", "test_model_id"},
-            new Object[]{"testId_model_rcf_1", "testId"},
-            new Object[]{"test_Id_model_rcf_1", "test_Id"},
-            new Object[]{"test_model_rcf_Id_model_rcf_1", "test_model_rcf_Id"},
-        };
+        return new Object[] {
+            new Object[] { "testId_model_threshold", "testId" },
+            new Object[] { "test_id_model_threshold", "test_id" },
+            new Object[] { "test_model_id_model_threshold", "test_model_id" },
+            new Object[] { "testId_model_rcf_1", "testId" },
+            new Object[] { "test_Id_model_rcf_1", "test_Id" },
+            new Object[] { "test_model_rcf_Id_model_rcf_1", "test_model_rcf_Id" }, };
     };
 
     @Test
@@ -190,11 +207,7 @@ public class ModelManagerTests {
     }
 
     private Object[] getDetectorIdForModelIdIllegalArgument() {
-       return new Object[] {
-           new Object[]{"testId"},
-           new Object[]{"testid_"},
-           new Object[]{"_testId"},
-       };
+        return new Object[] { new Object[] { "testId" }, new Object[] { "testid_" }, new Object[] { "_testId" }, };
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -205,20 +218,21 @@ public class ModelManagerTests {
 
     private Object[] combineRcfResultsData() {
         return new Object[] {
-            new Object[] {asList(), new CombinedRcfResult(0, 0)},
-            new Object[] {asList(new RcfResult(0, 0, 0)), new CombinedRcfResult(0, 0)},
-            new Object[] {asList(new RcfResult(1, 0, 50)), new CombinedRcfResult(1, 0)},
-            new Object[] {asList(new RcfResult(1, 0, 50), new RcfResult(2, 0, 50)), new CombinedRcfResult(1.5, 0)},
-            new Object[] {asList(new RcfResult(1, 0, 40), new RcfResult(2, 0, 60), new RcfResult(3, 0, 100)),
-                new CombinedRcfResult(2.3, 0)},
-            new Object[] {asList(new RcfResult(0, 1, 100)), new CombinedRcfResult(0, 1)},
-            new Object[] {asList(new RcfResult(0, 1, 50)), new CombinedRcfResult(0, 0.5)},
-            new Object[] {asList(new RcfResult(0, 0.5, 1000)), new CombinedRcfResult(0, 0.5)},
-            new Object[] {asList(new RcfResult(0, 1, 50), new RcfResult(0, 0, 50)), new CombinedRcfResult(0, 0.5)},
-            new Object[] {asList(new RcfResult(0, 0.5, 50), new RcfResult(0, 0.5, 50)), new CombinedRcfResult(0, 0.5)},
-            new Object[] {asList(new RcfResult(0, 1, 20), new RcfResult(0, 1, 30), new RcfResult(0, 0.5, 50)),
-                new CombinedRcfResult(0, 0.75)},
-        };
+            new Object[] { asList(), new CombinedRcfResult(0, 0) },
+            new Object[] { asList(new RcfResult(0, 0, 0)), new CombinedRcfResult(0, 0) },
+            new Object[] { asList(new RcfResult(1, 0, 50)), new CombinedRcfResult(1, 0) },
+            new Object[] { asList(new RcfResult(1, 0, 50), new RcfResult(2, 0, 50)), new CombinedRcfResult(1.5, 0) },
+            new Object[] {
+                asList(new RcfResult(1, 0, 40), new RcfResult(2, 0, 60), new RcfResult(3, 0, 100)),
+                new CombinedRcfResult(2.3, 0) },
+            new Object[] { asList(new RcfResult(0, 1, 100)), new CombinedRcfResult(0, 1) },
+            new Object[] { asList(new RcfResult(0, 1, 50)), new CombinedRcfResult(0, 0.5) },
+            new Object[] { asList(new RcfResult(0, 0.5, 1000)), new CombinedRcfResult(0, 0.5) },
+            new Object[] { asList(new RcfResult(0, 1, 50), new RcfResult(0, 0, 50)), new CombinedRcfResult(0, 0.5) },
+            new Object[] { asList(new RcfResult(0, 0.5, 50), new RcfResult(0, 0.5, 50)), new CombinedRcfResult(0, 0.5) },
+            new Object[] {
+                asList(new RcfResult(0, 1, 20), new RcfResult(0, 1, 30), new RcfResult(0, 0.5, 50)),
+                new CombinedRcfResult(0, 0.75) }, };
     }
 
     @Test
@@ -230,30 +244,33 @@ public class ModelManagerTests {
     private ImmutableOpenMap<String, DiscoveryNode> createDataNodes(int numDataNodes) {
         ImmutableOpenMap.Builder<String, DiscoveryNode> dataNodes = ImmutableOpenMap.builder();
         for (int i = 0; i < numDataNodes; i++) {
-            dataNodes.put("foo" + i , mock(DiscoveryNode.class));
+            dataNodes.put("foo" + i, mock(DiscoveryNode.class));
         }
         return dataNodes.build();
     }
 
     private Object[] getPartitionedForestSizesData() {
-        return new Object[]{
+        return new Object[] {
             // one partition given sufficient large nodes
-            new Object[]{100L, 100_000L, createDataNodes(10), pair(1, 100)},
+            new Object[] { 100L, 100_000L, createDataNodes(10), pair(1, 100) },
             // two paritions given sufficient medium nodes
-            new Object[]{100L, 50_000L, createDataNodes(10), pair(2, 50)},
+            new Object[] { 100L, 50_000L, createDataNodes(10), pair(2, 50) },
             // ten partitions given sufficent small nodes
-            new Object[]{100L, 10_000L, createDataNodes(10), pair(10, 10)},
+            new Object[] { 100L, 10_000L, createDataNodes(10), pair(10, 10) },
             // five double-sized paritions given fewer small nodes
-            new Object[]{100L, 10_000L, createDataNodes(5), pair(5, 20)},
+            new Object[] { 100L, 10_000L, createDataNodes(5), pair(5, 20) },
             // one large-sized partition given one small node
-            new Object[]{100L, 1_000L, createDataNodes(1), pair(1, 100)}
-        };
+            new Object[] { 100L, 1_000L, createDataNodes(1), pair(1, 100) } };
     }
 
     @Test
     @Parameters(method = "getPartitionedForestSizesData")
-    public void getPartitionedForestSizes_returnExpected(long totalModelSize, long heapSize,
-            ImmutableOpenMap<String, DiscoveryNode> dataNodes, Entry<Integer, Integer> expected) {
+    public void getPartitionedForestSizes_returnExpected(
+        long totalModelSize,
+        long heapSize,
+        ImmutableOpenMap<String, DiscoveryNode> dataNodes,
+        Entry<Integer, Integer> expected
+    ) {
 
         when(modelManager.estimateModelSize(rcf)).thenReturn(totalModelSize);
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
@@ -263,17 +280,19 @@ public class ModelManagerTests {
     }
 
     private Object[] getPartitionedForestSizesLimitExceededData() {
-        return new Object[]{
-            new Object[]{101L, 1_000L, createDataNodes(1)},
-            new Object[]{201L, 1_000L, createDataNodes(2)},
-            new Object[]{3001L, 10_000L, createDataNodes(3)}
-        };
+        return new Object[] {
+            new Object[] { 101L, 1_000L, createDataNodes(1) },
+            new Object[] { 201L, 1_000L, createDataNodes(2) },
+            new Object[] { 3001L, 10_000L, createDataNodes(3) } };
     }
 
-    @Test(expected= LimitExceededException.class)
+    @Test(expected = LimitExceededException.class)
     @Parameters(method = "getPartitionedForestSizesLimitExceededData")
-    public void getPartitionedForestSizes_throwLimitExceeded(long totalModelSize, long heapSize,
-            ImmutableOpenMap<String, DiscoveryNode> dataNodes) {
+    public void getPartitionedForestSizes_throwLimitExceeded(
+        long totalModelSize,
+        long heapSize,
+        ImmutableOpenMap<String, DiscoveryNode> dataNodes
+    ) {
         when(modelManager.estimateModelSize(rcf)).thenReturn(totalModelSize);
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
         when(clusterService.state().nodes().getDataNodes()).thenReturn(dataNodes);
@@ -282,12 +301,9 @@ public class ModelManagerTests {
     }
 
     private Object[] estimateModelSizeData() {
-        return new Object[]{
-            new Object[]{RandomCutForest.builder().dimensions(1).sampleSize(256) 
-                .numberOfTrees(100).build(), 819200L},
-            new Object[]{RandomCutForest.builder().dimensions(5).sampleSize(256)
-                .numberOfTrees(100).build(), 4096000L}
-        };
+        return new Object[] {
+            new Object[] { RandomCutForest.builder().dimensions(1).sampleSize(256).numberOfTrees(100).build(), 819200L },
+            new Object[] { RandomCutForest.builder().dimensions(5).sampleSize(256).numberOfTrees(100).build(), 4096000L } };
     }
 
     @Parameters(method = "estimateModelSizeData")
@@ -309,7 +325,7 @@ public class ModelManagerTests {
         when(forest.getNumberOfTrees()).thenReturn(numTrees);
         when(forest.getLambda()).thenReturn(rcfTimeDecay);
         when(forest.getSampleSize()).thenReturn(numSamples);
-        when(forest.getTotalUpdates()).thenReturn((long)numSamples);
+        when(forest.getTotalUpdates()).thenReturn((long) numSamples);
 
         RcfResult result = modelManager.getRcfResult(detectorId, rcfModelId, point);
 
@@ -459,22 +475,17 @@ public class ModelManagerTests {
 
     @Test
     public void trainModel_putTrainedModels() {
-        double[][] trainData = new Random().doubles().limit(100).mapToObj(d->new double[]{d}).toArray(double[][]::new);
+        double[][] trainData = new Random().doubles().limit(100).mapToObj(d -> new double[] { d }).toArray(double[][]::new);
         doReturn(new SimpleEntry<>(1, 10)).when(modelManager).getPartitionedForestSizes(anyObject(), anyObject());
 
         modelManager.trainModel(anomalyDetector, trainData);
 
-        verify(checkpointDao).putModelCheckpoint(
-          eq(modelManager.getRcfModelId(anomalyDetector.getDetectorId(), 0)), anyObject());
-        verify(checkpointDao).putModelCheckpoint(
-            eq(modelManager.getThresholdModelId(anomalyDetector.getDetectorId())), anyObject());
+        verify(checkpointDao).putModelCheckpoint(eq(modelManager.getRcfModelId(anomalyDetector.getDetectorId(), 0)), anyObject());
+        verify(checkpointDao).putModelCheckpoint(eq(modelManager.getThresholdModelId(anomalyDetector.getDetectorId())), anyObject());
     }
 
     private Object[] trainModelIllegalArgumentData() {
-        return new Object[] {
-            new Object[] {new double[][]{}},
-            new Object[] {new double[][]{{}}}
-        };
+        return new Object[] { new Object[] { new double[][] {} }, new Object[] { new double[][] { {} } } };
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -564,8 +575,7 @@ public class ModelManagerTests {
         when(checkpointDao.getModelCheckpoint(modelId)).thenReturn(Optional.of(checkpoint));
         when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
         when(rcfSerde.toJson(forest)).thenReturn(checkpoint);
-        when(clock.instant()).thenReturn(Instant.MIN, Instant.EPOCH,
-            Instant.EPOCH.plus(modelTtl).plus(Duration.ofSeconds(1)));
+        when(clock.instant()).thenReturn(Instant.MIN, Instant.EPOCH, Instant.EPOCH.plus(modelTtl).plus(Duration.ofSeconds(1)));
         modelManager.getRcfResult(detectorId, modelId, point);
 
         modelManager.maintenance();
@@ -600,8 +610,7 @@ public class ModelManagerTests {
         when(checkpointDao.getModelCheckpoint(modelId)).thenReturn(Optional.of(checkpoint));
         doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
         doReturn(checkpoint).when(gson).toJson(hybridThresholdingModel);
-        when(clock.instant()).thenReturn(Instant.MIN, Instant.EPOCH,
-            Instant.EPOCH.plus(modelTtl).plus(Duration.ofSeconds(1)));
+        when(clock.instant()).thenReturn(Instant.MIN, Instant.EPOCH, Instant.EPOCH.plus(modelTtl).plus(Duration.ofSeconds(1)));
         modelManager.getThresholdingResult(detectorId, modelId, score);
 
         modelManager.maintenance();
@@ -648,7 +657,7 @@ public class ModelManagerTests {
     @Test
     public void getPreviewResults_returnNoAnomalies_forNoAnomalies() {
         int numPoints = 1000;
-        double[][] points = Stream.generate(() -> new double[]{0}).limit(numPoints).toArray(double[][]::new);
+        double[][] points = Stream.generate(() -> new double[] { 0 }).limit(numPoints).toArray(double[][]::new);
 
         List<ThresholdingResult> results = modelManager.getPreviewResults(points);
 
@@ -659,8 +668,8 @@ public class ModelManagerTests {
     @Test
     public void getPreviewResults_returnAnomalies_forLastAnomaly() {
         int numPoints = 1000;
-        double[][] points = Stream.generate(() -> new double[]{0}).limit(numPoints).toArray(double[][]::new);
-        points[points.length - 1] = new double[]{1.};
+        double[][] points = Stream.generate(() -> new double[] { 0 }).limit(numPoints).toArray(double[][]::new);
+        points[points.length - 1] = new double[] { 1. };
 
         List<ThresholdingResult> results = modelManager.getPreviewResults(points);
 

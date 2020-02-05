@@ -47,7 +47,7 @@ public class RCFResultIT extends ESIntegTestCase {
     }
 
     public void testIDIsNull() throws ExecutionException, InterruptedException {
-        RCFResultRequest request = new RCFResultRequest(null, "123-rcfmodel-1", new double[] {0});
+        RCFResultRequest request = new RCFResultRequest(null, "123-rcfmodel-1", new double[] { 0 });
 
         ActionFuture<RCFResultResponse> future = client().execute(RCFResultAction.INSTANCE, request);
 

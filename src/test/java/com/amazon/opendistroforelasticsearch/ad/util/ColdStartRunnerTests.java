@@ -74,7 +74,7 @@ public class ColdStartRunnerTests extends ESTestCase {
 
         int retries = 10;
         Optional<AnomalyDetectionException> res = null;
-        for (int i=0; i<retries; i++) {
+        for (int i = 0; i < retries; i++) {
             res = runner.fetchException(adID);
             if (!res.isPresent()) {
                 // wait for ExecutorCompletionService to get the completed task
@@ -83,7 +83,6 @@ public class ColdStartRunnerTests extends ESTestCase {
                 break;
             }
         }
-
 
         assertEquals(adID, res.get().getAnomalyDetectorId());
     }

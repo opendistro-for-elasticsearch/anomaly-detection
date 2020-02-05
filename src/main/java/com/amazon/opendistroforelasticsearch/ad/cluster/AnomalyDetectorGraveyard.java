@@ -34,16 +34,15 @@ import com.google.common.base.Objects;
  * Data structure defining detector id and when this detector gets deleted
  *
  */
-public class AnomalyDetectorGraveyard extends AbstractDiffable<AnomalyDetectorGraveyard>
-        implements Writeable, ToXContentObject {
+public class AnomalyDetectorGraveyard extends AbstractDiffable<AnomalyDetectorGraveyard> implements Writeable, ToXContentObject {
     static final String DETECTOR_ID_KEY = "adID";
     static final String DELETE_TIME_KEY = "deleteMillis";
     private static final ObjectParser<Builder, Void> PARSER;
 
     static {
         PARSER = new ObjectParser<>("adGraveyard", true, Builder::new);
-        PARSER.declareString(Builder::detectorID,  new ParseField(DETECTOR_ID_KEY));
-        PARSER.declareLong(Builder::deleteEpochMillis,  new ParseField(DELETE_TIME_KEY));
+        PARSER.declareString(Builder::detectorID, new ParseField(DETECTOR_ID_KEY));
+        PARSER.declareLong(Builder::deleteEpochMillis, new ParseField(DELETE_TIME_KEY));
     }
 
     private String detectorID;
@@ -85,11 +84,12 @@ public class AnomalyDetectorGraveyard extends AbstractDiffable<AnomalyDetectorGr
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         AnomalyDetectorGraveyard that = (AnomalyDetectorGraveyard) o;
-        return Objects.equal(detectorID, that.getDetectorID()) &&
-                Objects.equal(deleteEpochMillis, that.getDeleteEpochMillis());
+        return Objects.equal(detectorID, that.getDetectorID()) && Objects.equal(deleteEpochMillis, that.getDeleteEpochMillis());
     }
 
     @Generated

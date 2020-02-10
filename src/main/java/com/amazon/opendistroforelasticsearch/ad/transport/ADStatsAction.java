@@ -15,13 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.elasticsearch.action.Action;
+import org.elasticsearch.action.ActionType;
 import org.elasticsearch.common.io.stream.Writeable;
 
 /**
  * ADStatsAction class
  */
-public class ADStatsAction extends Action<ADStatsResponse> {
+public class ADStatsAction extends ActionType<ADStatsResponse> {
 
     public static final ADStatsAction INSTANCE = new ADStatsAction();
     public static final String NAME = "cluster:admin/ad_stats_action";
@@ -30,16 +30,7 @@ public class ADStatsAction extends Action<ADStatsResponse> {
      * Constructor
      */
     private ADStatsAction() {
-        super(NAME);
+        super(NAME, ADStatsResponse::new);
     }
 
-    @Override
-    public ADStatsResponse newResponse() {
-        throw new UnsupportedOperationException("Usage of Streamable is to be replaced by Writeable");
-    }
-
-    @Override
-    public Writeable.Reader<ADStatsResponse> getResponseReader() {
-        return ADStatsResponse::new;
-    }
 }

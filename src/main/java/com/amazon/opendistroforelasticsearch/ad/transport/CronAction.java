@@ -15,18 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.elasticsearch.action.Action;
+import org.elasticsearch.action.ActionType;
 
-public class CronAction extends Action<CronResponse> {
+public class CronAction extends ActionType<CronResponse> {
     public static final CronAction INSTANCE = new CronAction();
     public static final String NAME = "cluster:admin/ad/cron";
 
     private CronAction() {
-        super(NAME);
+        super(NAME, CronResponse::new);
     }
 
-    @Override
-    public CronResponse newResponse() {
-        return new CronResponse();
-    }
 }

@@ -15,26 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.elasticsearch.action.Action;
-import org.elasticsearch.common.io.stream.Writeable;
+import org.elasticsearch.action.ActionType;
 
-public class RCFResultAction extends Action<RCFResultResponse> {
+public class RCFResultAction extends ActionType<RCFResultResponse> {
     public static final RCFResultAction INSTANCE = new RCFResultAction();
     public static final String NAME = "cluster:admin/ad/rcf/result";
 
     private RCFResultAction() {
-        super(NAME);
-    }
-
-    @Override
-    public RCFResultResponse newResponse() {
-        throw new UnsupportedOperationException("Usage of Streamable is to be replaced by Writeable");
-    }
-
-    @Override
-    public Writeable.Reader<RCFResultResponse> getResponseReader() {
-        // return constructor method reference
-        return RCFResultResponse::new;
+        super(NAME, RCFResultResponse::new);
     }
 
 }

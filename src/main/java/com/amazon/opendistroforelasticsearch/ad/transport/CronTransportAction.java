@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import java.io.IOException;
 import java.util.List;
 
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
@@ -24,6 +25,7 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.nodes.TransportNodesAction;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
@@ -65,13 +67,13 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
     }
 
     @Override
-    protected CronNodeRequest newNodeRequest(String nodeId, CronRequest request) {
-        return new CronNodeRequest(nodeId, request);
+    protected CronNodeRequest newNodeRequest(CronRequest request) {
+        return new CronNodeRequest();
     }
 
     @Override
-    protected CronNodeResponse newNodeResponse() {
-        return new CronNodeResponse();
+    protected CronNodeResponse newNodeResponse(StreamInput in) throws IOException {
+        return new CronNodeResponse(in);
     }
 
     /**

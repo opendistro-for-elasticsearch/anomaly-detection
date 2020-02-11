@@ -25,8 +25,4 @@ public class DeleteModelAction extends ActionType<DeleteModelResponse> {
         super(NAME, DeleteModelResponse::new);
     }
 
-    @Override
-    public DeleteModelResponse newResponse() {
-        return new DeleteModelResponse();
-    }
 }

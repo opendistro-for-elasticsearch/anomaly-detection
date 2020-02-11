@@ -29,7 +29,9 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 public class CronResponse extends BaseNodesResponse<CronNodeResponse> implements ToXContentFragment {
     static String NODES_JSON_KEY = "nodes";
 
-    public CronResponse() {}
+    public CronResponse(StreamInput in) throws IOException {
+        super(in);
+    }
 
     public CronResponse(ClusterName clusterName, List<CronNodeResponse> nodes, List<FailedNodeException> failures) {
         super(clusterName, nodes, failures);
@@ -42,7 +44,7 @@ public class CronResponse extends BaseNodesResponse<CronNodeResponse> implements
 
     @Override
     protected void writeNodesTo(StreamOutput out, List<CronNodeResponse> nodes) throws IOException {
-        out.writeStreamableList(nodes);
+        out.writeList(nodes);
     }
 
     @Override

@@ -65,7 +65,6 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
         ClusterService clusterService,
         AnomalyDetectionIndices anomalyDetectionIndices
     ) {
-        super(settings);
         controller.registerHandler(RestRequest.Method.POST, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, this); // Create
         controller
             .registerHandler(

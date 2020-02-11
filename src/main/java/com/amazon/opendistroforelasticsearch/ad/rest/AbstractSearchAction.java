@@ -56,8 +56,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
-    public AbstractSearchAction(Settings settings, RestController controller, String urlPath, String index, Class<T> clazz) {
-        super(settings);
+    public AbstractSearchAction(RestController controller, String urlPath, String index, Class<T> clazz) {
         this.index = index;
         this.clazz = clazz;
         controller.registerHandler(RestRequest.Method.POST, urlPath, this);

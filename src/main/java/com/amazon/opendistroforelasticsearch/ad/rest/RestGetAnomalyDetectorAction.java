@@ -55,8 +55,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
     private static final String GET_ANOMALY_DETECTOR_ACTION = "get_anomaly_detector";
     private static final Logger logger = LogManager.getLogger(RestGetAnomalyDetectorAction.class);
 
-    public RestGetAnomalyDetectorAction(Settings settings, RestController controller) {
-        super(settings);
+    public RestGetAnomalyDetectorAction(RestController controller) {
         String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
         controller.registerHandler(RestRequest.Method.GET, path, this);
         controller.registerHandler(RestRequest.Method.HEAD, path, this);

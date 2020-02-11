@@ -44,12 +44,10 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
     /**
      * Constructor
      *
-     * @param settings  Settings
      * @param controller Rest Controller
      * @param adStats ADStats object
      */
-    public RestStatsAnomalyDetectorAction(Settings settings, RestController controller, ADStats adStats) {
-        super(settings);
+    public RestStatsAnomalyDetectorAction(RestController controller, ADStats adStats) {
         controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/", this);
         controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/{stat}", this);
         controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/stats/", this);

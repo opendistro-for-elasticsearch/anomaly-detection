@@ -31,7 +31,7 @@ public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyR
     private final String SEARCH_ANOMALY_DETECTOR_ACTION = "search_anomaly_result";
 
     public RestSearchAnomalyResultAction(Settings settings, RestController controller) {
-        super(settings, controller, URL_PATH, ALL_AD_RESULTS_INDEX_PATTERN, AnomalyResult.class);
+        super(controller, URL_PATH, ALL_AD_RESULTS_INDEX_PATTERN, AnomalyResult.class);
     }
 
     @Override

@@ -42,7 +42,11 @@ public class DeleteModelRequest extends BaseNodesRequest<DeleteModelRequest> imp
     }
 
     public DeleteModelRequest() {
-        super();
+        super((String[]) null);
+    }
+
+    public DeleteModelRequest(StreamInput in) throws IOException {
+        super(in);
     }
 
     public DeleteModelRequest(String adID, DiscoveryNode... nodes) {
@@ -56,9 +60,7 @@ public class DeleteModelRequest extends BaseNodesRequest<DeleteModelRequest> imp
         out.writeString(adID);
     }
 
-    @Override
     public void readFrom(StreamInput in) throws IOException {
-        super.readFrom(in);
         adID = in.readString();
     }
 

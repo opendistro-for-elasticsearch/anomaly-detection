@@ -30,14 +30,15 @@ public class DeleteModelNodeRequest extends BaseNodeRequest {
 
     DeleteModelNodeRequest() {}
 
-    DeleteModelNodeRequest(String nodeID, DeleteModelRequest request) {
-        super(nodeID);
+    DeleteModelNodeRequest(StreamInput in) throws IOException {
+        super(in);
+    }
+
+    DeleteModelNodeRequest(DeleteModelRequest request) {
         this.adID = request.getAdID();
     }
 
-    @Override
     public void readFrom(StreamInput in) throws IOException {
-        super.readFrom(in);
         adID = in.readString();
     }
 

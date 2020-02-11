@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import java.io.IOException;
 import java.util.List;
 
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
@@ -26,6 +27,7 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.nodes.TransportNodesAction;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
@@ -72,13 +74,13 @@ public class DeleteModelTransportAction extends
     }
 
     @Override
-    protected DeleteModelNodeRequest newNodeRequest(String nodeId, DeleteModelRequest request) {
-        return new DeleteModelNodeRequest(nodeId, request);
+    protected DeleteModelNodeRequest newNodeRequest(DeleteModelRequest request) {
+        return new DeleteModelNodeRequest(request);
     }
 
     @Override
-    protected DeleteModelNodeResponse newNodeResponse() {
-        return new DeleteModelNodeResponse();
+    protected DeleteModelNodeResponse newNodeResponse(StreamInput in) throws IOException {
+        return new DeleteModelNodeResponse(in);
     }
 
     /**

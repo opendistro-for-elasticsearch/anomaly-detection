@@ -181,7 +181,7 @@ public class DeleteTests extends AbstractADTest {
         request.writeTo(output);
 
         StreamInput streamInput = output.bytes().streamInput();
-        readRequest.readFrom(streamInput);
+        ((DeleteModelRequest)readRequest).readFrom(streamInput);
         assertThat(requestSupplier.get(), equalTo(readRequestSupplier.get()));
     }
 
@@ -219,10 +219,10 @@ public class DeleteTests extends AbstractADTest {
     }
 
     public void testNewResponse() throws IOException {
-        AcknowledgedResponse response = DeleteDetectorAction.INSTANCE.newResponse();
         StreamInput input = mock(StreamInput.class);
         when(input.readByte()).thenReturn((byte) 0x01);
-        response.readFrom(input);
+        AcknowledgedResponse response = new AcknowledgedResponse(input);
+
         assertTrue(response.isAcknowledged());
     }
 

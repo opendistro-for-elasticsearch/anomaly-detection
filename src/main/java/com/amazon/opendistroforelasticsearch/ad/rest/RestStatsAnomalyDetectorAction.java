@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsRequest;
 import org.elasticsearch.client.node.NodeClient;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.rest.action.RestActions;
 import org.elasticsearch.rest.BaseRestHandler;

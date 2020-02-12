@@ -73,7 +73,7 @@ public class ADStatsTests extends ESTestCase {
         assertNull("ADStatsNodeRequest default constructor failed", adStatsNodeRequest1.getADStatsRequest());
 
         ADStatsRequest adStatsRequest = new ADStatsRequest();
-        ADStatsNodeRequest adStatsNodeRequest2 = new ADStatsNodeRequest(node1, adStatsRequest);
+        ADStatsNodeRequest adStatsNodeRequest2 = new ADStatsNodeRequest(adStatsRequest);
         assertEquals("ADStatsNodeRequest has the wrong ADStatsRequest", adStatsNodeRequest2.getADStatsRequest(), adStatsRequest);
 
         // Test serialization
@@ -197,11 +197,5 @@ public class ADStatsTests extends ESTestCase {
         builder = jsonBuilder();
         String readJson = Strings.toString(readRequest.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject());
         assertEquals("Serialization fails", readJson, json);
-    }
-
-    @Test(expected = UnsupportedOperationException.class)
-    public void testADStatsAction_newResponse() {
-        ADStatsAction adStatsAction = ADStatsAction.INSTANCE;
-        adStatsAction.newResponse();
     }
 }

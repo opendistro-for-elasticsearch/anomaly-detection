@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import org.elasticsearch.action.ActionType;
-import org.elasticsearch.common.io.stream.Writeable;
 
 public class StopDetectorAction extends ActionType<StopDetectorResponse> {
     public static final StopDetectorAction INSTANCE = new StopDetectorAction();

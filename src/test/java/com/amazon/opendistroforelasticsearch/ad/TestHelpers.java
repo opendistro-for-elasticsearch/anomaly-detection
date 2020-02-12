@@ -65,12 +65,12 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 
+import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.elasticsearch.test.ESTestCase.randomAlphaOfLength;
 import static org.elasticsearch.test.ESTestCase.randomDouble;
@@ -263,7 +263,7 @@ public class TestHelpers {
             "node",
             ESTestCase.buildNewFakeTransportAddress(),
             Collections.emptyMap(),
-            EnumSet.allOf(DiscoveryNode.Role.class),
+            BUILT_IN_ROLES,
             Version.CURRENT
         );
         return ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);

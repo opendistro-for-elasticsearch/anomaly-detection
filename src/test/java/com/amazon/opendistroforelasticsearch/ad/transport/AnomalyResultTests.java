@@ -969,10 +969,6 @@ public class AnomalyResultTests extends AbstractADTest {
         assertThat(e.validationErrors(), hasItem(startsWith(AnomalyResultRequest.INVALID_TIMESTAMP_ERR_MSG)));
     }
 
-    public void testIncorrectSerialzationResponse() throws IOException {
-        expectThrows(UnsupportedOperationException.class, () -> AnomalyResultAction.INSTANCE.newResponse());
-    }
-
     // no exception should be thrown
     public void testOnFailureNull() throws IOException {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(

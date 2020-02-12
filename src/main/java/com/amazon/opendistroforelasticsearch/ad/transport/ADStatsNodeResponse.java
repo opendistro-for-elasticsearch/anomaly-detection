@@ -34,6 +34,9 @@ public class ADStatsNodeResponse extends BaseNodeResponse implements ToXContentF
 
     /**
      * Constructor
+     *
+     * @param in StreamInput
+     * @throws IOException throws an IO exception if the StreamInput cannot be read from
      */
     public ADStatsNodeResponse(StreamInput in) throws IOException {
         super(in);

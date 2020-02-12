@@ -28,7 +28,6 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;

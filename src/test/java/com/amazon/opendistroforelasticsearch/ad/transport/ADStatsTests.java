@@ -32,7 +32,9 @@ import org.junit.Before;
 import org.junit.Test;
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -140,8 +142,7 @@ public class ADStatsTests extends ESTestCase {
         BytesStreamOutput output = new BytesStreamOutput();
         adStatsRequest.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        ADStatsRequest readRequest = new ADStatsRequest();
-        readRequest.readFrom(streamInput);
+        ADStatsRequest readRequest = new ADStatsRequest(streamInput);
         assertEquals("Serialization fails", readRequest.getStatsToBeRetrieved(), adStatsRequest.getStatsToBeRetrieved());
     }
 

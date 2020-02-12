@@ -37,7 +37,7 @@ public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
 
     public ADStatsRequest(StreamInput in) throws IOException {
         super(in);
-        statsToBeRetrieved = new HashSet<>();
+        statsToBeRetrieved = in.readSet(StreamInput::readString);;
     }
 
     /**

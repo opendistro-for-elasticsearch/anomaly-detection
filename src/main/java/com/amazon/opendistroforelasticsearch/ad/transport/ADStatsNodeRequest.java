@@ -36,6 +36,7 @@ public class ADStatsNodeRequest extends BaseNodeRequest {
 
     public ADStatsNodeRequest(StreamInput in) throws IOException {
         super(in);
+        this.request = new ADStatsRequest(in);
     }
 
     /**

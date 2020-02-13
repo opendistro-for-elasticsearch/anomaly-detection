@@ -32,6 +32,7 @@ public class DeleteModelNodeRequest extends BaseNodeRequest {
 
     DeleteModelNodeRequest(StreamInput in) throws IOException {
         super(in);
+        this.adID = in.readString();
     }
 
     DeleteModelNodeRequest(DeleteModelRequest request) {

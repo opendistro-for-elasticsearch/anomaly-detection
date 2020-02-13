@@ -82,7 +82,7 @@ public class HourlyCronTests extends AbstractADTest {
             } else {
                 CronNodeResponse nodeResponse = new CronNodeResponse(state.nodes().getLocalNode());
                 BytesStreamOutput nodeResponseOut = new BytesStreamOutput();
-                nodeResponseOut.setVersion(Version.V_7_1_1);
+                nodeResponseOut.setVersion(Version.CURRENT);
                 nodeResponse.writeTo(nodeResponseOut);
                 StreamInput siNode = nodeResponseOut.bytes().streamInput();
 
@@ -94,7 +94,7 @@ public class HourlyCronTests extends AbstractADTest {
                     Collections.EMPTY_LIST
                 );
                 BytesStreamOutput out = new BytesStreamOutput();
-                out.setVersion(Version.V_7_1_1);
+                out.setVersion(Version.CURRENT);
                 response.writeTo(out);
                 StreamInput si = out.bytes().streamInput();
                 CronResponse responseRead = new CronResponse(si);

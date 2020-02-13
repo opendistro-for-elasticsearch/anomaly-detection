@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import com.google.common.collect.Sets;
 import org.elasticsearch.Version;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.ClusterState;
@@ -85,7 +84,7 @@ public class ClusterCreation {
             "foo0",
             new TransportAddress(InetAddress.getLoopbackAddress(), 9300),
             Collections.emptyMap(),
-            Collections.unmodifiableSet(Sets.newHashSet(MASTER_ROLE)),
+            Collections.singleton(MASTER_ROLE),
             Version.CURRENT
         );
         List<DiscoveryNode> allNodes = new ArrayList<>();
@@ -98,7 +97,7 @@ public class ClusterCreation {
                         "foo" + i,
                         new TransportAddress(InetAddress.getLoopbackAddress(), 9300 + i),
                         Collections.emptyMap(),
-                        Collections.unmodifiableSet(Sets.newHashSet(DATA_ROLE)),
+                        Collections.singleton(DATA_ROLE),
                         Version.CURRENT
                     )
                 );

@@ -157,10 +157,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
         RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction(settings, restController);
         RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction(settings, restController);
-        RestDeleteAnomalyDetectorAction deleteAnomalyDetectorAction = new RestDeleteAnomalyDetectorAction(
-            restController,
-            clusterService
-        );
+        RestDeleteAnomalyDetectorAction deleteAnomalyDetectorAction = new RestDeleteAnomalyDetectorAction(restController, clusterService);
         RestExecuteAnomalyDetectorAction executeAnomalyDetectorAction = new RestExecuteAnomalyDetectorAction(
             settings,
             restController,

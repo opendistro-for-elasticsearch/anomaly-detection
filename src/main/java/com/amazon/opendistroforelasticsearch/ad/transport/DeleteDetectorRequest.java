@@ -45,6 +45,7 @@ public class DeleteDetectorRequest extends AcknowledgedRequest<DeleteDetectorReq
 
     public DeleteDetectorRequest(StreamInput in) throws IOException {
         super(in);
+        adID = in.readString();
     }
 
     public DeleteDetectorRequest adID(String adID) {
@@ -56,10 +57,6 @@ public class DeleteDetectorRequest extends AcknowledgedRequest<DeleteDetectorReq
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(adID);
-    }
-
-    public void readFrom(StreamInput in) throws IOException {
-        adID = in.readString();
     }
 
     @Override

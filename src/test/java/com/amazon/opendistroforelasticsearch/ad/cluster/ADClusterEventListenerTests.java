@@ -168,15 +168,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
                     .localNodeId(dataNode1Id)
                     .add(new DiscoveryNode(masterNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT))
                     .add(dataNode1)
-                    .add(
-                        new DiscoveryNode(
-                            "dataNode2",
-                            buildNewFakeTransportAddress(),
-                            emptyMap(),
-                            BUILT_IN_ROLES,
-                            Version.CURRENT
-                        )
-                    )
+                    .add(new DiscoveryNode("dataNode2", buildNewFakeTransportAddress(), emptyMap(), BUILT_IN_ROLES, Version.CURRENT))
             )
             .build();
 

@@ -47,6 +47,7 @@ public class DeleteModelRequest extends BaseNodesRequest<DeleteModelRequest> imp
 
     public DeleteModelRequest(StreamInput in) throws IOException {
         super(in);
+        adID = in.readString();
     }
 
     public DeleteModelRequest(String adID, DiscoveryNode... nodes) {
@@ -58,10 +59,6 @@ public class DeleteModelRequest extends BaseNodesRequest<DeleteModelRequest> imp
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(adID);
-    }
-
-    public void readFrom(StreamInput in) throws IOException {
-        adID = in.readString();
     }
 
     @Override

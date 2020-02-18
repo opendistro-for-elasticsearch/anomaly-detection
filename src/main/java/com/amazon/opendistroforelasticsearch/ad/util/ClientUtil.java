@@ -207,13 +207,9 @@ public class ClientUtil {
     /**
      * Check if there is running query on given detector
      * @param detector Anomaly Detector
-     * @return boolean
+     * @return true if given detector has a running query else false
      */
     public boolean hasRunningQuery(AnomalyDetector detector) {
-        Optional<Map.Entry<ActionRequest, Instant>> queryEntry = throttler.getFilteredQuery(detector);
-        if (queryEntry.isPresent()) {
-            return true;
-        }
-        return false;
+        return throttler.getFilteredQuery(detector).isPresent();
     }
 }

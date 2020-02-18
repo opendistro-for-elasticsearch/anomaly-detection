@@ -24,6 +24,9 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.elasticsearch.action.ActionRequest;
 
+/**
+ * Utility functions for throttling query.
+ */
 public class Throttler {
     // negativeCache is used to reject search query if given detector already has one query running
     // key is detectorId, value is an entry. Key is ActionRequest and value is the timestamp
@@ -41,15 +44,11 @@ public class Throttler {
      * @return negative cache value(ActionRequest, Instant)
      */
     public Optional<Map.Entry<ActionRequest, Instant>> getFilteredQuery(AnomalyDetector detector) {
-        if (negativeCache.containsKey(detector.getDetectorId())) {
-            return Optional.of(negativeCache.get(detector.getDetectorId()));
-        }
-        return Optional.empty();
+        return Optional.of(negativeCache.get(detector.getDetectorId()));
     }
 
     /**
      * Insert the negative cache entry for given detector
-     * If detectorId is null, do nothing
      * @param detector AnomalyDetector
      * @param request ActionRequest
      */

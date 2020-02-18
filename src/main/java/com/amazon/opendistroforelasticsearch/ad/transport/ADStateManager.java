@@ -213,7 +213,7 @@ public class ADStateManager {
     /**
      * Check if there is running query on given detector
      * @param detector Anomaly Detector
-     * @return boolean
+     * @return true if given detector has a running query else false
      */
     public boolean hasRunningQuery(AnomalyDetector detector) {
         return clientUtil.hasRunningQuery(detector);

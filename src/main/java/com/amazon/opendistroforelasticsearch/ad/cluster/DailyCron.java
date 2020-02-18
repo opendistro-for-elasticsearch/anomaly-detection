@@ -25,6 +25,9 @@ import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksAction;
+import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
+import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.IndexNotFoundException;
@@ -89,6 +92,35 @@ public class DailyCron implements Runnable {
             );
 
         deleteUtil.deleteDetectorResult(client);
+
+        // Step 1: get current task
+        // list task api
+        // https://www.elastic.co/guide/en/elasticsearch/client/java-rest/master/java-rest-high-tasks-list.html
+        ListTasksRequest listTasksRequest = new ListTasksRequest();
+        listTasksRequest.setDetailed(true);
+        ListTasksResponse listTasksResponse  = new ListTasksResponse();
+        clientUtil.timedRequest(listTasksRequest, LOG, client::)
+        clientUtil
+                .execute(
+                        ListTasksAction.INSTANCE,
+                        listTasksRequest,
+                        ActionListener
+                                .wrap(
+                                        response -> {
+                                            listTasksResponse.
+                                            LOG.info("List all tasks");
+                                        },
+                                        exception -> {
+                                            LOG.error("List Task failed.", exception);
+                                        }
+                        )
+                );
+        // Step 2: go through negative cache to match
+
+
+        // Step 3: kill the matched tasks
+        // cancel task api
+        // https://www.elastic.co/guide/en/elasticsearch/client/java-rest/master/java-rest-high-cluster-cancel-tasks.html
     }
 
 }

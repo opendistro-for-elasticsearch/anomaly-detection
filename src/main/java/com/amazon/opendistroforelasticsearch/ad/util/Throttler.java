@@ -44,7 +44,7 @@ public class Throttler {
      * @return negative cache value(ActionRequest, Instant)
      */
     public Optional<Map.Entry<ActionRequest, Instant>> getFilteredQuery(AnomalyDetector detector) {
-        return Optional.of(negativeCache.get(detector.getDetectorId()));
+        return Optional.ofNullable(negativeCache.get(detector.getDetectorId()));
     }
 
     /**

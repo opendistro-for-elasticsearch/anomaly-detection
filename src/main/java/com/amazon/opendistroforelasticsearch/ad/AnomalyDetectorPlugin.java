@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADClusterEventListener;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData.ADMetaDataDiff;
+import com.amazon.opendistroforelasticsearch.ad.cluster.CancelQueryUtil;
 import com.amazon.opendistroforelasticsearch.ad.cluster.DeleteDetector;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.cluster.MasterEventListener;
@@ -267,6 +268,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager);
 
         DeleteDetector deleteUtil = new DeleteDetector(clusterService, clock);
+        CancelQueryUtil cancelQueryUtil = new CancelQueryUtil(throttler, clock);
 
         Map<String, ADStat<?>> stats = ImmutableMap
             .<String, ADStat<?>>builder()
@@ -313,7 +315,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 deleteUtil,
                 adCircuitBreakerService,
                 adStats,
-                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil)
+                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, cancelQueryUtil)
             );
     }
 

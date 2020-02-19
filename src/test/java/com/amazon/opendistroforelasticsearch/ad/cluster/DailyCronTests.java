@@ -61,7 +61,7 @@ public class DailyCronTests extends AbstractADTest {
         Clock clock = mock(Clock.class);
         Client client = mock(Client.class);
         ClientUtil clientUtil = mock(ClientUtil.class);
-        DailyCron cron = new DailyCron(deleteUtil, clock, client, Duration.ofHours(24), clientUtil);
+        DailyCron cron = new DailyCron(deleteUtil, clock, client, Duration.ofHours(24), clientUtil, throttler, cancelQueryUtil);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();

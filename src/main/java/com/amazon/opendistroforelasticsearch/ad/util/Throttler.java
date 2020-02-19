@@ -44,7 +44,7 @@ public class Throttler {
      * @return negative cache value(ActionRequest, Instant)
      */
     public Optional<Map.Entry<ActionRequest, Instant>> getFilteredQuery(AnomalyDetector detector) {
-        return Optional.of(negativeCache.get(detector.getDetectorId()));
+        return Optional.ofNullable(negativeCache.get(detector.getDetectorId()));
     }
 
     /**
@@ -64,4 +64,13 @@ public class Throttler {
     public void clearFilteredQuery(AnomalyDetector detector) {
         negativeCache.keySet().removeIf(key -> key.equals(detector.getDetectorId()));
     }
+
+    /**
+     * Getter
+     * @return negative cache map ConcurrentHashMap<String, Map.Entry<ActionRequest, Instant>>
+     */
+    public ConcurrentHashMap<String, Map.Entry<ActionRequest, Instant>> getNegativeCache() {
+        return negativeCache;
+    }
+
 }

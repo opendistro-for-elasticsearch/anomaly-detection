@@ -268,7 +268,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager);
 
         DeleteDetector deleteUtil = new DeleteDetector(clusterService, clock);
-        CancelQueryUtil cancelQueryUtil = new CancelQueryUtil(throttler, clock);
+        CancelQueryUtil cancelQueryUtil = new CancelQueryUtil(throttler);
 
         Map<String, ADStat<?>> stats = ImmutableMap
             .<String, ADStat<?>>builder()

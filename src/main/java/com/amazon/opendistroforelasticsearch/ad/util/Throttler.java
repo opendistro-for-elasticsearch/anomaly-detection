@@ -33,6 +33,23 @@ public class Throttler {
     private final ConcurrentHashMap<String, Map.Entry<ActionRequest, Instant>> negativeCache;
     private final Clock clock;
 
+    /**
+     * Getter for clock
+     * @return clock
+     */
+    public Clock getClock() {
+        return clock;
+    }
+
+
+    /**
+     * Getter for negativeCache
+     * @return negative cache map ConcurrentHashMap
+     */
+    public ConcurrentHashMap<String, Map.Entry<ActionRequest, Instant>> getNegativeCache() {
+        return negativeCache;
+    }
+
     public Throttler(Clock clock) {
         this.negativeCache = new ConcurrentHashMap<>();
         this.clock = clock;
@@ -40,37 +57,28 @@ public class Throttler {
 
     /**
      * Get negative cache value(ActionRequest, Instant) for given detector
-     * @param detector AnomalyDetector
+     * @param detectorId AnomalyDetector Id
      * @return negative cache value(ActionRequest, Instant)
      */
-    public Optional<Map.Entry<ActionRequest, Instant>> getFilteredQuery(AnomalyDetector detector) {
-        return Optional.ofNullable(negativeCache.get(detector.getDetectorId()));
+    public Optional<Map.Entry<ActionRequest, Instant>> getFilteredQuery(String detectorId) {
+        return Optional.ofNullable(negativeCache.get(detectorId));
     }
 
     /**
      * Insert the negative cache entry for given detector
-     * @param detector AnomalyDetector
+     * @param detectorId AnomalyDetector Id
      * @param request ActionRequest
      */
-    public void insertFilteredQuery(AnomalyDetector detector, ActionRequest request) {
-        negativeCache.put(detector.getDetectorId(), new AbstractMap.SimpleEntry<>(request, clock.instant()));
+    public void insertFilteredQuery(String detectorId, ActionRequest request) {
+        negativeCache.put(detectorId, new AbstractMap.SimpleEntry<>(request, clock.instant()));
     }
 
     /**
      * Clear the negative cache for given detector.
      * If detectorId is null, do nothing
-     * @param detector AnomalyDetector
+     * @param detectorId AnomalyDetector Id
      */
-    public void clearFilteredQuery(AnomalyDetector detector) {
-        negativeCache.keySet().removeIf(key -> key.equals(detector.getDetectorId()));
+    public void clearFilteredQuery(String detectorId) {
+        negativeCache.keySet().removeIf(key -> key.equals(detectorId));
     }
-
-    /**
-     * Getter
-     * @return negative cache map ConcurrentHashMap<String, Map.Entry<ActionRequest, Instant>>
-     */
-    public ConcurrentHashMap<String, Map.Entry<ActionRequest, Instant>> getNegativeCache() {
-        return negativeCache;
-    }
-
 }

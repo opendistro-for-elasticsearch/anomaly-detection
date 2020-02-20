@@ -15,21 +15,15 @@
 
 package com.amazon.opendistroforelasticsearch.ad.util;
 
-import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.google.common.collect.ImmutableMap;
-import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.time.Clock;
-import java.time.Instant;
-import java.util.Map;
-import java.util.Optional;
 import static org.mockito.Mockito.mock;
+import static org.powermock.api.mockito.PowerMockito.when;
 
 public class ThrottlerTests extends ESTestCase {
     private Throttler throttler;
@@ -41,15 +35,36 @@ public class ThrottlerTests extends ESTestCase {
     }
 
     @Test
-    public void test() throws IOException {
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);
+    public void testGetFilteredQuery() {
+        AnomalyDetector detector = mock(AnomalyDetector.class);
+        when(detector.getDetectorId()).thenReturn("test detector Id");
         SearchRequest dummySearchRequest = new SearchRequest();
         throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest);
-        Optional<Map.Entry<ActionRequest, Instant>> entry = throttler.getFilteredQuery(detector.getDetectorId());
-        assertTrue(entry.isPresent());
-        throttler.clearFilteredQuery(detector.getDetectorId());
-        entry = throttler.getFilteredQuery(detector.getDetectorId());
-        assertFalse(entry.isPresent());
-        return;
+        // case 1: key exists
+        assertTrue(throttler.getFilteredQuery(detector.getDetectorId()).isPresent());
+        // case 2: key doesn't exist
+        assertFalse(throttler.getFilteredQuery("different test detector Id").isPresent());
     }
+
+    @Test
+    public void testInsertFilteredQuery() {
+        AnomalyDetector detector = mock(AnomalyDetector.class);
+        when(detector.getDetectorId()).thenReturn("test detector Id");
+        SearchRequest dummySearchRequest = new SearchRequest();
+        // first time: key doesn't exist
+        assertTrue(throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest));
+        // second time: key exists
+        assertFalse(throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest));
+    }
+
+    @Test
+    public void testClearFilteredQuery() {
+        AnomalyDetector detector = mock(AnomalyDetector.class);
+        when(detector.getDetectorId()).thenReturn("test detector Id");
+        SearchRequest dummySearchRequest = new SearchRequest();
+        assertTrue(throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest));
+        throttler.clearFilteredQuery(detector.getDetectorId());
+        assertTrue(throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest));
+    }
+
 }

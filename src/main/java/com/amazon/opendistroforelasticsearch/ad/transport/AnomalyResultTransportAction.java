@@ -250,7 +250,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
             AnomalyDetector anomalyDetector = detector.get();
             if (stateManager.hasRunningQuery(anomalyDetector)) {
-                LOG.info("There is one query running for detectorId: {}", anomalyDetector.getDetectorId());
+                LOG.error("There is one query running for detectorId: {}", anomalyDetector.getDetectorId());
                 listener.onFailure(new EndRunException(adID, "There is one query running on AnomalyDetector", true));
                 return;
             }

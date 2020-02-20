@@ -17,8 +17,6 @@ package com.amazon.opendistroforelasticsearch.ad.util;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 
-import java.time.Instant;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -26,6 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 
 import org.apache.logging.log4j.Logger;
@@ -180,7 +179,11 @@ public class ClientUtil {
         AnomalyDetector detector
     ) {
         try {
-            throttler.insertFilteredQuery(detector.getDetectorId(), request);
+            // if key already exist, reject the request and throws exception
+            if (!throttler.insertFilteredQuery(detector.getDetectorId(), request)) {
+                LOG.error("There is one query running for detectorId: {}", detector.getDetectorId());
+                throw new EndRunException(detector.getDetectorId(), "There is one query running on AnomalyDetector", true);
+            }
             AtomicReference<Response> respReference = new AtomicReference<>();
             final CountDownLatch latch = new CountDownLatch(1);
 

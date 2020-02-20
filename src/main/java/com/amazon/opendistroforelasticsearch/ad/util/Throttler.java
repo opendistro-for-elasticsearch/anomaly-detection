@@ -14,8 +14,6 @@
  */
 package com.amazon.opendistroforelasticsearch.ad.util;
 
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.util.AbstractMap;
@@ -49,11 +47,13 @@ public class Throttler {
 
     /**
      * Insert the negative cache entry for given detector
+     * If key already exists, return false. Otherwise true.
      * @param detectorId AnomalyDetector ID
      * @param request ActionRequest
+     * @return true if key doesn't exist otherwise false.
      */
-    public synchronized void insertFilteredQuery(String detectorId, ActionRequest request) {
-        negativeCache.put(detectorId, new AbstractMap.SimpleEntry<>(request, clock.instant()));
+    public synchronized boolean insertFilteredQuery(String detectorId, ActionRequest request) {
+        return negativeCache.putIfAbsent(detectorId, new AbstractMap.SimpleEntry<>(request, clock.instant())) == null;
     }
 
     /**

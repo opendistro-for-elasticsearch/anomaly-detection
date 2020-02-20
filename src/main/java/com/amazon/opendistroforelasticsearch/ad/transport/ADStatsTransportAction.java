@@ -21,9 +21,11 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.nodes.TransportNodesAction;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.transport.TransportService;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,13 +85,13 @@ public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest,
     }
 
     @Override
-    protected ADStatsNodeRequest newNodeRequest(String nodeId, ADStatsRequest request) {
-        return new ADStatsNodeRequest(nodeId, request);
+    protected ADStatsNodeRequest newNodeRequest(ADStatsRequest request) {
+        return new ADStatsNodeRequest(request);
     }
 
     @Override
-    protected ADStatsNodeResponse newNodeResponse() {
-        return new ADStatsNodeResponse();
+    protected ADStatsNodeResponse newNodeResponse(StreamInput in) throws IOException {
+        return new ADStatsNodeResponse(in);
     }
 
     @Override

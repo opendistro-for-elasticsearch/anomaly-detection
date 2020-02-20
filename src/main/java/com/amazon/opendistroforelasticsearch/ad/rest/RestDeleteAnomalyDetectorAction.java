@@ -28,7 +28,6 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
@@ -55,8 +54,7 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
     private final ClusterService clusterService;
     private final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
 
-    public RestDeleteAnomalyDetectorAction(Settings settings, RestController controller, ClusterService clusterService) {
-        super(settings);
+    public RestDeleteAnomalyDetectorAction(RestController controller, ClusterService clusterService) {
         this.clusterService = clusterService;
         // delete anomaly detector document
         controller

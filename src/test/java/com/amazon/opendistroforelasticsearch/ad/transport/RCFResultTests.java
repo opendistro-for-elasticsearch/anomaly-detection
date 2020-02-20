@@ -127,10 +127,6 @@ public class RCFResultTests extends ESTestCase {
         assertThat(response.getRCFScore(), equalTo(readResponse.getRCFScore()));
     }
 
-    public void testIncorrectSerialzationResponse() throws IOException {
-        expectThrows(UnsupportedOperationException.class, () -> RCFResultAction.INSTANCE.newResponse());
-    }
-
     public void testJsonResponse() throws IOException, JsonPathNotFoundException {
         RCFResultResponse response = new RCFResultResponse(0.3, 0, 26);
         XContentBuilder builder = jsonBuilder();

@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import org.elasticsearch.action.support.nodes.BaseNodesRequest;
 import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.common.io.stream.StreamInput;
+
+import java.io.IOException;
 
 /**
  * Request should be sent from the handler logic of transport delete detector API
@@ -25,7 +28,11 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 public class CronRequest extends BaseNodesRequest<CronRequest> {
 
     public CronRequest() {
-        super();
+        super((String[]) null);
+    }
+
+    public CronRequest(StreamInput in) throws IOException {
+        super(in);
     }
 
     public CronRequest(DiscoveryNode... nodes) {

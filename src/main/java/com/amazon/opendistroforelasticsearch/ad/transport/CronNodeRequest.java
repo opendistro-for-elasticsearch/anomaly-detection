@@ -16,15 +16,19 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import org.elasticsearch.action.support.nodes.BaseNodeRequest;
+import org.elasticsearch.common.io.stream.StreamInput;
+
+import java.io.IOException;
 
 /**
  *  Delete model represents the request to an individual node
  */
 public class CronNodeRequest extends BaseNodeRequest {
 
-    CronNodeRequest() {}
+    public CronNodeRequest() {}
 
-    CronNodeRequest(String nodeID, CronRequest request) {
-        super(nodeID);
+    public CronNodeRequest(StreamInput in) throws IOException {
+        super(in);
     }
+
 }

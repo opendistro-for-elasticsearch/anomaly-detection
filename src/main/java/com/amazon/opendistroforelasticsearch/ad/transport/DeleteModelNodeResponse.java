@@ -26,16 +26,17 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 public class DeleteModelNodeResponse extends BaseNodeResponse implements ToXContentObject {
     static String NODE_ID = "node_id";
 
-    public DeleteModelNodeResponse() {}
+    public DeleteModelNodeResponse(StreamInput in) throws IOException {
+        super(in);
+    }
 
     public DeleteModelNodeResponse(DiscoveryNode node) {
         super(node);
     }
 
     public static DeleteModelNodeResponse readNodeResponse(StreamInput in) throws IOException {
-        DeleteModelNodeResponse nodeResponse = new DeleteModelNodeResponse();
-        nodeResponse.readFrom(in);
-        return nodeResponse;
+
+        return new DeleteModelNodeResponse(in);
     }
 
     @Override

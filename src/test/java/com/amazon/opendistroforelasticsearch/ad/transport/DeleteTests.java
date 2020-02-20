@@ -43,7 +43,6 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.action.support.ActionFilters;
@@ -171,32 +170,22 @@ public class DeleteTests extends AbstractADTest {
         assertThat(e, is(nullValue()));
     }
 
-    public <R extends ActionRequest> void testSerialzationTemplate(
-        R request,
-        R readRequest,
-        Supplier<String> requestSupplier,
-        Supplier<String> readRequestSupplier
-    ) throws IOException {
-        BytesStreamOutput output = new BytesStreamOutput();
-        request.writeTo(output);
-
-        StreamInput streamInput = output.bytes().streamInput();
-        readRequest.readFrom(streamInput);
-        assertThat(requestSupplier.get(), equalTo(readRequestSupplier.get()));
-    }
-
     public void testSerialzationRequestDeleteModel() throws IOException {
         DeleteModelRequest request = new DeleteModelRequest("123");
-        DeleteModelRequest readRequest = new DeleteModelRequest();
-
-        testSerialzationTemplate(request, readRequest, request::getAdID, readRequest::getAdID);
+        BytesStreamOutput output = new BytesStreamOutput();
+        request.writeTo(output);
+        StreamInput streamInput = output.bytes().streamInput();
+        DeleteModelRequest readRequest = new DeleteModelRequest(streamInput);
+        assertThat(request.getAdID(), equalTo(readRequest.getAdID()));
     }
 
     public void testSerialzationRequestDeleteDetector() throws IOException {
         DeleteDetectorRequest request = new DeleteDetectorRequest().adID("123");
-        DeleteDetectorRequest readRequest = new DeleteDetectorRequest();
-
-        testSerialzationTemplate(request, readRequest, request::getAdID, readRequest::getAdID);
+        BytesStreamOutput output = new BytesStreamOutput();
+        request.writeTo(output);
+        StreamInput streamInput = output.bytes().streamInput();
+        DeleteDetectorRequest readRequest = new DeleteDetectorRequest(streamInput);
+        assertThat(request.getAdID(), equalTo(readRequest.getAdID()));
     }
 
     public <R extends ToXContent> void testJsonRequestTemplate(R request, Supplier<String> requestSupplier) throws IOException,
@@ -219,10 +208,10 @@ public class DeleteTests extends AbstractADTest {
     }
 
     public void testNewResponse() throws IOException {
-        AcknowledgedResponse response = DeleteDetectorAction.INSTANCE.newResponse();
         StreamInput input = mock(StreamInput.class);
         when(input.readByte()).thenReturn((byte) 0x01);
-        response.readFrom(input);
+        AcknowledgedResponse response = new AcknowledgedResponse(input);
+
         assertTrue(response.isAcknowledged());
     }
 

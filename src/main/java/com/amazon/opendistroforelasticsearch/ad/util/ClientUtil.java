@@ -26,7 +26,7 @@ import java.util.function.Function;
 
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchTimeoutException;
-import org.elasticsearch.action.Action;
+import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
@@ -122,7 +122,7 @@ public class ClientUtil {
      * @param listener needed to handle response
      */
     public <Request extends ActionRequest, Response extends ActionResponse> void execute(
-        Action<Response> action,
+        ActionType<Response> action,
         Request request,
         ActionListener<Response> listener
     ) {

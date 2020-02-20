@@ -34,14 +34,17 @@ public class ADStatsNodeRequest extends BaseNodeRequest {
         super();
     }
 
+    public ADStatsNodeRequest(StreamInput in) throws IOException {
+        super(in);
+        this.request = new ADStatsRequest(in);
+    }
+
     /**
      * Constructor
      *
-     * @param nodeId nodeId
      * @param request ADStatsRequest
      */
-    public ADStatsNodeRequest(String nodeId, ADStatsRequest request) {
-        super(nodeId);
+    public ADStatsNodeRequest(ADStatsRequest request) {
         this.request = request;
     }
 
@@ -54,9 +57,7 @@ public class ADStatsNodeRequest extends BaseNodeRequest {
         return request;
     }
 
-    @Override
     public void readFrom(StreamInput in) throws IOException {
-        super.readFrom(in);
         request = new ADStatsRequest();
         request.readFrom(in);
     }

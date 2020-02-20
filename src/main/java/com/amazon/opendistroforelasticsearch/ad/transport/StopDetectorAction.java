@@ -15,25 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.elasticsearch.action.Action;
-import org.elasticsearch.common.io.stream.Writeable;
+import org.elasticsearch.action.ActionType;
 
-public class StopDetectorAction extends Action<StopDetectorResponse> {
+public class StopDetectorAction extends ActionType<StopDetectorResponse> {
     public static final StopDetectorAction INSTANCE = new StopDetectorAction();
     public static final String NAME = "cluster:admin/ad/detector/stop";
 
     private StopDetectorAction() {
-        super(NAME);
+        super(NAME, StopDetectorResponse::new);
     }
 
-    @Override
-    public StopDetectorResponse newResponse() {
-        throw new UnsupportedOperationException("Usage of Streamable is to be replaced by Writeable");
-    }
-
-    @Override
-    public Writeable.Reader<StopDetectorResponse> getResponseReader() {
-        // return constructor method reference
-        return StopDetectorResponse::new;
-    }
 }

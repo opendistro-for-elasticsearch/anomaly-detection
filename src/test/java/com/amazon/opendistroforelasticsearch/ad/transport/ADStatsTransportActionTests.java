@@ -107,15 +107,10 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
         String nodeId = "nodeId1";
         ADStatsRequest adStatsRequest = new ADStatsRequest(nodeId);
 
-        ADStatsNodeRequest adStatsNodeRequest1 = new ADStatsNodeRequest(nodeId, adStatsRequest);
-        ADStatsNodeRequest adStatsNodeRequest2 = action.newNodeRequest(nodeId, adStatsRequest);
+        ADStatsNodeRequest adStatsNodeRequest1 = new ADStatsNodeRequest(adStatsRequest);
+        ADStatsNodeRequest adStatsNodeRequest2 = action.newNodeRequest(adStatsRequest);
 
         assertEquals(adStatsNodeRequest1.getADStatsRequest(), adStatsNodeRequest2.getADStatsRequest());
-    }
-
-    @Test
-    public void testNewNodeResponse() {
-        assertNotNull(action.newNodeResponse());
     }
 
     @Test
@@ -130,7 +125,7 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
             adStatsRequest.addStat(stat);
         }
 
-        ADStatsNodeResponse response = action.nodeOperation(new ADStatsNodeRequest(nodeId, adStatsRequest));
+        ADStatsNodeResponse response = action.nodeOperation(new ADStatsNodeRequest(adStatsRequest));
 
         Map<String, Object> stats = response.getStatsMap();
 

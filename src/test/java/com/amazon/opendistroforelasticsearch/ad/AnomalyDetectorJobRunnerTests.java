@@ -42,6 +42,7 @@ import java.util.concurrent.ThreadFactory;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -141,4 +142,19 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         runner.runAdJob(jobParameter, lockService, lock);
         verify(client, times(1)).execute(any(), any(), any());
     }
+
+    @Test
+    public void testRunAdJobWithExecuteException() {
+        LockModel lock = new LockModel("indexName", "jobId", Instant.now(), 10, false);
+        IntervalSchedule schedule = mock(IntervalSchedule.class);
+        when(schedule.getInterval()).thenReturn(1);
+        when(schedule.getUnit()).thenReturn(ChronoUnit.MINUTES);
+        when(jobParameter.getSchedule()).thenReturn(schedule);
+        doThrow(RuntimeException.class).when(client).execute(any(), any(), any());
+
+        runner.runAdJob(jobParameter, lockService, lock);
+        verify(client, times(1)).execute(any(), any(), any());
+        assertTrue(testAppender.containsMessage("Failed to execute AD job"));
+    }
+
 }

@@ -111,23 +111,31 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             return;
         }
 
-        IntervalSchedule schedule = (IntervalSchedule) jobParameter.getSchedule();
-        Instant endTime = Instant.now();
-        Duration duration = Duration.of(schedule.getInterval(), schedule.getUnit());
-        Instant startTime = endTime.minusMillis(duration.toMillis());
+        try {
+            IntervalSchedule schedule = (IntervalSchedule) jobParameter.getSchedule();
+            Instant endTime = Instant.now();
+            Duration duration = Duration.of(schedule.getInterval(), schedule.getUnit());
+            Instant startTime = endTime.minusMillis(duration.toMillis());
 
-        AnomalyResultRequest request = new AnomalyResultRequest(jobParameter.getName(), startTime.toEpochMilli(), endTime.toEpochMilli());
-        client
-            .execute(
-                AnomalyResultAction.INSTANCE,
-                request,
-                ActionListener
-                    .wrap(
-                        response -> log.info("Anomaly result action ran successfully for " + jobParameter.getName()),
-                        exception -> log.error("Failed to execute anomaly result action", exception)
-                    )
+            AnomalyResultRequest request = new AnomalyResultRequest(
+                jobParameter.getName(),
+                startTime.toEpochMilli(),
+                endTime.toEpochMilli()
             );
+            client.execute(AnomalyResultAction.INSTANCE, request, ActionListener.wrap(response -> {
+                log.info("Anomaly result action ran successfully for " + jobParameter.getName());
+                releaseLock(jobParameter, lockService, lock);
+            }, exception -> {
+                log.error("Failed to execute anomaly result action", exception);
+                releaseLock(jobParameter, lockService, lock);
+            }));
+        } catch (Exception e) {
+            log.error("Failed to execute AD job", e);
+            releaseLock(jobParameter, lockService, lock);
+        }
+    }
 
+    private void releaseLock(ScheduledJobParameter jobParameter, LockService lockService, LockModel lock) {
         lockService
             .release(
                 lock,

@@ -133,6 +133,7 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
             @Override
             public void onFailure(Exception e) {
                 logger.error("Failed to delete AD model for detector " + detectorId, e);
+                channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Failed to delete AD model"));
             }
         };
     }

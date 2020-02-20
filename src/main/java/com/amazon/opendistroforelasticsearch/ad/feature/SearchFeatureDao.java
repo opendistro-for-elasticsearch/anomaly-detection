@@ -116,7 +116,8 @@ public class SearchFeatureDao {
     /**
      * Gets features for the given time period.
      * This function also adds given detector to negative cache before sending es request.
-     * Once we get response/exception within timeout, we treat this request as complete and clear the negative cache.
+     * Once response/exception is received within timeout, this request will be treated as complete
+     * and cleared from the negative cache.
      * Otherwise this detector entry remain in the negative to reject further request.
      *
      * @param detector info about indices, documents, feature query

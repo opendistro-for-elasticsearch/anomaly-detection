@@ -40,28 +40,27 @@ public class Throttler {
 
     /**
      * Get negative cache value(ActionRequest, Instant) for given detector
-     * @param detector AnomalyDetector
+     * @param detectorId AnomalyDetector ID
      * @return negative cache value(ActionRequest, Instant)
      */
-    public Optional<Map.Entry<ActionRequest, Instant>> getFilteredQuery(AnomalyDetector detector) {
-        return Optional.ofNullable(negativeCache.get(detector.getDetectorId()));
+    public Optional<Map.Entry<ActionRequest, Instant>> getFilteredQuery(String detectorId) {
+        return Optional.ofNullable(negativeCache.get(detectorId));
     }
 
     /**
      * Insert the negative cache entry for given detector
-     * @param detector AnomalyDetector
+     * @param detectorId AnomalyDetector ID
      * @param request ActionRequest
      */
-    public void insertFilteredQuery(AnomalyDetector detector, ActionRequest request) {
-        negativeCache.put(detector.getDetectorId(), new AbstractMap.SimpleEntry<>(request, clock.instant()));
+    public synchronized void insertFilteredQuery(String detectorId, ActionRequest request) {
+        negativeCache.put(detectorId, new AbstractMap.SimpleEntry<>(request, clock.instant()));
     }
 
     /**
      * Clear the negative cache for given detector.
-     * If detectorId is null, do nothing
-     * @param detector AnomalyDetector
+     * @param detectorId AnomalyDetector ID
      */
-    public void clearFilteredQuery(AnomalyDetector detector) {
-        negativeCache.keySet().removeIf(key -> key.equals(detector.getDetectorId()));
+    public void clearFilteredQuery(String detectorId) {
+        negativeCache.remove(detectorId);
     }
 }

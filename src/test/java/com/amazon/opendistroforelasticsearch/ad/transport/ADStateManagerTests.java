@@ -212,7 +212,7 @@ public class ADStateManagerTests extends ESTestCase {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);
         SearchRequest dummySearchRequest = new SearchRequest();
         assertFalse(stateManager.hasRunningQuery(detector));
-        throttler.insertFilteredQuery(detector, dummySearchRequest);
+        throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest);
         assertTrue(stateManager.hasRunningQuery(detector));
     }
 }

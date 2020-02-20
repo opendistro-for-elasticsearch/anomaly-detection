@@ -180,17 +180,17 @@ public class ClientUtil {
         AnomalyDetector detector
     ) {
         try {
-            throttler.insertFilteredQuery(detector, request);
+            throttler.insertFilteredQuery(detector.getDetectorId(), request);
             AtomicReference<Response> respReference = new AtomicReference<>();
             final CountDownLatch latch = new CountDownLatch(1);
 
             consumer.accept(request, new LatchedActionListener<Response>(ActionListener.wrap(response -> {
                 // clear negative cache
-                throttler.clearFilteredQuery(detector);
+                throttler.clearFilteredQuery(detector.getDetectorId());
                 respReference.set(response);
             }, exception -> {
                 // clear negative cache
-                throttler.clearFilteredQuery(detector);
+                throttler.clearFilteredQuery(detector.getDetectorId());
                 LOG.error("Cannot get response for request {}, error: {}", request, exception);
             }), latch));
 
@@ -210,6 +210,6 @@ public class ClientUtil {
      * @return true if given detector has a running query else false
      */
     public boolean hasRunningQuery(AnomalyDetector detector) {
-        return throttler.getFilteredQuery(detector).isPresent();
+        return throttler.getFilteredQuery(detector.getDetectorId()).isPresent();
     }
 }

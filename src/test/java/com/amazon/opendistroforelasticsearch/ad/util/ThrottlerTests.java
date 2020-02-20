@@ -44,11 +44,11 @@ public class ThrottlerTests extends ESTestCase {
     public void test() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);
         SearchRequest dummySearchRequest = new SearchRequest();
-        throttler.insertFilteredQuery(detector, dummySearchRequest);
-        Optional<Map.Entry<ActionRequest, Instant>> entry = throttler.getFilteredQuery(detector);
+        throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest);
+        Optional<Map.Entry<ActionRequest, Instant>> entry = throttler.getFilteredQuery(detector.getDetectorId());
         assertTrue(entry.isPresent());
-        throttler.clearFilteredQuery(detector);
-        entry = throttler.getFilteredQuery(detector);
+        throttler.clearFilteredQuery(detector.getDetectorId());
+        entry = throttler.getFilteredQuery(detector.getDetectorId());
         assertFalse(entry.isPresent());
         return;
     }

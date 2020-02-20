@@ -29,7 +29,9 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 public class DeleteModelResponse extends BaseNodesResponse<DeleteModelNodeResponse> implements ToXContentFragment {
     static String NODES_JSON_KEY = "nodes";
 
-    public DeleteModelResponse() {}
+    public DeleteModelResponse(StreamInput in) throws IOException {
+        super(in);
+    }
 
     public DeleteModelResponse(ClusterName clusterName, List<DeleteModelNodeResponse> nodes, List<FailedNodeException> failures) {
         super(clusterName, nodes, failures);
@@ -42,7 +44,7 @@ public class DeleteModelResponse extends BaseNodesResponse<DeleteModelNodeRespon
 
     @Override
     protected void writeNodesTo(StreamOutput out, List<DeleteModelNodeResponse> nodes) throws IOException {
-        out.writeStreamableList(nodes);
+        out.writeList(nodes);
     }
 
     @Override

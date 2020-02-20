@@ -15,18 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.elasticsearch.action.Action;
+import org.elasticsearch.action.ActionType;
 
-public class DeleteModelAction extends Action<DeleteModelResponse> {
+public class DeleteModelAction extends ActionType<DeleteModelResponse> {
     public static final DeleteModelAction INSTANCE = new DeleteModelAction();
     public static final String NAME = "cluster:admin/ad/model/delete";
 
     private DeleteModelAction() {
-        super(NAME);
+        super(NAME, DeleteModelResponse::new);
     }
 
-    @Override
-    public DeleteModelResponse newResponse() {
-        return new DeleteModelResponse();
-    }
 }

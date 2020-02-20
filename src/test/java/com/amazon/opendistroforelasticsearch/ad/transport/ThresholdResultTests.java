@@ -107,10 +107,6 @@ public class ThresholdResultTests extends ESTestCase {
         assertThat(response.getConfidence(), equalTo(readResponse.getConfidence()));
     }
 
-    public void testIncorrectSerialzationResponse() throws IOException {
-        expectThrows(UnsupportedOperationException.class, () -> ThresholdResultAction.INSTANCE.newResponse());
-    }
-
     public void testJsonResponse() throws IOException, JsonPathNotFoundException {
         ThresholdResultResponse response = new ThresholdResultResponse(1, 0.8);
         XContentBuilder builder = jsonBuilder();

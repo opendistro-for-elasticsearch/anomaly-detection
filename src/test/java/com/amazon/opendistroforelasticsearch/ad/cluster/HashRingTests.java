@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.cluster;
 
 import static java.util.Collections.emptyMap;
 
+import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.elasticsearch.test.ClusterServiceUtils.createClusterService;
 import static org.elasticsearch.test.ClusterServiceUtils.setState;
 import static org.mockito.Mockito.mock;
@@ -26,14 +27,12 @@ import java.util.List;
 import java.util.Optional;
 import java.time.Clock;
 import java.util.ArrayList;
-import java.util.EnumSet;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import org.elasticsearch.Version;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
-import org.elasticsearch.cluster.node.DiscoveryNode.Role;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -49,7 +48,7 @@ public class HashRingTests extends AbstractADTest {
     private Clock clock;
 
     private DiscoveryNode createNode(String nodeId) {
-        return new DiscoveryNode(nodeId, buildNewFakeTransportAddress(), emptyMap(), EnumSet.allOf(Role.class), Version.CURRENT);
+        return new DiscoveryNode(nodeId, buildNewFakeTransportAddress(), emptyMap(), BUILT_IN_ROLES, Version.CURRENT);
     }
 
     @BeforeClass

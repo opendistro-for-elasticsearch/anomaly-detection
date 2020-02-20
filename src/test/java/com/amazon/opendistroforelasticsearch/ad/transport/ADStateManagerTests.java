@@ -143,6 +143,7 @@ public class ADStateManagerTests extends ESTestCase {
                             -1,
                             responseExists,
                             BytesReference.bytes(content),
+                            Collections.emptyMap(),
                             Collections.emptyMap()
                         )
                     )

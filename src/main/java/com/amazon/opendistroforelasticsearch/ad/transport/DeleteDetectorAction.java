@@ -15,21 +15,16 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.elasticsearch.action.Action;
+import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.support.master.AcknowledgedResponse;
 
-public class DeleteDetectorAction extends Action<AcknowledgedResponse> {
+public class DeleteDetectorAction extends ActionType<AcknowledgedResponse> {
 
     public static final DeleteDetectorAction INSTANCE = new DeleteDetectorAction();
     public static final String NAME = "cluster:admin/ad/detector/delete";
 
     private DeleteDetectorAction() {
-        super(NAME);
-    }
-
-    @Override
-    public AcknowledgedResponse newResponse() {
-        return new AcknowledgedResponse();
+        super(NAME, AcknowledgedResponse::new);
     }
 
 }

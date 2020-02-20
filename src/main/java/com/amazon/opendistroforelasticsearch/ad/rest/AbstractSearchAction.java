@@ -22,7 +22,6 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.bytes.BytesReference;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -56,8 +55,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
-    public AbstractSearchAction(Settings settings, RestController controller, String urlPath, String index, Class<T> clazz) {
-        super(settings);
+    public AbstractSearchAction(RestController controller, String urlPath, String index, Class<T> clazz) {
         this.index = index;
         this.clazz = clazz;
         controller.registerHandler(RestRequest.Method.POST, urlPath, this);

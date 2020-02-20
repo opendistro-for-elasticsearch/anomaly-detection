@@ -73,7 +73,7 @@ public class HourlyCronTests extends AbstractADTest {
                     .onResponse(
                         new CronResponse(
                             new ClusterName("test"),
-                            Collections.singletonList(new CronNodeResponse()),
+                            Collections.singletonList(new CronNodeResponse(state.nodes().getLocalNode())),
                             Collections.singletonList(new FailedNodeException("foo0", "blah", new ElasticsearchException("bar")))
                         )
                     );
@@ -82,12 +82,11 @@ public class HourlyCronTests extends AbstractADTest {
             } else {
                 CronNodeResponse nodeResponse = new CronNodeResponse(state.nodes().getLocalNode());
                 BytesStreamOutput nodeResponseOut = new BytesStreamOutput();
-                nodeResponseOut.setVersion(Version.V_7_1_1);
+                nodeResponseOut.setVersion(Version.CURRENT);
                 nodeResponse.writeTo(nodeResponseOut);
                 StreamInput siNode = nodeResponseOut.bytes().streamInput();
 
-                CronNodeResponse nodeResponseRead = new CronNodeResponse();
-                nodeResponseRead.readFrom(siNode);
+                CronNodeResponse nodeResponseRead = new CronNodeResponse(siNode);
 
                 CronResponse response = new CronResponse(
                     new ClusterName("test"),
@@ -95,11 +94,10 @@ public class HourlyCronTests extends AbstractADTest {
                     Collections.EMPTY_LIST
                 );
                 BytesStreamOutput out = new BytesStreamOutput();
-                out.setVersion(Version.V_7_1_1);
+                out.setVersion(Version.CURRENT);
                 response.writeTo(out);
                 StreamInput si = out.bytes().streamInput();
-                CronResponse responseRead = CronAction.INSTANCE.newResponse();
-                responseRead.readFrom(si);
+                CronResponse responseRead = new CronResponse(si);
                 listener.onResponse(responseRead);
             }
 

@@ -34,8 +34,14 @@ public class ADStatsNodeResponse extends BaseNodeResponse implements ToXContentF
 
     /**
      * Constructor
+     *
+     * @param in StreamInput
+     * @throws IOException throws an IO exception if the StreamInput cannot be read from
      */
-    public ADStatsNodeResponse() {}
+    public ADStatsNodeResponse(StreamInput in) throws IOException {
+        super(in);
+        this.statsMap = in.readMap(StreamInput::readString, StreamInput::readGenericValue);
+    }
 
     /**
      * Constructor
@@ -56,9 +62,8 @@ public class ADStatsNodeResponse extends BaseNodeResponse implements ToXContentF
      * @throws IOException throws an IO exception if the StreamInput cannot be read from
      */
     public static ADStatsNodeResponse readStats(StreamInput in) throws IOException {
-        ADStatsNodeResponse adStats = new ADStatsNodeResponse();
-        adStats.readFrom(in);
-        return adStats;
+
+        return new ADStatsNodeResponse(in);
     }
 
     /**
@@ -68,12 +73,6 @@ public class ADStatsNodeResponse extends BaseNodeResponse implements ToXContentF
      */
     public Map<String, Object> getStatsMap() {
         return statsMap;
-    }
-
-    @Override
-    public void readFrom(StreamInput in) throws IOException {
-        super.readFrom(in);
-        this.statsMap = in.readMap(StreamInput::readString, StreamInput::readGenericValue);
     }
 
     @Override

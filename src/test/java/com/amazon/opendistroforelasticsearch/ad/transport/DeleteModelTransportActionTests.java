@@ -94,8 +94,7 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
         nodeRequest.writeTo(nodeRequestOut);
         StreamInput siNode = nodeRequestOut.bytes().streamInput();
 
-        DeleteModelNodeRequest nodeResponseRead = new DeleteModelNodeRequest();
-        nodeResponseRead.readFrom(siNode);
+        DeleteModelNodeRequest nodeResponseRead = new DeleteModelNodeRequest(siNode);
 
         DeleteModelNodeResponse nodeResponse1 = action.nodeOperation(nodeResponseRead);
         DeleteModelNodeResponse nodeResponse2 = action.nodeOperation(new DeleteModelNodeRequest(request));

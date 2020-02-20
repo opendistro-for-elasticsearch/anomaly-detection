@@ -75,10 +75,6 @@ public class ADStatsNodeResponse extends BaseNodeResponse implements ToXContentF
         return statsMap;
     }
 
-    public void readFrom(StreamInput in) throws IOException {
-        this.statsMap = in.readMap(StreamInput::readString, StreamInput::readGenericValue);
-    }
-
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);

@@ -39,10 +39,6 @@ public class DeleteModelNodeRequest extends BaseNodeRequest {
         this.adID = request.getAdID();
     }
 
-    public void readFrom(StreamInput in) throws IOException {
-        adID = in.readString();
-    }
-
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);

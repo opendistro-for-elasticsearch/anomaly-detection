@@ -261,10 +261,11 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.SHINGLE_SIZE,
             AnomalyDetectorSettings.MAX_MISSING_POINTS,
             AnomalyDetectorSettings.MAX_NEIGHBOR_DISTANCE,
+            AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
         );
-        anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager);
+        anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
 
         DeleteDetector deleteUtil = new DeleteDetector(clusterService, clock);
 

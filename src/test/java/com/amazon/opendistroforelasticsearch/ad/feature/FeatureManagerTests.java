@@ -73,6 +73,7 @@ public class FeatureManagerTests {
     private int shingleSize;
     private int maxMissingPoints;
     private int maxNeighborDistance;
+    private double previewSampleRate;
     private int maxPreviewSamples;
     private Duration featureBufferTtl;
 
@@ -102,6 +103,7 @@ public class FeatureManagerTests {
         shingleSize = 3;
         maxMissingPoints = 2;
         maxNeighborDistance = 2;
+        previewSampleRate = 0.5;
         maxPreviewSamples = 2;
         featureBufferTtl = Duration.ofMillis(1_000L);
 
@@ -119,6 +121,7 @@ public class FeatureManagerTests {
                 shingleSize,
                 maxMissingPoints,
                 maxNeighborDistance,
+                previewSampleRate,
                 maxPreviewSamples,
                 featureBufferTtl
             )
@@ -217,6 +220,7 @@ public class FeatureManagerTests {
                 4,
                 maxMissingPoints,
                 maxNeighborDistance,
+                previewSampleRate,
                 maxPreviewSamples,
                 featureBufferTtl
             )

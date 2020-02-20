@@ -1124,8 +1124,8 @@ public class AnomalyResultTests extends AbstractADTest {
 
         Settings backoffSettings = Settings
             .builder()
-            .put("ml.anomaly_detectors.max_retry_for_backoff", 2)
-            .put("ml.anomaly_detectors.backoff_initial_delay", TimeValue.timeValueMillis(1))
+            .put("opendistro.anomaly_detection.max_retry_for_backoff", 2)
+            .put("opendistro.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
             .build();
 
         // These constructors register handler in transport service

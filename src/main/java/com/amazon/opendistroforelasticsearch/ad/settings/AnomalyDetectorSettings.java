@@ -83,10 +83,22 @@ public final class AnomalyDetectorSettings {
         );
 
     public static final Setting<Long> AD_RESULT_HISTORY_MAX_DOCS = Setting
-        .longSetting("ml.anomaly_detectors.ad_result_history_max_docs", 10000L, 0L, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .longSetting(
+            "opendistro.anomaly_detection.ad_result_history_max_docs",
+            10000L,
+            0L,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
     public static final Setting<Integer> MAX_RETRY_FOR_UNRESPONSIVE_NODE = Setting
-        .intSetting("ml.anomaly_detectors.max_retry_for_unresponsive_node", 5, 0, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting(
+            "opendistro.anomaly_detection.max_retry_for_unresponsive_node",
+            5,
+            0,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
     public static final Setting<TimeValue> COOLDOWN_MINUTES = Setting
         .positiveTimeSetting(
@@ -151,7 +163,7 @@ public final class AnomalyDetectorSettings {
 
     public static final long THRESHOLD_MAX_SAMPLES = 50_000;
 
-    public static final int MIN_PREVIEW_SIZE = 500; // ok to lower
+    public static final int MIN_PREVIEW_SIZE = 400; // ok to lower
 
     // Feature processing
     public static final int MAX_TRAIN_SAMPLE = 24;
@@ -164,6 +176,9 @@ public final class AnomalyDetectorSettings {
 
     public static final int MAX_NEIGHBOR_DISTANCE = Math.min(2, SHINGLE_SIZE);
 
-    public static final int MAX_PREVIEW_SAMPLES = 60; // ok to adjust, higher for more data, lower for lower latency
+    public static final double PREVIEW_SAMPLE_RATE = 0.25; // ok to adjust, higher for more data, lower for lower latency
 
+    public static final int MAX_PREVIEW_SAMPLES = 300; // ok to adjust, higher for more data, lower for lower latency
+
+    public static final int MAX_PREVIEW_RESULTS = 1_000; // ok to adjust, higher for more data, lower for lower latency
 }

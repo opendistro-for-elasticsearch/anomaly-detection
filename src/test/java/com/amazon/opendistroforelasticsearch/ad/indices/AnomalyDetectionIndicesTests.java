@@ -57,10 +57,10 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
     public void setup() {
         settings = Settings
             .builder()
-            .put("ml.anomaly_detectors.ad_result_history_rollover_period", TimeValue.timeValueHours(12))
-            .put("ml.anomaly_detectors.ad_result_history_max_age", TimeValue.timeValueHours(24))
-            .put("ml.anomaly_detectors.ad_result_history_max_docs", 10000L)
-            .put("ml.anomaly_detectors.request_timeout", TimeValue.timeValueSeconds(10))
+            .put("opendistro.anomaly_detection.ad_result_history_rollover_period", TimeValue.timeValueHours(12))
+            .put("opendistro.anomaly_detection.ad_result_history_max_age", TimeValue.timeValueHours(24))
+            .put("opendistro.anomaly_detection.ad_result_history_max_docs", 10000L)
+            .put("opendistro.anomaly_detection.request_timeout", TimeValue.timeValueSeconds(10))
             .build();
 
         Set<Setting<?>> clusterSettings = new HashSet<>();

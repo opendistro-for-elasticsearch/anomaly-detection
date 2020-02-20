@@ -21,8 +21,10 @@ import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.get.MultiGetItemResponse;
+import org.elasticsearch.action.get.MultiGetRequest;
+import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
@@ -44,6 +46,7 @@ import java.io.IOException;
 import java.util.Locale;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
+import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -70,47 +73,64 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         String detectorId = request.param(DETECTOR_ID);
-        GetRequest getRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId)
-            .version(RestActions.parseVersion(request))
-            .fetchSourceContext(RestHandlerUtils.getSourceContext(request));
-        return channel -> client.get(getRequest, getDetectorResponse(channel));
+        MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorId)
+            .version(RestActions.parseVersion(request));
+        MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(ANOMALY_DETECTOR_JOB_INDEX, detectorId)
+            .version(RestActions.parseVersion(request));
+        MultiGetRequest multiGetRequest = new MultiGetRequest().add(adItem).add(adJobItem);
+        return channel -> client.multiGet(multiGetRequest, onMultiGetResponse(channel));
     }
 
-    private RestResponseListener<GetResponse> getDetectorResponse(RestChannel channel) {
-        return new RestResponseListener<GetResponse>(channel) {
-
+    private ActionListener<MultiGetResponse> onMultiGetResponse(RestChannel channel) {
+        return new RestResponseListener<MultiGetResponse>(channel) {
             @Override
-            public RestResponse buildResponse(GetResponse response) throws Exception {
-                if (!response.isExists()) {
-                    return new BytesRestResponse(RestStatus.NOT_FOUND, channel.newBuilder());
-                }
+            public RestResponse buildResponse(MultiGetResponse multiGetResponse) throws Exception {
+                MultiGetItemResponse[] responses = multiGetResponse.getResponses();
+                AnomalyDetector detector = null;
+                XContentBuilder builder = null;
+                boolean adJobEnabled = false;
+                for (MultiGetItemResponse response : responses) {
+                    if (ANOMALY_DETECTORS_INDEX.equals(response.getIndex())) {
+                        if (!response.getResponse().isExists()) {
+                            return new BytesRestResponse(RestStatus.NOT_FOUND, channel.newBuilder());
+                        }
+                        builder = channel
+                            .newBuilder()
+                            .startObject()
+                            .field(RestHandlerUtils._ID, response.getId())
+                            .field(RestHandlerUtils._VERSION, response.getResponse().getVersion())
+                            .field(RestHandlerUtils._PRIMARY_TERM, response.getResponse().getPrimaryTerm())
+                            .field(RestHandlerUtils._SEQ_NO, response.getResponse().getSeqNo());
+                        if (!response.getResponse().isSourceEmpty()) {
+                            XContentParser parser = XContentHelper
+                                .createParser(
+                                    channel.request().getXContentRegistry(),
+                                    LoggingDeprecationHandler.INSTANCE,
+                                    response.getResponse().getSourceAsBytesRef(),
+                                    XContentType.JSON
+                                );
+                            try {
+                                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                                detector = parser.namedObject(AnomalyDetector.class, AnomalyDetector.PARSE_FIELD_NAME, null);
+                            } catch (Throwable t) {
+                                logger.error("Fail to parse detector", t);
+                                throw t;
+                            } finally {
+                                parser.close();
+                            }
+                        }
+                    }
 
-                XContentBuilder builder = channel
-                    .newBuilder()
-                    .startObject()
-                    .field(RestHandlerUtils._ID, response.getId())
-                    .field(RestHandlerUtils._VERSION, response.getVersion())
-                    .field(RestHandlerUtils._PRIMARY_TERM, response.getPrimaryTerm())
-                    .field(RestHandlerUtils._SEQ_NO, response.getSeqNo());
-                if (!response.isSourceEmpty()) {
-                    XContentParser parser = XContentHelper
-                        .createParser(
-                            channel.request().getXContentRegistry(),
-                            LoggingDeprecationHandler.INSTANCE,
-                            response.getSourceAsBytesRef(),
-                            XContentType.JSON
-                        );
-                    try {
-                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
-                        AnomalyDetector detector = parser.namedObject(AnomalyDetector.class, AnomalyDetector.PARSE_FIELD_NAME, null);
-                        builder.field(RestHandlerUtils.ANOMALY_DETECTOR, detector);
-                    } catch (Throwable t) {
-                        logger.error("Fail to parse detector", t);
-                        throw t;
-                    } finally {
-                        parser.close();
+                    if (ANOMALY_DETECTOR_JOB_INDEX.equals(response.getIndex())) {
+                        if (!response.isFailed() && response.getResponse().isExists()) {
+                            adJobEnabled = true;
+                        }
                     }
                 }
+                if (detector != null) {
+                    detector.setEnabled(adJobEnabled);
+                }
+                builder.field(RestHandlerUtils.ANOMALY_DETECTOR, detector);
                 builder.endObject();
                 return new BytesRestResponse(RestStatus.OK, builder);
             }

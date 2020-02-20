@@ -18,64 +18,63 @@ package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.Feature;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorResponse;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
-import org.apache.commons.lang.StringUtils;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
+import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
-import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestResponse;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.rest.action.RestResponseListener;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Locale;
-import java.util.Set;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_DETECTORS;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 /**
- * Anomaly detector REST action handler to process POST/PUT request.
- * POST request is for creating anomaly detector.
- * PUT request is for updating anomaly detector.
+ * Anomaly detector job REST action handler to process POST/PUT request.
  */
-public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
+public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler {
 
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final String detectorId;
     private final Long seqNo;
     private final Long primaryTerm;
     private final WriteRequest.RefreshPolicy refreshPolicy;
-    private final AnomalyDetector anomalyDetector;
     private final ClusterService clusterService;
 
-    private final Logger logger = LogManager.getLogger(IndexAnomalyDetectorActionHandler.class);
+    private final Logger logger = LogManager.getLogger(IndexAnomalyDetectorJobActionHandler.class);
     private final TimeValue requestTimeout;
     private volatile Integer maxAnomalyDetectors;
     private volatile Integer maxAnomalyFeatures;
@@ -93,10 +92,9 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
      * @param seqNo                   sequence number of last modification
      * @param primaryTerm             primary term of last modification
      * @param refreshPolicy           refresh policy
-     * @param anomalyDetector         anomaly detector instance
      * @param requestTimeout          request time out configuration
      */
-    public IndexAnomalyDetectorActionHandler(
+    public IndexAnomalyDetectorJobActionHandler(
         Settings settings,
         ClusterService clusterService,
         NodeClient client,
@@ -106,7 +104,6 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         Long seqNo,
         Long primaryTerm,
         WriteRequest.RefreshPolicy refreshPolicy,
-        AnomalyDetector anomalyDetector,
         TimeValue requestTimeout
     ) {
         super(client, channel);
@@ -116,7 +113,6 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         this.seqNo = seqNo;
         this.primaryTerm = primaryTerm;
         this.refreshPolicy = refreshPolicy;
-        this.anomalyDetector = anomalyDetector;
         this.requestTimeout = requestTimeout;
         maxAnomalyDetectors = MAX_ANOMALY_DETECTORS.get(settings);
         maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
@@ -125,82 +121,41 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
     }
 
     /**
-     * Start function to process create/update anomaly detector request.
-     * Check if anomaly detector index exist first, if not, will create first.
+     * Start function to process create/update anomaly detector job request.
+     * Check if anomaly detector job index exist first, if not, will create first.
      *
      * @throws IOException IOException from {@link AnomalyDetectionIndices#initAnomalyDetectorIndexIfAbsent(ActionListener)}
      */
     public void start() throws IOException {
-        if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist()) {
+        if (!anomalyDetectionIndices.doesAnomalyDetectorJobIndexExist()) {
             anomalyDetectionIndices
                 .initAnomalyDetectorIndex(
                     ActionListener.wrap(response -> onCreateMappingsResponse(response), exception -> onFailure(exception))
                 );
         } else {
-            prepareAnomalyDetectorIndexing();
+            prepareAnomalyDetectorJobIndexing();
         }
     }
 
     /**
-     * Prepare for indexing a new anomaly detector.
+     * Create anomaly detector job.
+     *
+     * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorJobMappings}
      */
-    private void prepareAnomalyDetectorIndexing() {
-        // TODO: check if aggregation query will return only one number. Not easy to validate,
-        // 1).If index has only one document
-        // 2).If filter will only return one document,
-        // 3).If custom expression has specific logic to return one number for some case,
-        // but multiple for others, like some if/else branch
-        String error = validateAnomalyDetector(anomalyDetector);
-        if (StringUtils.isNotBlank(error)) {
-            channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
-            return;
-        }
-        if (channel.request().method() == RestRequest.Method.PUT) {
-            handler.getDetectorJob(clusterService, client, detectorId, channel, () -> updateAnomalyDetector(client, detectorId));
+    public void createAnomalyDetectorJob() throws IOException {
+        if (!anomalyDetectionIndices.doesAnomalyDetectorJobIndexExist()) {
+            anomalyDetectionIndices
+                .initAnomalyDetectorJobIndex(
+                    ActionListener.wrap(response -> onCreateMappingsResponse(response), exception -> onFailure(exception))
+                );
         } else {
-            createAnomalyDetector();
+            prepareAnomalyDetectorJobIndexing();
         }
     }
 
-    private String validateAnomalyDetector(AnomalyDetector anomalyDetector) {
-        if (anomalyDetector.getFeatureAttributes().size() > maxAnomalyFeatures) {
-            return "Can't create anomaly features more than " + maxAnomalyFeatures;
-        }
-        return validateFeatures(anomalyDetector.getFeatureAttributes());
-    }
-
-    public String validateFeatures(List<Feature> features) {
-        final Set<String> duplicateFeatureNames = new HashSet<>();
-        final Set<String> featureNames = new HashSet<>();
-        final Set<String> duplicateFeatureAggNames = new HashSet<>();
-        final Set<String> featureAggNames = new HashSet<>();
-
-        if (features != null) {
-            features.forEach(feature -> {
-                if (!featureNames.add(feature.getName())) {
-                    duplicateFeatureNames.add(feature.getName());
-                }
-                if (!featureAggNames.add(feature.getAggregation().getName())) {
-                    duplicateFeatureAggNames.add(feature.getAggregation().getName());
-                }
-            });
-        }
-
-        StringBuilder errorMsgBuilder = new StringBuilder();
-        if (duplicateFeatureNames.size() > 0) {
-            errorMsgBuilder.append("Detector has duplicate feature names: ");
-            errorMsgBuilder.append(String.join(", ", duplicateFeatureNames)).append("\n");
-        }
-        if (duplicateFeatureAggNames.size() > 0) {
-            errorMsgBuilder.append("Detector has duplicate feature aggregation query names: ");
-            errorMsgBuilder.append(String.join(", ", duplicateFeatureAggNames));
-        }
-        return errorMsgBuilder.toString();
-    }
-
-    private void updateAnomalyDetector(NodeClient client, String detectorId) {
-        GetRequest request = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
-        client.get(request, ActionListener.wrap(response -> onGetAnomalyDetectorResponse(response), exception -> onFailure(exception)));
+    private void prepareAnomalyDetectorJobIndexing() {
+        GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
+        client.get(getRequest, ActionListener.wrap(response -> onGetAnomalyDetectorResponse(response), exception -> onFailure(exception)));
     }
 
     private void onGetAnomalyDetectorResponse(GetResponse response) throws IOException {
@@ -213,74 +168,66 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
             channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, EMPTY_PARAMS)));
             return;
         }
-
-        searchAdInputIndices(detectorId);
-    }
-
-    private void createAnomalyDetector() {
-        try {
-            QueryBuilder query = QueryBuilders.matchAllQuery();
-            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
-
-            SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
-
-            client.search(searchRequest, ActionListener.wrap(response -> onSearchAdResponse(response), exception -> onFailure(exception)));
-        } catch (Exception e) {
-            onFailure(e);
-        }
-    }
-
-    private void onSearchAdResponse(SearchResponse response) throws IOException {
-        if (response.getHits().getTotalHits().value >= maxAnomalyDetectors) {
-            String errorMsg = "Can't create anomaly detector more than " + maxAnomalyDetectors;
-            logger.error(errorMsg);
-            onFailure(new IllegalArgumentException(errorMsg));
-        } else {
-            searchAdInputIndices(null);
-        }
-    }
-
-    private void searchAdInputIndices(String detectorId) {
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .query(QueryBuilders.matchAllQuery())
-            .size(0)
-            .timeout(requestTimeout);
-
-        SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-
-        client
-            .search(
-                searchRequest,
-                ActionListener
-                    .wrap(searchResponse -> onSearchAdInputIndicesResponse(searchResponse, detectorId), exception -> onFailure(exception))
+        XContentParser parser = XContentType.JSON
+            .xContent()
+            .createParser(
+                channel.request().getXContentRegistry(),
+                LoggingDeprecationHandler.INSTANCE,
+                response.getSourceAsBytesRef().streamInput()
             );
+
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+        AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
+
+        IntervalTimeConfiguration interval = (IntervalTimeConfiguration) detector.getDetectionInterval();
+        Schedule schedule = new IntervalSchedule(Instant.now(), (int) interval.getInterval(), interval.getUnit());
+        Duration duration = Duration.of(interval.getInterval(), interval.getUnit());
+        AnomalyDetectorJob job = new AnomalyDetectorJob(
+            detector.getDetectorId(),
+            schedule,
+            true,
+            Instant.now(),
+            Instant.now(),
+            duration.getSeconds()
+        );
+
+        getAnomalyDetectorJob(job);
     }
 
-    private void onSearchAdInputIndicesResponse(SearchResponse response, String detectorId) throws IOException {
-        if (response.getHits().getTotalHits().value == 0) {
-            String errorMsg = "Can't create anomaly detector as no document found in indices: "
-                + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));
-            logger.error(errorMsg);
-            onFailure(new IllegalArgumentException(errorMsg));
-        } else {
-            indexAnomalyDetector(detectorId);
+    private void getAnomalyDetectorJob(AnomalyDetectorJob job) {
+        GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+
+        client.get(getRequest, ActionListener.wrap(response -> onGetAnomalyDetectorJob(response, job), exception -> onFailure(exception)));
+    }
+
+    private void onGetAnomalyDetectorJob(GetResponse response, AnomalyDetectorJob job) throws IOException {
+        if (response.isExists()) {
+            XContentBuilder builder = channel
+                .newErrorBuilder()
+                .startObject()
+                .field("Message", "AnomalyDetectorJob exists: " + detectorId)
+                .endObject();
+            channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, EMPTY_PARAMS)));
+            return;
         }
+
+        indexAnomalyDetectorJob(job);
     }
 
-    private void indexAnomalyDetector(String detectorId) throws IOException {
-        IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
+    private void indexAnomalyDetectorJob(AnomalyDetectorJob job) throws IOException {
+        IndexRequest indexRequest = new IndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
             .setRefreshPolicy(refreshPolicy)
-            .source(anomalyDetector.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
+            .source(job.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
             .setIfSeqNo(seqNo)
             .setIfPrimaryTerm(primaryTerm)
             .timeout(requestTimeout);
         if (detectorId != null) {
             indexRequest.id(detectorId);
         }
-        client.index(indexRequest, indexAnomalyDetectorResponse());
+        client.index(indexRequest, indexAnomalyDetectorJobResponse());
     }
 
-    private ActionListener<IndexResponse> indexAnomalyDetectorResponse() {
+    private ActionListener<IndexResponse> indexAnomalyDetectorJobResponse() {
         return new RestResponseListener<IndexResponse>(channel) {
             @Override
             public RestResponse buildResponse(IndexResponse response) throws Exception {
@@ -295,7 +242,6 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
                     .field(RestHandlerUtils._VERSION, response.getVersion())
                     .field(RestHandlerUtils._SEQ_NO, response.getSeqNo())
                     .field(RestHandlerUtils._PRIMARY_TERM, response.getPrimaryTerm())
-                    .field("anomaly_detector", anomalyDetector)
                     .endObject();
 
                 BytesRestResponse restResponse = new BytesRestResponse(response.status(), builder);
@@ -311,7 +257,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
     private void onCreateMappingsResponse(CreateIndexResponse response) throws IOException {
         if (response.isAcknowledged()) {
             logger.info("Created {} with mappings.", ANOMALY_DETECTORS_INDEX);
-            prepareAnomalyDetectorIndexing();
+            prepareAnomalyDetectorJobIndexing();
         } else {
             logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
             channel
@@ -319,6 +265,68 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
                     new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS))
                 );
         }
+    }
+
+    /**
+     * Delete anomaly detector job
+     * @param detectorId detector identifier
+     */
+    public void deleteAnomalyDetectorJob(String detectorId) {
+        GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+
+        client
+            .get(
+                getRequest,
+                ActionListener
+                    .wrap(
+                        response -> deleteAnomalyDetectorJobDoc(client, detectorId, channel, refreshPolicy),
+                        exception -> onFailure(exception)
+                    )
+            );
+    }
+
+    private void deleteAnomalyDetectorJobDoc(
+        NodeClient client,
+        String detectorId,
+        RestChannel channel,
+        WriteRequest.RefreshPolicy refreshPolicy
+    ) {
+        logger.info("Delete anomaly detector job {}", detectorId);
+        DeleteRequest deleteRequest = new DeleteRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId)
+            .setRefreshPolicy(refreshPolicy);
+        client.delete(deleteRequest, ActionListener.wrap(response -> {
+            if ("deleted".equals(response.getResult().getLowercase())) {
+                logger.info("Stop anomaly detector {}", detectorId);
+                StopDetectorRequest stopDetectorRequest = new StopDetectorRequest(detectorId);
+                client.execute(StopDetectorAction.INSTANCE, stopDetectorRequest, stopAdDetectorListener(channel, detectorId));
+            } else {
+                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Failed to stop AD job " + detectorId));
+            }
+        }, exception -> {
+            logger.error("Failed to stop AD job " + detectorId, exception);
+            onFailure(exception);
+        }));
+
+    }
+
+    private ActionListener<StopDetectorResponse> stopAdDetectorListener(RestChannel channel, String detectorId) {
+        return new ActionListener<StopDetectorResponse>() {
+            @Override
+            public void onResponse(StopDetectorResponse stopDetectorResponse) {
+                if (stopDetectorResponse.success()) {
+                    logger.info("AD model deleted successfully for detector {}", detectorId);
+                    channel.sendResponse(new BytesRestResponse(RestStatus.OK, "Stopped detector: " + detectorId));
+                } else {
+                    logger.error("Failed to delete AD model for detector {}", detectorId);
+                    channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Failed to delete AD model"));
+                }
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                logger.error("Failed to delete AD model for detector " + detectorId, e);
+            }
+        };
     }
 
 }

@@ -128,6 +128,7 @@ public final class AnomalyDetectorSettings {
         .intSetting("opendistro.anomaly_detection.max_retry_for_backoff", 3, 0, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     public static final String ANOMALY_DETECTORS_INDEX_MAPPING_FILE = "mappings/anomaly-detectors.json";
+    public static final String ANOMALY_DETECTOR_JOBS_INDEX_MAPPING_FILE = "mappings/anomaly-detector-jobs.json";
     public static final String ANOMALY_RESULTS_INDEX_MAPPING_FILE = "mappings/anomaly-results.json";
 
     public static final Duration HOURLY_MAINTENANCE = Duration.ofHours(1);
@@ -181,4 +182,10 @@ public final class AnomalyDetectorSettings {
     public static final int MAX_PREVIEW_SAMPLES = 300; // ok to adjust, higher for more data, lower for lower latency
 
     public static final int MAX_PREVIEW_RESULTS = 1_000; // ok to adjust, higher for more data, lower for lower latency
+
+    // AD JOB
+    public static final long DEFAULT_AD_JOB_LOC_DURATION_SECONDS = 60;
+
+    // Thread pool
+    public static final int AD_JOB_THEAD_POOL_QUEUE_SIZE = 1000;
 }

@@ -36,9 +36,10 @@ public final class RestHandlerUtils {
     public static final String REFRESH = "refresh";
     public static final String DETECTOR_ID = "detectorID";
     public static final String ANOMALY_DETECTOR = "anomaly_detector";
-    public static final String STOP = "_stop";
     public static final String RUN = "_run";
     public static final String PREVIEW = "_preview";
+    public static final String START_JOB = "_start";
+    public static final String STOP_JOB = "_stop";
     public static final ToXContent.MapParams XCONTENT_WITH_TYPE = new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
 
     private static final String KIBANA_USER_AGENT = "Kibana";

@@ -17,24 +17,18 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorActionHandler;
-import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorRequest;
-import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorResponse;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.BaseRestHandler;
-import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.rest.action.RestStatusToXContentListener;
 
 import java.io.IOException;
@@ -42,7 +36,6 @@ import java.util.Locale;
 
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.REFRESH;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.STOP;
 
 /**
  * This class consists of the REST handler to delete anomaly detector.
@@ -65,13 +58,6 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
                 String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
                 this
             );
-        // stop running anomaly detector: clear model, cache, checkpoint, ad result
-        controller
-            .registerHandler(
-                RestRequest.Method.POST,
-                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP),
-                this
-            );
     }
 
     @Override
@@ -87,21 +73,15 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
             .parse(request.param(REFRESH, WriteRequest.RefreshPolicy.IMMEDIATE.getValue()));
 
         return channel -> {
-            if (channel.request().method() == RestRequest.Method.POST) {
-                logger.info("Stop anomaly detector {}", detectorId);
-                StopDetectorRequest stopDetectorRequest = new StopDetectorRequest(detectorId);
-                client.execute(StopDetectorAction.INSTANCE, stopDetectorRequest, stopAdDetectorListener(channel, detectorId));
-            } else if (channel.request().method() == RestRequest.Method.DELETE) {
-                logger.info("Delete anomaly detector {}", detectorId);
-                handler
-                    .getMonitorUsingDetector(
-                        clusterService,
-                        client,
-                        detectorId,
-                        channel,
-                        () -> deleteAnomalyDetectorDoc(client, detectorId, channel, refreshPolicy)
-                    );
-            }
+            logger.info("Delete anomaly detector {}", detectorId);
+            handler
+                .getDetectorJob(
+                    clusterService,
+                    client,
+                    detectorId,
+                    channel,
+                    () -> deleteAnomalyDetectorDoc(client, detectorId, channel, refreshPolicy)
+                );
         };
     }
 
@@ -117,23 +97,4 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
         client.delete(deleteRequest, new RestStatusToXContentListener<>(channel));
     }
 
-    private ActionListener<StopDetectorResponse> stopAdDetectorListener(RestChannel channel, String detectorId) {
-        return new ActionListener<StopDetectorResponse>() {
-            @Override
-            public void onResponse(StopDetectorResponse stopDetectorResponse) {
-                if (stopDetectorResponse.success()) {
-                    logger.info("AD model deleted successfully for detector {}", detectorId);
-                    channel.sendResponse(new BytesRestResponse(RestStatus.OK, "AD model deleted successfully"));
-                } else {
-                    logger.error("Failed to delete AD model for detector {}", detectorId);
-                    channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Failed to delete AD model"));
-                }
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                logger.error("Failed to delete AD model for detector " + detectorId, e);
-            }
-        };
-    }
 }

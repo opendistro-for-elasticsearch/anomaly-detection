@@ -49,7 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
@@ -347,7 +347,7 @@ public class AnomalyResultTests extends AbstractADTest {
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        AnomalyResultResponse response = listener.actionGet();
+        AnomalyResultResponse response = listener.actionGet(10000L);
         assertAnomalyResultResponse(response, 0, 1, 0d);
     }
 
@@ -755,91 +755,6 @@ public class AnomalyResultTests extends AbstractADTest {
         assertThat(exception.getMessage(), containsString("There is one query running on AnomalyDetector"));
     }
 
-    public void testRCFLatchAwaitException() throws InterruptedException {
-
-        // These constructors register handler in transport service
-        new RCFResultTransportAction(
-            new ActionFilters(Collections.emptySet()),
-            transportService,
-            normalModelManager,
-            adCircuitBreakerService
-        );
-        new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
-
-        AnomalyResultTransportAction action = spy(
-            new AnomalyResultTransportAction(
-                new ActionFilters(Collections.emptySet()),
-                transportService,
-                client,
-                settings,
-                stateManager,
-                runner,
-                anomalyDetectionIndices,
-                featureQuery,
-                normalModelManager,
-                hashRing,
-                clusterService,
-                indexNameResolver,
-                threadPool,
-                adCircuitBreakerService,
-                adStats
-            )
-        );
-
-        CountDownLatch latch = mock(CountDownLatch.class);
-        doThrow(InterruptedException.class).when(latch).await(anyLong(), any(TimeUnit.class));
-        when(action.createCountDownLatch(anyInt())).thenReturn(latch);
-
-        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
-        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
-        action.doExecute(null, request, listener);
-
-        Throwable nestedCause = assertException(listener, AnomalyDetectionException.class);
-        assertEquals(CommonErrorMessages.WAIT_ERR_MSG, nestedCause.getMessage());
-    }
-
-    public void testThresholdLatchAwaitException() throws InterruptedException {
-        // These constructors register handler in transport service
-        new RCFResultTransportAction(
-            new ActionFilters(Collections.emptySet()),
-            transportService,
-            normalModelManager,
-            adCircuitBreakerService
-        );
-        new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
-
-        AnomalyResultTransportAction action = spy(
-            new AnomalyResultTransportAction(
-                new ActionFilters(Collections.emptySet()),
-                transportService,
-                client,
-                settings,
-                stateManager,
-                new ColdStartRunner(),
-                anomalyDetectionIndices,
-                featureQuery,
-                normalModelManager,
-                hashRing,
-                clusterService,
-                indexNameResolver,
-                threadPool,
-                adCircuitBreakerService,
-                adStats
-            )
-        );
-
-        CountDownLatch latch = mock(CountDownLatch.class);
-        doThrow(InterruptedException.class).when(latch).await(anyLong(), any(TimeUnit.class));
-        when(action.createCountDownLatch(eq(1))).thenReturn(latch);
-
-        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
-        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
-        action.doExecute(null, request, listener);
-
-        Throwable nestedCause = assertException(listener, AnomalyDetectionException.class);
-        assertEquals(AnomalyResultTransportAction.WAIT_FOR_THRESHOLD_ERR_MSG, nestedCause.getMessage());
-    }
-
     public void alertingRequestTemplate(boolean anomalyResultIndexExists) throws IOException {
         setUpSavingAnomalyResultIndex(anomalyResultIndexExists);
         // These constructors register handler in transport service
@@ -1020,7 +935,9 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats
         );
-        AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(null, null, null, null);
+        AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
+            null, null, null, null, null, null, null, null, null, 0, 0, 0, new AtomicInteger(), null
+        );
         listener.onFailure(null);
     }
 
@@ -1399,7 +1316,9 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats
         );
-        AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(null, "123-rcf-0", null, "123");
+        AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
+            null, "123-rcf-0", null, "123", null, null, null, null, null, 0, 0, 0, new AtomicInteger(), null
+        );
         listener.onResponse(null);
         assertTrue(testAppender.containsMessage(AnomalyResultTransportAction.NULL_RESPONSE));
     }

@@ -169,6 +169,7 @@ public class ClientUtil {
      * @param <Response> ActionResponse
      * @param detector Anomaly Detector
      * @return the response
+     * @throws EndRunException when there is already a query running
      * @throws ElasticsearchTimeoutException when we cannot get response within time.
      * @throws IllegalStateException when the waiting thread is interrupted
      */
@@ -198,7 +199,7 @@ public class ClientUtil {
                     LOG.error("Cannot get response for request {}, error: {}", request, exception);
                 }), latch));
             } catch (Exception e) {
-                LOG.error("Failed to process the request. Clear negative cache");
+                LOG.error("Failed to process the request for detectorId: {}.", detector.getDetectorId());
                 throttler.clearFilteredQuery(detector.getDetectorId());
                 throw e;
             }

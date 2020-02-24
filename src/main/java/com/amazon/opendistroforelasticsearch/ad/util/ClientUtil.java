@@ -24,6 +24,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.ActionType;
@@ -42,11 +45,13 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 public class ClientUtil {
     private volatile TimeValue requestTimeout;
     private Client client;
+    private final Throttler throttler;
 
     @Inject
-    public ClientUtil(Settings setting, Client client) {
+    public ClientUtil(Settings setting, Client client, Throttler throttler) {
         this.requestTimeout = REQUEST_TIMEOUT.get(setting);
         this.client = client;
+        this.throttler = throttler;
     }
 
     /**
@@ -151,5 +156,70 @@ public class ClientUtil {
         Function<Request, ActionFuture<Response>> function
     ) {
         return function.apply(request).actionGet(requestTimeout);
+    }
+
+    /**
+     * Send a nonblocking request with a timeout and return response. The request will first be put into
+     * the negative cache. Once the request complete, it will be removed from the negative cache.
+     *
+     * @param request request like index/search/get
+     * @param LOG log
+     * @param consumer functional interface to operate as a client request like client::get
+     * @param <Request> ActionRequest
+     * @param <Response> ActionResponse
+     * @param detector Anomaly Detector
+     * @return the response
+     * @throws EndRunException when there is already a query running
+     * @throws ElasticsearchTimeoutException when we cannot get response within time.
+     * @throws IllegalStateException when the waiting thread is interrupted
+     */
+    public <Request extends ActionRequest, Response extends ActionResponse> Optional<Response> throttledTimedRequest(
+        Request request,
+        Logger LOG,
+        BiConsumer<Request, ActionListener<Response>> consumer,
+        AnomalyDetector detector
+    ) {
+        try {
+            // if key already exist, reject the request and throws exception
+            if (!throttler.insertFilteredQuery(detector.getDetectorId(), request)) {
+                LOG.error("There is one query running for detectorId: {}", detector.getDetectorId());
+                throw new EndRunException(detector.getDetectorId(), "There is one query running on AnomalyDetector", true);
+            }
+            AtomicReference<Response> respReference = new AtomicReference<>();
+            final CountDownLatch latch = new CountDownLatch(1);
+
+            try {
+                consumer.accept(request, new LatchedActionListener<Response>(ActionListener.wrap(response -> {
+                    // clear negative cache
+                    throttler.clearFilteredQuery(detector.getDetectorId());
+                    respReference.set(response);
+                }, exception -> {
+                    // clear negative cache
+                    throttler.clearFilteredQuery(detector.getDetectorId());
+                    LOG.error("Cannot get response for request {}, error: {}", request, exception);
+                }), latch));
+            } catch (Exception e) {
+                LOG.error("Failed to process the request for detectorId: {}.", detector.getDetectorId());
+                throttler.clearFilteredQuery(detector.getDetectorId());
+                throw e;
+            }
+
+            if (!latch.await(requestTimeout.getSeconds(), TimeUnit.SECONDS)) {
+                throw new ElasticsearchTimeoutException("Cannot get response within time limit: " + request.toString());
+            }
+            return Optional.ofNullable(respReference.get());
+        } catch (InterruptedException e1) {
+            LOG.error(CommonErrorMessages.WAIT_ERR_MSG);
+            throw new IllegalStateException(e1);
+        }
+    }
+
+    /**
+     * Check if there is running query on given detector
+     * @param detector Anomaly Detector
+     * @return true if given detector has a running query else false
+     */
+    public boolean hasRunningQuery(AnomalyDetector detector) {
+        return throttler.getFilteredQuery(detector.getDetectorId()).isPresent();
     }
 }

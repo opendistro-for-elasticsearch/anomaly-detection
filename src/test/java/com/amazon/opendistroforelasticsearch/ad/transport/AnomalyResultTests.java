@@ -40,6 +40,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -81,6 +82,7 @@ import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
@@ -188,6 +190,7 @@ public class AnomalyResultTests extends AbstractADTest {
         List<String> userIndex = new ArrayList<>();
         userIndex.add("test*");
         when(detector.getIndices()).thenReturn(userIndex);
+        when(detector.getDetectorId()).thenReturn("testDetectorId");
         when(stateManager.getAnomalyDetector(any(String.class))).thenReturn(Optional.of(detector));
 
         hashRing = mock(HashRing.class);
@@ -232,8 +235,9 @@ public class AnomalyResultTests extends AbstractADTest {
         }).when(client).index(any(), any());
 
         indexNameResolver = new IndexNameExpressionResolver();
-
-        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY, client);
+        Clock clock = mock(Clock.class);
+        Throttler throttler = new Throttler(clock);
+        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY, client, throttler);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
 
         Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
@@ -723,6 +727,34 @@ public class AnomalyResultTests extends AbstractADTest {
         assertThat(exception.getMessage(), containsString(AnomalyResultTransportAction.NODE_UNRESPONSIVE_ERR_MSG));
     }
 
+    public void testRejectRequestBasedOnNegativeCache() {
+        when(stateManager.hasRunningQuery(detector)).thenReturn(true);
+        AnomalyResultTransportAction action = spy(
+            new AnomalyResultTransportAction(
+                new ActionFilters(Collections.emptySet()),
+                transportService,
+                client,
+                settings,
+                stateManager,
+                runner,
+                anomalyDetectionIndices,
+                featureQuery,
+                normalModelManager,
+                hashRing,
+                clusterService,
+                indexNameResolver,
+                threadPool,
+                adCircuitBreakerService,
+                adStats
+            )
+        );
+        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+        action.doExecute(null, request, listener);
+        Throwable exception = assertException(listener, AnomalyDetectionException.class);
+        assertThat(exception.getMessage(), containsString("There is one query running on AnomalyDetector"));
+    }
+
     public void testRCFLatchAwaitException() throws InterruptedException {
 
         // These constructors register handler in transport service
@@ -994,7 +1026,6 @@ public class AnomalyResultTests extends AbstractADTest {
 
     public void testColdStartNoTrainingData() throws Exception {
         when(featureQuery.getColdStartData(any(AnomalyDetector.class))).thenReturn(Optional.empty());
-
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,

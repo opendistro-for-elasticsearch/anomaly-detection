@@ -115,6 +115,10 @@ public class SearchFeatureDao {
 
     /**
      * Gets features for the given time period.
+     * This function also adds given detector to negative cache before sending es request.
+     * Once response/exception is received within timeout, this request will be treated as complete
+     * and cleared from the negative cache.
+     * Otherwise this detector entry remain in the negative to reject further request.
      *
      * @param detector info about indices, documents, feature query
      * @param startTime epoch milliseconds at the beginning of the period
@@ -124,8 +128,10 @@ public class SearchFeatureDao {
      */
     public Optional<double[]> getFeaturesForPeriod(AnomalyDetector detector, long startTime, long endTime) {
         SearchRequest searchRequest = createFeatureSearchRequest(detector, startTime, endTime, Optional.empty());
+
+        // send throttled request: this request will clear the negative cache if the request finished within timeout
         return clientUtil
-            .<SearchRequest, SearchResponse>timedRequest(searchRequest, logger, client::search)
+            .<SearchRequest, SearchResponse>throttledTimedRequest(searchRequest, logger, client::search, detector)
             .flatMap(resp -> parseResponse(resp, detector.getEnabledFeatureIds()));
     }
 

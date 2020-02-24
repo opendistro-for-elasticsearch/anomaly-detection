@@ -249,6 +249,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
             AnomalyDetector anomalyDetector = detector.get();
+            if (stateManager.hasRunningQuery(anomalyDetector)) {
+                LOG.error("There is one query running for detectorId: {}", anomalyDetector.getDetectorId());
+                listener.onFailure(new EndRunException(adID, "There is one query running on AnomalyDetector", true));
+                return;
+            }
 
             String thresholdModelID = modelManager.getThresholdModelId(adID);
             Optional<DiscoveryNode> thresholdNode = hashRing.getOwningNode(thresholdModelID);

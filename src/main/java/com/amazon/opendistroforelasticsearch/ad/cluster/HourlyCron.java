@@ -43,6 +43,8 @@ public class HourlyCron implements Runnable {
     public void run() {
         DiscoveryNode[] dataNodes = clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class);
 
+        // we also add the cancel query function here based on query text from the negative cache.
+
         CronRequest modelDeleteRequest = new CronRequest(dataNodes);
         client.execute(CronAction.INSTANCE, modelDeleteRequest, ActionListener.wrap(response -> {
             if (response.hasFailures()) {

@@ -38,9 +38,12 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectio
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
+import com.google.common.collect.ImmutableMap;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.get.GetResult;
 import org.elasticsearch.index.mapper.MapperService;
@@ -64,6 +67,7 @@ public class ADStateManagerTests extends ESTestCase {
     private Client client;
     private Clock clock;
     private Duration duration;
+    private Throttler throttler;
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {
@@ -86,12 +90,13 @@ public class ADStateManagerTests extends ESTestCase {
             .build();
         clock = mock(Clock.class);
         duration = Duration.ofHours(1);
+        throttler = new Throttler(clock);
         stateManager = new ADStateManager(
             client,
             xContentRegistry(),
             modelManager,
             settings,
-            new ClientUtil(settings, client),
+            new ClientUtil(settings, client, throttler),
             clock,
             duration
         );
@@ -202,5 +207,13 @@ public class ADStateManagerTests extends ESTestCase {
         stateManager.maintenance(states);
         assertEquals(0, states.size());
 
+    }
+
+    public void testHasRunningQuery() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);
+        SearchRequest dummySearchRequest = new SearchRequest();
+        assertFalse(stateManager.hasRunningQuery(detector));
+        throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest);
+        assertTrue(stateManager.hasRunningQuery(detector));
     }
 }

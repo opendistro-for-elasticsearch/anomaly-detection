@@ -187,15 +187,21 @@ public class ClientUtil {
             AtomicReference<Response> respReference = new AtomicReference<>();
             final CountDownLatch latch = new CountDownLatch(1);
 
-            consumer.accept(request, new LatchedActionListener<Response>(ActionListener.wrap(response -> {
-                // clear negative cache
+            try {
+                consumer.accept(request, new LatchedActionListener<Response>(ActionListener.wrap(response -> {
+                    // clear negative cache
+                    throttler.clearFilteredQuery(detector.getDetectorId());
+                    respReference.set(response);
+                }, exception -> {
+                    // clear negative cache
+                    throttler.clearFilteredQuery(detector.getDetectorId());
+                    LOG.error("Cannot get response for request {}, error: {}", request, exception);
+                }), latch));
+            } catch (Exception e) {
+                LOG.error("Failed to process the request. Clear negative cache");
                 throttler.clearFilteredQuery(detector.getDetectorId());
-                respReference.set(response);
-            }, exception -> {
-                // clear negative cache
-                throttler.clearFilteredQuery(detector.getDetectorId());
-                LOG.error("Cannot get response for request {}, error: {}", request, exception);
-            }), latch));
+                throw e;
+            }
 
             if (!latch.await(requestTimeout.getSeconds(), TimeUnit.SECONDS)) {
                 throw new ElasticsearchTimeoutException("Cannot get response within time limit: " + request.toString());

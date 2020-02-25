@@ -44,13 +44,16 @@ public class DailyCron implements Runnable {
     private final Client client;
     private final Duration checkpointTtl;
     private final ClientUtil clientUtil;
+    private final CancelQueryUtil cancelQueryUtil;
 
-    public DailyCron(DeleteDetector deleteUtil, Clock clock, Client client, Duration checkpointTtl, ClientUtil clientUtil) {
+    public DailyCron(DeleteDetector deleteUtil, Clock clock, Client client, Duration checkpointTtl, ClientUtil clientUtil,
+                     CancelQueryUtil cancelQueryUtil) {
         this.deleteUtil = deleteUtil;
         this.clock = clock;
         this.client = client;
         this.clientUtil = clientUtil;
         this.checkpointTtl = checkpointTtl;
+        this.cancelQueryUtil = cancelQueryUtil;
     }
 
     @Override
@@ -87,8 +90,8 @@ public class DailyCron implements Runnable {
                         }
                     )
             );
-
         deleteUtil.deleteDetectorResult(client);
+        cancelQueryUtil.cancelQuery(client);
     }
 
 }

@@ -41,17 +41,21 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
+import org.elasticsearch.threadpool.ThreadPool;
 
 public class ClientUtil {
     private volatile TimeValue requestTimeout;
     private Client client;
     private final Throttler throttler;
+    private ThreadPool threadPool;
 
     @Inject
-    public ClientUtil(Settings setting, Client client, Throttler throttler) {
+    public ClientUtil(Settings setting, Client client, Throttler throttler, ThreadPool threadPool) {
         this.requestTimeout = REQUEST_TIMEOUT.get(setting);
         this.client = client;
         this.throttler = throttler;
+        this.threadPool = threadPool;
     }
 
     /**
@@ -179,8 +183,11 @@ public class ClientUtil {
         BiConsumer<Request, ActionListener<Response>> consumer,
         AnomalyDetector detector
     ) {
-        try {
-            // if key already exist, reject the request and throws exception
+
+        try (ThreadContext.StoredContext context = threadPool.getThreadContext().stashContext()){
+            LOG.info("inside the try block");
+            assert context != null;
+            threadPool.getThreadContext().putHeader("X-Opaque-Id", "testId");
             if (!throttler.insertFilteredQuery(detector.getDetectorId(), request)) {
                 LOG.error("There is one query running for detectorId: {}", detector.getDetectorId());
                 throw new EndRunException(detector.getDetectorId(), "There is one query running on AnomalyDetector", true);
@@ -205,6 +212,7 @@ public class ClientUtil {
             }
 
             if (!latch.await(requestTimeout.getSeconds(), TimeUnit.SECONDS)) {
+
                 throw new ElasticsearchTimeoutException("Cannot get response within time limit: " + request.toString());
             }
             return Optional.ofNullable(respReference.get());

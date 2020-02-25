@@ -56,6 +56,7 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.After;
 import org.junit.Before;
 
@@ -68,6 +69,7 @@ public class ADStateManagerTests extends ESTestCase {
     private Clock clock;
     private Duration duration;
     private Throttler throttler;
+    private ThreadPool context;
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {
@@ -91,12 +93,13 @@ public class ADStateManagerTests extends ESTestCase {
         clock = mock(Clock.class);
         duration = Duration.ofHours(1);
         throttler = new Throttler(clock);
+
         stateManager = new ADStateManager(
             client,
             xContentRegistry(),
             modelManager,
             settings,
-            new ClientUtil(settings, client, throttler),
+            new ClientUtil(settings, client, throttler, context),
             clock,
             duration
         );

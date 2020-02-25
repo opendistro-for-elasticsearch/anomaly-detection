@@ -1,3 +1,18 @@
+/*
+ * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.ad.cluster;
 
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
@@ -24,8 +39,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * Utility class to cancel long running query
  */
 public class CancelQueryUtil {
-    private final static String CANCEL_REASON = "Cancel long running query for Anomaly Detection";
-    private final static long ONE_DAY = TimeUnit.DAYS.toMillis(1);
+    private static final String CANCEL_REASON = "Cancel long running query for Anomaly Detection";
+    private static final long ONE_DAY = TimeUnit.DAYS.toMillis(1);
     private static final org.apache.logging.log4j.Logger LOG = LogManager.getLogger(CancelQueryUtil.class);
     private final Throttler throttler;
 
@@ -76,7 +91,8 @@ public class CancelQueryUtil {
     }
 
     private String findMatchedQuery(TaskInfo task) {
-        for (Iterator<Map.Entry<String, Map.Entry<ActionRequest, Instant>>> it = throttler.getNegativeCache().entrySet().iterator(); it.hasNext();) {
+        for (Iterator<Map.Entry<String, Map.Entry<ActionRequest, Instant>>> it = throttler.getNegativeCache().entrySet().iterator();
+             it.hasNext();) {
             Map.Entry<String, Map.Entry<ActionRequest, Instant>> entry = it.next();
             if (throttler.getClock().millis() - entry.getValue().getValue().getEpochSecond() > ONE_DAY) {
                 String queryDescription = getQueryDescription(entry);

@@ -78,11 +78,15 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
@@ -101,6 +105,8 @@ import org.elasticsearch.common.settings.SettingsFilter;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
+import org.elasticsearch.index.IndexModule;
+import org.elasticsearch.index.shard.SearchOperationListener;
 import org.elasticsearch.monitor.jvm.JvmService;
 import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.Plugin;
@@ -108,6 +114,7 @@ import org.elasticsearch.plugins.ScriptPlugin;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestHandler;
 import org.elasticsearch.script.ScriptService;
+import org.elasticsearch.search.internal.SearchContext;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.watcher.ResourceWatcherService;
 
@@ -139,6 +146,37 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     }
 
     public AnomalyDetectorPlugin() {}
+
+
+    // Semaphore used to allow & block indexing operations during the test
+    private static final Semaphore ALLOWED_OPERATIONS = new Semaphore(0);
+
+    @Override
+    public void onIndexModule(IndexModule indexModule) {
+        indexModule.addSearchOperationListener(new BlockingOperationListener());
+    }
+
+    public static class BlockingOperationListener implements SearchOperationListener {
+        private static final Logger log = LogManager.getLogger(AnomalyDetectorPlugin.class);
+
+        @Override
+        public void onPreQueryPhase(SearchContext searchContext) {
+            preCheck(searchContext);
+        }
+
+        private void preCheck(SearchContext searchContext) {
+            try {
+                log.info("checking");
+                if (ALLOWED_OPERATIONS.tryAcquire(20, TimeUnit.SECONDS)) {
+                    log.debug("passed");
+                    return;
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            throw new IllegalStateException("Something went wrong");
+        }
+    }
 
     @Override
     public List<RestHandler> getRestHandlers(
@@ -204,7 +242,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         Settings settings = environment.settings();
         Clock clock = Clock.systemUTC();
         Throttler throttler = new Throttler(clock);
-        ClientUtil clientUtil = new ClientUtil(settings, client, throttler);
+        ClientUtil clientUtil = new ClientUtil(settings, client, throttler, threadPool);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
         anomalyDetectionIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings, clientUtil);
         this.clusterService = clusterService;

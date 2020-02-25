@@ -37,6 +37,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
 
 import java.io.IOException;
@@ -52,6 +53,7 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
     private Settings settings;
     private ClusterService clusterService;
     private Client client;
+    private ThreadPool context;
 
     @Before
     public void setup() {
@@ -71,10 +73,11 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
         clusterSettings.add(AnomalyDetectorSettings.REQUEST_TIMEOUT);
         clusterSetting = new ClusterSettings(settings, clusterSettings);
         clusterService = TestHelpers.createClusterService(client().threadPool(), clusterSetting);
+        context = TestHelpers.createThreadPool();
         client = mock(Client.class);
         Clock clock = Clock.systemUTC();
         Throttler throttler = new Throttler(clock);
-        requestUtil = new ClientUtil(settings, client, throttler);
+        requestUtil = new ClientUtil(settings, client, throttler, context);
         indices = new AnomalyDetectionIndices(client(), clusterService, client().threadPool(), settings, requestUtil);
     }
 

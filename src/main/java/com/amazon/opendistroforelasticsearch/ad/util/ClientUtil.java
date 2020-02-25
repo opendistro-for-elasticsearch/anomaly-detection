@@ -17,8 +17,6 @@ package com.amazon.opendistroforelasticsearch.ad.util;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 
-import java.time.Instant;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -26,6 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 
 import org.apache.logging.log4j.Logger;
@@ -42,17 +41,21 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
+import org.elasticsearch.threadpool.ThreadPool;
 
 public class ClientUtil {
     private volatile TimeValue requestTimeout;
     private Client client;
     private final Throttler throttler;
+    private ThreadPool threadPool;
 
     @Inject
-    public ClientUtil(Settings setting, Client client, Throttler throttler) {
+    public ClientUtil(Settings setting, Client client, Throttler throttler, ThreadPool threadPool) {
         this.requestTimeout = REQUEST_TIMEOUT.get(setting);
         this.client = client;
         this.throttler = throttler;
+        this.threadPool = threadPool;
     }
 
     /**
@@ -180,11 +183,18 @@ public class ClientUtil {
         BiConsumer<Request, ActionListener<Response>> consumer,
         AnomalyDetector detector
     ) {
-        try {
-            throttler.insertFilteredQuery(detector.getDetectorId(), request);
+        try (ThreadContext.StoredContext context = threadPool.getThreadContext().stashContext()){
+            LOG.info("inside the try block");
+            assert context != null;
+            threadPool.getThreadContext().putHeader("X-Opaque-Id", "testId");
+            if (!throttler.insertFilteredQuery(detector.getDetectorId(), request)) {
+                LOG.error("There is one query running for detectorId: {}", detector.getDetectorId());
+                throw new EndRunException(detector.getDetectorId(), "There is one query running on AnomalyDetector", true);
+            }
+            LOG.info("Current context: {}", (String) threadPool.getThreadContext().getTransient("X-Opaque-Id"));
+            LOG.info("Insert detectorId: {}", detector.getDetectorId());
             AtomicReference<Response> respReference = new AtomicReference<>();
             final CountDownLatch latch = new CountDownLatch(1);
-
             try {
                 consumer.accept(request, new LatchedActionListener<Response>(ActionListener.wrap(response -> {
                     // clear negative cache
@@ -200,8 +210,9 @@ public class ClientUtil {
                 throttler.clearFilteredQuery(detector.getDetectorId());
                 throw e;
             }
-
+            client.filterWithHeader()
             if (!latch.await(requestTimeout.getSeconds(), TimeUnit.SECONDS)) {
+
                 throw new ElasticsearchTimeoutException("Cannot get response within time limit: " + request.toString());
             }
             return Optional.ofNullable(respReference.get());

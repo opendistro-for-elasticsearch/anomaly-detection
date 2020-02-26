@@ -349,7 +349,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new FixedExecutorBuilder(
                     settings,
                     AD_JOB_THREAD_POOL_NAME,
-                    EsExecutors.numberOfProcessors(settings),
+                    Math.max(1, EsExecutors.numberOfProcessors(settings) / 4),
                     AD_JOB_THEAD_POOL_QUEUE_SIZE,
                     null
                 )

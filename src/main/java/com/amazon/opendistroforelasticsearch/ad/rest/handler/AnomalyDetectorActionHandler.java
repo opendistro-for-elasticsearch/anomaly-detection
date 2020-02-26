@@ -37,6 +37,16 @@ public class AnomalyDetectorActionHandler {
 
     private final Logger logger = LogManager.getLogger(AnomalyDetectorActionHandler.class);
 
+    /**
+     * Get detector job for update/delete AD job.
+     * If AD job exist, will return error message; otherwise, execute function.
+     *
+     * @param clusterService ES cluster service
+     * @param client ES node client
+     * @param detectorId detector identifier
+     * @param channel ES rest channel
+     * @param function AD function
+     */
     public void getDetectorJob(
         ClusterService clusterService,
         NodeClient client,
@@ -46,7 +56,7 @@ public class AnomalyDetectorActionHandler {
     ) {
         if (clusterService.state().getMetaData().indices().containsKey(ANOMALY_DETECTOR_JOB_INDEX)) {
             GetRequest request = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
-            client.get(request, ActionListener.wrap(response -> onGetAdJobResponse(response, channel, function), exception -> {
+            client.get(request, ActionListener.wrap(response -> onGetAdJobResponseForWrite(response, channel, function), exception -> {
                 logger.error("Fail to search AD job using detector id" + detectorId, exception);
                 try {
                     channel.sendResponse(new BytesRestResponse(channel, exception));
@@ -59,7 +69,7 @@ public class AnomalyDetectorActionHandler {
         }
     }
 
-    private void onGetAdJobResponse(GetResponse response, RestChannel channel, AnomalyDetectorFunction function) {
+    private void onGetAdJobResponseForWrite(GetResponse response, RestChannel channel, AnomalyDetectorFunction function) {
         if (response.isExists()) {
             String adJobId = response.getId();
             if (adJobId != null) {

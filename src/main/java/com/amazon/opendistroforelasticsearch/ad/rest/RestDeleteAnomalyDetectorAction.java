@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.util.Locale;
 
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.REFRESH;
 
 /**
  * This class consists of the REST handler to delete anomaly detector.
@@ -69,31 +68,17 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         String detectorId = request.param(DETECTOR_ID);
 
-        WriteRequest.RefreshPolicy refreshPolicy = WriteRequest.RefreshPolicy
-            .parse(request.param(REFRESH, WriteRequest.RefreshPolicy.IMMEDIATE.getValue()));
-
         return channel -> {
             logger.info("Delete anomaly detector {}", detectorId);
             handler
-                .getDetectorJob(
-                    clusterService,
-                    client,
-                    detectorId,
-                    channel,
-                    () -> deleteAnomalyDetectorDoc(client, detectorId, channel, refreshPolicy)
-                );
+                .getDetectorJob(clusterService, client, detectorId, channel, () -> deleteAnomalyDetectorDoc(client, detectorId, channel));
         };
     }
 
-    private void deleteAnomalyDetectorDoc(
-        NodeClient client,
-        String detectorId,
-        RestChannel channel,
-        WriteRequest.RefreshPolicy refreshPolicy
-    ) {
+    private void deleteAnomalyDetectorDoc(NodeClient client, String detectorId, RestChannel channel) {
         logger.info("Delete anomaly detector {}", detectorId);
         DeleteRequest deleteRequest = new DeleteRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detectorId)
-            .setRefreshPolicy(refreshPolicy);
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
         client.delete(deleteRequest, new RestStatusToXContentListener<>(channel));
     }
 

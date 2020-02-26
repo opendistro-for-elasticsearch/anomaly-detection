@@ -45,6 +45,7 @@ repositories {
 ext {
     opendistroVersion = '1.2.1'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+    job_scheduler_plugin_zip = "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}"
 }
 
 version = "${opendistroVersion}.0-alpha"
@@ -146,6 +147,8 @@ tasks.create(name : "runMultiNode", type: org.elasticsearch.gradle.test.RunTask)
     clusterName = 'multi-node-run'
     plugin project.path
     distribution = es_distribution
+    // Temporary until job-scheduler is published to Maven
+    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install', job_scheduler_plugin_zip)
 }
 
 tasks.create(name: "startMultiNode") {
@@ -213,24 +216,13 @@ integTestRunner {
 integTestCluster {
     distribution = es_distribution
     // Temporary until job-scheduler is published to Maven
-    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install',
-            "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}")
+    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install', job_scheduler_plugin_zip)
 }
 
 run {
     distribution = es_distribution
-    distribution = "oss-zip"
     // Temporary until job-scheduler is published to Maven
-    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install',
-            "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}")
-}
-
-runMultiNode {
-    distribution = es_distribution
-    distribution = "oss-zip"
-    // Temporary until job-scheduler is published to Maven
-    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install',
-            "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}")
+    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install', job_scheduler_plugin_zip)
 }
 
 evaluationDependsOnChildren()
@@ -311,7 +303,6 @@ dependencies {
     compile group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
     compile group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
-    compile group: 'org.elasticsearch.plugin', name: 'transport-netty4-client', version: '7.2.1'
 
     compile "org.jacoco:org.jacoco.agent:0.8.3"
     compile "org.jacoco:org.jacoco.ant:0.8.3"

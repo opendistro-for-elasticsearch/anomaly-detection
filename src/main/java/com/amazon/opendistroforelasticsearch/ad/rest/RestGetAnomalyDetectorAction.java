@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.google.common.collect.ImmutableMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -28,6 +29,7 @@ import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
+import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -46,6 +48,7 @@ import java.io.IOException;
 import java.util.Locale;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
+import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ENABLED_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -88,7 +91,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
                 MultiGetItemResponse[] responses = multiGetResponse.getResponses();
                 AnomalyDetector detector = null;
                 XContentBuilder builder = null;
-                boolean adJobEnabled = false;
+                Boolean adJobEnabled = false;
                 for (MultiGetItemResponse response : responses) {
                     if (ANOMALY_DETECTORS_INDEX.equals(response.getIndex())) {
                         if (!response.getResponse().isExists()) {
@@ -127,10 +130,8 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
                         }
                     }
                 }
-                if (detector != null) {
-                    detector.setEnabled(adJobEnabled);
-                }
-                builder.field(RestHandlerUtils.ANOMALY_DETECTOR, detector);
+                ToXContent.Params params = new ToXContent.MapParams(ImmutableMap.of(ENABLED_FIELD, adJobEnabled.toString()));
+                builder.field(RestHandlerUtils.ANOMALY_DETECTOR, detector, params);
                 builder.endObject();
                 return new BytesRestResponse(RestStatus.OK, builder);
             }

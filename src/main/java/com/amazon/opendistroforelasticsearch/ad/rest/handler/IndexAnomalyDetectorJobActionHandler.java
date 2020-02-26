@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.DocWriteResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.get.GetRequest;
@@ -295,8 +296,12 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
         DeleteRequest deleteRequest = new DeleteRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId)
             .setRefreshPolicy(refreshPolicy);
         client.delete(deleteRequest, ActionListener.wrap(response -> {
-            if ("deleted".equals(response.getResult().getLowercase())) {
+            if (response.getResult() == DocWriteResponse.Result.DELETED) {
                 logger.info("Stop anomaly detector {}", detectorId);
+                StopDetectorRequest stopDetectorRequest = new StopDetectorRequest(detectorId);
+                client.execute(StopDetectorAction.INSTANCE, stopDetectorRequest, stopAdDetectorListener(channel, detectorId));
+            } else if (response.getResult() == DocWriteResponse.Result.NOT_FOUND) {
+                logger.info("Anomaly detector job not found: {}", detectorId);
                 StopDetectorRequest stopDetectorRequest = new StopDetectorRequest(detectorId);
                 client.execute(StopDetectorAction.INSTANCE, stopDetectorRequest, stopAdDetectorListener(channel, detectorId));
             } else {
@@ -325,6 +330,7 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
             @Override
             public void onFailure(Exception e) {
                 logger.error("Failed to delete AD model for detector " + detectorId, e);
+                channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Failed to execute stop detector action"));
             }
         };
     }

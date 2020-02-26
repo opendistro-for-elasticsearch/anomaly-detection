@@ -209,4 +209,13 @@ public class ADStateManager {
     public void resetBackpressureCounter(String nodeId) {
         backpressureMuter.remove(nodeId);
     }
+
+    /**
+     * Check if there is running query on given detector
+     * @param detector Anomaly Detector
+     * @return true if given detector has a running query else false
+     */
+    public boolean hasRunningQuery(AnomalyDetector detector) {
+        return clientUtil.hasRunningQuery(detector);
+    }
 }

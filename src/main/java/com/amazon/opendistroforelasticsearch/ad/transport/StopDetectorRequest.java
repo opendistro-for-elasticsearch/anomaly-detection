@@ -39,7 +39,7 @@ public class StopDetectorRequest extends ActionRequest implements ToXContentObje
 
     public StopDetectorRequest(StreamInput in) throws IOException {
         super(in);
-        adID = in.readString();
+        this.adID = in.readString();
     }
 
     public StopDetectorRequest(String adID) {

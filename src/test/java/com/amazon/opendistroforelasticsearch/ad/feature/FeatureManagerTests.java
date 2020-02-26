@@ -30,6 +30,7 @@ import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInter
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 
@@ -87,6 +88,9 @@ public class FeatureManagerTests {
 
     @Mock
     private Clock clock;
+
+    @Mock
+    private ADStateManager stateManager;
 
     private FeatureManager featureManager;
 
@@ -308,6 +312,7 @@ public class FeatureManagerTests {
         for (int i = 1; i <= shingleSize; i++) {
             start = i * 10;
             end = (i + 1) * 10;
+
             when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
             featureManager.getCurrentFeatures(detector, start, end);
         }
@@ -329,6 +334,7 @@ public class FeatureManagerTests {
         for (int i = 1; i <= shingleSize; i++) {
             start = i * 10;
             end = (i + 1) * 10;
+
             when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
             featureManager.getCurrentFeatures(detector, start, end);
         }
@@ -351,6 +357,7 @@ public class FeatureManagerTests {
         for (int i = 1; i <= shingleSize; i++) {
             start = i * 10;
             end = (i + 1) * 10;
+
             when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
             featureManager.getCurrentFeatures(detector, start, end);
         }

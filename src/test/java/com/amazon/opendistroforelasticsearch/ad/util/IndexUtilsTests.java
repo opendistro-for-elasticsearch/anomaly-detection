@@ -22,6 +22,10 @@ import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.time.Clock;
+
+import static org.mockito.Mockito.mock;
+
 public class IndexUtilsTests extends ESIntegTestCase {
 
     private ClientUtil clientUtil;
@@ -29,7 +33,9 @@ public class IndexUtilsTests extends ESIntegTestCase {
     @Before
     public void setup() {
         Client client = client();
-        clientUtil = new ClientUtil(Settings.EMPTY, client);
+        Clock clock = mock(Clock.class);
+        Throttler throttler = new Throttler(clock);
+        clientUtil = new ClientUtil(Settings.EMPTY, client, throttler);
     }
 
     @Test

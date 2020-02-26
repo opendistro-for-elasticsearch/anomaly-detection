@@ -35,6 +35,11 @@ public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
 
     private Set<String> statsToBeRetrieved;
 
+    public ADStatsRequest(StreamInput in) throws IOException {
+        super(in);
+        statsToBeRetrieved = in.readSet(StreamInput::readString);
+    }
+
     /**
      * Constructor
      *
@@ -79,9 +84,7 @@ public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
         return statsToBeRetrieved;
     }
 
-    @Override
     public void readFrom(StreamInput in) throws IOException {
-        super.readFrom(in);
         statsToBeRetrieved = in.readSet(StreamInput::readString);
     }
 

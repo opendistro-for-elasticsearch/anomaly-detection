@@ -82,17 +82,16 @@ public class CronTransportActionTests extends AbstractADTest {
     public void testNormal() throws IOException, JsonPathNotFoundException {
         CronRequest request = new CronRequest();
 
-        CronNodeRequest nodeRequest = new CronNodeRequest("foo1", request);
+        CronNodeRequest nodeRequest = new CronNodeRequest();
         BytesStreamOutput nodeRequestOut = new BytesStreamOutput();
         nodeRequestOut.setVersion(Version.CURRENT);
         nodeRequest.writeTo(nodeRequestOut);
         StreamInput siNode = nodeRequestOut.bytes().streamInput();
 
-        CronNodeRequest nodeResponseRead = new CronNodeRequest();
-        nodeResponseRead.readFrom(siNode);
+        CronNodeRequest nodeResponseRead = new CronNodeRequest(siNode);
 
         CronNodeResponse nodeResponse1 = action.nodeOperation(nodeResponseRead);
-        CronNodeResponse nodeResponse2 = action.nodeOperation(new CronNodeRequest("foo2", request));
+        CronNodeResponse nodeResponse2 = action.nodeOperation(new CronNodeRequest());
 
         CronResponse response = action.newResponse(request, Arrays.asList(nodeResponse1, nodeResponse2), Collections.emptyList());
 

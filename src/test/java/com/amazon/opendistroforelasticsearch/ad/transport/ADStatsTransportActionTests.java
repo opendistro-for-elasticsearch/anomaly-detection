@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSuppl
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.client.Client;
@@ -32,6 +33,7 @@ import org.elasticsearch.transport.TransportService;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -55,7 +57,9 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
         super.setUp();
 
         Client client = client();
-        IndexUtils indexUtils = new IndexUtils(client, new ClientUtil(Settings.EMPTY, client), clusterService());
+        Clock clock = mock(Clock.class);
+        Throttler throttler = new Throttler(clock);
+        IndexUtils indexUtils = new IndexUtils(client, new ClientUtil(Settings.EMPTY, client, throttler), clusterService());
         ModelManager modelManager = mock(ModelManager.class);
 
         clusterStatName1 = "clusterStat1";
@@ -107,15 +111,10 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
         String nodeId = "nodeId1";
         ADStatsRequest adStatsRequest = new ADStatsRequest(nodeId);
 
-        ADStatsNodeRequest adStatsNodeRequest1 = new ADStatsNodeRequest(nodeId, adStatsRequest);
-        ADStatsNodeRequest adStatsNodeRequest2 = action.newNodeRequest(nodeId, adStatsRequest);
+        ADStatsNodeRequest adStatsNodeRequest1 = new ADStatsNodeRequest(adStatsRequest);
+        ADStatsNodeRequest adStatsNodeRequest2 = action.newNodeRequest(adStatsRequest);
 
         assertEquals(adStatsNodeRequest1.getADStatsRequest(), adStatsNodeRequest2.getADStatsRequest());
-    }
-
-    @Test
-    public void testNewNodeResponse() {
-        assertNotNull(action.newNodeResponse());
     }
 
     @Test
@@ -130,7 +129,7 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
             adStatsRequest.addStat(stat);
         }
 
-        ADStatsNodeResponse response = action.nodeOperation(new ADStatsNodeRequest(nodeId, adStatsRequest));
+        ADStatsNodeResponse response = action.nodeOperation(new ADStatsNodeRequest(adStatsRequest));
 
         Map<String, Object> stats = response.getStatsMap();
 

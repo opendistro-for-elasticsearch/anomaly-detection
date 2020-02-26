@@ -15,6 +15,8 @@
 
 package test.com.amazon.opendistroforelasticsearch.ad.util;
 
+import static org.elasticsearch.cluster.node.DiscoveryNodeRole.DATA_ROLE;
+import static org.elasticsearch.cluster.node.DiscoveryNodeRole.MASTER_ROLE;
 import static org.mockito.Mockito.mock;
 
 import java.net.InetAddress;
@@ -82,7 +84,7 @@ public class ClusterCreation {
             "foo0",
             new TransportAddress(InetAddress.getLoopbackAddress(), 9300),
             Collections.emptyMap(),
-            Collections.singleton(DiscoveryNode.Role.MASTER),
+            Collections.singleton(MASTER_ROLE),
             Version.CURRENT
         );
         List<DiscoveryNode> allNodes = new ArrayList<>();
@@ -95,7 +97,7 @@ public class ClusterCreation {
                         "foo" + i,
                         new TransportAddress(InetAddress.getLoopbackAddress(), 9300 + i),
                         Collections.emptyMap(),
-                        Collections.singleton(DiscoveryNode.Role.DATA),
+                        Collections.singleton(DATA_ROLE),
                         Version.CURRENT
                     )
                 );

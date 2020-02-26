@@ -58,7 +58,6 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
         out.writeDouble(rcfScore);
         out.writeDouble(confidence);
         out.writeVInt(forestSize);

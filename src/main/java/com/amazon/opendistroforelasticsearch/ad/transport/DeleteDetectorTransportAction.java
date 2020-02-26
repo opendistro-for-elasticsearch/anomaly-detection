@@ -32,9 +32,12 @@ import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
+
+import java.io.IOException;
 
 public class DeleteDetectorTransportAction extends TransportMasterNodeAction<DeleteDetectorRequest, AcknowledgedResponse> {
     private static final Logger LOG = LogManager.getLogger(DeleteDetectorTransportAction.class);
@@ -59,8 +62,8 @@ public class DeleteDetectorTransportAction extends TransportMasterNodeAction<Del
             clusterService,
             threadPool,
             actionFilters,
-            indexNameExpressionResolver,
-            DeleteDetectorRequest::new
+            DeleteDetectorRequest::new,
+            indexNameExpressionResolver
         );
         this.client = client;
         this.clusterService = clusterService;
@@ -80,8 +83,8 @@ public class DeleteDetectorTransportAction extends TransportMasterNodeAction<Del
     }
 
     @Override
-    protected AcknowledgedResponse newResponse() {
-        return new AcknowledgedResponse();
+    protected AcknowledgedResponse read(StreamInput in) throws IOException {
+        return new AcknowledgedResponse(in);
     }
 
     @Override

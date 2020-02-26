@@ -73,8 +73,6 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
         ClusterService clusterService,
         AnomalyDetectorRunner anomalyDetectorRunner
     ) {
-        super(settings);
-
         this.anomalyDetectorRunner = anomalyDetectorRunner;
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);

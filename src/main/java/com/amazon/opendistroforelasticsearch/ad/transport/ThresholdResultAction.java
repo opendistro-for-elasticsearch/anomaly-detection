@@ -15,25 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.elasticsearch.action.Action;
-import org.elasticsearch.common.io.stream.Writeable;
+import org.elasticsearch.action.ActionType;
 
-public class ThresholdResultAction extends Action<ThresholdResultResponse> {
+public class ThresholdResultAction extends ActionType<ThresholdResultResponse> {
     public static final ThresholdResultAction INSTANCE = new ThresholdResultAction();
     public static final String NAME = "cluster:admin/ad/theshold/result";
 
     private ThresholdResultAction() {
-        super(NAME);
+        super(NAME, ThresholdResultResponse::new);
     }
 
-    @Override
-    public ThresholdResultResponse newResponse() {
-        throw new UnsupportedOperationException("Usage of Streamable is to be replaced by Writeable");
-    }
-
-    @Override
-    public Writeable.Reader<ThresholdResultResponse> getResponseReader() {
-        // return constructor method reference
-        return ThresholdResultResponse::new;
-    }
 }

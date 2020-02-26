@@ -26,16 +26,17 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 public class CronNodeResponse extends BaseNodeResponse implements ToXContentObject {
     static String NODE_ID = "node_id";
 
-    public CronNodeResponse() {}
+    public CronNodeResponse(StreamInput in) throws IOException {
+        super(in);
+    }
 
     public CronNodeResponse(DiscoveryNode node) {
         super(node);
     }
 
     public static CronNodeResponse readNodeResponse(StreamInput in) throws IOException {
-        CronNodeResponse nodeResponse = new CronNodeResponse();
-        nodeResponse.readFrom(in);
-        return nodeResponse;
+
+        return new CronNodeResponse(in);
     }
 
     @Override

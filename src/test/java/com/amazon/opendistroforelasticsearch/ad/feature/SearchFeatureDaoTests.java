@@ -32,6 +32,7 @@ import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInter
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 import junitparams.JUnitParamsRunner;
@@ -127,6 +128,8 @@ public class SearchFeatureDaoTests {
     private Aggregations aggs;
     @Mock
     private Max max;
+    @Mock
+    private ADStateManager stateManager;
 
     @Mock
     private AnomalyDetector detector;
@@ -170,6 +173,15 @@ public class SearchFeatureDaoTests {
             .when(clientUtil)
             .timedRequest(eq(searchRequest), anyObject(), Matchers.<BiConsumer<SearchRequest, ActionListener<SearchResponse>>>anyObject());
         when(searchResponse.getAggregations()).thenReturn(aggregations);
+
+        doReturn(Optional.of(searchResponse))
+            .when(clientUtil)
+            .throttledTimedRequest(
+                eq(searchRequest),
+                anyObject(),
+                Matchers.<BiConsumer<SearchRequest, ActionListener<SearchResponse>>>anyObject(),
+                anyObject()
+            );
 
         multiSearchRequest = new MultiSearchRequest();
         SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]))

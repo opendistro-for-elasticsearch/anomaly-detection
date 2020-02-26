@@ -49,7 +49,6 @@ public class ThresholdResultResponse extends ActionResponse implements ToXConten
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
         out.writeDouble(anomalyGrade);
         out.writeDouble(confidence);
     }

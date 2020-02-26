@@ -74,7 +74,6 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
         out.writeDouble(anomalyGrade);
         out.writeDouble(confidence);
         out.writeVInt(features.size());

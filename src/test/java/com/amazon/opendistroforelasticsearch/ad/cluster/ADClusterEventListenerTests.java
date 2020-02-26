@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.cluster;
 
+import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.elasticsearch.test.ClusterServiceUtils.createClusterService;
 
 import static org.mockito.Mockito.mock;
@@ -22,7 +23,6 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Matchers.any;
 
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -38,7 +38,6 @@ import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.block.ClusterBlocks;
 import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.node.DiscoveryNode.Role;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.gateway.GatewayService;
@@ -82,7 +81,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         when(hashRing.build()).thenReturn(true);
         modelManager = mock(ModelManager.class);
         masterNode = new DiscoveryNode(masterNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT);
-        dataNode1 = new DiscoveryNode(dataNode1Id, buildNewFakeTransportAddress(), emptyMap(), EnumSet.allOf(Role.class), Version.CURRENT);
+        dataNode1 = new DiscoveryNode(dataNode1Id, buildNewFakeTransportAddress(), emptyMap(), BUILT_IN_ROLES, Version.CURRENT);
         oldClusterState = ClusterState
             .builder(new ClusterName(clusterName))
             .nodes(new DiscoveryNodes.Builder().masterNodeId(masterNodeId).localNodeId(masterNodeId).add(masterNode))
@@ -169,15 +168,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
                     .localNodeId(dataNode1Id)
                     .add(new DiscoveryNode(masterNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT))
                     .add(dataNode1)
-                    .add(
-                        new DiscoveryNode(
-                            "dataNode2",
-                            buildNewFakeTransportAddress(),
-                            emptyMap(),
-                            EnumSet.allOf(Role.class),
-                            Version.CURRENT
-                        )
-                    )
+                    .add(new DiscoveryNode("dataNode2", buildNewFakeTransportAddress(), emptyMap(), BUILT_IN_ROLES, Version.CURRENT))
             )
             .build();
 

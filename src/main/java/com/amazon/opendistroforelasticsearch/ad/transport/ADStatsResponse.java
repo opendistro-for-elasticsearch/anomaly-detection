@@ -77,7 +77,7 @@ public class ADStatsResponse extends BaseNodesResponse<ADStatsNodeResponse> impl
 
     @Override
     public void writeNodesTo(StreamOutput out, List<ADStatsNodeResponse> nodes) throws IOException {
-        out.writeStreamableList(nodes);
+        out.writeList(nodes);
     }
 
     @Override

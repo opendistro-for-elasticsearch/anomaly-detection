@@ -180,7 +180,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clusterService,
             anomalyDetectorRunner
         );
-        RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(settings, restController, adStats);
+        RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(restController, adStats);
         RestAnomalyDetectorJobAction anomalyDetectorJobAction = new RestAnomalyDetectorJobAction(
             settings,
             restController,

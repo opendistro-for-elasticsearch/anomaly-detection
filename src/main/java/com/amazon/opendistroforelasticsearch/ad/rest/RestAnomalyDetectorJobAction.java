@@ -56,7 +56,6 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
         ClusterService clusterService,
         AnomalyDetectionIndices anomalyDetectionIndices
     ) {
-        super(settings);
         this.settings = settings;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
@@ -97,7 +96,6 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
                 : WriteRequest.RefreshPolicy.IMMEDIATE;
 
             IndexAnomalyDetectorJobActionHandler handler = new IndexAnomalyDetectorJobActionHandler(
-                settings,
                 clusterService,
                 client,
                 channel,

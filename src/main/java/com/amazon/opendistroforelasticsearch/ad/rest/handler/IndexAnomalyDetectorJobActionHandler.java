@@ -39,7 +39,6 @@ import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -57,8 +56,6 @@ import java.time.Instant;
 import java.util.Locale;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_DETECTORS;
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -84,7 +81,6 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
     /**
      * Constructor function.
      *
-     * @param settings                ES settings
      * @param clusterService          ClusterService
      * @param client                  ES node client that executes actions on the local node
      * @param channel                 ES channel used to construct bytes / builder based outputs, and send responses
@@ -96,7 +92,6 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
      * @param requestTimeout          request time out configuration
      */
     public IndexAnomalyDetectorJobActionHandler(
-        Settings settings,
         ClusterService clusterService,
         NodeClient client,
         RestChannel channel,
@@ -115,10 +110,6 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
         this.primaryTerm = primaryTerm;
         this.refreshPolicy = refreshPolicy;
         this.requestTimeout = requestTimeout;
-        maxAnomalyDetectors = MAX_ANOMALY_DETECTORS.get(settings);
-        maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_DETECTORS, it -> maxAnomalyDetectors = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
     }
 
     /**

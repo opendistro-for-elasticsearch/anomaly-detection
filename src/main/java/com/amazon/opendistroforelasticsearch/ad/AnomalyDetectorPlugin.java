@@ -32,7 +32,9 @@ import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.rest.RestAnomalyDetectorJobAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestExecuteAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestGetAnomalyDetectorAction;
@@ -68,6 +70,9 @@ import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportA
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -75,6 +80,7 @@ import com.google.gson.Gson;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -97,7 +103,10 @@ import org.elasticsearch.common.settings.IndexScopedSettings;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.settings.SettingsFilter;
+import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.common.xcontent.XContentParserUtils;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
 import org.elasticsearch.monitor.jvm.JvmService;
@@ -107,6 +116,8 @@ import org.elasticsearch.plugins.ScriptPlugin;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestHandler;
 import org.elasticsearch.script.ScriptService;
+import org.elasticsearch.threadpool.ExecutorBuilder;
+import org.elasticsearch.threadpool.FixedExecutorBuilder;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.watcher.ResourceWatcherService;
 
@@ -117,13 +128,17 @@ import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInter
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_JOB_THEAD_POOL_QUEUE_SIZE;
+
 /**
  * Entry point of AD plugin.
  */
-public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, ScriptPlugin {
+public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, ScriptPlugin, JobSchedulerExtension {
 
     public static final String AD_BASE_URI = "/_opendistro/_anomaly_detection";
     public static final String AD_BASE_DETECTORS_URI = AD_BASE_URI + "/detectors";
+    public static final String AD_JOB_THREAD_POOL_NAME = "ad-job";
+    public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
     private static Gson gson;
     private AnomalyDetectionIndices anomalyDetectionIndices;
     private AnomalyDetectorRunner anomalyDetectorRunner;
@@ -166,6 +181,12 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             anomalyDetectorRunner
         );
         RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(restController, adStats);
+        RestAnomalyDetectorJobAction anomalyDetectorJobAction = new RestAnomalyDetectorJobAction(
+            settings,
+            restController,
+            clusterService,
+            anomalyDetectionIndices
+        );
 
         return ImmutableList
             .of(
@@ -175,6 +196,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 searchAnomalyResultAction,
                 deleteAnomalyDetectorAction,
                 executeAnomalyDetectorAction,
+                anomalyDetectorJobAction,
                 statsAnomalyDetectorAction
             );
     }
@@ -291,6 +313,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         adStats = new ADStats(indexUtils, modelManager, stats);
         ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
 
+        AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
+        jobRunner.setClient(client);
+        jobRunner.setThreadPool(threadPool);
+
         return ImmutableList
             .of(
                 anomalyDetectionIndices,
@@ -311,6 +337,20 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 adCircuitBreakerService,
                 adStats,
                 new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil)
+            );
+    }
+
+    @Override
+    public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
+        return Collections
+            .singletonList(
+                new FixedExecutorBuilder(
+                    settings,
+                    AD_JOB_THREAD_POOL_NAME,
+                    Math.max(1, EsExecutors.numberOfProcessors(settings) / 4),
+                    AD_JOB_THEAD_POOL_QUEUE_SIZE,
+                    null
+                )
             );
     }
 
@@ -366,4 +406,28 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(ADStatsAction.INSTANCE, ADStatsTransportAction.class)
             );
     }
+
+    @Override
+    public String getJobType() {
+        return AD_JOB_TYPE;
+    }
+
+    @Override
+    public String getJobIndex() {
+        return AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+    }
+
+    @Override
+    public ScheduledJobRunner getJobRunner() {
+        return AnomalyDetectorJobRunner.getJobRunnerInstance();
+    }
+
+    @Override
+    public ScheduledJobParser getJobParser() {
+        return (parser, id, jobDocVersion) -> {
+            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+            return AnomalyDetectorJob.parse(parser);
+        };
+    }
+
 }

@@ -99,7 +99,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
     @Test
     public void testRunJobWithWrongParameterType() {
-        expectedEx.expect(IllegalStateException.class);
+        expectedEx.expect(IllegalArgumentException.class);
         expectedEx.expectMessage("Job parameter is not instance of AnomalyDetectorJob, type: ");
 
         ScheduledJobParameter parameter = mock(ScheduledJobParameter.class);

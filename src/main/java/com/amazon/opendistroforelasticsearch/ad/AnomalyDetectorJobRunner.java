@@ -76,7 +76,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     public void runJob(ScheduledJobParameter jobParameter, JobExecutionContext context) {
         log.info("Start to run AD job {}", jobParameter.getName());
         if (!(jobParameter instanceof AnomalyDetectorJob)) {
-            throw new IllegalStateException(
+            throw new IllegalArgumentException(
                 "Job parameter is not instance of AnomalyDetectorJob, type: " + jobParameter.getClass().getCanonicalName()
             );
         }

@@ -74,9 +74,6 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
 
     private final Logger logger = LogManager.getLogger(IndexAnomalyDetectorJobActionHandler.class);
     private final TimeValue requestTimeout;
-    private volatile Integer maxAnomalyDetectors;
-    private volatile Integer maxAnomalyFeatures;
-    private final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
 
     /**
      * Constructor function.
@@ -110,23 +107,6 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
         this.primaryTerm = primaryTerm;
         this.refreshPolicy = refreshPolicy;
         this.requestTimeout = requestTimeout;
-    }
-
-    /**
-     * Start function to process create/update anomaly detector job request.
-     * Check if anomaly detector job index exist first, if not, will create first.
-     *
-     * @throws IOException IOException from {@link AnomalyDetectionIndices#initAnomalyDetectorIndexIfAbsent(ActionListener)}
-     */
-    public void start() throws IOException {
-        if (!anomalyDetectionIndices.doesAnomalyDetectorJobIndexExist()) {
-            anomalyDetectionIndices
-                .initAnomalyDetectorIndex(
-                    ActionListener.wrap(response -> onCreateMappingsResponse(response), exception -> onFailure(exception))
-                );
-        } else {
-            prepareAnomalyDetectorJobIndexing();
-        }
     }
 
     /**
@@ -212,10 +192,8 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
             .source(job.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
             .setIfSeqNo(seqNo)
             .setIfPrimaryTerm(primaryTerm)
-            .timeout(requestTimeout);
-        if (detectorId != null) {
-            indexRequest.id(detectorId);
-        }
+            .timeout(requestTimeout)
+            .id(detectorId);
         client.index(indexRequest, indexAnomalyDetectorJobResponse());
     }
 

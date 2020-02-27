@@ -44,7 +44,7 @@ import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.STO
  */
 public class RestAnomalyDetectorJobAction extends BaseRestHandler {
 
-    public static final String DETECT_DATA_ACTION = "execute_anomaly_detector";
+    public static final String AD_JOB_ACTION = "anomaly_detector_job_action";
     private volatile TimeValue requestTimeout;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final Settings settings;
@@ -81,7 +81,7 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
 
     @Override
     public String getName() {
-        return DETECT_DATA_ACTION;
+        return AD_JOB_ACTION;
     }
 
     @Override

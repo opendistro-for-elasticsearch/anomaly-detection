@@ -16,12 +16,14 @@
 package com.amazon.opendistroforelasticsearch.ad;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.model.TimeConfiguration;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.http.Header;
@@ -195,6 +197,14 @@ public class TestHelpers {
         return new IntervalTimeConfiguration(ESRestTestCase.randomLongBetween(1, 1000), ChronoUnit.MINUTES);
     }
 
+    public static IntervalSchedule randomIntervalSchedule() {
+        return new IntervalSchedule(
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            ESRestTestCase.randomIntBetween(1, 1000),
+            ChronoUnit.MINUTES
+        );
+    }
+
     public static Feature randomFeature() {
         AggregationBuilder testAggregation = null;
         try {
@@ -236,6 +246,17 @@ public class TestHelpers {
             ImmutableList.of(randomFeatureData(), randomFeatureData()),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        );
+    }
+
+    public static AnomalyDetectorJob randomAnomalyDetectorJob() {
+        return new AnomalyDetectorJob(
+            randomAlphaOfLength(10),
+            randomIntervalSchedule(),
+            true,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            60L
         );
     }
 

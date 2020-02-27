@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.indices;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.google.common.base.Charsets;
@@ -52,6 +53,7 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTORS_INDEX_MAPPING_FILE;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTOR_JOBS_INDEX_MAPPING_FILE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.ANOMALY_RESULTS_INDEX_MAPPING_FILE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 
@@ -148,12 +150,32 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     }
 
     /**
+     * Get anomaly detector job index mapping json content.
+     *
+     * @return anomaly detector job index mapping
+     * @throws IOException IOException if mapping file can't be read correctly
+     */
+    private String getAnomalyDetectorJobMappings() throws IOException {
+        URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(ANOMALY_DETECTOR_JOBS_INDEX_MAPPING_FILE);
+        return Resources.toString(url, Charsets.UTF_8);
+    }
+
+    /**
      * Anomaly detector index exist or not.
      *
      * @return true if anomaly detector index exists
      */
     public boolean doesAnomalyDetectorIndexExist() {
         return clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+    }
+
+    /**
+     * Anomaly detector job index exist or not.
+     *
+     * @return true if anomaly detector job index exists
+     */
+    public boolean doesAnomalyDetectorJobIndexExist() {
+        return clusterService.state().getRoutingTable().hasIndex(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
     }
 
     /**
@@ -211,6 +233,19 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
         String mapping = getAnomalyResultMappings();
         boolean createIndexResult = createIndex(AD_RESULT_HISTORY_INDEX_PATTERN, AD_RESULT_HISTORY_WRITE_INDEX_ALIAS, mapping);
         historyIndexInitialized.compareAndSet(false, createIndexResult);
+    }
+
+    /**
+     * Create anomaly detector job index.
+     *
+     * @param actionListener action called after create index
+     * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorJobMappings}
+     */
+    public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
+        // TODO: specify replica setting
+        CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
+            .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON);
+        adminClient.indices().create(request, actionListener);
     }
 
     private boolean createIndex(String index, String alias, String mapping) {

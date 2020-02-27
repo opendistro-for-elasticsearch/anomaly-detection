@@ -1,0 +1,39 @@
+{
+  "dynamic": false,
+  "_meta": {
+    "schema_version": 1
+  },
+  "properties": {
+    "schema_version": {
+      "type": "integer"
+    },
+    "schedule": {
+      "properties": {
+        "period": {
+          "properties": {
+            "interval": {
+              "type": "integer"
+            },
+            "unit": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "enabled_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "last_update_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "lock_duration_seconds": {
+      "type": "long"
+    }
+  }
+}

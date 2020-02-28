@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRestTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.google.common.collect.ImmutableMap;
 import org.apache.http.entity.ContentType;
@@ -27,6 +28,7 @@ import org.apache.http.nio.entity.NStringEntity;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.common.UUIDs;
+import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -339,7 +341,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
 
-        assertEquals("Fail to start AD job", RestStatus.CREATED, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
 
         TestHelpers
             .assertFailWith(
@@ -370,7 +372,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
 
-        assertEquals("Fail to start AD job", RestStatus.CREATED, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
 
         String newDescription = randomAlphaOfLength(5);
 
@@ -406,6 +408,31 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
     }
 
+    public void testGetDetectorWithAdJob() throws IOException {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+
+        Response startAdJobResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
+                ImmutableMap.of(),
+                "",
+                null
+            );
+
+        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+
+        ToXContentObject[] results = getAnomalyDetector(detector.getDetectorId(), true);
+        assertEquals("Incorrect Location header", detector, results[0]);
+        assertEquals("Incorrect detector job name", detector.getDetectorId(), ((AnomalyDetectorJob) results[1]).getName());
+        assertTrue(((AnomalyDetectorJob) results[1]).isEnabled());
+
+        results = getAnomalyDetector(detector.getDetectorId(), false);
+        assertEquals("Incorrect Location header", detector, results[0]);
+        assertEquals("Should not return detector job", null, results[1]);
+    }
+
     public void testStartAdJobWithExistingDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false);
 
@@ -419,7 +446,19 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
 
-        assertEquals("Fail to start AD job", RestStatus.CREATED, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+
+        startAdJobResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
+                ImmutableMap.of(),
+                "",
+                null
+            );
+
+        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
     }
 
     public void testStartAdJobWithNonexistingDetectorIndex() throws Exception {
@@ -468,9 +507,20 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "",
                 null
             );
-        assertEquals("Fail to start AD job", RestStatus.CREATED, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
 
         Response stopAdJobResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_stop",
+                ImmutableMap.of(),
+                "",
+                null
+            );
+        assertEquals("Fail to stop AD job", RestStatus.OK, restStatus(stopAdJobResponse));
+
+        stopAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
                 "POST",
@@ -510,12 +560,12 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "",
                 null
             );
-        assertEquals("Fail to start AD job", RestStatus.CREATED, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
 
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "Failed to stop AD job",
+                "Anomaly detector job not exist",
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -526,6 +576,43 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         null
                     )
             );
+    }
+
+    public void testStartDisabledAdjob() throws IOException {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        Response startAdJobResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
+                ImmutableMap.of(),
+                "",
+                null
+            );
+        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+
+        Response stopAdJobResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_stop",
+                ImmutableMap.of(),
+                "",
+                null
+            );
+        assertEquals("Fail to stop AD job", RestStatus.OK, restStatus(stopAdJobResponse));
+
+        startAdJobResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
+                ImmutableMap.of(),
+                "",
+                null
+            );
+
+        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
     }
 
 }

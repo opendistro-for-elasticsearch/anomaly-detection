@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -22,6 +24,7 @@ import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestStatus;
@@ -29,6 +32,7 @@ import org.elasticsearch.rest.RestStatus;
 import java.io.IOException;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 /**
  * Common handler to process AD request.
@@ -57,7 +61,7 @@ public class AnomalyDetectorActionHandler {
         if (clusterService.state().getMetaData().indices().containsKey(ANOMALY_DETECTOR_JOB_INDEX)) {
             GetRequest request = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
             client.get(request, ActionListener.wrap(response -> onGetAdJobResponseForWrite(response, channel, function), exception -> {
-                logger.error("Fail to search AD job using detector id" + detectorId, exception);
+                logger.error("Fail to get anomaly detector job: " + detectorId, exception);
                 try {
                     channel.sendResponse(new BytesRestResponse(channel, exception));
                 } catch (IOException e) {
@@ -74,8 +78,18 @@ public class AnomalyDetectorActionHandler {
             String adJobId = response.getId();
             if (adJobId != null) {
                 // check if AD job is running on the detector, if yes, we can't delete the detector
-                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Detector job is running: " + adJobId));
-                return;
+                try (XContentParser parser = RestHandlerUtils.createXContentParser(channel, response.getSourceAsBytesRef())) {
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                    AnomalyDetectorJob adJob = AnomalyDetectorJob.parse(parser);
+                    if (adJob.isEnabled()) {
+                        channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Detector job is running: " + adJobId));
+                        return;
+                    }
+                } catch (IOException e) {
+                    String message = "Failed to parse anomaly detector job " + adJobId;
+                    logger.error(message, e);
+                    channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, message));
+                }
             }
         }
         function.execute();

@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.http.HttpEntity;
@@ -106,13 +107,28 @@ public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
     }
 
     public AnomalyDetector getAnomalyDetector(String detectorId) throws IOException {
-        BasicHeader header = new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-        return getAnomalyDetector(detectorId, header);
+        return (AnomalyDetector) getAnomalyDetector(detectorId, false)[0];
     }
 
     public AnomalyDetector getAnomalyDetector(String detectorId, BasicHeader header) throws IOException {
+        return (AnomalyDetector) getAnomalyDetector(detectorId, header, false)[0];
+    }
+
+    public ToXContentObject[] getAnomalyDetector(String detectorId, boolean returnJob) throws IOException {
+        BasicHeader header = new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json");
+        return getAnomalyDetector(detectorId, header, returnJob);
+    }
+
+    public ToXContentObject[] getAnomalyDetector(String detectorId, BasicHeader header, boolean returnJob) throws IOException {
         Response response = TestHelpers
-            .makeRequest(client(), "GET", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId, null, "", ImmutableList.of(header));
+            .makeRequest(
+                client(),
+                "GET",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "?job=" + returnJob,
+                null,
+                "",
+                ImmutableList.of(header)
+            );
         assertEquals("Unable to get anomaly detector " + detectorId, RestStatus.OK, restStatus(response));
         XContentParser parser = createAdParser(XContentType.JSON.xContent(), response.getEntity().getContent());
         XContentParser.Token token = parser.nextToken();
@@ -121,6 +137,7 @@ public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
         String id = null;
         Long version = null;
         AnomalyDetector detector = null;
+        AnomalyDetectorJob detectorJob = null;
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();
@@ -134,24 +151,29 @@ public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
                 case "anomaly_detector":
                     detector = AnomalyDetector.parse(parser);
                     break;
+                case "anomaly_detector_job":
+                    detectorJob = AnomalyDetectorJob.parse(parser);
+                    break;
             }
         }
 
-        return new AnomalyDetector(
-            id,
-            version,
-            detector.getName(),
-            detector.getDescription(),
-            detector.getTimeField(),
-            detector.getIndices(),
-            detector.getFeatureAttributes(),
-            detector.getFilterQuery(),
-            detector.getDetectionInterval(),
-            detector.getWindowDelay(),
-            detector.getUiMetadata(),
-            detector.getSchemaVersion(),
-            detector.getLastUpdateTime()
-        );
+        return new ToXContentObject[] {
+            new AnomalyDetector(
+                id,
+                version,
+                detector.getName(),
+                detector.getDescription(),
+                detector.getTimeField(),
+                detector.getIndices(),
+                detector.getFeatureAttributes(),
+                detector.getFilterQuery(),
+                detector.getDetectionInterval(),
+                detector.getWindowDelay(),
+                detector.getUiMetadata(),
+                detector.getSchemaVersion(),
+                detector.getLastUpdateTime()
+            ),
+            detectorJob };
     }
 
     protected HttpEntity toHttpEntity(ToXContentObject object) throws IOException {

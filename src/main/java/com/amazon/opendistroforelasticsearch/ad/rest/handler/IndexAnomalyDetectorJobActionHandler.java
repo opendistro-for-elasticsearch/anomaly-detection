@@ -50,6 +50,8 @@ import java.time.Instant;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.createXContentParser;
+import static org.elasticsearch.action.DocWriteResponse.Result.CREATED;
+import static org.elasticsearch.action.DocWriteResponse.Result.UPDATED;
 import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -230,7 +232,7 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
     }
 
     private void onIndexAnomalyDetectorJobResponse(IndexResponse response, AnomalyDetectorFunction function) throws IOException {
-        if (response.getShardInfo().getSuccessful() < 1) {
+        if (response == null || (response.getResult() != CREATED && response.getResult() != UPDATED)) {
             channel.sendResponse(new BytesRestResponse(response.status(), response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS)));
             return;
         }

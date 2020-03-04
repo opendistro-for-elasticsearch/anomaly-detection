@@ -232,6 +232,7 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
     private void onIndexAnomalyDetectorJobResponse(IndexResponse response, AnomalyDetectorFunction function) throws IOException {
         if (response.getShardInfo().getSuccessful() < 1) {
             channel.sendResponse(new BytesRestResponse(response.status(), response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS)));
+            return;
         }
         if (function != null) {
             function.execute();

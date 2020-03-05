@@ -264,7 +264,6 @@ public class FeatureManager {
     @Deprecated
     public Features getPreviewFeatures(AnomalyDetector detector, long startMilli, long endMilli) {
         Entry<List<Entry<Long, Long>>, Integer> sampleRangeResults = getSampleRanges(detector, startMilli, endMilli);
-        getCurrentFeatures(detector, startMilli, endMilli);
         List<Entry<Long, Long>> sampleRanges = sampleRangeResults.getKey();
         int stride = sampleRangeResults.getValue();
 

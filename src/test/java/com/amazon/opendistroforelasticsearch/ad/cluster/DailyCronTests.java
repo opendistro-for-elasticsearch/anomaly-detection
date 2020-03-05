@@ -61,8 +61,7 @@ public class DailyCronTests extends AbstractADTest {
         Clock clock = mock(Clock.class);
         Client client = mock(Client.class);
         ClientUtil clientUtil = mock(ClientUtil.class);
-        CancelQueryUtil cancelQueryUtil = mock(CancelQueryUtil.class);
-        DailyCron cron = new DailyCron(deleteUtil, clock, client, Duration.ofHours(24), clientUtil, cancelQueryUtil);
+        DailyCron cron = new DailyCron(deleteUtil, clock, client, Duration.ofHours(24), clientUtil);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -86,7 +85,6 @@ public class DailyCronTests extends AbstractADTest {
 
         // those tests are covered by each util class
         doNothing().when(deleteUtil).deleteDetectorResult(eq(client));
-        doNothing().when(cancelQueryUtil).cancelQuery(eq(client));
 
         cron.run();
     }

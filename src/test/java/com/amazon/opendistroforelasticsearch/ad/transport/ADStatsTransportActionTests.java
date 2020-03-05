@@ -29,6 +29,7 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 import org.junit.Before;
 import org.junit.Test;
@@ -59,7 +60,8 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
         Client client = client();
         Clock clock = mock(Clock.class);
         Throttler throttler = new Throttler(clock);
-        IndexUtils indexUtils = new IndexUtils(client, new ClientUtil(Settings.EMPTY, client, throttler), clusterService());
+        ThreadPool threadPool = mock(ThreadPool.class);
+        IndexUtils indexUtils = new IndexUtils(client, new ClientUtil(Settings.EMPTY, client, throttler, threadPool), clusterService());
         ModelManager modelManager = mock(ModelManager.class);
 
         clusterStatName1 = "clusterStat1";

@@ -31,23 +31,6 @@ public class Throttler {
     private final ConcurrentHashMap<String, Map.Entry<ActionRequest, Instant>> negativeCache;
     private final Clock clock;
 
-    /**
-     * Getter for clock
-     * @return clock
-     */
-    public Clock getClock() {
-        return clock;
-    }
-
-
-    /**
-     * Getter for negativeCache
-     * @return negative cache map ConcurrentHashMap
-     */
-    public ConcurrentHashMap<String, Map.Entry<ActionRequest, Instant>> getNegativeCache() {
-        return negativeCache;
-    }
-
     public Throttler(Clock clock) {
         this.negativeCache = new ConcurrentHashMap<>();
         this.clock = clock;

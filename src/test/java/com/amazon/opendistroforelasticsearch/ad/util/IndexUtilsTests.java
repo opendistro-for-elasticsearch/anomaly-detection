@@ -19,6 +19,7 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -35,7 +36,8 @@ public class IndexUtilsTests extends ESIntegTestCase {
         Client client = client();
         Clock clock = mock(Clock.class);
         Throttler throttler = new Throttler(clock);
-        clientUtil = new ClientUtil(Settings.EMPTY, client, throttler);
+        ThreadPool threadPool = mock(ThreadPool.class);
+        clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, threadPool);
     }
 
     @Test

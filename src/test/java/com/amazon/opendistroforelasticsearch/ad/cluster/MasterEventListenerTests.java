@@ -46,7 +46,6 @@ public class MasterEventListenerTests extends AbstractADTest {
     private Cancellable dailyCancellable;
     private MasterEventListener masterService;
     private ClientUtil clientUtil;
-    private CancelQueryUtil cancelQueryUtil;
 
     @Override
     @Before
@@ -56,7 +55,6 @@ public class MasterEventListenerTests extends AbstractADTest {
         threadPool = mock(ThreadPool.class);
         hourlyCancellable = mock(Cancellable.class);
         dailyCancellable = mock(Cancellable.class);
-        cancelQueryUtil = mock(CancelQueryUtil.class);
         when(threadPool.scheduleWithFixedDelay(any(HourlyCron.class), any(TimeValue.class), any(String.class)))
             .thenReturn(hourlyCancellable);
         when(threadPool.scheduleWithFixedDelay(any(DailyCron.class), any(TimeValue.class), any(String.class))).thenReturn(dailyCancellable);
@@ -64,7 +62,7 @@ public class MasterEventListenerTests extends AbstractADTest {
         client = mock(Client.class);
         clock = mock(Clock.class);
         clientUtil = mock(ClientUtil.class);
-        masterService = new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, cancelQueryUtil);
+        masterService = new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil);
     }
 
     public void testOnOffMaster() {

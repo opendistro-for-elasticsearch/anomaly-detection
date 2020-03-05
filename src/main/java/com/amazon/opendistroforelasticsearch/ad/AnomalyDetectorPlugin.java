@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADClusterEventListener;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData.ADMetaDataDiff;
-import com.amazon.opendistroforelasticsearch.ad.cluster.CancelQueryUtil;
 import com.amazon.opendistroforelasticsearch.ad.cluster.DeleteDetector;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.cluster.MasterEventListener;
@@ -78,15 +77,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
@@ -105,8 +100,6 @@ import org.elasticsearch.common.settings.SettingsFilter;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
-import org.elasticsearch.index.IndexModule;
-import org.elasticsearch.index.shard.SearchOperationListener;
 import org.elasticsearch.monitor.jvm.JvmService;
 import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.Plugin;
@@ -114,7 +107,6 @@ import org.elasticsearch.plugins.ScriptPlugin;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestHandler;
 import org.elasticsearch.script.ScriptService;
-import org.elasticsearch.search.internal.SearchContext;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.watcher.ResourceWatcherService;
 
@@ -146,37 +138,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     }
 
     public AnomalyDetectorPlugin() {}
-
-
-    // Semaphore used to allow & block indexing operations during the test
-    private static final Semaphore ALLOWED_OPERATIONS = new Semaphore(0);
-
-    @Override
-    public void onIndexModule(IndexModule indexModule) {
-        indexModule.addSearchOperationListener(new BlockingOperationListener());
-    }
-
-    public static class BlockingOperationListener implements SearchOperationListener {
-        private static final Logger log = LogManager.getLogger(AnomalyDetectorPlugin.class);
-
-        @Override
-        public void onPreQueryPhase(SearchContext searchContext) {
-            preCheck(searchContext);
-        }
-
-        private void preCheck(SearchContext searchContext) {
-            try {
-                log.info("checking");
-                if (ALLOWED_OPERATIONS.tryAcquire(20, TimeUnit.SECONDS)) {
-                    log.debug("passed");
-                    return;
-                }
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            throw new IllegalStateException("Something went wrong");
-        }
-    }
 
     @Override
     public List<RestHandler> getRestHandlers(
@@ -303,7 +264,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
 
         DeleteDetector deleteUtil = new DeleteDetector(clusterService, clock);
-        CancelQueryUtil cancelQueryUtil = new CancelQueryUtil(throttler);
 
         Map<String, ADStat<?>> stats = ImmutableMap
             .<String, ADStat<?>>builder()
@@ -350,7 +310,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 deleteUtil,
                 adCircuitBreakerService,
                 adStats,
-                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, cancelQueryUtil)
+                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil)
             );
     }
 

@@ -640,6 +640,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 } else {
                     LOG.warn(NULL_RESPONSE + " {} for {}", modelID, rcfNodeID);
                 }
+            } catch (Exception ex) {
+                LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
                 if (nodeCount == responseCount.incrementAndGet()) {
                     handleRCFResults();
@@ -651,6 +653,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         public void onFailure(Exception e) {
             try {
                 handlePredictionFailure(e, modelID, rcfNodeID, failure);
+            } catch (Exception ex) {
+                LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
                 if (nodeCount == responseCount.incrementAndGet()) {
                     handleRCFResults();
@@ -746,7 +750,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 anomalyResultResponse.set(new AnomalyResultResponse(response.getAnomalyGrade(), response.getConfidence(), features));
                 stateManager.resetBackpressureCounter(thresholdNodeID);
             } catch (Exception ex) {
-                LOG.error("Unexpected exception", ex);
+                LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
                 handleThresholdResult();
             }
@@ -756,6 +760,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         public void onFailure(Exception e) {
             try {
                 handlePredictionFailure(e, modelID, thresholdNodeID, failure);
+            } catch (Exception ex) {
+                LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
                 handleThresholdResult();
             }

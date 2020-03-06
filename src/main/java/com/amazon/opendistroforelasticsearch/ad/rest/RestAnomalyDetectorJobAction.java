@@ -110,9 +110,9 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
             String rawPath = request.rawPath();
 
             if (rawPath.endsWith(START_JOB)) {
-                handler.createAnomalyDetectorJob();
+                handler.startAnomalyDetectorJob();
             } else if (rawPath.endsWith(STOP_JOB)) {
-                handler.deleteAnomalyDetectorJob(detectorId);
+                handler.stopAnomalyDetectorJob(detectorId);
             }
         };
     }

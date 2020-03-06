@@ -43,11 +43,13 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
     private static final String SCHEDULE_FIELD = "schedule";
     private static final String IS_ENABLED_FIELD = "enabled";
     private static final String ENABLED_TIME_FIELD = "enabled_time";
+    private static final String DISABLED_TIME_FIELD = "disabled_time";
 
     private final String name;
     private final Schedule schedule;
     private final Boolean isEnabled;
     private final Instant enabledTime;
+    private final Instant disabledTime;
     private final Instant lastUpdateTime;
     private final Long lockDurationSeconds;
 
@@ -56,6 +58,7 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
         Schedule schedule,
         Boolean isEnabled,
         Instant enabledTime,
+        Instant disabledTime,
         Instant lastUpdateTime,
         Long lockDurationSeconds
     ) {
@@ -63,6 +66,7 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
         this.schedule = schedule;
         this.isEnabled = isEnabled;
         this.enabledTime = enabledTime;
+        this.disabledTime = disabledTime;
         this.lastUpdateTime = lastUpdateTime;
         this.lockDurationSeconds = lockDurationSeconds;
     }
@@ -77,6 +81,9 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
             .field(ENABLED_TIME_FIELD, enabledTime.toEpochMilli())
             .field(LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli())
             .field(LOCK_DURATION_SECONDS, lockDurationSeconds);
+        if (disabledTime != null) {
+            xContentBuilder.field(DISABLED_TIME_FIELD, disabledTime.toEpochMilli());
+        }
         return xContentBuilder.endObject();
     }
 
@@ -85,6 +92,7 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
         Schedule schedule = null;
         Boolean isEnabled = null;
         Instant enabledTime = null;
+        Instant disabledTime = null;
         Instant lastUpdateTime = null;
         Long lockDurationSeconds = DEFAULT_AD_JOB_LOC_DURATION_SECONDS;
 
@@ -106,6 +114,9 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
                 case ENABLED_TIME_FIELD:
                     enabledTime = ParseUtils.toInstant(parser);
                     break;
+                case DISABLED_TIME_FIELD:
+                    disabledTime = ParseUtils.toInstant(parser);
+                    break;
                 case LAST_UPDATE_TIME_FIELD:
                     lastUpdateTime = ParseUtils.toInstant(parser);
                     break;
@@ -117,7 +128,7 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
                     break;
             }
         }
-        return new AnomalyDetectorJob(name, schedule, isEnabled, enabledTime, lastUpdateTime, lockDurationSeconds);
+        return new AnomalyDetectorJob(name, schedule, isEnabled, enabledTime, disabledTime, lastUpdateTime, lockDurationSeconds);
     }
 
     @Override
@@ -131,6 +142,7 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
             && Objects.equal(getSchedule(), that.getSchedule())
             && Objects.equal(isEnabled(), that.isEnabled())
             && Objects.equal(getEnabledTime(), that.getEnabledTime())
+            && Objects.equal(getDisabledTime(), that.getDisabledTime())
             && Objects.equal(getLastUpdateTime(), that.getLastUpdateTime())
             && Objects.equal(getLockDurationSeconds(), that.getLockDurationSeconds());
     }
@@ -158,6 +170,10 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
     @Override
     public Instant getEnabledTime() {
         return enabledTime;
+    }
+
+    public Instant getDisabledTime() {
+        return disabledTime;
     }
 
     @Override

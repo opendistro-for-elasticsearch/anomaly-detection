@@ -15,7 +15,6 @@
 
 buildscript {
     ext {
-        es_mv = '7.2'
         es_group = "org.elasticsearch"
         es_version = '7.4.2'
         es_distribution = 'oss-zip'

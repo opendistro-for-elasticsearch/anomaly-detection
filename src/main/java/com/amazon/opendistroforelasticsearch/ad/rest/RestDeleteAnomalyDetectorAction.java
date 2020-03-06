@@ -16,15 +16,20 @@
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorActionHandler;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.DocWriteResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.rest.BaseRestHandler;
+import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
@@ -69,8 +74,38 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
         return channel -> {
             logger.info("Delete anomaly detector {}", detectorId);
             handler
-                .getDetectorJob(clusterService, client, detectorId, channel, () -> deleteAnomalyDetectorDoc(client, detectorId, channel));
+                .getDetectorJob(
+                    clusterService,
+                    client,
+                    detectorId,
+                    channel,
+                    () -> deleteAnomalyDetectorJobDoc(client, detectorId, channel)
+                );
         };
+    }
+
+    private void deleteAnomalyDetectorJobDoc(NodeClient client, String detectorId, RestChannel channel) {
+        logger.info("Delete anomaly detector job {}", detectorId);
+        DeleteRequest deleteRequest = new DeleteRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+        client.delete(deleteRequest, ActionListener.wrap(response -> {
+            if (response.getResult() == DocWriteResponse.Result.DELETED || response.getResult() == DocWriteResponse.Result.NOT_FOUND) {
+                deleteAnomalyDetectorDoc(client, detectorId, channel);
+            } else {
+                logger.error("Fail to delete anomaly detector job {}", detectorId);
+            }
+        }, exception -> {
+            if (exception instanceof IndexNotFoundException) {
+                deleteAnomalyDetectorDoc(client, detectorId, channel);
+            } else {
+                logger.error("Failed to delete anomaly detector job", exception);
+                try {
+                    channel.sendResponse(new BytesRestResponse(channel, exception));
+                } catch (IOException e) {
+                    logger.error("Failed to send response of delete anomaly detector job exception", e);
+                }
+            }
+        }));
     }
 
     private void deleteAnomalyDetectorDoc(NodeClient client, String detectorId, RestChannel channel) {

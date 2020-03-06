@@ -69,7 +69,6 @@ public class AnomalyDetector implements ToXContentObject {
     private static final String WINDOW_DELAY_FIELD = "window_delay";
     private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String UI_METADATA_FIELD = "ui_metadata";
-    public static final String ENABLED_FIELD = "enabled";
 
     private final String detectorId;
     private final Long version;
@@ -161,9 +160,6 @@ public class AnomalyDetector implements ToXContentObject {
             .field(DETECTION_INTERVAL_FIELD, detectionInterval)
             .field(WINDOW_DELAY_FIELD, windowDelay)
             .field(SCHEMA_VERSION_FIELD, schemaVersion);
-        if (params.param(ENABLED_FIELD) != null) {
-            xContentBuilder.field(ENABLED_FIELD, params.paramAsBoolean(ENABLED_FIELD, false));
-        }
 
         if (uiMetadata != null && !uiMetadata.isEmpty()) {
             xContentBuilder.field(UI_METADATA_FIELD, uiMetadata);

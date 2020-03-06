@@ -349,7 +349,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                     AD_THREAD_POOL_NAME,
                     Math.max(1, EsExecutors.numberOfProcessors(settings) / 4),
                     AD_THEAD_POOL_QUEUE_SIZE,
-                    "opendistro.ad.ad_thread_pool"
+                    "opendistro.ad." + AD_THREAD_POOL_NAME
                 )
             );
     }

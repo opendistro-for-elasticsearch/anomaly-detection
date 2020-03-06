@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
@@ -29,9 +28,7 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.DocWriteResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
@@ -40,23 +37,21 @@ import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
-import org.elasticsearch.rest.RestResponse;
 import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.rest.action.RestResponseListener;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Locale;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.createXContentParser;
+import static org.elasticsearch.action.DocWriteResponse.Result.CREATED;
+import static org.elasticsearch.action.DocWriteResponse.Result.UPDATED;
 import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -110,11 +105,13 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
     }
 
     /**
-     * Create anomaly detector job.
+     * Start anomaly detector job.
+     * 1.If job not exists, create new job.
+     * 2.If job exists: a). if job enabled, return error message; b). if job disabled, enable job.
      *
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorJobMappings}
      */
-    public void createAnomalyDetectorJob() throws IOException {
+    public void startAnomalyDetectorJob() throws IOException {
         if (!anomalyDetectionIndices.doesAnomalyDetectorJobIndexExist()) {
             anomalyDetectionIndices
                 .initAnomalyDetectorJobIndex(
@@ -122,6 +119,19 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
                 );
         } else {
             prepareAnomalyDetectorJobIndexing();
+        }
+    }
+
+    private void onCreateMappingsResponse(CreateIndexResponse response) throws IOException {
+        if (response.isAcknowledged()) {
+            logger.info("Created {} with mappings.", ANOMALY_DETECTORS_INDEX);
+            prepareAnomalyDetectorJobIndexing();
+        } else {
+            logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
+            channel
+                .sendResponse(
+                    new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS))
+                );
         }
     }
 
@@ -140,147 +150,155 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
             channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, EMPTY_PARAMS)));
             return;
         }
-        XContentParser parser = XContentType.JSON
-            .xContent()
-            .createParser(
-                channel.request().getXContentRegistry(),
-                LoggingDeprecationHandler.INSTANCE,
-                response.getSourceAsBytesRef().streamInput()
+        try (XContentParser parser = RestHandlerUtils.createXContentParser(channel, response.getSourceAsBytesRef())) {
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+            AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
+
+            IntervalTimeConfiguration interval = (IntervalTimeConfiguration) detector.getDetectionInterval();
+            Schedule schedule = new IntervalSchedule(Instant.now(), (int) interval.getInterval(), interval.getUnit());
+            Duration duration = Duration.of(interval.getInterval(), interval.getUnit());
+
+            AnomalyDetectorJob job = new AnomalyDetectorJob(
+                detector.getDetectorId(),
+                schedule,
+                true,
+                Instant.now(),
+                null,
+                Instant.now(),
+                duration.getSeconds()
             );
 
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
-        AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
-
-        IntervalTimeConfiguration interval = (IntervalTimeConfiguration) detector.getDetectionInterval();
-        Schedule schedule = new IntervalSchedule(Instant.now(), (int) interval.getInterval(), interval.getUnit());
-        Duration duration = Duration.of(interval.getInterval(), interval.getUnit());
-        AnomalyDetectorJob job = new AnomalyDetectorJob(
-            detector.getDetectorId(),
-            schedule,
-            true,
-            Instant.now(),
-            Instant.now(),
-            duration.getSeconds()
-        );
-
-        getAnomalyDetectorJob(job);
-    }
-
-    private void getAnomalyDetectorJob(AnomalyDetectorJob job) {
-        GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
-
-        client.get(getRequest, ActionListener.wrap(response -> onGetAnomalyDetectorJob(response, job), exception -> onFailure(exception)));
-    }
-
-    private void onGetAnomalyDetectorJob(GetResponse response, AnomalyDetectorJob job) throws IOException {
-        if (response.isExists()) {
-            XContentBuilder builder = channel
-                .newErrorBuilder()
-                .startObject()
-                .field("Message", "AnomalyDetectorJob exists: " + detectorId)
-                .endObject();
-            channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, EMPTY_PARAMS)));
-            return;
-        }
-
-        indexAnomalyDetectorJob(job);
-    }
-
-    private void indexAnomalyDetectorJob(AnomalyDetectorJob job) throws IOException {
-        IndexRequest indexRequest = new IndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-            .setRefreshPolicy(refreshPolicy)
-            .source(job.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
-            .setIfSeqNo(seqNo)
-            .setIfPrimaryTerm(primaryTerm)
-            .timeout(requestTimeout)
-            .id(detectorId);
-        client.index(indexRequest, indexAnomalyDetectorJobResponse());
-    }
-
-    private ActionListener<IndexResponse> indexAnomalyDetectorJobResponse() {
-        return new RestResponseListener<IndexResponse>(channel) {
-            @Override
-            public RestResponse buildResponse(IndexResponse response) throws Exception {
-                if (response.getShardInfo().getSuccessful() < 1) {
-                    return new BytesRestResponse(response.status(), response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS));
-                }
-
-                XContentBuilder builder = channel
-                    .newBuilder()
-                    .startObject()
-                    .field(RestHandlerUtils._ID, response.getId())
-                    .field(RestHandlerUtils._VERSION, response.getVersion())
-                    .field(RestHandlerUtils._SEQ_NO, response.getSeqNo())
-                    .field(RestHandlerUtils._PRIMARY_TERM, response.getPrimaryTerm())
-                    .endObject();
-
-                BytesRestResponse restResponse = new BytesRestResponse(response.status(), builder);
-                if (response.status() == RestStatus.CREATED) {
-                    String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_URI, response.getId());
-                    restResponse.addHeader("Location", location);
-                }
-                return restResponse;
-            }
-        };
-    }
-
-    private void onCreateMappingsResponse(CreateIndexResponse response) throws IOException {
-        if (response.isAcknowledged()) {
-            logger.info("Created {} with mappings.", ANOMALY_DETECTORS_INDEX);
-            prepareAnomalyDetectorJobIndexing();
-        } else {
-            logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
-            channel
-                .sendResponse(
-                    new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS))
-                );
+            getAnomalyDetectorJobForWrite(job);
+        } catch (IOException e) {
+            String message = "Failed to parse anomaly detector job " + detectorId;
+            logger.error(message, e);
+            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, message));
         }
     }
 
-    /**
-     * Delete anomaly detector job
-     * @param detectorId detector identifier
-     */
-    public void deleteAnomalyDetectorJob(String detectorId) {
+    private void getAnomalyDetectorJobForWrite(AnomalyDetectorJob job) {
         GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
 
         client
             .get(
                 getRequest,
-                ActionListener
-                    .wrap(
-                        response -> deleteAnomalyDetectorJobDoc(client, detectorId, channel, refreshPolicy),
-                        exception -> onFailure(exception)
-                    )
+                ActionListener.wrap(response -> onGetAnomalyDetectorJobForWrite(response, job), exception -> onFailure(exception))
             );
     }
 
-    private void deleteAnomalyDetectorJobDoc(
-        NodeClient client,
-        String detectorId,
-        RestChannel channel,
-        WriteRequest.RefreshPolicy refreshPolicy
-    ) {
-        logger.info("Delete anomaly detector job {}", detectorId);
-        DeleteRequest deleteRequest = new DeleteRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId)
-            .setRefreshPolicy(refreshPolicy);
-        client.delete(deleteRequest, ActionListener.wrap(response -> {
-            if (response.getResult() == DocWriteResponse.Result.DELETED) {
-                logger.info("Stop anomaly detector {}", detectorId);
-                StopDetectorRequest stopDetectorRequest = new StopDetectorRequest(detectorId);
-                client.execute(StopDetectorAction.INSTANCE, stopDetectorRequest, stopAdDetectorListener(channel, detectorId));
-            } else if (response.getResult() == DocWriteResponse.Result.NOT_FOUND) {
-                logger.info("Anomaly detector job not found: {}", detectorId);
-                StopDetectorRequest stopDetectorRequest = new StopDetectorRequest(detectorId);
-                client.execute(StopDetectorAction.INSTANCE, stopDetectorRequest, stopAdDetectorListener(channel, detectorId));
-            } else {
-                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Failed to stop AD job " + detectorId));
+    private void onGetAnomalyDetectorJobForWrite(GetResponse response, AnomalyDetectorJob job) throws IOException {
+        if (response.isExists()) {
+            try (XContentParser parser = createXContentParser(channel, response.getSourceAsBytesRef())) {
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                AnomalyDetectorJob currentAdJob = AnomalyDetectorJob.parse(parser);
+                if (currentAdJob.isEnabled()) {
+                    channel.sendResponse(new BytesRestResponse(RestStatus.OK, "Anomaly detector job is already running: " + detectorId));
+                    return;
+                } else {
+                    AnomalyDetectorJob newJob = new AnomalyDetectorJob(
+                        job.getName(),
+                        job.getSchedule(),
+                        job.isEnabled(),
+                        Instant.now(),
+                        currentAdJob.getDisabledTime(),
+                        Instant.now(),
+                        job.getLockDurationSeconds()
+                    );
+                    indexAnomalyDetectorJob(newJob, null);
+                }
+            } catch (IOException e) {
+                String message = "Failed to parse anomaly detector job " + job.getName();
+                logger.error(message, e);
+                channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, message));
             }
-        }, exception -> {
-            logger.error("Failed to stop AD job " + detectorId, exception);
-            onFailure(exception);
-        }));
+        } else {
+            indexAnomalyDetectorJob(job, null);
+        }
+    }
 
+    private void indexAnomalyDetectorJob(AnomalyDetectorJob job, AnomalyDetectorFunction function) throws IOException {
+        IndexRequest indexRequest = new IndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
+            .source(job.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
+            .setIfSeqNo(seqNo)
+            .setIfPrimaryTerm(primaryTerm)
+            .timeout(requestTimeout)
+            .id(detectorId);
+        client
+            .index(
+                indexRequest,
+                ActionListener.wrap(response -> onIndexAnomalyDetectorJobResponse(response, function), exception -> onFailure(exception))
+            );
+    }
+
+    private void onIndexAnomalyDetectorJobResponse(IndexResponse response, AnomalyDetectorFunction function) throws IOException {
+        if (response == null || (response.getResult() != CREATED && response.getResult() != UPDATED)) {
+            channel.sendResponse(new BytesRestResponse(response.status(), response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS)));
+            return;
+        }
+        if (function != null) {
+            function.execute();
+        } else {
+            XContentBuilder builder = channel
+                .newBuilder()
+                .startObject()
+                .field(RestHandlerUtils._ID, response.getId())
+                .field(RestHandlerUtils._VERSION, response.getVersion())
+                .field(RestHandlerUtils._SEQ_NO, response.getSeqNo())
+                .field(RestHandlerUtils._PRIMARY_TERM, response.getPrimaryTerm())
+                .endObject();
+            channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
+        }
+    }
+
+    /**
+     * Stop anomaly detector job.
+     * 1.If job not exists, return error message
+     * 2.If job exists: a).if job state is disabled, return error message; b).if job state is enabled, disable job.
+     *
+     * @param detectorId detector identifier
+     */
+    public void stopAnomalyDetectorJob(String detectorId) {
+        GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+
+        client.get(getRequest, ActionListener.wrap(response -> {
+            if (response.isExists()) {
+                try (XContentParser parser = createXContentParser(channel, response.getSourceAsBytesRef())) {
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                    if (!job.isEnabled()) {
+                        channel
+                            .sendResponse(new BytesRestResponse(RestStatus.OK, "Anomaly detector job is already stopped: " + detectorId));
+                        return;
+                    } else {
+                        AnomalyDetectorJob newJob = new AnomalyDetectorJob(
+                            job.getName(),
+                            job.getSchedule(),
+                            false,
+                            job.getEnabledTime(),
+                            Instant.now(),
+                            Instant.now(),
+                            job.getLockDurationSeconds()
+                        );
+                        indexAnomalyDetectorJob(
+                            newJob,
+                            () -> client
+                                .execute(
+                                    StopDetectorAction.INSTANCE,
+                                    new StopDetectorRequest(detectorId),
+                                    stopAdDetectorListener(channel, detectorId)
+                                )
+                        );
+                    }
+                } catch (IOException e) {
+                    String message = "Failed to parse anomaly detector job " + detectorId;
+                    logger.error(message, e);
+                    channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, message));
+                }
+            } else {
+                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Anomaly detector job not exist: " + detectorId));
+            }
+        }, exception -> onFailure(exception)));
     }
 
     private ActionListener<StopDetectorResponse> stopAdDetectorListener(RestChannel channel, String detectorId) {

@@ -18,9 +18,17 @@ package com.amazon.opendistroforelasticsearch.ad.util;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.google.common.collect.ImmutableMap;
 import org.elasticsearch.common.Strings;
+import org.elasticsearch.common.bytes.BytesReference;
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.ToXContent;
+import org.elasticsearch.common.xcontent.XContentHelper;
+import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
+
+import java.io.IOException;
 
 /**
  * Utility functions for REST handlers.
@@ -36,6 +44,7 @@ public final class RestHandlerUtils {
     public static final String REFRESH = "refresh";
     public static final String DETECTOR_ID = "detectorID";
     public static final String ANOMALY_DETECTOR = "anomaly_detector";
+    public static final String ANOMALY_DETECTOR_JOB = "anomaly_detector_job";
     public static final String RUN = "_run";
     public static final String PREVIEW = "_preview";
     public static final String START_JOB = "_start";
@@ -61,5 +70,10 @@ public final class RestHandlerUtils {
         } else {
             return null;
         }
+    }
+
+    public static XContentParser createXContentParser(RestChannel channel, BytesReference bytesReference) throws IOException {
+        return XContentHelper
+            .createParser(channel.request().getXContentRegistry(), LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON);
     }
 }

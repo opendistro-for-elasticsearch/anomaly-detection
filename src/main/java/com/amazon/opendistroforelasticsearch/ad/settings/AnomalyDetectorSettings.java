@@ -187,5 +187,5 @@ public final class AnomalyDetectorSettings {
     public static final long DEFAULT_AD_JOB_LOC_DURATION_SECONDS = 60;
 
     // Thread pool
-    public static final int AD_JOB_THEAD_POOL_QUEUE_SIZE = 1000;
+    public static final int AD_THEAD_POOL_QUEUE_SIZE = 1000;
 }

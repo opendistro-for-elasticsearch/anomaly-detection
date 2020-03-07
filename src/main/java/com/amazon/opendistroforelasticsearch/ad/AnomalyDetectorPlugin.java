@@ -128,7 +128,7 @@ import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInter
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_JOB_THEAD_POOL_QUEUE_SIZE;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_THEAD_POOL_QUEUE_SIZE;
 
 /**
  * Entry point of AD plugin.
@@ -137,7 +137,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
     public static final String AD_BASE_URI = "/_opendistro/_anomaly_detection";
     public static final String AD_BASE_DETECTORS_URI = AD_BASE_URI + "/detectors";
-    public static final String AD_JOB_THREAD_POOL_NAME = "ad-job";
+    public static final String AD_THREAD_POOL_NAME = "ad-threadpool";
     public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
     private static Gson gson;
     private AnomalyDetectionIndices anomalyDetectionIndices;
@@ -346,10 +346,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             .singletonList(
                 new FixedExecutorBuilder(
                     settings,
-                    AD_JOB_THREAD_POOL_NAME,
+                    AD_THREAD_POOL_NAME,
                     Math.max(1, EsExecutors.numberOfProcessors(settings) / 4),
-                    AD_JOB_THEAD_POOL_QUEUE_SIZE,
-                    null
+                    AD_THEAD_POOL_QUEUE_SIZE,
+                    "opendistro.ad." + AD_THREAD_POOL_NAME
                 )
             );
     }

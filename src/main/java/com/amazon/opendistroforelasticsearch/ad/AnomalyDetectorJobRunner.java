@@ -34,7 +34,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ExecutorService;
 
-import static com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin.AD_JOB_THREAD_POOL_NAME;
+import static com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin.AD_THREAD_POOL_NAME;
 
 /**
  * JobScheduler will call AD job runner to get anomaly result periodically
@@ -102,7 +102,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             }
         };
 
-        ExecutorService executor = threadPool.executor(AD_JOB_THREAD_POOL_NAME);
+        ExecutorService executor = threadPool.executor(AD_THREAD_POOL_NAME);
         executor.submit(runnable);
     }
 

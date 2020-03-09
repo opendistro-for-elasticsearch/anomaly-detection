@@ -116,7 +116,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     }
 
     @Test
-    public void testRunJobWithLocakDuration() throws InterruptedException {
+    public void testRunJobWithLockDuration() throws InterruptedException {
         when(jobParameter.getLockDurationSeconds()).thenReturn(100L);
         runner.runJob(jobParameter, context);
         Thread.sleep(1000);

@@ -24,7 +24,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.time.Instant;
 
@@ -62,7 +62,6 @@ import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
 import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.LatchedActionListener;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.index.IndexRequest;
@@ -114,7 +113,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final ADStateManager stateManager;
     private final ColdStartRunner globalRunner;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
-    private volatile TimeValue requestTimeout;
     private final Client client;
     private final FeatureManager featureManager;
     private final ModelManager modelManager;
@@ -151,12 +149,14 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.stateManager = manager;
         this.globalRunner = eventExecutor;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
-        this.requestTimeout = AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings);
         this.featureManager = featureManager;
         this.modelManager = modelManager;
         this.hashRing = hashRing;
-        this.requestTimeout = AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings);
-        this.option = TransportRequestOptions.builder().withType(TransportRequestOptions.Type.REG).withTimeout(requestTimeout).build();
+        this.option = TransportRequestOptions
+            .builder()
+            .withType(TransportRequestOptions.Type.REG)
+            .withTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings))
+            .build();
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.threadPool = threadPool;
@@ -262,9 +262,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
 
-            String thresholdNodeId = thresholdNode.get().getId();
-
-            if (!shouldStart(listener, adID, detector.get(), thresholdNodeId, thresholdModelID)) {
+            if (!shouldStart(listener, adID, detector.get(), thresholdNode.get().getId(), thresholdModelID)) {
                 return;
             }
 
@@ -302,10 +300,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             // detector changes or the cluster size changes.
             int rcfPartitionNum = stateManager.getPartitionNumber(adID);
 
-            final CountDownLatch rcfLatch = createCountDownLatch(rcfPartitionNum);
             List<RCFResultResponse> rcfResults = new ArrayList<>();
 
             final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<AnomalyDetectionException>();
+
+            final AtomicInteger responseCount = new AtomicInteger();
 
             for (int i = 0; i < rcfPartitionNum; i++) {
                 String rcfModelID = modelManager.getRcfModelId(adID, i);
@@ -321,10 +320,24 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 }
 
                 LOG.info("Sending RCF request to {} for model {}", rcfNodeId, rcfModelID);
-                LatchedActionListener<RCFResultResponse> rcfListener = new LatchedActionListener<>(
-                    new RCFActionListener(rcfResults, rcfModelID.toString(), failure, rcfNodeId),
-                    rcfLatch
+
+                RCFActionListener rcfListener = new RCFActionListener(
+                    rcfResults,
+                    rcfModelID.toString(),
+                    failure,
+                    rcfNodeId,
+                    detector,
+                    listener,
+                    thresholdModelID,
+                    thresholdNode,
+                    featureInResponse,
+                    startTime,
+                    endTime,
+                    rcfPartitionNum,
+                    responseCount,
+                    adID
                 );
+
                 transportService
                     .sendRequest(
                         rcfNode.get(),
@@ -334,87 +347,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
                     );
             }
-
-            // wait a bit longer than transport timeout
-            long latchWaitSecs = Math.round(requestTimeout.getSeconds() * 1.25d);
-
-            try {
-                LOG.debug("Wait for RCF results...");
-                rcfLatch.await(latchWaitSecs, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                listener.onFailure(new InternalFailure(adID, CommonErrorMessages.WAIT_ERR_MSG, e));
-                return;
-            }
-
-            if (coldStartIfNoModel(failure, detector.get()) || rcfResults.isEmpty()) {
-                listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
-                return;
-            }
-
-            CombinedRcfResult combinedResult = getCombinedResult(rcfResults);
-            double combinedScore = combinedResult.getScore();
-
-            final CountDownLatch thresholdLatch = createCountDownLatch(1);
-
-            final AtomicReference<AnomalyResultResponse> anomalyResultResponse = new AtomicReference<>();
-
-            LOG.info("Sending threshold request to {} for model {}", thresholdNodeId, thresholdModelID);
-            LatchedActionListener<ThresholdResultResponse> thresholdListener = new LatchedActionListener<>(
-                new ThresholdActionListener(anomalyResultResponse, featureInResponse, thresholdModelID, failure, thresholdNodeId),
-                thresholdLatch
-            );
-            transportService
-                .sendRequest(
-                    thresholdNode.get(),
-                    ThresholdResultAction.NAME,
-                    new ThresholdResultRequest(adID, thresholdModelID, combinedScore),
-                    option,
-                    new ActionListenerResponseHandler<>(thresholdListener, ThresholdResultResponse::new)
-                );
-
-            try {
-                LOG.debug("Wait for threshold results...");
-                thresholdLatch.await(latchWaitSecs, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                listener.onFailure(new InternalFailure(adID, WAIT_FOR_THRESHOLD_ERR_MSG, e));
-                return;
-            }
-
-            if (coldStartIfNoModel(failure, detector.get())) {
-                listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
-                return;
-            }
-
-            if (anomalyResultResponse.get() != null) {
-                AnomalyResultResponse response = anomalyResultResponse.get();
-                double confidence = response.getConfidence() * combinedResult.getConfidence();
-                response = new AnomalyResultResponse(response.getAnomalyGrade(), confidence, response.getFeatures());
-                listener.onResponse(response);
-                indexAnomalyResult(
-                    new AnomalyResult(
-                        adID,
-                        Double.valueOf(combinedScore),
-                        Double.valueOf(response.getAnomalyGrade()),
-                        Double.valueOf(confidence),
-                        featureInResponse,
-                        Instant.ofEpochMilli(startTime),
-                        Instant.ofEpochMilli(endTime)
-                    )
-                );
-            } else if (failure.get() != null) {
-                listener.onFailure(failure.get());
-            } else {
-                listener.onFailure(new InternalFailure(adID, "Unexpected exception"));
-            }
-        } catch (ClientException clientException) {
-            listener.onFailure(clientException);
-        } catch (AnomalyDetectionException adEx) {
-            listener.onFailure(new InternalFailure(adEx));
-        } catch (Exception throwable) {
-            Throwable cause = ExceptionsHelper.unwrapCause(throwable);
-            listener.onFailure(new InternalFailure(adID, cause));
+        } catch (Exception ex) {
+            handleExecuteException(ex, listener, adID);
         }
-
     }
 
     /**
@@ -637,37 +572,134 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             );
     }
 
+    void handleExecuteException(Exception ex, ActionListener<AnomalyResultResponse> listener, String adID) {
+        if (ex instanceof ClientException) {
+            listener.onFailure(ex);
+        } else if (ex instanceof AnomalyDetectionException) {
+            listener.onFailure(new InternalFailure((AnomalyDetectionException) ex));
+        } else {
+            Throwable cause = ExceptionsHelper.unwrapCause(ex);
+            listener.onFailure(new InternalFailure(adID, cause));
+        }
+    }
+
     class RCFActionListener implements ActionListener<RCFResultResponse> {
         private List<RCFResultResponse> rcfResults;
         private String modelID;
         private AtomicReference<AnomalyDetectionException> failure;
-        private String nodeID;
+        private String rcfNodeID;
+        private Optional<AnomalyDetector> detector;
+        private ActionListener<AnomalyResultResponse> listener;
+        private String thresholdModelID;
+        private Optional<DiscoveryNode> thresholdNode;
+        private List<FeatureData> featureInResponse;
+        private long startTime;
+        private long endTime;
+        private int nodeCount;
+        private final AtomicInteger responseCount;
+        private final String adID;
 
         RCFActionListener(
             List<RCFResultResponse> rcfResults,
             String modelID,
             AtomicReference<AnomalyDetectionException> failure,
-            String nodeID
+            String rcfNodeID,
+            Optional<AnomalyDetector> detector,
+            ActionListener<AnomalyResultResponse> listener,
+            String thresholdModelID,
+            Optional<DiscoveryNode> thresholdNode,
+            List<FeatureData> features,
+            long startTime,
+            long endTime,
+            int nodeCount,
+            AtomicInteger responseCount,
+            String adID
         ) {
             this.rcfResults = rcfResults;
             this.modelID = modelID;
+            this.rcfNodeID = rcfNodeID;
+            this.detector = detector;
+            this.listener = listener;
+            this.thresholdNode = thresholdNode;
+            this.thresholdModelID = thresholdModelID;
+            this.featureInResponse = features;
             this.failure = failure;
-            this.nodeID = nodeID;
+            this.startTime = startTime;
+            this.endTime = endTime;
+            this.nodeCount = nodeCount;
+            this.responseCount = responseCount;
+            this.adID = adID;
         }
 
         @Override
         public void onResponse(RCFResultResponse response) {
-            stateManager.resetBackpressureCounter(nodeID);
-            if (response != null) {
-                rcfResults.add(response);
-            } else {
-                LOG.warn(NULL_RESPONSE + " {} for {}", modelID, nodeID);
+            try {
+                stateManager.resetBackpressureCounter(rcfNodeID);
+                if (response != null) {
+                    rcfResults.add(response);
+                } else {
+                    LOG.warn(NULL_RESPONSE + " {} for {}", modelID, rcfNodeID);
+                }
+            } catch (Exception ex) {
+                LOG.error("Unexpected exception: {} for {}", ex, adID);
+            } finally {
+                if (nodeCount == responseCount.incrementAndGet()) {
+                    handleRCFResults();
+                }
             }
         }
 
         @Override
         public void onFailure(Exception e) {
-            handlePredictionFailure(e, modelID, nodeID, failure);
+            try {
+                handlePredictionFailure(e, modelID, rcfNodeID, failure);
+            } catch (Exception ex) {
+                LOG.error("Unexpected exception: {} for {}", ex, adID);
+            } finally {
+                if (nodeCount == responseCount.incrementAndGet()) {
+                    handleRCFResults();
+                }
+            }
+        }
+
+        private void handleRCFResults() {
+            try {
+                if (coldStartIfNoModel(failure, detector.get()) || rcfResults.isEmpty()) {
+                    listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
+                    return;
+                }
+
+                CombinedRcfResult combinedResult = getCombinedResult(rcfResults);
+                double combinedScore = combinedResult.getScore();
+
+                final AtomicReference<AnomalyResultResponse> anomalyResultResponse = new AtomicReference<>();
+
+                String thresholdNodeId = thresholdNode.get().getId();
+                LOG.info("Sending threshold request to {} for model {}", thresholdNodeId, thresholdModelID);
+                ThresholdActionListener thresholdListener = new ThresholdActionListener(
+                    anomalyResultResponse,
+                    featureInResponse,
+                    thresholdModelID,
+                    thresholdNodeId,
+                    detector,
+                    combinedResult,
+                    featureInResponse,
+                    listener,
+                    startTime,
+                    endTime,
+                    adID
+                );
+                transportService
+                    .sendRequest(
+                        thresholdNode.get(),
+                        ThresholdResultAction.NAME,
+                        new ThresholdResultRequest(adID, thresholdModelID, combinedScore),
+                        option,
+                        new ActionListenerResponseHandler<>(thresholdListener, ThresholdResultResponse::new)
+                    );
+            } catch (Exception ex) {
+                handleExecuteException(ex, listener, adID);
+            }
         }
     }
 
@@ -676,35 +708,96 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private List<FeatureData> features;
         private String modelID;
         private AtomicReference<AnomalyDetectionException> failure;
-        private String nodeID;
+        private String thresholdNodeID;
+        private ActionListener<AnomalyResultResponse> listener;
+        private Optional<AnomalyDetector> detector;
+        private CombinedRcfResult combinedResult;
+        private List<FeatureData> featureInResponse;
+        private long startTime;
+        private long endTime;
+        private String adID;
 
         ThresholdActionListener(
             AtomicReference<AnomalyResultResponse> anomalyResultResponse,
             List<FeatureData> features,
             String modelID,
-            AtomicReference<AnomalyDetectionException> failure,
-            String nodeID
+            String thresholdNodeID,
+            Optional<AnomalyDetector> detector,
+            CombinedRcfResult combinedResult,
+            List<FeatureData> featureInResponse,
+            ActionListener<AnomalyResultResponse> listener,
+            long startTime,
+            long endTime,
+            String adID
         ) {
             this.anomalyResultResponse = anomalyResultResponse;
             this.features = features;
             this.modelID = modelID;
-            this.failure = failure;
-            this.nodeID = nodeID;
+            this.thresholdNodeID = thresholdNodeID;
+            this.detector = detector;
+            this.combinedResult = combinedResult;
+            this.featureInResponse = featureInResponse;
+            this.startTime = startTime;
+            this.endTime = endTime;
+            this.failure = new AtomicReference<AnomalyDetectionException>();
+            this.listener = listener;
+            this.adID = adID;
         }
 
         @Override
         public void onResponse(ThresholdResultResponse response) {
             try {
                 anomalyResultResponse.set(new AnomalyResultResponse(response.getAnomalyGrade(), response.getConfidence(), features));
-                stateManager.resetBackpressureCounter(nodeID);
+                stateManager.resetBackpressureCounter(thresholdNodeID);
             } catch (Exception ex) {
-                LOG.error("Unexpected exception", ex);
+                LOG.error("Unexpected exception: {} for {}", ex, adID);
+            } finally {
+                handleThresholdResult();
             }
         }
 
         @Override
         public void onFailure(Exception e) {
-            handlePredictionFailure(e, modelID, nodeID, failure);
+            try {
+                handlePredictionFailure(e, modelID, thresholdNodeID, failure);
+            } catch (Exception ex) {
+                LOG.error("Unexpected exception: {} for {}", ex, adID);
+            } finally {
+                handleThresholdResult();
+            }
+        }
+
+        private void handleThresholdResult() {
+            try {
+                if (coldStartIfNoModel(failure, detector.get())) {
+                    listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
+                    return;
+                }
+
+                if (anomalyResultResponse.get() != null) {
+                    AnomalyResultResponse response = anomalyResultResponse.get();
+                    double confidence = response.getConfidence() * combinedResult.getConfidence();
+                    response = new AnomalyResultResponse(response.getAnomalyGrade(), confidence, response.getFeatures());
+                    listener.onResponse(response);
+                    indexAnomalyResult(
+                        new AnomalyResult(
+                            adID,
+                            Double.valueOf(combinedResult.getScore()),
+                            Double.valueOf(response.getAnomalyGrade()),
+                            Double.valueOf(confidence),
+                            featureInResponse,
+                            Instant.ofEpochMilli(startTime),
+                            Instant.ofEpochMilli(endTime)
+                        )
+                    );
+                } else if (failure.get() != null) {
+                    listener.onFailure(failure.get());
+                } else {
+                    listener.onFailure(new InternalFailure(adID, "Unexpected exception"));
+                }
+            } catch (Exception ex) {
+                handleExecuteException(ex, listener, adID);
+            }
         }
     }
 

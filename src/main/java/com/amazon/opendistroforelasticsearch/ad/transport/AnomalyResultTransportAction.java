@@ -793,7 +793,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 } else if (failure.get() != null) {
                     listener.onFailure(failure.get());
                 } else {
-                    listener.onFailure(new InternalFailure(adID, "Unexpected exception"));
+                    listener.onFailure(new InternalFailure(adID, "Node connection problem or unexpected exception"));
                 }
             } catch (Exception ex) {
                 handleExecuteException(ex, listener, adID);

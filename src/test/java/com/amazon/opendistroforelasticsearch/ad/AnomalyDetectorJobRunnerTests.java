@@ -15,19 +15,38 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyResultHandler;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
+import org.elasticsearch.common.xcontent.ToXContent;
+import org.elasticsearch.index.Index;
+import org.elasticsearch.index.get.GetResult;
+import org.elasticsearch.index.mapper.MapperService;
+import org.elasticsearch.index.shard.ShardId;
 import org.elasticsearch.threadpool.ThreadPool;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -36,11 +55,16 @@ import org.mockito.MockitoAnnotations;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 
+import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -67,9 +91,25 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     private AnomalyDetectorJobRunner runner = AnomalyDetectorJobRunner.getJobRunnerInstance();
 
     @Mock
-    private ThreadPool threadPool;
+    private ThreadPool mockedThreadPool;
 
     private ExecutorService executorService;
+
+    @Mock
+    private Iterator<TimeValue> backoff;
+
+    @Mock
+    private AnomalyResultHandler anomalyResultHandler;
+
+    @BeforeClass
+    public static void setUpBeforeClass() {
+        setUpThreadPool(AnomalyDetectorJobRunnerTests.class.getSimpleName());
+    }
+
+    @AfterClass
+    public static void tearDownAfterClass() {
+        tearDownThreadPool();
+    }
 
     @Before
     public void setup() throws Exception {
@@ -79,9 +119,21 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         ThreadFactory threadFactory = EsExecutors.daemonThreadFactory(EsExecutors.threadName("node1", "test-ad"));
         ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
         executorService = EsExecutors.newFixed("test-ad", 4, 100, threadFactory, threadContext);
-        doReturn(executorService).when(threadPool).executor(anyString());
-        runner.setThreadPool(threadPool);
+        doReturn(executorService).when(mockedThreadPool).executor(anyString());
+        runner.setThreadPool(mockedThreadPool);
         runner.setClient(client);
+        runner.setAnomalyResultHandler(anomalyResultHandler);
+
+        setUpJobParameter();
+
+        runner
+            .setSettings(
+                Settings
+                    .builder()
+                    .put("opendistro.anomaly_detection.max_retry_for_backoff", 2)
+                    .put("opendistro.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
+                    .build()
+            );
 
         lockService = new LockService(client, clusterService);
         doReturn(lockService).when(context).getLockService();
@@ -110,6 +162,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Test
     public void testRunJobWithNullLockDuration() throws InterruptedException {
         when(jobParameter.getLockDurationSeconds()).thenReturn(null);
+        when(jobParameter.getSchedule()).thenReturn(new IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES));
         runner.runJob(jobParameter, context);
         Thread.sleep(1000);
         assertTrue(testAppender.containsMessage("Can't get lock for AD job"));
@@ -118,6 +171,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Test
     public void testRunJobWithLockDuration() throws InterruptedException {
         when(jobParameter.getLockDurationSeconds()).thenReturn(100L);
+        when(jobParameter.getSchedule()).thenReturn(new IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES));
         runner.runJob(jobParameter, context);
         Thread.sleep(1000);
         assertFalse(testAppender.containsMessage("Can't get lock for AD job"));
@@ -127,34 +181,244 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Test
     public void testRunAdJobWithNullLock() {
         LockModel lock = null;
-        runner.runAdJob(jobParameter, lockService, lock);
+        runner.runAdJob(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), Instant.now(), backoff);
         verify(client, never()).execute(any(), any(), any());
     }
 
     @Test
     public void testRunAdJobWithLock() {
         LockModel lock = new LockModel("indexName", "jobId", Instant.now(), 10, false);
-        IntervalSchedule schedule = mock(IntervalSchedule.class);
-        when(schedule.getInterval()).thenReturn(1);
-        when(schedule.getUnit()).thenReturn(ChronoUnit.MINUTES);
-        when(jobParameter.getSchedule()).thenReturn(schedule);
 
-        runner.runAdJob(jobParameter, lockService, lock);
+        runner.runAdJob(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), Instant.now(), backoff);
         verify(client, times(1)).execute(any(), any(), any());
     }
 
     @Test
     public void testRunAdJobWithExecuteException() {
         LockModel lock = new LockModel("indexName", "jobId", Instant.now(), 10, false);
-        IntervalSchedule schedule = mock(IntervalSchedule.class);
-        when(schedule.getInterval()).thenReturn(1);
-        when(schedule.getUnit()).thenReturn(ChronoUnit.MINUTES);
-        when(jobParameter.getSchedule()).thenReturn(schedule);
+
         doThrow(RuntimeException.class).when(client).execute(any(), any(), any());
 
-        runner.runAdJob(jobParameter, lockService, lock);
+        runner.runAdJob(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), Instant.now(), backoff);
         verify(client, times(1)).execute(any(), any(), any());
         assertTrue(testAppender.containsMessage("Failed to execute AD job"));
+    }
+
+    @Test
+    public void testRunAdJobWithEndRunExceptionNow() {
+        LockModel lock = new LockModel("indexName", "jobId", Instant.now(), 10, false);
+        Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), true);
+        runner
+            .handleAdException(
+                jobParameter,
+                lockService,
+                lock,
+                Instant.now().minusMillis(1000 * 60),
+                Instant.now(),
+                Instant.now(),
+                backoff,
+                exception
+            );
+        verify(anomalyResultHandler).indexAnomalyResult(any());
+    }
+
+    @Test
+    public void testRunAdJobWithEndRunExceptionNowAndExistingAdJob() {
+        testRunAdJobWithEndRunExceptionNowAndStopAdJob(true, true, true);
+        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(client).index(any(), any());
+        assertTrue(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
+    }
+
+    @Test
+    public void testRunAdJobWithEndRunExceptionNowAndExistingAdJobAndIndexException() {
+        testRunAdJobWithEndRunExceptionNowAndStopAdJob(true, true, false);
+        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(client).index(any(), any());
+        assertTrue(testAppender.containsMessage("Failed to disable AD job for"));
+    }
+
+    @Test
+    public void testRunAdJobWithEndRunExceptionNowAndNotExistingEnabledAdJob() {
+        testRunAdJobWithEndRunExceptionNowAndStopAdJob(false, true, true);
+        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(client, never()).index(any(), any());
+        assertFalse(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
+        assertFalse(testAppender.containsMessage("Failed to disable AD job for"));
+    }
+
+    @Test
+    public void testRunAdJobWithEndRunExceptionNowAndExistingDisabledAdJob() {
+        testRunAdJobWithEndRunExceptionNowAndStopAdJob(true, false, true);
+        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(client, never()).index(any(), any());
+        assertFalse(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
+    }
+
+    @Test
+    public void testRunAdJobWithEndRunExceptionNowAndNotExistingDisabledAdJob() {
+        testRunAdJobWithEndRunExceptionNowAndStopAdJob(false, false, true);
+        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(client, never()).index(any(), any());
+        assertFalse(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
+    }
+
+    private void testRunAdJobWithEndRunExceptionNowAndStopAdJob(boolean jobExists, boolean jobEnabled, boolean disableSuccessfully) {
+        LockModel lock = new LockModel(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
+        Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), true);
+
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            GetResponse response = new GetResponse(
+                new GetResult(
+                    AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
+                    MapperService.SINGLE_MAPPING_NAME,
+                    jobParameter.getName(),
+                    UNASSIGNED_SEQ_NO,
+                    0,
+                    -1,
+                    jobExists,
+                    BytesReference
+                        .bytes(
+                            new AnomalyDetectorJob(
+                                jobParameter.getName(),
+                                jobParameter.getSchedule(),
+                                jobParameter.getWindowDelay(),
+                                jobEnabled,
+                                Instant.now().minusSeconds(60),
+                                Instant.now(),
+                                Instant.now(),
+                                60L
+                            ).toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS)
+                        ),
+                    Collections.emptyMap(),
+                    Collections.emptyMap()
+                )
+            );
+
+            listener.onResponse(response);
+            return null;
+        }).when(client).get(any(), any());
+
+        doAnswer(invocation -> {
+            IndexRequest request = invocation.getArgument(0);
+            ActionListener<IndexResponse> listener = invocation.getArgument(1);
+            ShardId shardId = new ShardId(new Index(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, randomAlphaOfLength(10)), 0);
+            if (disableSuccessfully) {
+                listener.onResponse(new IndexResponse(shardId, randomAlphaOfLength(10), request.id(), 1, 1, 1, true));
+            } else {
+                listener.onResponse(null);
+            }
+            return null;
+        }).when(client).index(any(), any());
+
+        runner
+            .handleAdException(
+                jobParameter,
+                lockService,
+                lock,
+                Instant.now().minusMillis(1000 * 60),
+                Instant.now(),
+                Instant.now(),
+                backoff,
+                exception
+            );
+    }
+
+    @Test
+    public void testRunAdJobWithEndRunExceptionNowAndGetJobException() {
+        LockModel lock = new LockModel("indexName", "jobId", Instant.now(), 10, false);
+        Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), true);
+
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            listener.onFailure(new RuntimeException("test"));
+            return null;
+        }).when(client).get(any(), any());
+
+        runner
+            .handleAdException(
+                jobParameter,
+                lockService,
+                lock,
+                Instant.now().minusMillis(1000 * 60),
+                Instant.now(),
+                Instant.now(),
+                backoff,
+                exception
+            );
+        verify(anomalyResultHandler).indexAnomalyResult(any());
+        assertEquals(1, testAppender.countMessage("JobRunner failed to get detector job"));
+    }
+
+    @Test
+    public void testRunAdJobWithEndRunExceptionNotNowAndNoEnoughTimeToRetry() throws InterruptedException {
+        LockModel lock = new LockModel(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
+        Instant executionStartTime = Instant.now();
+        Schedule schedule = mock(IntervalSchedule.class);
+        when(jobParameter.getSchedule()).thenReturn(schedule);
+        when(schedule.getNextExecutionTime(executionStartTime)).thenReturn(executionStartTime.plusSeconds(5));
+
+        doAnswer(invocation -> {
+            Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), false);
+            ActionListener<?> listener = invocation.getArgument(2);
+            listener.onFailure(exception);
+            return null;
+        }).when(client).execute(any(), any(), any());
+
+        runner
+            .runAdJob(
+                jobParameter,
+                lockService,
+                lock,
+                Instant.now().minusSeconds(60),
+                Instant.now(),
+                executionStartTime,
+                runner.getBackoffPolicy().iterator()
+            );
+        verify(mockedThreadPool, never()).schedule(any(), any(), any());
+        verify(anomalyResultHandler, times(1)).indexAnomalyResult(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testRunAdJobWithEndRunExceptionNotNowAndEnoughTimeToRetry() throws InterruptedException {
+        LockModel lock = new LockModel(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
+        Instant executionStartTime = Instant.now();
+        Schedule schedule = mock(IntervalSchedule.class);
+        when(jobParameter.getSchedule()).thenReturn(schedule);
+        when(schedule.getNextExecutionTime(executionStartTime)).thenReturn(executionStartTime.plusSeconds(60));
+
+        CountDownLatch countDownLatch = new CountDownLatch(3);
+        doAnswer(invocation -> {
+            Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), false);
+            ActionListener<?> listener = invocation.getArgument(2);
+            listener.onFailure(exception);
+            countDownLatch.countDown();
+            return null;
+        }).when(client).execute(any(), any(), any());
+
+        runner.setThreadPool(AbstractADTest.threadPool);
+        runner
+            .runAdJob(
+                jobParameter,
+                lockService,
+                lock,
+                Instant.now().minusSeconds(60),
+                Instant.now(),
+                executionStartTime,
+                runner.getBackoffPolicy().iterator()
+            );
+        countDownLatch.await();
+        verify(anomalyResultHandler, times(1)).indexAnomalyResult(any());
+        verify(client, times(3)).execute(any(AnomalyResultAction.class), any(AnomalyResultRequest.class), any(ActionListener.class));
+    }
+
+    private void setUpJobParameter() {
+        when(jobParameter.getName()).thenReturn(randomAlphaOfLength(10));
+        IntervalSchedule schedule = new IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES);
+        when(jobParameter.getSchedule()).thenReturn(schedule);
+        when(jobParameter.getWindowDelay()).thenReturn(new IntervalTimeConfiguration(10, ChronoUnit.SECONDS));
     }
 
 }

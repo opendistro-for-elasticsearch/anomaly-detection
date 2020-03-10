@@ -41,12 +41,14 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
     public static final String LOCK_DURATION_SECONDS = "lock_duration_seconds";
 
     private static final String SCHEDULE_FIELD = "schedule";
+    private static final String WINDOW_DELAY_FIELD = "window_delay";
     private static final String IS_ENABLED_FIELD = "enabled";
     private static final String ENABLED_TIME_FIELD = "enabled_time";
     private static final String DISABLED_TIME_FIELD = "disabled_time";
 
     private final String name;
     private final Schedule schedule;
+    private final TimeConfiguration windowDelay;
     private final Boolean isEnabled;
     private final Instant enabledTime;
     private final Instant disabledTime;
@@ -56,6 +58,7 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
     public AnomalyDetectorJob(
         String name,
         Schedule schedule,
+        TimeConfiguration windowDelay,
         Boolean isEnabled,
         Instant enabledTime,
         Instant disabledTime,
@@ -64,6 +67,7 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
     ) {
         this.name = name;
         this.schedule = schedule;
+        this.windowDelay = windowDelay;
         this.isEnabled = isEnabled;
         this.enabledTime = enabledTime;
         this.disabledTime = disabledTime;
@@ -77,6 +81,7 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
             .startObject()
             .field(NAME_FIELD, name)
             .field(SCHEDULE_FIELD, schedule)
+            .field(WINDOW_DELAY_FIELD, windowDelay)
             .field(IS_ENABLED_FIELD, isEnabled)
             .field(ENABLED_TIME_FIELD, enabledTime.toEpochMilli())
             .field(LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli())
@@ -90,6 +95,7 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
     public static AnomalyDetectorJob parse(XContentParser parser) throws IOException {
         String name = null;
         Schedule schedule = null;
+        TimeConfiguration windowDelay = null;
         Boolean isEnabled = null;
         Instant enabledTime = null;
         Instant disabledTime = null;
@@ -107,6 +113,9 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
                     break;
                 case SCHEDULE_FIELD:
                     schedule = ScheduleParser.parse(parser);
+                    break;
+                case WINDOW_DELAY_FIELD:
+                    windowDelay = TimeConfiguration.parse(parser);
                     break;
                 case IS_ENABLED_FIELD:
                     isEnabled = parser.booleanValue();
@@ -128,7 +137,16 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
                     break;
             }
         }
-        return new AnomalyDetectorJob(name, schedule, isEnabled, enabledTime, disabledTime, lastUpdateTime, lockDurationSeconds);
+        return new AnomalyDetectorJob(
+            name,
+            schedule,
+            windowDelay,
+            isEnabled,
+            enabledTime,
+            disabledTime,
+            lastUpdateTime,
+            lockDurationSeconds
+        );
     }
 
     @Override
@@ -160,6 +178,10 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
     @Override
     public Schedule getSchedule() {
         return schedule;
+    }
+
+    public TimeConfiguration getWindowDelay() {
+        return windowDelay;
     }
 
     @Override

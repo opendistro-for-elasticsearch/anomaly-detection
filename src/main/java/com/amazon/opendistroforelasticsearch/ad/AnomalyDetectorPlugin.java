@@ -69,6 +69,7 @@ import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyResultHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser;
@@ -142,7 +143,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private static Gson gson;
     private AnomalyDetectionIndices anomalyDetectionIndices;
     private AnomalyDetectorRunner anomalyDetectorRunner;
+    private Client client;
     private ClusterService clusterService;
+    private ThreadPool threadPool;
+    private IndexNameExpressionResolver indexNameExpressionResolver;
     private ADStats adStats;
 
     static {
@@ -164,6 +168,21 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         IndexNameExpressionResolver indexNameExpressionResolver,
         Supplier<DiscoveryNodes> nodesInCluster
     ) {
+        this.indexNameExpressionResolver = indexNameExpressionResolver;
+        AnomalyResultHandler anomalyResultHandler = new AnomalyResultHandler(
+            client,
+            settings,
+            clusterService,
+            indexNameExpressionResolver,
+            anomalyDetectionIndices,
+            threadPool
+        );
+        AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
+        jobRunner.setClient(client);
+        jobRunner.setThreadPool(threadPool);
+        jobRunner.setAnomalyResultHandler(anomalyResultHandler);
+        jobRunner.setSettings(settings);
+
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(restController);
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(
             settings,
@@ -218,6 +237,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         NodeEnvironment nodeEnvironment,
         NamedWriteableRegistry namedWriteableRegistry
     ) {
+        this.client = client;
+        this.threadPool = threadPool;
         Settings settings = environment.settings();
         Clock clock = Clock.systemUTC();
         Throttler throttler = new Throttler(clock);
@@ -312,10 +333,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         adStats = new ADStats(indexUtils, modelManager, stats);
         ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
-
-        AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
-        jobRunner.setClient(client);
-        jobRunner.setThreadPool(threadPool);
 
         return ImmutableList
             .of(

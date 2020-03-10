@@ -33,23 +33,34 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 public class AnomalyResultResponse extends ActionResponse implements ToXContentObject {
     public static final String ANOMALY_GRADE_JSON_KEY = "anomalyGrade";
     public static final String CONFIDENCE_JSON_KEY = "confidence";
+    public static final String ANOMALY_SCORE_JSON_KEY = "anomalyScore";
+    public static final String ERROR_JSON_KEY = "error";
     public static final String FEATURES_JSON_KEY = "features";
     public static final String FEATURE_VALUE_JSON_KEY = "value";
 
     private double anomalyGrade;
     private double confidence;
+    private double anomalyScore;
+    private String error;
     private List<FeatureData> features;
 
-    public AnomalyResultResponse(double anomalyGrade, double confidence, List<FeatureData> features) {
+    public AnomalyResultResponse(double anomalyGrade, double confidence, double anomalyScore, List<FeatureData> features) {
+        this(anomalyGrade, confidence, anomalyScore, features, null);
+    }
+
+    public AnomalyResultResponse(double anomalyGrade, double confidence, double anomalyScore, List<FeatureData> features, String error) {
         this.anomalyGrade = anomalyGrade;
         this.confidence = confidence;
+        this.anomalyScore = anomalyScore;
         this.features = features;
+        this.error = error;
     }
 
     public AnomalyResultResponse(StreamInput in) throws IOException {
         super(in);
         anomalyGrade = in.readDouble();
         confidence = in.readDouble();
+        anomalyScore = in.readDouble();
         int size = in.readVInt();
         features = new ArrayList<FeatureData>();
         for (int i = 0; i < size; i++) {
@@ -58,6 +69,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             double featureValue = in.readDouble();
             features.add(new FeatureData(featureId, featureName, featureValue));
         }
+        error = in.readOptionalString();
     }
 
     public double getAnomalyGrade() {
@@ -72,17 +84,31 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         return confidence;
     }
 
+    public double getAnomalyScore() {
+        return anomalyScore;
+    }
+
+    public String getError() {
+        return error;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeDouble(anomalyGrade);
         out.writeDouble(confidence);
+        out.writeDouble(anomalyScore);
         out.writeVInt(features.size());
         for (FeatureData feature : features) {
             out.writeString(feature.getFeatureId());
             out.writeString(feature.getFeatureName());
             out.writeDouble(feature.getData());
         }
-
+        if (error != null) {
+            out.writeBoolean(true);
+            out.writeString(error);
+        } else {
+            out.writeBoolean(false);
+        }
     }
 
     @Override
@@ -90,6 +116,8 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         builder.startObject();
         builder.field(ANOMALY_GRADE_JSON_KEY, anomalyGrade);
         builder.field(CONFIDENCE_JSON_KEY, confidence);
+        builder.field(ANOMALY_SCORE_JSON_KEY, anomalyScore);
+        builder.field(ERROR_JSON_KEY, error);
         builder.startArray(FEATURES_JSON_KEY);
         for (FeatureData feature : features) {
             feature.toXContent(builder, params);

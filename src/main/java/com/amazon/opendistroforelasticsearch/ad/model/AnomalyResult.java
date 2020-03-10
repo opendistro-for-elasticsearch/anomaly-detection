@@ -42,16 +42,22 @@ public class AnomalyResult implements ToXContentObject {
     private static final String ANOMALY_GRADE_FIELD = "anomaly_grade";
     private static final String CONFIDENCE_FIELD = "confidence";
     private static final String FEATURE_DATA_FIELD = "feature_data";
-    private static final String START_TIME_FIELD = "start_time";
-    public static final String END_TIME_FIELD = "end_time";
+    private static final String DATA_START_TIME_FIELD = "data_start_time";
+    public static final String DATA_END_TIME_FIELD = "data_end_time";
+    private static final String EXECUTION_START_TIME_FIELD = "execution_start_time";
+    public static final String EXECUTION_END_TIME_FIELD = "execution_end_time";
+    public static final String ERROR_FIELD = "error";
 
     private final String detectorId;
     private final Double anomalyScore;
     private final Double anomalyGrade;
     private final Double confidence;
     private final List<FeatureData> featureData;
-    private final Instant startTime;
-    private final Instant endTime;
+    private final Instant dataStartTime;
+    private final Instant dataEndTime;
+    private final Instant executionStartTime;
+    private final Instant executionEndTime;
+    private final String error;
 
     public AnomalyResult(
         String detectorId,
@@ -59,16 +65,22 @@ public class AnomalyResult implements ToXContentObject {
         Double anomalyGrade,
         Double confidence,
         List<FeatureData> featureData,
-        Instant startTime,
-        Instant endTime
+        Instant dataStartTime,
+        Instant dataEndTime,
+        Instant executionStartTime,
+        Instant executionEndTime,
+        String error
     ) {
         this.detectorId = detectorId;
         this.anomalyScore = anomalyScore;
         this.anomalyGrade = anomalyGrade;
         this.confidence = confidence;
         this.featureData = featureData;
-        this.startTime = startTime;
-        this.endTime = endTime;
+        this.dataStartTime = dataStartTime;
+        this.dataEndTime = dataEndTime;
+        this.executionStartTime = executionStartTime;
+        this.executionEndTime = executionEndTime;
+        this.error = error;
     }
 
     @Override
@@ -76,12 +88,23 @@ public class AnomalyResult implements ToXContentObject {
         XContentBuilder xContentBuilder = builder
             .startObject()
             .field(DETECTOR_ID_FIELD, detectorId)
-            .field(ANOMALY_SCORE_FIELD, anomalyScore)
-            .field(ANOMALY_GRADE_FIELD, anomalyGrade)
-            .field(CONFIDENCE_FIELD, confidence)
             .field(FEATURE_DATA_FIELD, featureData.toArray())
-            .field(START_TIME_FIELD, startTime.toEpochMilli())
-            .field(END_TIME_FIELD, endTime.toEpochMilli());
+            .field(DATA_START_TIME_FIELD, dataStartTime.toEpochMilli())
+            .field(DATA_END_TIME_FIELD, dataEndTime.toEpochMilli())
+            .field(EXECUTION_START_TIME_FIELD, executionStartTime.toEpochMilli())
+            .field(EXECUTION_END_TIME_FIELD, executionEndTime.toEpochMilli());
+        if (anomalyScore != null && !anomalyScore.isNaN()) {
+            xContentBuilder.field(ANOMALY_SCORE_FIELD, anomalyScore);
+        }
+        if (anomalyGrade != null && !anomalyGrade.isNaN()) {
+            xContentBuilder.field(ANOMALY_GRADE_FIELD, anomalyGrade);
+        }
+        if (confidence != null && !confidence.isNaN()) {
+            xContentBuilder.field(CONFIDENCE_FIELD, confidence);
+        }
+        if (error != null) {
+            xContentBuilder.field(ERROR_FIELD, error);
+        }
         return xContentBuilder.endObject();
     }
 
@@ -91,8 +114,11 @@ public class AnomalyResult implements ToXContentObject {
         Double anomalyGrade = null;
         Double confidence = null;
         List<FeatureData> featureData = new ArrayList<>();
-        Instant startTime = null;
-        Instant endTime = null;
+        Instant dataStartTime = null;
+        Instant dataEndTime = null;
+        Instant executionStartTime = null;
+        Instant executionEndTime = null;
+        String error = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -118,18 +144,38 @@ public class AnomalyResult implements ToXContentObject {
                         featureData.add(FeatureData.parse(parser));
                     }
                     break;
-                case START_TIME_FIELD:
-                    startTime = ParseUtils.toInstant(parser);
+                case DATA_START_TIME_FIELD:
+                    dataStartTime = ParseUtils.toInstant(parser);
                     break;
-                case END_TIME_FIELD:
-                    endTime = ParseUtils.toInstant(parser);
+                case DATA_END_TIME_FIELD:
+                    dataEndTime = ParseUtils.toInstant(parser);
+                    break;
+                case EXECUTION_START_TIME_FIELD:
+                    executionStartTime = ParseUtils.toInstant(parser);
+                    break;
+                case EXECUTION_END_TIME_FIELD:
+                    executionEndTime = ParseUtils.toInstant(parser);
+                    break;
+                case ERROR_FIELD:
+                    error = parser.text();
                     break;
                 default:
                     parser.skipChildren();
                     break;
             }
         }
-        return new AnomalyResult(detectorId, anomalyScore, anomalyGrade, confidence, featureData, startTime, endTime);
+        return new AnomalyResult(
+            detectorId,
+            anomalyScore,
+            anomalyGrade,
+            confidence,
+            featureData,
+            dataStartTime,
+            dataEndTime,
+            executionStartTime,
+            executionEndTime,
+            error
+        );
     }
 
     @Generated
@@ -145,8 +191,11 @@ public class AnomalyResult implements ToXContentObject {
             && Objects.equal(getAnomalyGrade(), that.getAnomalyGrade())
             && Objects.equal(getConfidence(), that.getConfidence())
             && Objects.equal(getFeatureData(), that.getFeatureData())
-            && Objects.equal(getStartTime(), that.getStartTime())
-            && Objects.equal(getEndTime(), that.getEndTime());
+            && Objects.equal(getDataStartTime(), that.getDataStartTime())
+            && Objects.equal(getDataEndTime(), that.getDataEndTime())
+            && Objects.equal(getExecutionStartTime(), that.getExecutionStartTime())
+            && Objects.equal(getExecutionEndTime(), that.getExecutionEndTime())
+            && Objects.equal(getError(), that.getError());
     }
 
     @Generated
@@ -159,8 +208,11 @@ public class AnomalyResult implements ToXContentObject {
                 getAnomalyGrade(),
                 getConfidence(),
                 getFeatureData(),
-                getStartTime(),
-                getEndTime()
+                getDataStartTime(),
+                getDataEndTime(),
+                getExecutionStartTime(),
+                getExecutionEndTime(),
+                getError()
             );
     }
 
@@ -184,11 +236,23 @@ public class AnomalyResult implements ToXContentObject {
         return featureData;
     }
 
-    public Instant getStartTime() {
-        return startTime;
+    public Instant getDataStartTime() {
+        return dataStartTime;
     }
 
-    public Instant getEndTime() {
-        return endTime;
+    public Instant getDataEndTime() {
+        return dataEndTime;
+    }
+
+    public Instant getExecutionStartTime() {
+        return executionStartTime;
+    }
+
+    public Instant getExecutionEndTime() {
+        return executionEndTime;
+    }
+
+    public String getError() {
+        return error;
     }
 }

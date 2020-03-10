@@ -107,7 +107,7 @@ public class DeleteDetector {
                     .filter(QueryBuilders.termsQuery(AnomalyResult.DETECTOR_ID_FIELD, detectorID))
                     .filter(
                         QueryBuilders
-                            .rangeQuery(AnomalyResult.END_TIME_FIELD)
+                            .rangeQuery(AnomalyResult.DATA_END_TIME_FIELD)
                             .lte(deleteBeforeEpochMillis)
                             .format(CommonName.EPOCH_MILLIS_FORMAT)
                     )

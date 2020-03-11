@@ -802,7 +802,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     }
 
     private void handlePredictionFailure(Exception e, String adID, String nodeID, AtomicReference<AnomalyDetectionException> failure) {
-        LOG.error(new ParameterizedMessage("Received an error from node {} when fetch anomaly grade for {}", nodeID, adID), e);
+        LOG.error(new ParameterizedMessage("Received an error from node {} while fetching anomaly grade for {}", nodeID, adID), e);
         if (e == null) {
             return;
         }

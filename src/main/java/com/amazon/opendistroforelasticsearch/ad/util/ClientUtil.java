@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.InternalFailure;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -177,9 +176,11 @@ public class ClientUtil {
     }
 
     /**
-     * Send a nonblocking request with a timeout and return response. The request will first be put into
-     * the negative cache. Once the request complete, it will be removed from the negative cache.
-     *
+     * Send a nonblocking request with a timeout and return response.
+     * If there is already a query running on given detector, it will try to
+     * cancel the query. Otherwise it will add this query to the negative cache
+     * and then attach the AnomalyDetection specific header to the request.
+     * Once the request complete, it will be removed from the negative cache.
      * @param <Request> ActionRequest
      * @param <Response> ActionResponse
      * @param request request like index/search/get
@@ -187,7 +188,7 @@ public class ClientUtil {
      * @param consumer functional interface to operate as a client request like client::get
      * @param detector Anomaly Detector
      * @return the response
-     * @throws EndRunException when there is already a query running
+     * @throws InternalFailure when there is already a query running
      * @throws ElasticsearchTimeoutException when we cannot get response within time.
      * @throws IllegalStateException when the waiting thread is interrupted
      */
@@ -203,6 +204,7 @@ public class ClientUtil {
             if (!throttler.insertFilteredQuery(detectorId, request)) {
                 LOG.info("There is one query running for detectorId: {}. Trying to cancel the long running query", detectorId);
                 cancelRunningQuery(client, detectorId, LOG);
+                throw new InternalFailure(detector.getDetectorId(), "There is already a query running on AnomalyDetector");
             }
             AtomicReference<Response> respReference = new AtomicReference<>();
             final CountDownLatch latch = new CountDownLatch(1);
@@ -226,7 +228,6 @@ public class ClientUtil {
             }
 
             if (!latch.await(requestTimeout.getSeconds(), TimeUnit.SECONDS)) {
-
                 throw new ElasticsearchTimeoutException("Cannot get response within time limit: " + request.toString());
             }
             return Optional.ofNullable(respReference.get());
@@ -253,6 +254,7 @@ public class ClientUtil {
      */
     private void cancelRunningQuery(Client client, String detectorId, Logger LOG) {
         ListTasksRequest listTasksRequest = new ListTasksRequest();
+        listTasksRequest.setActions("*search");
         client
             .execute(
                 ListTasksAction.INSTANCE,
@@ -272,27 +274,38 @@ public class ClientUtil {
      */
     private void onListTaskResponse(ListTasksResponse listTasksResponse, String detectorId, Logger LOG) {
         List<TaskInfo> tasks = listTasksResponse.getTasks();
-        TaskInfo matchedTask = null;
+        TaskId matchedParentTaskId = null;
+        TaskId matchedSingleTaskId = null;
         for (TaskInfo task : tasks) {
-            if (!task.getHeaders().isEmpty() && task.getHeaders().get(Task.X_OPAQUE_ID) != null) {
-                if (task.getHeaders().get(Task.X_OPAQUE_ID).contains(detectorId)) {
-                    matchedTask = task;
+            if (!task.getHeaders().isEmpty()
+                && task.getHeaders().get(Task.X_OPAQUE_ID).equals(CommonName.ANOMALY_DETECTOR + ":" + detectorId)) {
+                if (!task.getParentTaskId().equals(TaskId.EMPTY_TASK_ID)) {
+                    // we found the parent task, don't need to check more
+                    matchedParentTaskId = task.getParentTaskId();
                     break;
+                } else {
+                    // we found one task, keep checking other tasks
+                    matchedSingleTaskId = task.getTaskId();
                 }
             }
         }
         // case 1: given detectorId is not in current task list
-        if (matchedTask == null) {
+        if (matchedParentTaskId == null && matchedSingleTaskId == null) {
             // log and then clear negative cache
             LOG.info("Couldn't find task for detectorId: {}. Clean this entry from Throttler", detectorId);
             throttler.clearFilteredQuery(detectorId);
             return;
         }
         // case 2: we can find the task for given detectorId
-        TaskId parentTaskId = matchedTask.getParentTaskId().isSet() ? matchedTask.getParentTaskId() : matchedTask.getTaskId();
         CancelTasksRequest cancelTaskRequest = new CancelTasksRequest();
-        cancelTaskRequest.setParentTaskId(parentTaskId);
-        LOG.info("Start to cancel task for parentTaskId: {}", parentTaskId);
+        if (matchedParentTaskId != null) {
+            cancelTaskRequest.setParentTaskId(matchedParentTaskId);
+            LOG.info("Start to cancel task for parentTaskId: {}", matchedParentTaskId.toString());
+        } else {
+            cancelTaskRequest.setTaskId(matchedSingleTaskId);
+            LOG.info("Start to cancel task for taskId: {}", matchedSingleTaskId.toString());
+        }
+
         client
             .execute(
                 CancelTasksAction.INSTANCE,
@@ -311,6 +324,7 @@ public class ClientUtil {
      * @param LOG Logger
      */
     private void onCancelTaskResponse(CancelTasksResponse cancelTasksResponse, String detectorId, Logger LOG) {
+        // todo: adding retry mechanism
         List<ElasticsearchException> nodeFailures = cancelTasksResponse.getNodeFailures();
         List<TaskOperationFailure> taskFailures = cancelTasksResponse.getTaskFailures();
         if (nodeFailures.isEmpty() && taskFailures.isEmpty()) {
@@ -318,6 +332,7 @@ public class ClientUtil {
             throttler.clearFilteredQuery(detectorId);
             return;
         }
+        LOG.error("Failed to cancel task for detectorId: " + detectorId);
         throw new InternalFailure(detectorId, "Failed to cancel current tasks due to node or task failures");
     }
 }

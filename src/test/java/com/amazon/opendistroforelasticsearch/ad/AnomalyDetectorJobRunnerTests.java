@@ -57,6 +57,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -123,6 +124,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         runner.setThreadPool(mockedThreadPool);
         runner.setClient(client);
         runner.setAnomalyResultHandler(anomalyResultHandler);
+        runner.setDetectorEndRunExceptionCount(new ConcurrentHashMap<>());
 
         setUpJobParameter();
 
@@ -132,6 +134,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
                     .builder()
                     .put("opendistro.anomaly_detection.max_retry_for_backoff", 2)
                     .put("opendistro.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
+                    .put("opendistro.anomaly_detection.max_retry_for_end_run_exception", 3)
                     .build()
             );
 
@@ -181,7 +184,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Test
     public void testRunAdJobWithNullLock() {
         LockModel lock = null;
-        runner.runAdJob(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), Instant.now(), backoff);
+        runner.runAdJob(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), backoff, 0);
         verify(client, never()).execute(any(), any(), any());
     }
 
@@ -189,7 +192,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     public void testRunAdJobWithLock() {
         LockModel lock = new LockModel("indexName", "jobId", Instant.now(), 10, false);
 
-        runner.runAdJob(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), Instant.now(), backoff);
+        runner.runAdJob(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), backoff, 0);
         verify(client, times(1)).execute(any(), any(), any());
     }
 
@@ -199,7 +202,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
         doThrow(RuntimeException.class).when(client).execute(any(), any(), any());
 
-        runner.runAdJob(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), Instant.now(), backoff);
+        runner.runAdJob(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), backoff, 0);
         verify(client, times(1)).execute(any(), any(), any());
         assertTrue(testAppender.containsMessage("Failed to execute AD job"));
     }
@@ -209,16 +212,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         LockModel lock = new LockModel("indexName", "jobId", Instant.now(), 10, false);
         Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), true);
         runner
-            .handleAdException(
-                jobParameter,
-                lockService,
-                lock,
-                Instant.now().minusMillis(1000 * 60),
-                Instant.now(),
-                Instant.now(),
-                backoff,
-                exception
-            );
+            .handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), backoff, 0, exception);
         verify(anomalyResultHandler).indexAnomalyResult(any());
     }
 
@@ -313,16 +307,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         }).when(client).index(any(), any());
 
         runner
-            .handleAdException(
-                jobParameter,
-                lockService,
-                lock,
-                Instant.now().minusMillis(1000 * 60),
-                Instant.now(),
-                Instant.now(),
-                backoff,
-                exception
-            );
+            .handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), backoff, 0, exception);
     }
 
     @Test
@@ -337,18 +322,22 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         }).when(client).get(any(), any());
 
         runner
-            .handleAdException(
-                jobParameter,
-                lockService,
-                lock,
-                Instant.now().minusMillis(1000 * 60),
-                Instant.now(),
-                Instant.now(),
-                backoff,
-                exception
-            );
+            .handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), backoff, 0, exception);
         verify(anomalyResultHandler).indexAnomalyResult(any());
         assertEquals(1, testAppender.countMessage("JobRunner failed to get detector job"));
+    }
+
+    @Test
+    public void testRunAdJobWithEndRunExceptionNowAndFailToGetJob() {
+        LockModel lock = new LockModel("indexName", "jobId", Instant.now(), 10, false);
+        Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), true);
+
+        doThrow(new RuntimeException("fail to get AD job")).when(client).get(any(), any());
+
+        runner
+            .handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), backoff, 0, exception);
+        verify(anomalyResultHandler).indexAnomalyResult(any());
+        assertEquals(1, testAppender.countMessage("JobRunner failed to stop AD job"));
     }
 
     @Test
@@ -372,9 +361,9 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
                 lockService,
                 lock,
                 Instant.now().minusSeconds(60),
-                Instant.now(),
                 executionStartTime,
-                runner.getBackoffPolicy().iterator()
+                runner.getBackoffPolicy().iterator(),
+                0
             );
         verify(mockedThreadPool, never()).schedule(any(), any(), any());
         verify(anomalyResultHandler, times(1)).indexAnomalyResult(any());
@@ -405,9 +394,9 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
                 lockService,
                 lock,
                 Instant.now().minusSeconds(60),
-                Instant.now(),
                 executionStartTime,
-                runner.getBackoffPolicy().iterator()
+                runner.getBackoffPolicy().iterator(),
+                0
             );
         countDownLatch.await();
         verify(anomalyResultHandler, times(1)).indexAnomalyResult(any());

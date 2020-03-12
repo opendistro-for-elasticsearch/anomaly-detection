@@ -84,6 +84,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -181,6 +182,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setClient(client);
         jobRunner.setThreadPool(threadPool);
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
+        jobRunner.setDetectorEndRunExceptionCount(new ConcurrentHashMap<>());
         jobRunner.setSettings(settings);
 
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(restController);

@@ -57,7 +57,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -124,7 +123,6 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         runner.setThreadPool(mockedThreadPool);
         runner.setClient(client);
         runner.setAnomalyResultHandler(anomalyResultHandler);
-        runner.setDetectorEndRunExceptionCount(new ConcurrentHashMap<>());
 
         setUpJobParameter();
 

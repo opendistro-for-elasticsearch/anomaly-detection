@@ -254,7 +254,7 @@ public class ClientUtil {
      */
     private void cancelRunningQuery(Client client, String detectorId, Logger LOG) {
         ListTasksRequest listTasksRequest = new ListTasksRequest();
-        listTasksRequest.setActions("*search");
+        listTasksRequest.setActions("*search*");
         client
             .execute(
                 ListTasksAction.INSTANCE,

@@ -156,7 +156,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
             return;
         }
         if (channel.request().method() == RestRequest.Method.PUT) {
-            handler.getMonitorUsingDetector(clusterService, client, detectorId, channel, () -> updateAnomalyDetector(client, detectorId));
+            handler.getDetectorJob(clusterService, client, detectorId, channel, () -> updateAnomalyDetector(client, detectorId));
         } else {
             createAnomalyDetector();
         }

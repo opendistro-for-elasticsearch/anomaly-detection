@@ -160,6 +160,7 @@ public class AnomalyDetector implements ToXContentObject {
             .field(DETECTION_INTERVAL_FIELD, detectionInterval)
             .field(WINDOW_DELAY_FIELD, windowDelay)
             .field(SCHEMA_VERSION_FIELD, schemaVersion);
+
         if (uiMetadata != null && !uiMetadata.isEmpty()) {
             xContentBuilder.field(UI_METADATA_FIELD, uiMetadata);
         }

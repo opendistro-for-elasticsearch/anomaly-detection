@@ -237,7 +237,8 @@ public class AnomalyResultTests extends AbstractADTest {
         indexNameResolver = new IndexNameExpressionResolver();
         Clock clock = mock(Clock.class);
         Throttler throttler = new Throttler(clock);
-        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY, client, throttler);
+        ThreadPool threadpool = mock(ThreadPool.class);
+        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, threadpool);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
 
         Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
@@ -725,34 +726,6 @@ public class AnomalyResultTests extends AbstractADTest {
 
         Throwable exception = assertException(listener, AnomalyDetectionException.class);
         assertThat(exception.getMessage(), containsString(AnomalyResultTransportAction.NODE_UNRESPONSIVE_ERR_MSG));
-    }
-
-    public void testRejectRequestBasedOnNegativeCache() {
-        when(stateManager.hasRunningQuery(detector)).thenReturn(true);
-        AnomalyResultTransportAction action = spy(
-            new AnomalyResultTransportAction(
-                new ActionFilters(Collections.emptySet()),
-                transportService,
-                client,
-                settings,
-                stateManager,
-                runner,
-                anomalyDetectionIndices,
-                featureQuery,
-                normalModelManager,
-                hashRing,
-                clusterService,
-                indexNameResolver,
-                threadPool,
-                adCircuitBreakerService,
-                adStats
-            )
-        );
-        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
-        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
-        action.doExecute(null, request, listener);
-        Throwable exception = assertException(listener, AnomalyDetectionException.class);
-        assertThat(exception.getMessage(), containsString("There is one query running on AnomalyDetector"));
     }
 
     public void alertingRequestTemplate(boolean anomalyResultIndexExists) throws IOException {

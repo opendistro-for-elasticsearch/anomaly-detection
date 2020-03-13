@@ -26,4 +26,9 @@ public class CommonName {
     // Format name
     // ======================================
     public static final String EPOCH_MILLIS_FORMAT = "epoch_millis";
+
+    // ======================================
+    // Anomaly Detector name for X-Opaque-Id header
+    // ======================================
+    public static final String ANOMALY_DETECTOR = "[Anomaly Detector]";
 }

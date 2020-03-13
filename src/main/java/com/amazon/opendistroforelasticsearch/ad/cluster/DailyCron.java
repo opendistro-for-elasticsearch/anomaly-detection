@@ -87,7 +87,6 @@ public class DailyCron implements Runnable {
                         }
                     )
             );
-
         deleteUtil.deleteDetectorResult(client);
     }
 

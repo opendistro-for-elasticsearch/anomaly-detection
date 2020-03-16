@@ -29,15 +29,19 @@ import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregatorFactories;
 import org.elasticsearch.search.aggregations.BaseAggregationBuilder;
 import org.elasticsearch.search.aggregations.PipelineAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.regex.Matcher;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.elasticsearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
 
 /**
@@ -270,7 +274,6 @@ public final class ParseUtils {
         long endTime,
         NamedXContentRegistry xContentRegistry
     ) throws IOException {
-        SearchSourceBuilder searchSourceBuilder = detector.generateFeatureQuery();
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(detector.getTimeField())
             .from(startTime)
             .to(endTime)
@@ -278,7 +281,7 @@ public final class ParseUtils {
             .includeLower(true)
             .includeUpper(false);
 
-        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(searchSourceBuilder.query());
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(detector.getFilterQuery());
 
         SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(internalFilterQuery);
         if (detector.getFeatureAttributes() != null) {
@@ -295,14 +298,38 @@ public final class ParseUtils {
         return internalSearchSourceBuilder;
     }
 
+    public static SearchSourceBuilder generatePreviewQuery(
+        AnomalyDetector detector,
+        List<Entry<Long, Long>> ranges,
+        NamedXContentRegistry xContentRegistry
+    ) throws IOException {
+
+        DateRangeAggregationBuilder dateRangeBuilder = dateRange("date_range").field(detector.getTimeField()).format("epoch_millis");
+        for (Entry<Long, Long> range : ranges) {
+            dateRangeBuilder.addRange(range.getKey(), range.getValue());
+        }
+
+        if (detector.getFeatureAttributes() != null) {
+            for (Feature feature : detector.getFeatureAttributes()) {
+                AggregatorFactories.Builder internalAgg = parseAggregators(
+                    feature.getAggregation().toString(),
+                    xContentRegistry,
+                    feature.getId()
+                );
+                dateRangeBuilder.subAggregation(internalAgg.getAggregatorFactories().iterator().next());
+            }
+        }
+
+        return new SearchSourceBuilder().query(detector.getFilterQuery()).size(0).aggregation(dateRangeBuilder);
+    }
+
     public static String generateInternalFeatureQueryTemplate(AnomalyDetector detector, NamedXContentRegistry xContentRegistry)
         throws IOException {
-        SearchSourceBuilder searchSourceBuilder = detector.generateFeatureQuery();
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(detector.getTimeField())
             .from("{{" + QUERY_PARAM_PERIOD_START + "}}")
             .to("{{" + QUERY_PARAM_PERIOD_END + "}}");
 
-        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(searchSourceBuilder.query());
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(detector.getFilterQuery());
 
         SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(internalFilterQuery);
         if (detector.getFeatureAttributes() != null) {

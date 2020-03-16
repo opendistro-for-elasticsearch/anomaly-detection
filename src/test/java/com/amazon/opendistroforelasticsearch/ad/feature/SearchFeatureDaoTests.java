@@ -148,7 +148,7 @@ public class SearchFeatureDaoTests {
         PowerMockito.mockStatic(ParseUtils.class);
 
         Interpolator interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
-        searchFeatureDao = spy(new SearchFeatureDao(client, scriptService, xContent, interpolator, clientUtil));
+        searchFeatureDao = spy(new SearchFeatureDao(client, xContent, interpolator, clientUtil));
 
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         when(detector.getTimeField()).thenReturn("testTimeField");

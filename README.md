@@ -23,7 +23,7 @@ Please see our [documentation](https://opendistro.github.io/for-elasticsearch-do
 
 1. Checkout source code of this package from Github repo.
 1. Launch Intellij IDEA, Choose Import Project and select the settings.gradle file in the root of this package.
-1. To build from command line set JAVA_HOME to point to a JDK >=12 before running ./gradlew
+1. To build from command line set JAVA_HOME to point to a JDK 12 before running ./gradlew
 
   * Unix System
     * export JAVA_HOME=jdk-install-dir: Replace jdk-install-dir by the JAVA_HOME directory of your system.

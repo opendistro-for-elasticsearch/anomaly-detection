@@ -15,10 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
@@ -55,6 +55,7 @@ import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -85,6 +86,8 @@ import static org.elasticsearch.test.ESTestCase.randomAlphaOfLength;
 import static org.elasticsearch.test.ESTestCase.randomDouble;
 import static org.elasticsearch.test.ESTestCase.randomInt;
 import static org.elasticsearch.test.ESTestCase.randomLong;
+import static org.powermock.api.mockito.PowerMockito.mock;
+import static org.powermock.api.mockito.PowerMockito.when;
 
 public class TestHelpers {
 
@@ -326,5 +329,18 @@ public class TestHelpers {
             .blocks(ClusterBlocks.builder().addBlocks(indexMetaData))
             .build();
         return blockedClusterState;
+
+    public static ThreadContext createThreadContext() {
+        Settings build = Settings.builder().put("request.headers.default", "1").build();
+        ThreadContext context = new ThreadContext(build);
+        context.putHeader("foo", "bar");
+        context.putTransient("x", 1);
+        return context;
+    }
+
+    public static ThreadPool createThreadPool() {
+        ThreadPool pool = mock(ThreadPool.class);
+        when(pool.getThreadContext()).thenReturn(createThreadContext());
+        return pool;
     }
 }

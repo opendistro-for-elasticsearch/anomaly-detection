@@ -231,11 +231,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
             AnomalyDetector anomalyDetector = detector.get();
-            if (stateManager.hasRunningQuery(anomalyDetector)) {
-                LOG.error("There is one query running for detectorId: {}", anomalyDetector.getDetectorId());
-                listener.onFailure(new EndRunException(adID, "There is one query running on AnomalyDetector", true));
-                return;
-            }
 
             String thresholdModelID = modelManager.getThresholdModelId(adID);
             Optional<DiscoveryNode> thresholdNode = hashRing.getOwningNode(thresholdModelID);
@@ -682,7 +677,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     }
 
     private void handlePredictionFailure(Exception e, String adID, String nodeID, AtomicReference<AnomalyDetectionException> failure) {
-        LOG.error(new ParameterizedMessage("Received an error from node {} when fetch anomaly grade for {}", nodeID, adID), e);
+        LOG.error(new ParameterizedMessage("Received an error from node {} while fetching anomaly grade for {}", nodeID, adID), e);
         if (e == null) {
             return;
         }

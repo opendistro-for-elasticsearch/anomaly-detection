@@ -83,6 +83,7 @@ public class DailyCronTests extends AbstractADTest {
             return null;
         }).when(clientUtil).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
 
+        // those tests are covered by each util class
         doNothing().when(deleteUtil).deleteDetectorResult(eq(client));
 
         cron.run();

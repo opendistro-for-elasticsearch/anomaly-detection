@@ -21,7 +21,7 @@ public interface AnomalyDetectorFunction {
     /**
      * Performs this operation.
      *
-     * Notes: don't forget to send back response via channel if you process response with this method.
+     * Notes: don't forget to send back responses via channel if you process response with this method.
      */
     void execute();
 }

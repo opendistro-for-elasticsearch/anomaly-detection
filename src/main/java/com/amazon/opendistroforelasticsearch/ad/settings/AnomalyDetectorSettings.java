@@ -127,6 +127,15 @@ public final class AnomalyDetectorSettings {
     public static final Setting<Integer> MAX_RETRY_FOR_BACKOFF = Setting
         .intSetting("opendistro.anomaly_detection.max_retry_for_backoff", 3, 0, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
+    public static final Setting<Integer> MAX_RETRY_FOR_END_RUN_EXCEPTION = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.max_retry_for_end_run_exception",
+            3,
+            0,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
     public static final String ANOMALY_DETECTORS_INDEX_MAPPING_FILE = "mappings/anomaly-detectors.json";
     public static final String ANOMALY_DETECTOR_JOBS_INDEX_MAPPING_FILE = "mappings/anomaly-detector-jobs.json";
     public static final String ANOMALY_RESULTS_INDEX_MAPPING_FILE = "mappings/anomaly-results.json";

@@ -30,11 +30,19 @@
         }
       }
     },
-    "start_time": {
+    "data_start_time": {
       "type": "date",
       "format": "strict_date_time||epoch_millis"
     },
-    "end_time": {
+    "data_end_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "execution_start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "execution_end_time": {
       "type": "date",
       "format": "strict_date_time||epoch_millis"
     }

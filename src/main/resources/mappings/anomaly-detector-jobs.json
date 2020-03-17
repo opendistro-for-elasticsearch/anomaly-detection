@@ -21,6 +21,20 @@
         }
       }
     },
+    "window_delay": {
+      "properties": {
+        "period": {
+          "properties": {
+            "interval": {
+              "type": "integer"
+            },
+            "unit": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    },
     "enabled": {
       "type": "boolean"
     },

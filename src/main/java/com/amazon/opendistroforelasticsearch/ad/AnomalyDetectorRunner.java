@@ -114,7 +114,10 @@ public final class AnomalyDetectorRunner {
                         thresholdingResult.getConfidence(),
                         featureDatas,
                         Instant.ofEpochMilli(timeRange.getKey()),
-                        Instant.ofEpochMilli(timeRange.getValue())
+                        Instant.ofEpochMilli(timeRange.getValue()),
+                        null,
+                        null,
+                        null
                     );
                 } else {
                     result = new AnomalyResult(
@@ -124,7 +127,10 @@ public final class AnomalyDetectorRunner {
                         null,
                         featureDatas,
                         Instant.ofEpochMilli(timeRange.getKey()),
-                        Instant.ofEpochMilli(timeRange.getValue())
+                        Instant.ofEpochMilli(timeRange.getValue()),
+                        null,
+                        null,
+                        null
                     );
                 }
 

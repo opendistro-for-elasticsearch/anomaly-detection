@@ -23,13 +23,10 @@ import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
-import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest;
 import org.elasticsearch.action.admin.indices.rollover.RolloverResponse;
 import org.elasticsearch.client.AdminClient;
@@ -46,8 +43,6 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_INDEX_MAX_AGE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS;
@@ -85,7 +80,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     private volatile Long historyMaxDocs;
 
     private Scheduler.Cancellable scheduledRollover = null;
-    private AtomicBoolean historyIndexInitialized = new AtomicBoolean(false);
 
     private static final Logger logger = LogManager.getLogger(AnomalyDetectionIndices.class);
     private TimeValue lastRolloverTime = null;
@@ -218,8 +212,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorMappings}
      */
     public void initAnomalyResultIndexIfAbsent(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        if (!historyIndexInitialized.get()) {
-            initAnomalyResultIndex(actionListener);
+        if (!doesAnomalyResultIndexExist()) {
+            initAnomalyResultIndexDirectly(actionListener);
         }
     }
 
@@ -229,10 +223,12 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
      * @param actionListener action called after create index
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorMappings}
      */
-    public void initAnomalyResultIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
+    public void initAnomalyResultIndexDirectly(ActionListener<CreateIndexResponse> actionListener) throws IOException {
         String mapping = getAnomalyResultMappings();
-        boolean createIndexResult = createIndex(AD_RESULT_HISTORY_INDEX_PATTERN, AD_RESULT_HISTORY_WRITE_INDEX_ALIAS, mapping);
-        historyIndexInitialized.compareAndSet(false, createIndexResult);
+        CreateIndexRequest request = new CreateIndexRequest(AD_RESULT_HISTORY_INDEX_PATTERN)
+            .mapping(MAPPING_TYPE, mapping, XContentType.JSON)
+            .alias(new Alias(AD_RESULT_HISTORY_WRITE_INDEX_ALIAS));
+        adminClient.indices().create(request, actionListener);
     }
 
     /**
@@ -246,27 +242,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
         CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
             .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON);
         adminClient.indices().create(request, actionListener);
-    }
-
-    private boolean createIndex(String index, String alias, String mapping) {
-        IndicesExistsRequest indicesExistsRequest = new IndicesExistsRequest(index).local(true);
-        // TODO: add appropriate listener
-        Optional<IndicesExistsResponse> existsResponse = requestUtil
-            .<IndicesExistsRequest, IndicesExistsResponse>timedRequest(indicesExistsRequest, logger, adminClient.indices()::exists);
-        if (existsResponse.isPresent() && existsResponse.get().isExists()) {
-            return true;
-        }
-        CreateIndexRequest createIndexRequest = new CreateIndexRequest(index).mapping(MAPPING_TYPE, mapping, XContentType.JSON);
-        if (alias != null) {
-            createIndexRequest.alias(new Alias(alias));
-        }
-        try {
-            Optional<CreateIndexResponse> response = requestUtil
-                .<CreateIndexRequest, CreateIndexResponse>timedRequest(createIndexRequest, logger, adminClient.indices()::create);
-            return response.isPresent() && response.get().isAcknowledged();
-        } catch (ResourceAlreadyExistsException e) {
-            return true;
-        }
     }
 
     @Override
@@ -297,7 +272,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
         boolean hasAdResultAlias = event.state().metaData().hasAlias(AD_RESULT_HISTORY_WRITE_INDEX_ALIAS);
-        historyIndexInitialized.set(hasAdResultAlias);
     }
 
     private void rescheduleRollover() {
@@ -310,7 +284,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     }
 
     private boolean rolloverHistoryIndex() {
-        if (!historyIndexInitialized.get()) {
+        if (!doesAnomalyResultIndexExist()) {
             return false;
         }
 

@@ -41,10 +41,17 @@ import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.cluster.ClusterName;
+import org.elasticsearch.cluster.ClusterState;
+import org.elasticsearch.cluster.block.ClusterBlocks;
+import org.elasticsearch.cluster.metadata.AliasMetaData;
+import org.elasticsearch.cluster.metadata.IndexMetaData;
+import org.elasticsearch.cluster.metadata.MetaData;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.CheckedConsumer;
 import org.elasticsearch.common.Priority;
+import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
@@ -248,7 +255,10 @@ public class TestHelpers {
             randomDouble(),
             ImmutableList.of(randomFeatureData(), randomFeatureData()),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            randomAlphaOfLength(5)
         );
     }
 
@@ -256,6 +266,7 @@ public class TestHelpers {
         return new AnomalyDetectorJob(
             randomAlphaOfLength(10),
             randomIntervalSchedule(),
+            randomIntervalTimeConfiguration(),
             true,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
@@ -292,6 +303,32 @@ public class TestHelpers {
             Version.CURRENT
         );
         return ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
+    }
+
+    public static ClusterState createIndexBlockedState(String indexName, Settings hackedSettings, String alias) {
+        ClusterState blockedClusterState = null;
+        IndexMetaData.Builder builder = IndexMetaData.builder(indexName);
+        if (alias != null) {
+            builder.putAlias(AliasMetaData.builder(alias));
+        }
+        IndexMetaData indexMetaData = builder
+            .settings(
+                Settings
+                    .builder()
+                    .put(IndexMetaData.SETTING_INDEX_UUID, UUIDs.randomBase64UUID())
+                    .put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, 1)
+                    .put(IndexMetaData.SETTING_NUMBER_OF_REPLICAS, 0)
+                    .put(IndexMetaData.SETTING_VERSION_CREATED, Version.CURRENT)
+                    .put(hackedSettings)
+            )
+            .build();
+        MetaData metaData = MetaData.builder().put(indexMetaData, false).build();
+        blockedClusterState = ClusterState
+            .builder(new ClusterName("test cluster"))
+            .metaData(metaData)
+            .blocks(ClusterBlocks.builder().addBlocks(indexMetaData))
+            .build();
+        return blockedClusterState;
     }
 
     public static ThreadContext createThreadContext() {

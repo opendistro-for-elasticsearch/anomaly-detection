@@ -15,18 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.time.Instant;
 
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
@@ -44,28 +39,22 @@ import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.RcfResult;
 import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
-import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.ExceptionsHelper;
-import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
 import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.IndicesOptions;
@@ -78,9 +67,6 @@ import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
-import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.node.NodeClosedException;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -97,12 +83,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         + " models are not ready or all nodes are unresponsive or the system might have bugs.";
     static final String WAIT_FOR_THRESHOLD_ERR_MSG = "Exception in waiting for threshold result";
     static final String NODE_UNRESPONSIVE_ERR_MSG = "Model node is unresponsive.  Mute model";
-    static final String FAIL_TO_SAVE_ERR_MSG = "Fail to save anomaly index: ";
-    static final String RETRY_SAVING_ERR_MSG = "Retry in saving anomaly index: ";
-    static final String SUCCESS_SAVING_MSG = "Success in saving anomaly index: ";
     static final String READ_WRITE_BLOCKED = "Cannot read/write due to global block.";
     static final String INDEX_READ_BLOCKED = "Cannot read user index due to read block.";
-    static final String CANNOT_SAVE_ERR_MSG = "Cannot save anomaly result due to write block.";
     static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
         .getExceptionName(new LimitExceededException("", ""));
     static final String RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
@@ -265,10 +247,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 .ofNullable((IntervalTimeConfiguration) anomalyDetector.getWindowDelay())
                 .map(t -> t.toDuration().toMillis())
                 .orElse(0L);
-            long startTime = request.getStart() - delayMillis;
-            long endTime = request.getEnd() - delayMillis;
+            long dataStartTime = request.getStart() - delayMillis;
+            long dataEndTime = request.getEnd() - delayMillis;
 
-            SinglePointFeatures featureOptional = featureManager.getCurrentFeatures(anomalyDetector, startTime, endTime);
+            SinglePointFeatures featureOptional = featureManager.getCurrentFeatures(anomalyDetector, dataStartTime, dataEndTime);
 
             List<FeatureData> featureInResponse = null;
 
@@ -282,10 +264,28 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     // Feature not available is common when we have data holes. Respond empty response
                     // so that alerting will not print stack trace to avoid bloating our logs.
                     LOG.info("No data in current detection window for {}", adID);
-                    listener.onResponse(new AnomalyResultResponse(Double.NaN, Double.NaN, new ArrayList<FeatureData>()));
+                    listener
+                        .onResponse(
+                            new AnomalyResultResponse(
+                                Double.NaN,
+                                Double.NaN,
+                                Double.NaN,
+                                new ArrayList<FeatureData>(),
+                                "No data in current detection window"
+                            )
+                        );
                 } else {
                     LOG.info("Return at least current feature for {}", adID);
-                    listener.onResponse(new AnomalyResultResponse(Double.NaN, Double.NaN, featureInResponse));
+                    listener
+                        .onResponse(
+                            new AnomalyResultResponse(
+                                Double.NaN,
+                                Double.NaN,
+                                Double.NaN,
+                                featureInResponse,
+                                "No full shingle in current detection window"
+                            )
+                        );
                 }
                 return;
             }
@@ -326,8 +326,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     thresholdModelID,
                     thresholdNode,
                     featureInResponse,
-                    startTime,
-                    endTime,
+                    dataStartTime,
+                    dataEndTime,
                     rcfPartitionNum,
                     responseCount,
                     adID
@@ -450,121 +450,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             rcfResultLib.add(new RcfResult(result.getRCFScore(), result.getConfidence(), result.getForestSize()));
         }
         return modelManager.combineRcfResults(rcfResultLib);
-    }
-
-    CountDownLatch createCountDownLatch(int count) {
-        return new CountDownLatch(count);
-    }
-
-    /**
-     * Saves the result unless an exception is thrown. The anomaly result index is
-     * implicitly created if it does not exist.
-     *
-     * @param anomalyResult one anomaly result
-     */
-    void indexAnomalyResult(AnomalyResult anomalyResult) {
-        try {
-            if (checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, AnomalyResult.ANOMALY_RESULT_INDEX)) {
-                LOG.warn(CANNOT_SAVE_ERR_MSG);
-                return;
-            }
-            if (!anomalyDetectionIndices.doesAnomalyResultIndexExist()) {
-                anomalyDetectionIndices
-                    .initAnomalyResultIndex(
-                        ActionListener.wrap(initResponse -> onCreateAnomalyResultIndexResponse(initResponse, anomalyResult), exception -> {
-                            if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
-                                // It is possible the index has been created while we sending the create request
-                                saveDetectorResult(anomalyResult);
-                            } else {
-                                throw new AnomalyDetectionException(
-                                    anomalyResult.getDetectorId(),
-                                    "Unexpected error creating anomaly result index",
-                                    exception
-                                );
-                            }
-                        })
-                    );
-            } else {
-                saveDetectorResult(anomalyResult);
-            }
-        } catch (Exception e) {
-            throw new AnomalyDetectionException(
-                anomalyResult.getDetectorId(),
-                String
-                    .format(
-                        Locale.ROOT,
-                        "Error in saving anomaly index for ID %s from %s to %s",
-                        anomalyResult.getDetectorId(),
-                        anomalyResult.getStartTime(),
-                        anomalyResult.getEndTime()
-                    )
-            );
-        }
-    }
-
-    private void onCreateAnomalyResultIndexResponse(CreateIndexResponse response, AnomalyResult anomalyResult) {
-        if (response.isAcknowledged()) {
-            saveDetectorResult(anomalyResult);
-        } else {
-            throw new AnomalyDetectionException(
-                anomalyResult.getDetectorId(),
-                "Creating anomaly result index with mappings call not acknowledged."
-            );
-        }
-    }
-
-    private void saveDetectorResult(AnomalyResult anomalyResult) {
-        try (XContentBuilder builder = jsonBuilder()) {
-            IndexRequest indexRequest = new IndexRequest(AnomalyResult.ANOMALY_RESULT_INDEX)
-                .source(anomalyResult.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
-            saveDetectorResult(
-                indexRequest,
-                String
-                    .format(
-                        Locale.ROOT,
-                        "ID %s from %s to %s",
-                        anomalyResult.getDetectorId(),
-                        anomalyResult.getStartTime(),
-                        anomalyResult.getEndTime()
-                    ),
-                resultSavingBackoffPolicy.iterator()
-            );
-        } catch (Exception e) {
-            throw new AnomalyDetectionException(anomalyResult.getDetectorId(), "Cannot save result");
-        }
-    }
-
-    void saveDetectorResult(IndexRequest indexRequest, String context, Iterator<TimeValue> backoff) {
-        client
-            .index(
-                indexRequest,
-                ActionListener
-                    .<IndexResponse>wrap(
-                        response -> LOG.debug(SUCCESS_SAVING_MSG + context),
-                        exception -> {
-                            // Elasticsearch has a thread pool and a queue for write per node. A thread
-                            // pool will have N number of workers ready to handle the requests. When a
-                            // request comes and if a worker is free , this is handled by the worker. Now by
-                            // default the number of workers is equal to the number of cores on that CPU.
-                            // When the workers are full and there are more write requests, the request
-                            // will go to queue. The size of queue is also limited. If by default size is,
-                            // say, 200 and if there happens more parallel requests than this, then those
-                            // requests would be rejected as you can see EsRejectedExecutionException.
-                            // So EsRejectedExecutionException is the way that Elasticsearch tells us that
-                            // it cannot keep up with the current indexing rate.
-                            // When it happens, we should pause indexing a bit before trying again, ideally
-                            // with randomized exponential backoff.
-                            if (!(exception instanceof EsRejectedExecutionException) || !backoff.hasNext()) {
-                                LOG.error(FAIL_TO_SAVE_ERR_MSG + context);
-                            } else {
-                                TimeValue nextDelay = backoff.next();
-                                LOG.info(RETRY_SAVING_ERR_MSG + context);
-                                threadPool
-                                    .schedule(() -> saveDetectorResult(indexRequest, context, backoff), nextDelay, ThreadPool.Names.SAME);
-                            }
-                        }
-                    )
-            );
     }
 
     void handleExecuteException(Exception ex, ActionListener<AnomalyResultResponse> listener, String adID) {
@@ -742,7 +627,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         @Override
         public void onResponse(ThresholdResultResponse response) {
             try {
-                anomalyResultResponse.set(new AnomalyResultResponse(response.getAnomalyGrade(), response.getConfidence(), features));
+                anomalyResultResponse
+                    .set(new AnomalyResultResponse(response.getAnomalyGrade(), response.getConfidence(), Double.NaN, features));
                 stateManager.resetBackpressureCounter(thresholdNodeID);
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
@@ -772,19 +658,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 if (anomalyResultResponse.get() != null) {
                     AnomalyResultResponse response = anomalyResultResponse.get();
                     double confidence = response.getConfidence() * combinedResult.getConfidence();
-                    response = new AnomalyResultResponse(response.getAnomalyGrade(), confidence, response.getFeatures());
-                    listener.onResponse(response);
-                    indexAnomalyResult(
-                        new AnomalyResult(
-                            adID,
-                            Double.valueOf(combinedResult.getScore()),
-                            Double.valueOf(response.getAnomalyGrade()),
-                            Double.valueOf(confidence),
-                            featureInResponse,
-                            Instant.ofEpochMilli(startTime),
-                            Instant.ofEpochMilli(endTime)
-                        )
+                    response = new AnomalyResultResponse(
+                        response.getAnomalyGrade(),
+                        confidence,
+                        combinedResult.getScore(),
+                        response.getFeatures()
                     );
+                    listener.onResponse(response);
                 } else if (failure.get() != null) {
                     listener.onFailure(failure.get());
                 } else {

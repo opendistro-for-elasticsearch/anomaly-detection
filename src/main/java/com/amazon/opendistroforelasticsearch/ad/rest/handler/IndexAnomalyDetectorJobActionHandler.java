@@ -161,6 +161,7 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
             AnomalyDetectorJob job = new AnomalyDetectorJob(
                 detector.getDetectorId(),
                 schedule,
+                detector.getWindowDelay(),
                 true,
                 Instant.now(),
                 null,
@@ -198,6 +199,7 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
                     AnomalyDetectorJob newJob = new AnomalyDetectorJob(
                         job.getName(),
                         job.getSchedule(),
+                        job.getWindowDelay(),
                         job.isEnabled(),
                         Instant.now(),
                         currentAdJob.getDisabledTime(),
@@ -274,6 +276,7 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
                         AnomalyDetectorJob newJob = new AnomalyDetectorJob(
                             job.getName(),
                             job.getSchedule(),
+                            job.getWindowDelay(),
                             false,
                             job.getEnabledTime(),
                             Instant.now(),

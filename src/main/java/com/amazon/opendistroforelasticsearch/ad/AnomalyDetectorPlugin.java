@@ -23,7 +23,10 @@ import com.amazon.opendistroforelasticsearch.ad.cluster.DeleteDetector;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.cluster.MasterEventListener;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
+import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInterpolator;
+import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
 import com.amazon.opendistroforelasticsearch.ad.feature.SearchFeatureDao;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
@@ -31,7 +34,6 @@ import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
 import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestAnomalyDetectorJobAction;
@@ -43,10 +45,8 @@ import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyDetectorAc
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestStatsAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
-
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
-
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.DocumentCountSupplier;
@@ -69,25 +69,18 @@ import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyResultHandler;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner;
-import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
+import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Supplier;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.time.Clock;
-
 import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
@@ -121,12 +114,15 @@ import org.elasticsearch.threadpool.FixedExecutorBuilder;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.watcher.ResourceWatcherService;
 
-import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
-import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
-import com.amazon.opendistroforelasticsearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
-import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInterpolator;
-import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
-import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.time.Clock;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_THEAD_POOL_QUEUE_SIZE;
 
@@ -142,7 +138,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private static Gson gson;
     private AnomalyDetectionIndices anomalyDetectionIndices;
     private AnomalyDetectorRunner anomalyDetectorRunner;
+    private Client client;
     private ClusterService clusterService;
+    private ThreadPool threadPool;
+    private IndexNameExpressionResolver indexNameExpressionResolver;
     private ADStats adStats;
 
     static {
@@ -164,6 +163,21 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         IndexNameExpressionResolver indexNameExpressionResolver,
         Supplier<DiscoveryNodes> nodesInCluster
     ) {
+        this.indexNameExpressionResolver = indexNameExpressionResolver;
+        AnomalyResultHandler anomalyResultHandler = new AnomalyResultHandler(
+            client,
+            settings,
+            clusterService,
+            indexNameExpressionResolver,
+            anomalyDetectionIndices,
+            threadPool
+        );
+        AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
+        jobRunner.setClient(client);
+        jobRunner.setThreadPool(threadPool);
+        jobRunner.setAnomalyResultHandler(anomalyResultHandler);
+        jobRunner.setSettings(settings);
+
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(restController);
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(
             settings,
@@ -218,6 +232,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         NodeEnvironment nodeEnvironment,
         NamedWriteableRegistry namedWriteableRegistry
     ) {
+        this.client = client;
+        this.threadPool = threadPool;
         Settings settings = environment.settings();
         Clock clock = Clock.systemUTC();
         Throttler throttler = new Throttler(clock);
@@ -312,10 +328,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         adStats = new ADStats(indexUtils, modelManager, stats);
         ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
-
-        AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
-        jobRunner.setClient(client);
-        jobRunner.setThreadPool(threadPool);
 
         return ImmutableList
             .of(

@@ -116,7 +116,8 @@ public class AnomalyResultHandler {
                         anomalyResult.getDetectorId(),
                         anomalyResult.getDataStartTime(),
                         anomalyResult.getDataEndTime()
-                    )
+                    ),
+                e
             );
         }
     }
@@ -165,7 +166,7 @@ public class AnomalyResultHandler {
                 resultSavingBackoffPolicy.iterator()
             );
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Failed to save anomaly result", e);
             throw new AnomalyDetectionException(anomalyResult.getDetectorId(), "Cannot save result");
         }
     }
@@ -191,10 +192,10 @@ public class AnomalyResultHandler {
                             // When it happens, we should pause indexing a bit before trying again, ideally
                             // with randomized exponential backoff.
                             if (!(exception instanceof EsRejectedExecutionException) || !backoff.hasNext()) {
-                                LOG.error(FAIL_TO_SAVE_ERR_MSG + context);
+                                LOG.error(FAIL_TO_SAVE_ERR_MSG + context, exception);
                             } else {
                                 TimeValue nextDelay = backoff.next();
-                                LOG.info(RETRY_SAVING_ERR_MSG + context);
+                                LOG.warn(RETRY_SAVING_ERR_MSG + context, exception);
                                 threadPool
                                     .schedule(() -> saveDetectorResult(indexRequest, context, backoff), nextDelay, ThreadPool.Names.SAME);
                             }

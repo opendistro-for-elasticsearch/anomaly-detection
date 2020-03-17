@@ -231,7 +231,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
      *       know which exception is transient and retryable in
      *       {@link AnomalyResultTransportAction}. So we don't add backoff retry
      *       now to avoid bring extra load to cluster, expecially the code start
-     *       process is relatively heavey by sending out 24 queries, initializing
+     *       process is relatively heavy by sending out 24 queries, initializing
      *       models, and saving checkpoints.
      *       Sometimes missing anomaly and notification is not acceptable. For example,
      *       current detection interval is 1hour, and there should be anomaly in

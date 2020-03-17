@@ -329,6 +329,7 @@ public class TestHelpers {
             .blocks(ClusterBlocks.builder().addBlocks(indexMetaData))
             .build();
         return blockedClusterState;
+    }
 
     public static ThreadContext createThreadContext() {
         Settings build = Settings.builder().put("request.headers.default", "1").build();

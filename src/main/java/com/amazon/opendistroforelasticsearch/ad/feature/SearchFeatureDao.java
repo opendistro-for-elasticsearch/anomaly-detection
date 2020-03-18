@@ -120,12 +120,15 @@ public class SearchFeatureDao {
      * and cleared from the negative cache.
      * Otherwise this detector entry remain in the negative to reject further request.
      *
+     * @deprecated use getFeaturesForPeriod with listener instead.
+     *
      * @param detector info about indices, documents, feature query
      * @param startTime epoch milliseconds at the beginning of the period
      * @param endTime epoch milliseconds at the end of the period
      * @throws IllegalStateException when unexpected failures happen
      * @return features from search results, empty when no data found
      */
+    @Deprecated
     public Optional<double[]> getFeaturesForPeriod(AnomalyDetector detector, long startTime, long endTime) {
         SearchRequest searchRequest = createFeatureSearchRequest(detector, startTime, endTime, Optional.empty());
 
@@ -133,6 +136,24 @@ public class SearchFeatureDao {
         return clientUtil
             .<SearchRequest, SearchResponse>throttledTimedRequest(searchRequest, logger, client::search, detector)
             .flatMap(resp -> parseResponse(resp, detector.getEnabledFeatureIds()));
+    }
+
+    /**
+     * Returns to listener features for the given time period.
+     *
+     * @param detector info about indices, feature query
+     * @param startTime epoch milliseconds at the beginning of the period
+     * @param endTime epoch milliseconds at the end of the period
+     * @param listener onResponse is called with features for the given time period.
+     */
+    public void getFeaturesForPeriod(AnomalyDetector detector, long startTime, long endTime, ActionListener<Optional<double[]>> listener) {
+        SearchRequest searchRequest = createFeatureSearchRequest(detector, startTime, endTime, Optional.empty());
+        client
+            .search(
+                searchRequest,
+                ActionListener
+                    .wrap(response -> listener.onResponse(parseResponse(response, detector.getEnabledFeatureIds())), listener::onFailure)
+            );
     }
 
     private Optional<double[]> parseResponse(SearchResponse response, List<String> featureIds) {

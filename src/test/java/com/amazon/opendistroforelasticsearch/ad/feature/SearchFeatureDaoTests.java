@@ -69,6 +69,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.mockito.ArgumentCaptor;
 import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -86,11 +87,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Matchers.eq;
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyObject;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @PowerMockIgnore("javax.management.*")
@@ -135,6 +139,7 @@ public class SearchFeatureDaoTests {
     private AnomalyDetector detector;
 
     private SearchSourceBuilder featureQuery = new SearchSourceBuilder();
+    private Map<String, Object> searchRequestParams;
     private SearchRequest searchRequest;
     private SearchSourceBuilder searchSourceBuilder;
     private MultiSearchRequest multiSearchRequest;
@@ -158,6 +163,7 @@ public class SearchFeatureDaoTests {
 
         searchSourceBuilder = SearchSourceBuilder
             .fromXContent(XContentType.JSON.xContent().createParser(xContent, LoggingDeprecationHandler.INSTANCE, "{}"));
+        searchRequestParams = new HashMap<>();
         searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]));
         aggsMap = new HashMap<>();
         aggsList = new ArrayList<>();
@@ -326,6 +332,71 @@ public class SearchFeatureDaoTests {
         double[] expected
     ) throws Exception {
         getFeaturesForPeriod_returnExpected_givenData(aggs, featureIds, expected);
+    }
+
+    @Test
+    @Parameters(method = "getFeaturesForPeriodData")
+    @SuppressWarnings("unchecked")
+    public void getFeaturesForPeriod_returnExpectedToListener(List<Aggregation> aggs, List<String> featureIds, double[] expected)
+        throws Exception {
+
+        long start = 100L;
+        long end = 200L;
+        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
+        when(searchResponse.getAggregations()).thenReturn(new Aggregations(aggs));
+        when(detector.getEnabledFeatureIds()).thenReturn(featureIds);
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(eq(searchRequest), any(ActionListener.class));
+
+        ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
+        searchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);
+
+        ArgumentCaptor<Optional<double[]>> captor = ArgumentCaptor.forClass(Optional.class);
+        verify(listener).onResponse(captor.capture());
+        Optional<double[]> result = captor.getValue();
+        assertTrue(Arrays.equals(expected, result.orElse(null)));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getFeaturesForPeriod_throwToListener_whenSearchFails() throws Exception {
+
+        long start = 100L;
+        long end = 200L;
+        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onFailure(new RuntimeException());
+            return null;
+        }).when(client).search(eq(searchRequest), any(ActionListener.class));
+
+        ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
+        searchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);
+
+        verify(listener).onFailure(any(Exception.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getFeaturesForPeriod_throwToListener_whenResponseParsingFails() throws Exception {
+
+        long start = 100L;
+        long end = 200L;
+        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
+        when(detector.getEnabledFeatureIds()).thenReturn(null);
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(eq(searchRequest), any(ActionListener.class));
+
+        ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
+        searchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);
+
+        verify(listener).onFailure(any(Exception.class));
     }
 
     private Object[] getFeatureSamplesForPeriodsData() {

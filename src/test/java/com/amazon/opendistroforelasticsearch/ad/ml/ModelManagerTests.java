@@ -37,6 +37,7 @@ import com.google.gson.Gson;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
@@ -47,6 +48,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.mockito.Answers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -65,8 +67,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -130,6 +134,7 @@ public class ModelManagerTests {
     private String modelId;
     private String rcfModelId;
     private String thresholdModelId;
+    private String checkpoint;
 
     @Before
     public void setup() {
@@ -188,6 +193,7 @@ public class ModelManagerTests {
         modelId = "modelId";
         rcfModelId = "detectorId_model_rcf_1";
         thresholdModelId = "detectorId_model_threshold";
+        checkpoint = "testcheckpoint";
     }
 
     private Object[] getDetectorIdForModelIdData() {
@@ -361,6 +367,72 @@ public class ModelManagerTests {
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(1_000L);
 
         modelManager.getRcfResult(detectorId, modelId, new double[0]);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getRcfResult_returnExpectedToListener() {
+        double[] point = new double[0];
+        RandomCutForest forest = mock(RandomCutForest.class);
+        double score = 11.;
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<String>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(checkpoint));
+            return null;
+        }).when(checkpointDao).getModelCheckpoint(eq(rcfModelId), any(ActionListener.class));
+        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
+        when(forest.getAnomalyScore(point)).thenReturn(score);
+        when(forest.getNumberOfTrees()).thenReturn(numTrees);
+        when(forest.getLambda()).thenReturn(rcfTimeDecay);
+        when(forest.getSampleSize()).thenReturn(numSamples);
+        when(forest.getTotalUpdates()).thenReturn((long) numSamples);
+
+        ActionListener<RcfResult> listener = mock(ActionListener.class);
+        modelManager.getRcfResult(detectorId, rcfModelId, point, listener);
+
+        RcfResult expected = new RcfResult(score, 0, numTrees);
+        verify(listener).onResponse(eq(expected));
+
+        when(forest.getTotalUpdates()).thenReturn(numSamples + 1L);
+        listener = mock(ActionListener.class);
+        modelManager.getRcfResult(detectorId, rcfModelId, point, listener);
+
+        ArgumentCaptor<RcfResult> responseCaptor = ArgumentCaptor.forClass(RcfResult.class);
+        verify(listener).onResponse(responseCaptor.capture());
+        assertEquals(0.091353632, responseCaptor.getValue().getConfidence(), 1e-6);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getRcfResult_throwToListener_whenNoCheckpoint() {
+        doAnswer(invocation -> {
+            ActionListener<Optional<String>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.empty());
+            return null;
+        }).when(checkpointDao).getModelCheckpoint(eq(rcfModelId), any(ActionListener.class));
+
+        ActionListener<RcfResult> listener = mock(ActionListener.class);
+        modelManager.getRcfResult(detectorId, rcfModelId, new double[0], listener);
+
+        verify(listener).onFailure(any(ResourceNotFoundException.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getRcfResult_throwToListener_whenHeapLimitExceed() {
+        doAnswer(invocation -> {
+            ActionListener<Optional<String>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(checkpoint));
+            return null;
+        }).when(checkpointDao).getModelCheckpoint(eq(rcfModelId), any(ActionListener.class));
+        when(rcfSerde.fromJson(checkpoint)).thenReturn(rcf);
+        when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(1_000L);
+
+        ActionListener<RcfResult> listener = mock(ActionListener.class);
+        modelManager.getRcfResult(detectorId, rcfModelId, new double[0], listener);
+
+        verify(listener).onFailure(any(LimitExceededException.class));
     }
 
     @Test

@@ -41,6 +41,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.gson.Gson;
 
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.monitor.jvm.JvmService;
 
@@ -317,6 +318,58 @@ public class ModelManager {
         rcf.update(point);
         modelState.setLastUsedTime(clock.instant());
         return new RcfResult(score, confidence, forestSize);
+    }
+
+    /**
+     * Returns to listener the RCF anomaly result using the specified model.
+     *
+     * @param detectorId ID of the detector
+     * @param modelId ID of the model to score the point
+     * @param point features of the data point
+     * @param listener onResponse is called with RCF result for the input point, including a score
+     *                 onFailure is called with ResourceNotFoundException when the model is not found
+     *                 onFailure is called with LimitExceededException when a limit is exceeded for the model
+     */
+    public void getRcfResult(String detectorId, String modelId, double[] point, ActionListener<RcfResult> listener) {
+        if (forests.containsKey(modelId)) {
+            getRcfResult(forests.get(modelId), point, listener);
+        } else {
+            checkpointDao
+                .getModelCheckpoint(
+                    modelId,
+                    ActionListener
+                        .wrap(checkpoint -> processRcfCheckpoint(checkpoint, modelId, detectorId, point, listener), listener::onFailure)
+                );
+        }
+    }
+
+    private void getRcfResult(ModelState<RandomCutForest> modelState, double[] point, ActionListener<RcfResult> listener) {
+        RandomCutForest rcf = modelState.getModel();
+        double score = rcf.getAnomalyScore(point);
+        double confidence = computeRcfConfidence(rcf);
+        int forestSize = rcf.getNumberOfTrees();
+        rcf.update(point);
+        modelState.setLastUsedTime(clock.instant());
+        listener.onResponse(new RcfResult(score, confidence, forestSize));
+    }
+
+    private void processRcfCheckpoint(
+        Optional<String> rcfCheckpoint,
+        String modelId,
+        String detectorId,
+        double[] point,
+        ActionListener<RcfResult> listener
+    ) {
+        Optional<ModelState<RandomCutForest>> model = rcfCheckpoint
+            .map(checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) () -> rcfSerde.fromJson(checkpoint)))
+            .filter(rcf -> isHostingAllowed(detectorId, rcf))
+            .map(rcf -> new ModelState<>(rcf, modelId, detectorId, ModelType.RCF.getName(), clock.instant()));
+        if (model.isPresent()) {
+            forests.put(modelId, model.get());
+            getRcfResult(model.get(), point, listener);
+        } else {
+            throw new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId);
+        }
     }
 
     /**

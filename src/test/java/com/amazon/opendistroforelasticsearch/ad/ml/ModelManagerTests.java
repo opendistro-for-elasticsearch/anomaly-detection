@@ -37,6 +37,7 @@ import com.google.gson.Gson;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
@@ -65,8 +66,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -130,6 +133,7 @@ public class ModelManagerTests {
     private String modelId;
     private String rcfModelId;
     private String thresholdModelId;
+    private String checkpoint;
 
     @Before
     public void setup() {
@@ -188,6 +192,7 @@ public class ModelManagerTests {
         modelId = "modelId";
         rcfModelId = "detectorId_model_rcf_1";
         thresholdModelId = "detectorId_model_threshold";
+        checkpoint = "testcheckpoint";
     }
 
     private Object[] getDetectorIdForModelIdData() {
@@ -393,6 +398,48 @@ public class ModelManagerTests {
         when(checkpointDao.getModelCheckpoint(modelId)).thenReturn(Optional.empty());
 
         modelManager.getThresholdingResult("testDetectorId", modelId, 1.);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getThresholdingResult_returnExpectedToListener() {
+        double score = 1.;
+        double grade = 0.;
+        double confidence = 0.5;
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<String>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(checkpoint));
+            return null;
+        }).when(checkpointDao).getModelCheckpoint(eq(thresholdModelId), any(ActionListener.class));
+        PowerMockito.doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
+        when(hybridThresholdingModel.grade(score)).thenReturn(grade);
+        when(hybridThresholdingModel.confidence()).thenReturn(confidence);
+
+        ActionListener<ThresholdingResult> listener = mock(ActionListener.class);
+        modelManager.getThresholdingResult(detectorId, thresholdModelId, score, listener);
+
+        ThresholdingResult expected = new ThresholdingResult(grade, confidence);
+        verify(listener).onResponse(eq(expected));
+
+        listener = mock(ActionListener.class);
+        modelManager.getThresholdingResult(detectorId, thresholdModelId, score, listener);
+        verify(listener).onResponse(eq(expected));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getThresholdingResult_throwToListener_withNoCheckpoint() {
+        doAnswer(invocation -> {
+            ActionListener<Optional<String>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.empty());
+            return null;
+        }).when(checkpointDao).getModelCheckpoint(eq(thresholdModelId), any(ActionListener.class));
+
+        ActionListener<ThresholdingResult> listener = mock(ActionListener.class);
+        modelManager.getThresholdingResult(detectorId, thresholdModelId, 0, listener);
+
+        verify(listener).onFailure(any(ResourceNotFoundException.class));
     }
 
     @Test

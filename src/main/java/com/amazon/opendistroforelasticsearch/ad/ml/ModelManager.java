@@ -41,6 +41,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.gson.Gson;
 
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.monitor.jvm.JvmService;
 
@@ -351,6 +352,66 @@ public class ModelManager {
         threshold.update(score);
         modelState.setLastUsedTime(clock.instant());
         return new ThresholdingResult(grade, confidence);
+    }
+
+    /**
+     * Returns to listener the result using the specified thresholding model.
+     *
+     * @param detectorId ID of the detector
+     * @param modelId ID of the thresholding model
+     * @param score raw anomaly score
+     * @param listener onResponse is called with the thresholding model result for the raw score
+     *                 onFailure is called with ResourceNotFoundException when the model is not found
+     */
+    public void getThresholdingResult(String detectorId, String modelId, double score, ActionListener<ThresholdingResult> listener) {
+        if (thresholds.containsKey(modelId)) {
+            getThresholdingResult(thresholds.get(modelId), score, listener);
+        } else {
+            checkpointDao
+                .getModelCheckpoint(
+                    modelId,
+                    ActionListener
+                        .wrap(
+                            checkpoint -> processThresholdCheckpoint(checkpoint, modelId, detectorId, score, listener),
+                            listener::onFailure
+                        )
+                );
+        }
+    }
+
+    private void getThresholdingResult(
+        ModelState<ThresholdingModel> modelState,
+        double score,
+        ActionListener<ThresholdingResult> listener
+    ) {
+        ThresholdingModel threshold = modelState.getModel();
+        double grade = threshold.grade(score);
+        double confidence = threshold.confidence();
+        threshold.update(score);
+        modelState.setLastUsedTime(clock.instant());
+        listener.onResponse(new ThresholdingResult(grade, confidence));
+    }
+
+    private void processThresholdCheckpoint(
+        Optional<String> thresholdCheckpoint,
+        String modelId,
+        String detectorId,
+        double score,
+        ActionListener<ThresholdingResult> listener
+    ) {
+
+        Optional<ModelState<ThresholdingModel>> model = thresholdCheckpoint
+            .map(
+                checkpoint -> AccessController
+                    .doPrivileged((PrivilegedAction<ThresholdingModel>) () -> gson.fromJson(checkpoint, thresholdingModelClass))
+            )
+            .map(threshold -> new ModelState<>(threshold, modelId, detectorId, ModelType.THRESHOLD.getName(), clock.instant()));
+        if (model.isPresent()) {
+            thresholds.put(modelId, model.get());
+            getThresholdingResult(model.get(), score, listener);
+        } else {
+            throw new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId);
+        }
     }
 
     /**

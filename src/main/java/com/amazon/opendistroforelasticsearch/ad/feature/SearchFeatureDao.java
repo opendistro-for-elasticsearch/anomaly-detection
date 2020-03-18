@@ -62,7 +62,6 @@ import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
 public class SearchFeatureDao {
 
     protected static final String AGG_NAME_MAX = "max_timefield";
-    protected static final String FEATURE_SAMPLE_PREFERENCE = "_shards:0";
 
     private static final Logger logger = LogManager.getLogger(SearchFeatureDao.class);
 
@@ -129,18 +128,10 @@ public class SearchFeatureDao {
     }
 
     private Optional<double[]> parseResponse(SearchResponse response, List<String> featureIds) {
-        return Optional
-            .ofNullable(response)
-            .filter(resp -> response.getHits().getTotalHits().value > 0L)
-            .map(resp -> resp.getAggregations())
-            .map(aggs -> aggs.asMap())
-            .map(
-                map -> featureIds
-                    .stream()
-                    .mapToDouble(id -> Optional.ofNullable(map.get(id)).map(this::parseAggregation).orElse(Double.NaN))
-                    .toArray()
-            )
-            .filter(result -> Arrays.stream(result).noneMatch(d -> Double.isNaN(d) || Double.isInfinite(d)));
+        return parseAggregations(
+            Optional.ofNullable(response).filter(resp -> response.getHits().getTotalHits().value > 0L).map(resp -> resp.getAggregations()),
+            featureIds
+        );
     }
 
     private double parseAggregation(Aggregation aggregation) {
@@ -170,7 +161,7 @@ public class SearchFeatureDao {
         MultiSearchRequest multiSearchRequest = new MultiSearchRequest();
         ranges
             .stream()
-            .map(range -> createFeatureSearchRequest(detector, range.getKey(), range.getValue(), Optional.of(FEATURE_SAMPLE_PREFERENCE)))
+            .map(range -> createFeatureSearchRequest(detector, range.getKey(), range.getValue(), Optional.empty()))
             .forEachOrdered(request -> multiSearchRequest.add(request));
 
         return clientUtil
@@ -200,7 +191,7 @@ public class SearchFeatureDao {
         List<Entry<Long, Long>> ranges,
         ActionListener<List<Optional<double[]>>> listener
     ) {
-        SearchRequest request = createPreviewSearchRequest(detector, ranges, Optional.empty());
+        SearchRequest request = createPreviewSearchRequest(detector, ranges);
 
         client.search(request, ActionListener.wrap(response -> {
             Aggregations aggs = response.getAggregations();
@@ -321,14 +312,10 @@ public class SearchFeatureDao {
         }
     }
 
-    private SearchRequest createPreviewSearchRequest(
-        AnomalyDetector detector,
-        List<Entry<Long, Long>> ranges,
-        Optional<String> preference
-    ) {
+    private SearchRequest createPreviewSearchRequest(AnomalyDetector detector, List<Entry<Long, Long>> ranges) {
         try {
             SearchSourceBuilder searchSourceBuilder = ParseUtils.generatePreviewQuery(detector, ranges, xContent);
-            return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder).preference(preference.orElse(null));
+            return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
             logger.warn("Failed to create feature search request for " + detector + " for preview", e);
             throw new IllegalStateException(e);
@@ -336,9 +323,11 @@ public class SearchFeatureDao {
     }
 
     private Optional<double[]> parseBucket(InternalDateRange.Bucket bucket, List<String> featureIds) {
-        return Optional
-            .ofNullable(bucket)
-            .map(b -> b.getAggregations())
+        return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds);
+    }
+
+    private Optional<double[]> parseAggregations(Optional<Aggregations> aggregations, List<String> featureIds) {
+        return aggregations
             .map(aggs -> aggs.asMap())
             .map(
                 map -> featureIds

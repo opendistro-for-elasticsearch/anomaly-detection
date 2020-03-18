@@ -184,8 +184,7 @@ public class SearchFeatureDaoTests {
             );
 
         multiSearchRequest = new MultiSearchRequest();
-        SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]))
-            .preference(SearchFeatureDao.FEATURE_SAMPLE_PREFERENCE);
+        SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]));
         multiSearchRequest.add(request);
         doReturn(Optional.of(multiSearchResponse))
             .when(clientUtil)

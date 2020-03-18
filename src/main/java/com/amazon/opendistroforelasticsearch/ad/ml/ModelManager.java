@@ -583,6 +583,7 @@ public class ModelManager {
         int rcfNumFeatures = dataPoints[0].length;
         RandomCutForest forest = RandomCutForest
             .builder()
+            .randomSeed(0L)
             .dimensions(rcfNumFeatures)
             .sampleSize(rcfNumSamplesInTree)
             .numberOfTrees(rcfNumTrees)

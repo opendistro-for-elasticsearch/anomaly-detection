@@ -197,6 +197,7 @@ public class SearchFeatureDao {
             Aggregations aggs = response.getAggregations();
             if (aggs == null) {
                 listener.onResponse(Collections.emptyList());
+                return;
             }
 
             listener
@@ -307,7 +308,11 @@ public class SearchFeatureDao {
             SearchSourceBuilder searchSourceBuilder = ParseUtils.generateInternalFeatureQuery(detector, startTime, endTime, xContent);
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder).preference(preference.orElse(null));
         } catch (IOException e) {
-            logger.warn("Failed to create feature search request for " + detector + " from " + startTime + " to " + endTime, e);
+            logger
+                .warn(
+                    "Failed to create feature search request for " + detector.getDetectorId() + " from " + startTime + " to " + endTime,
+                    e
+                );
             throw new IllegalStateException(e);
         }
     }
@@ -317,7 +322,7 @@ public class SearchFeatureDao {
             SearchSourceBuilder searchSourceBuilder = ParseUtils.generatePreviewQuery(detector, ranges, xContent);
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
-            logger.warn("Failed to create feature search request for " + detector + " for preview", e);
+            logger.warn("Failed to create feature search request for " + detector.getDetectorId() + " for preview", e);
             throw new IllegalStateException(e);
         }
     }

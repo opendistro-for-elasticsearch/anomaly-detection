@@ -93,7 +93,7 @@ public class TestHelpers {
 
     public static final String AD_BASE_DETECTORS_URI = "/_opendistro/_anomaly_detection/detectors";
     public static final String AD_BASE_RESULT_URI = "/_opendistro/_anomaly_detection/detectors/results";
-    public static final String AD_BASE_PREVIEW_URI = "/_opendistro/_anomaly_detection/detectors/_preview";
+    public static final String AD_BASE_PREVIEW_URI = "/_opendistro/_anomaly_detection/detectors/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_opendistro/_anomaly_detection/stats";
     private static final Logger logger = LogManager.getLogger(TestHelpers.class);
 
@@ -168,6 +168,24 @@ public class TestHelpers {
             uiMetadata,
             randomInt(),
             lastUpdateTime
+        );
+    }
+
+    public static AnomalyDetector randomAnomalyDetectorWithEmptyFeature() throws IOException {
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(),
+            randomQuery(),
+            randomIntervalTimeConfiguration(),
+            randomIntervalTimeConfiguration(),
+            null,
+            randomInt(),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
         );
     }
 
@@ -275,11 +293,12 @@ public class TestHelpers {
         );
     }
 
-    public static AnomalyDetectorExecutionInput randomAnomalyDetectorExecutionInput() {
+    public static AnomalyDetectorExecutionInput randomAnomalyDetectorExecutionInput() throws IOException {
         return new AnomalyDetectorExecutionInput(
             randomAlphaOfLength(5),
             Instant.now().minus(10, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            randomAnomalyDetector(null, Instant.now().truncatedTo(ChronoUnit.SECONDS))
         );
     }
 

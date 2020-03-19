@@ -35,14 +35,17 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
     private static final String DETECTOR_ID_FIELD = "detector_id";
     private static final String PERIOD_START_FIELD = "period_start";
     private static final String PERIOD_END_FIELD = "period_end";
+    private static final String DETECTOR_FIELD = "detector";
     private Instant periodStart;
     private Instant periodEnd;
     private String detectorId;
+    private AnomalyDetector detector;
 
-    public AnomalyDetectorExecutionInput(String detectorId, Instant periodStart, Instant periodEnd) {
+    public AnomalyDetectorExecutionInput(String detectorId, Instant periodStart, Instant periodEnd, AnomalyDetector detector) {
         this.periodStart = periodStart;
         this.periodEnd = periodEnd;
         this.detectorId = detectorId;
+        this.detector = detector;
     }
 
     @Override
@@ -51,14 +54,15 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
             .startObject()
             .field(DETECTOR_ID_FIELD, detectorId)
             .field(PERIOD_START_FIELD, periodStart.toEpochMilli())
-            .field(PERIOD_END_FIELD, periodEnd.toEpochMilli());
+            .field(PERIOD_END_FIELD, periodEnd.toEpochMilli())
+            .field(DETECTOR_FIELD, detector);
         return xContentBuilder.endObject();
     }
 
-    public static AnomalyDetectorExecutionInput parse(XContentParser parser) throws IOException {
-        String detectorId = null;
+    public static AnomalyDetectorExecutionInput parse(XContentParser parser, String detectorId) throws IOException {
         Instant periodStart = null;
         Instant periodEnd = null;
+        AnomalyDetector detector = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -66,20 +70,23 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
             parser.nextToken();
 
             switch (fieldName) {
-                case DETECTOR_ID_FIELD:
-                    detectorId = parser.text();
-                    break;
                 case PERIOD_START_FIELD:
                     periodStart = ParseUtils.toInstant(parser);
                     break;
                 case PERIOD_END_FIELD:
                     periodEnd = ParseUtils.toInstant(parser);
                     break;
+                case DETECTOR_FIELD:
+                    XContentParser.Token token = parser.currentToken();
+                    if (parser.currentToken().equals(XContentParser.Token.START_OBJECT)) {
+                        detector = AnomalyDetector.parse(parser, detectorId);
+                    }
+                    break;
                 default:
                     break;
             }
         }
-        return new AnomalyDetectorExecutionInput(detectorId, periodStart, periodEnd);
+        return new AnomalyDetectorExecutionInput(detectorId, periodStart, periodEnd, detector);
     }
 
     @Generated
@@ -92,7 +99,8 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
         AnomalyDetectorExecutionInput that = (AnomalyDetectorExecutionInput) o;
         return Objects.equal(getPeriodStart(), that.getPeriodStart())
             && Objects.equal(getPeriodEnd(), that.getPeriodEnd())
-            && Objects.equal(getDetectorId(), that.getDetectorId());
+            && Objects.equal(getDetectorId(), that.getDetectorId())
+            && Objects.equal(getDetector(), that.getDetector());
     }
 
     @Generated
@@ -111,6 +119,10 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
 
     public String getDetectorId() {
         return detectorId;
+    }
+
+    public AnomalyDetector getDetector() {
+        return detector;
     }
 
     public void setDetectorId(String detectorId) {

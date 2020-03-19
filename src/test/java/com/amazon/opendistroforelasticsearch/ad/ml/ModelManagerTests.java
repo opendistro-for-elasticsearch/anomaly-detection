@@ -468,6 +468,48 @@ public class ModelManagerTests {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    public void getThresholdingResult_returnExpectedToListener() {
+        double score = 1.;
+        double grade = 0.;
+        double confidence = 0.5;
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<String>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(checkpoint));
+            return null;
+        }).when(checkpointDao).getModelCheckpoint(eq(thresholdModelId), any(ActionListener.class));
+        PowerMockito.doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
+        when(hybridThresholdingModel.grade(score)).thenReturn(grade);
+        when(hybridThresholdingModel.confidence()).thenReturn(confidence);
+
+        ActionListener<ThresholdingResult> listener = mock(ActionListener.class);
+        modelManager.getThresholdingResult(detectorId, thresholdModelId, score, listener);
+
+        ThresholdingResult expected = new ThresholdingResult(grade, confidence);
+        verify(listener).onResponse(eq(expected));
+
+        listener = mock(ActionListener.class);
+        modelManager.getThresholdingResult(detectorId, thresholdModelId, score, listener);
+        verify(listener).onResponse(eq(expected));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getThresholdingResult_throwToListener_withNoCheckpoint() {
+        doAnswer(invocation -> {
+            ActionListener<Optional<String>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.empty());
+            return null;
+        }).when(checkpointDao).getModelCheckpoint(eq(thresholdModelId), any(ActionListener.class));
+
+        ActionListener<ThresholdingResult> listener = mock(ActionListener.class);
+        modelManager.getThresholdingResult(detectorId, thresholdModelId, 0, listener);
+
+        verify(listener).onFailure(any(ResourceNotFoundException.class));
+    }
+
+    @Test
     public void getAllModelIds_returnAllIds_forRcfAndThreshold() {
         String checkpoint = "checkpoint";
 

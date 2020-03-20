@@ -108,7 +108,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers.assertFailWith(ResponseException.class, null, () -> getAnomalyDetector(randomAlphaOfLength(5)));
     }
 
-    public void testUpdateAnomalyDetector() throws IOException {
+    public void testUpdateAnomalyDetectorA() throws IOException {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true);
 
         String newDescription = randomAlphaOfLength(5);
@@ -145,6 +145,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Version not incremented", (detector.getVersion().intValue() + 1), (int) responseBody.get("_version"));
 
         AnomalyDetector updatedDetector = getAnomalyDetector(detector.getDetectorId());
+        assertNotEquals("Anomaly detector last update time not changed", updatedDetector.getLastUpdateTime(), detector.getLastUpdateTime());
         assertEquals("Anomaly detector description not updated", newDescription, updatedDetector.getDescription());
     }
 

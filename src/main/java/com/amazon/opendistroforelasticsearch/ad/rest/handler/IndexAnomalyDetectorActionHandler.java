@@ -48,6 +48,7 @@ import org.elasticsearch.rest.action.RestResponseListener;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -268,9 +269,24 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
     }
 
     private void indexAnomalyDetector(String detectorId) throws IOException {
+        AnomalyDetector detector = new AnomalyDetector(
+            anomalyDetector.getDetectorId(),
+            anomalyDetector.getVersion(),
+            anomalyDetector.getName(),
+            anomalyDetector.getDescription(),
+            anomalyDetector.getTimeField(),
+            anomalyDetector.getIndices(),
+            anomalyDetector.getFeatureAttributes(),
+            anomalyDetector.getFilterQuery(),
+            anomalyDetector.getDetectionInterval(),
+            anomalyDetector.getWindowDelay(),
+            anomalyDetector.getUiMetadata(),
+            anomalyDetector.getSchemaVersion(),
+            Instant.now()
+        );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)
-            .source(anomalyDetector.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
+            .source(detector.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
             .setIfSeqNo(seqNo)
             .setIfPrimaryTerm(primaryTerm)
             .timeout(requestTimeout);

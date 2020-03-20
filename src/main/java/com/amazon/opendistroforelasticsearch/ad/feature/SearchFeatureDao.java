@@ -185,12 +185,13 @@ public class SearchFeatureDao {
      * @param detector info about the indices, documents, feature query
      * @param ranges list of time ranges
      * @param listener handle approximate features for the time ranges
+     * @throws IOException if a user gives wrong query input when defining a detector
      */
     public void getFeatureSamplesForPeriods(
         AnomalyDetector detector,
         List<Entry<Long, Long>> ranges,
         ActionListener<List<Optional<double[]>>> listener
-    ) {
+    ) throws IOException {
         SearchRequest request = createPreviewSearchRequest(detector, ranges);
 
         client.search(request, ActionListener.wrap(response -> {
@@ -317,13 +318,13 @@ public class SearchFeatureDao {
         }
     }
 
-    private SearchRequest createPreviewSearchRequest(AnomalyDetector detector, List<Entry<Long, Long>> ranges) {
+    private SearchRequest createPreviewSearchRequest(AnomalyDetector detector, List<Entry<Long, Long>> ranges) throws IOException {
         try {
             SearchSourceBuilder searchSourceBuilder = ParseUtils.generatePreviewQuery(detector, ranges, xContent);
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
             logger.warn("Failed to create feature search request for " + detector.getDetectorId() + " for preview", e);
-            throw new IllegalStateException(e);
+            throw e;
         }
     }
 

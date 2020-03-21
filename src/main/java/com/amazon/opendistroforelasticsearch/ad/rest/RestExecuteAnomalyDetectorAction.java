@@ -197,7 +197,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
                         logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(), exception);
                         try {
                             XContentBuilder builder = channel.newBuilder().startObject().field(ANOMALY_DETECTOR, detector).endObject();
-                            channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
+                            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, builder));
                         } catch (IOException e) {
                             logger.error("Fail to send back exception message" + detector.getDetectorId(), exception);
                         }

@@ -153,7 +153,7 @@ public class SearchFeatureDaoTests {
         PowerMockito.mockStatic(ParseUtils.class);
 
         Interpolator interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
-        searchFeatureDao = spy(new SearchFeatureDao(client, scriptService, xContent, interpolator, clientUtil));
+        searchFeatureDao = spy(new SearchFeatureDao(client, xContent, interpolator, clientUtil));
 
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         when(detector.getTimeField()).thenReturn("testTimeField");
@@ -190,8 +190,7 @@ public class SearchFeatureDaoTests {
             );
 
         multiSearchRequest = new MultiSearchRequest();
-        SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]))
-            .preference(SearchFeatureDao.FEATURE_SAMPLE_PREFERENCE);
+        SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]));
         multiSearchRequest.add(request);
         doReturn(Optional.of(multiSearchResponse))
             .when(clientUtil)

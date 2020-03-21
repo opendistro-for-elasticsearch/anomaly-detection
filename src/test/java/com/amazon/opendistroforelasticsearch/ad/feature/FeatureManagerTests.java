@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.feature;
 
+import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -409,7 +410,8 @@ public class FeatureManagerTests {
     }
 
     @SuppressWarnings("unchecked")
-    private void getPreviewFeaturesTemplate(List<Optional<double[]>> samplesResults, boolean querySuccess, boolean previewSuccess) {
+    private void getPreviewFeaturesTemplate(List<Optional<double[]>> samplesResults, boolean querySuccess, boolean previewSuccess)
+        throws IOException {
         long start = 0L;
         long end = 240_000L;
         IntervalTimeConfiguration detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
@@ -458,17 +460,17 @@ public class FeatureManagerTests {
     }
 
     @Test
-    public void getPreviewFeatures_returnExpectedToListener() {
+    public void getPreviewFeatures_returnExpectedToListener() throws IOException {
         getPreviewFeaturesTemplate(asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 3 })), true, true);
     }
 
     @Test
-    public void getPreviewFeatures_returnExceptionToListener_whenNoDataToPreview() {
+    public void getPreviewFeatures_returnExceptionToListener_whenNoDataToPreview() throws IOException {
         getPreviewFeaturesTemplate(asList(), true, false);
     }
 
     @Test
-    public void getPreviewFeatures_returnExceptionToListener_whenQueryFail() {
+    public void getPreviewFeatures_returnExceptionToListener_whenQueryFail() throws IOException {
         getPreviewFeaturesTemplate(asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 3 })), false, false);
     }
 }

@@ -184,23 +184,24 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
-                anomalyDetectorRunner.run(detector, input.getPeriodStart(), input.getPeriodEnd(), ActionListener.wrap(anomalyResult -> {
-                    XContentBuilder builder = channel
-                        .newBuilder()
-                        .startObject()
-                        .field(ANOMALY_RESULT, anomalyResult)
-                        .field(ANOMALY_DETECTOR, detector)
-                        .endObject();
-                    channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
-                }, exception -> {
-                    logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(), exception);
-                    try {
-                        XContentBuilder builder = channel.newBuilder().startObject().field(ANOMALY_DETECTOR, detector).endObject();
+                anomalyDetectorRunner
+                    .executeDetector(detector, input.getPeriodStart(), input.getPeriodEnd(), ActionListener.wrap(anomalyResult -> {
+                        XContentBuilder builder = channel
+                            .newBuilder()
+                            .startObject()
+                            .field(ANOMALY_RESULT, anomalyResult)
+                            .field(ANOMALY_DETECTOR, detector)
+                            .endObject();
                         channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
-                    } catch (IOException e) {
-                        logger.error("Fail to send back exception message" + detector.getDetectorId(), exception);
-                    }
-                }));
+                    }, exception -> {
+                        logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(), exception);
+                        try {
+                            XContentBuilder builder = channel.newBuilder().startObject().field(ANOMALY_DETECTOR, detector).endObject();
+                            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, builder));
+                        } catch (IOException e) {
+                            logger.error("Fail to send back exception message" + detector.getDetectorId(), exception);
+                        }
+                    }));
             }
         };
     }

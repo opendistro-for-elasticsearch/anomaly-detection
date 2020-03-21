@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.feature;
 
+import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -350,8 +351,10 @@ public class FeatureManager {
      * @param listener onResponse is called with time ranges, unprocessed features,
      *                                      and processed features of the data points from the period
      *                 onFailure is called with IllegalArgumentException when there is no data to preview
+     * @throws IOException if a user gives wrong query input when defining a detector
      */
-    public void getPreviewFeatures(AnomalyDetector detector, long startMilli, long endMilli, ActionListener<Features> listener) {
+    public void getPreviewFeatures(AnomalyDetector detector, long startMilli, long endMilli, ActionListener<Features> listener)
+        throws IOException {
         Entry<List<Entry<Long, Long>>, Integer> sampleRangeResults = getSampleRanges(detector, startMilli, endMilli);
         List<Entry<Long, Long>> sampleRanges = sampleRangeResults.getKey();
         int stride = sampleRangeResults.getValue();
@@ -418,12 +421,13 @@ public class FeatureManager {
      * Gets search results for the sampled time ranges.
      *
      * @param listener handle search results map: key is time ranges, value is corresponding search results
+     * @throws IOException if a user gives wrong query input when defining a detector
      */
     void getSamplesForRanges(
         AnomalyDetector detector,
         List<Entry<Long, Long>> sampleRanges,
         ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> listener
-    ) {
+    ) throws IOException {
         searchFeatureDao.getFeatureSamplesForPeriods(detector, sampleRanges, ActionListener.wrap(featureSamples -> {
             List<Entry<Long, Long>> ranges = new ArrayList<>(featureSamples.size());
             List<double[]> samples = new ArrayList<>(featureSamples.size());

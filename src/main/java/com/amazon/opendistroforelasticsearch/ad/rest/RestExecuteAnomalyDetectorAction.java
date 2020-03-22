@@ -207,7 +207,12 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
                 anomalyDetectorRunner
-                    .executeDetector(detector, input.getPeriodStart(), input.getPeriodEnd(), getPreviewDetectorActionListener(channel, detector));
+                    .executeDetector(
+                        detector,
+                        input.getPeriodStart(),
+                        input.getPeriodEnd(),
+                        getPreviewDetectorActionListener(channel, detector)
+                    );
             }
         };
     }
@@ -225,7 +230,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
             logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(), exception);
             try {
                 XContentBuilder builder = channel.newBuilder().startObject().field(ANOMALY_DETECTOR, detector).endObject();
-                channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
+                channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, builder));
             } catch (IOException e) {
                 logger.error("Fail to send back exception message" + detector.getDetectorId(), exception);
             }

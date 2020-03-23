@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -692,7 +691,6 @@ public class ModelManager {
             throw new IllegalArgumentException("Insufficient data for preview results. Minimum required: " + minPreviewSize);
         }
         // Train RCF models and collect non-zero scores
-        Random random = new Random();
         int rcfNumFeatures = dataPoints[0].length;
         RandomCutForest forest = RandomCutForest
             .builder()

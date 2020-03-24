@@ -171,6 +171,24 @@ public class TestHelpers {
         );
     }
 
+    public static AnomalyDetector randomAnomalyDetector(List<Feature> features) throws IOException {
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            features,
+            randomQuery(),
+            randomIntervalTimeConfiguration(),
+            randomIntervalTimeConfiguration(),
+            null,
+            randomInt(),
+            Instant.now()
+        );
+    }
+
     public static AnomalyDetector randomAnomalyDetectorWithEmptyFeature() throws IOException {
         return new AnomalyDetector(
             randomAlphaOfLength(10),
@@ -211,7 +229,11 @@ public class TestHelpers {
     }
 
     public static AggregationBuilder randomAggregation() throws IOException {
-        XContentParser parser = parser("{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}");
+        return randomAggregation(randomAlphaOfLength(5));
+    }
+
+    public static AggregationBuilder randomAggregation(String aggregationName) throws IOException {
+        XContentParser parser = parser("{\"" + aggregationName + "\":{\"value_count\":{\"field\":\"ok\"}}}");
 
         AggregatorFactories.Builder parsed = AggregatorFactories.parseAggregators(parser);
         return parsed.getAggregatorFactories().iterator().next();
@@ -234,14 +256,18 @@ public class TestHelpers {
     }
 
     public static Feature randomFeature() {
+        return randomFeature(randomAlphaOfLength(5), randomAlphaOfLength(5));
+    }
+
+    public static Feature randomFeature(String featureName, String aggregationName) {
         AggregationBuilder testAggregation = null;
         try {
-            testAggregation = randomAggregation();
+            testAggregation = randomAggregation(aggregationName);
         } catch (IOException e) {
             logger.error("Fail to generate test aggregation");
             throw new RuntimeException();
         }
-        return new Feature(randomAlphaOfLength(5), randomAlphaOfLength(5), ESRestTestCase.randomBoolean(), testAggregation);
+        return new Feature(randomAlphaOfLength(5), featureName, ESRestTestCase.randomBoolean(), testAggregation);
     }
 
     public static <S, T> void assertFailWith(Class<S> clazz, Callable<T> callable) throws Exception {

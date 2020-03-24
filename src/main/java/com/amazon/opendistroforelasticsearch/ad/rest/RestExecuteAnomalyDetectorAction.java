@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultRequest;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -47,6 +48,7 @@ import org.elasticsearch.rest.action.RestToXContentListener;
 import java.io.IOException;
 import java.util.Locale;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PREVIEW;
@@ -64,6 +66,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
     private final AnomalyDetectorRunner anomalyDetectorRunner;
     // TODO: apply timeout config
     private volatile TimeValue requestTimeout;
+    private volatile Integer maxAnomalyFeatures;
 
     private final Logger logger = LogManager.getLogger(RestExecuteAnomalyDetectorAction.class);
 
@@ -75,7 +78,9 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
     ) {
         this.anomalyDetectorRunner = anomalyDetectorRunner;
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
+        maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
 
         // get AD result, for regular run
         controller
@@ -105,7 +110,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
         return channel -> {
             String rawPath = request.rawPath();
             String error = validateAdExecutionInput(input);
-            if (error != null) {
+            if (StringUtils.isNotBlank(error)) {
                 channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
                 return;
             }
@@ -113,7 +118,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
             if (rawPath.endsWith(PREVIEW)) {
                 if (input.getDetector() != null) {
                     error = validateDetector(input.getDetector());
-                    if (error != null) {
+                    if (StringUtils.isNotBlank(error)) {
                         channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
                         return;
                     }
@@ -141,8 +146,9 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
     private String validateDetector(AnomalyDetector detector) {
         if (detector.getFeatureAttributes().isEmpty()) {
             return "Can't preview detector without feature";
+        } else {
+            return RestHandlerUtils.validateAnomalyDetector(detector, maxAnomalyFeatures);
         }
-        return null;
     }
 
     private AnomalyDetectorExecutionInput getAnomalyDetectorExecutionInput(RestRequest request) throws IOException {

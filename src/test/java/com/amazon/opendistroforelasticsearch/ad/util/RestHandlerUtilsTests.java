@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.util;
 
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.elasticsearch.common.bytes.BytesReference;
@@ -31,6 +33,7 @@ import org.elasticsearch.test.rest.FakeRestRequest;
 import java.io.IOException;
 
 import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.builder;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomFeature;
 
 public class RestHandlerUtilsTests extends ESTestCase {
 
@@ -54,5 +57,38 @@ public class RestHandlerUtilsTests extends ESTestCase {
         BytesReference bytesReference = BytesReference.bytes(builder);
         XContentParser parser = RestHandlerUtils.createXContentParser(channel, bytesReference);
         parser.close();
+    }
+
+    public void testValidateAnomalyDetectorWithNullFeatures() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null);
+        String error = RestHandlerUtils.validateAnomalyDetector(detector, 1);
+        assertNull(error);
+    }
+
+    public void testValidateAnomalyDetectorWithTooManyFeatures() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of(randomFeature(), randomFeature()));
+        String error = RestHandlerUtils.validateAnomalyDetector(detector, 1);
+        assertEquals("Can't create anomaly features more than 1", error);
+    }
+
+    public void testValidateAnomalyDetectorWithDuplicateFeatureNames() throws IOException {
+        String featureName = randomAlphaOfLength(5);
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(randomFeature(featureName, randomAlphaOfLength(5)), randomFeature(featureName, randomAlphaOfLength(5)))
+            );
+        String error = RestHandlerUtils.validateAnomalyDetector(detector, 2);
+        assertEquals("Detector has duplicate feature names: " + featureName + "\n", error);
+    }
+
+    public void testValidateAnomalyDetectorWithDuplicateAggregationNames() throws IOException {
+        String aggregationName = randomAlphaOfLength(5);
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList
+                    .of(randomFeature(randomAlphaOfLength(5), aggregationName), randomFeature(randomAlphaOfLength(5), aggregationName))
+            );
+        String error = RestHandlerUtils.validateAnomalyDetector(detector, 2);
+        assertEquals("Detector has duplicate feature aggregation query names: " + aggregationName, error);
     }
 }

@@ -88,11 +88,20 @@ public class AnomalyResult implements ToXContentObject {
         XContentBuilder xContentBuilder = builder
             .startObject()
             .field(DETECTOR_ID_FIELD, detectorId)
-            .field(FEATURE_DATA_FIELD, featureData.toArray())
             .field(DATA_START_TIME_FIELD, dataStartTime.toEpochMilli())
-            .field(DATA_END_TIME_FIELD, dataEndTime.toEpochMilli())
-            .field(EXECUTION_START_TIME_FIELD, executionStartTime.toEpochMilli())
-            .field(EXECUTION_END_TIME_FIELD, executionEndTime.toEpochMilli());
+            .field(DATA_END_TIME_FIELD, dataEndTime.toEpochMilli());
+        if (featureData != null) {
+            // can be null during preview
+            xContentBuilder.field(FEATURE_DATA_FIELD, featureData.toArray());
+        }
+        if (executionStartTime != null) {
+            // can be null during preview
+            xContentBuilder.field(EXECUTION_START_TIME_FIELD, executionStartTime.toEpochMilli());
+        }
+        if (executionEndTime != null) {
+            // can be null during preview
+            xContentBuilder.field(EXECUTION_END_TIME_FIELD, executionEndTime.toEpochMilli());
+        }
         if (anomalyScore != null && !anomalyScore.isNaN()) {
             xContentBuilder.field(ANOMALY_SCORE_FIELD, anomalyScore);
         }

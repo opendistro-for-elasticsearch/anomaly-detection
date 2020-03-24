@@ -33,7 +33,7 @@ public class AnomalyDetectorExecutionInputTests extends ESTestCase {
         detectInputString = detectInputString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyDetectorExecutionInput parsedAnomalyDetectorExecutionInput = AnomalyDetectorExecutionInput
-            .parse(TestHelpers.parser(detectInputString));
+            .parse(TestHelpers.parser(detectInputString), detectorExecutionInput.getDetectorId());
         assertEquals("Parsing anomaly detect execution input doesn't work", detectorExecutionInput, parsedAnomalyDetectorExecutionInput);
     }
 
@@ -41,7 +41,7 @@ public class AnomalyDetectorExecutionInputTests extends ESTestCase {
         TestHelpers
             .assertFailWith(
                 IllegalArgumentException.class,
-                () -> new AnomalyDetectorExecutionInput(randomAlphaOfLength(5), null, Instant.now())
+                () -> new AnomalyDetectorExecutionInput(randomAlphaOfLength(5), null, Instant.now(), null)
             );
     }
 
@@ -49,7 +49,7 @@ public class AnomalyDetectorExecutionInputTests extends ESTestCase {
         TestHelpers
             .assertFailWith(
                 IllegalArgumentException.class,
-                () -> new AnomalyDetectorExecutionInput(randomAlphaOfLength(5), Instant.now(), null)
+                () -> new AnomalyDetectorExecutionInput(randomAlphaOfLength(5), Instant.now(), null, null)
             );
     }
 
@@ -57,7 +57,12 @@ public class AnomalyDetectorExecutionInputTests extends ESTestCase {
         TestHelpers
             .assertFailWith(
                 IllegalArgumentException.class,
-                () -> new AnomalyDetectorExecutionInput(randomAlphaOfLength(5), Instant.now(), Instant.now().minus(5, ChronoUnit.MINUTES))
+                () -> new AnomalyDetectorExecutionInput(
+                    randomAlphaOfLength(5),
+                    Instant.now(),
+                    Instant.now().minus(5, ChronoUnit.MINUTES),
+                    null
+                )
             );
     }
 }

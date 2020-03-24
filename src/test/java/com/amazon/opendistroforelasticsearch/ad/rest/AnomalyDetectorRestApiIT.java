@@ -32,11 +32,13 @@ import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.junit.Ignore;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
+
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.AD_BASE_PREVIEW_URI;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomAnomalyDetectorWithEmptyFeature;
 
 public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
@@ -106,7 +108,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers.assertFailWith(ResponseException.class, null, () -> getAnomalyDetector(randomAlphaOfLength(5)));
     }
 
-    public void testUpdateAnomalyDetector() throws IOException {
+    public void testUpdateAnomalyDetectorA() throws IOException {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true);
 
         String newDescription = randomAlphaOfLength(5);
@@ -143,6 +145,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Version not incremented", (detector.getVersion().intValue() + 1), (int) responseBody.get("_version"));
 
         AnomalyDetector updatedDetector = getAnomalyDetector(detector.getDetectorId());
+        assertNotEquals("Anomaly detector last update time not changed", updatedDetector.getLastUpdateTime(), detector.getLastUpdateTime());
         assertEquals("Anomaly detector description not updated", newDescription, updatedDetector.getDescription());
     }
 
@@ -207,16 +210,23 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Get stats failed", RestStatus.OK, restStatus(statsResponse));
     }
 
-    @Ignore
     public void testPreviewAnomalyDetector() throws IOException {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false);
         AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
             detector.getDetectorId(),
             Instant.now().minusSeconds(60 * 10),
-            Instant.now()
+            Instant.now(),
+            null
         );
         Response response = TestHelpers
-            .makeRequest(client(), "POST", TestHelpers.AD_BASE_PREVIEW_URI, ImmutableMap.of(), toHttpEntity(input), null);
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                ImmutableMap.of(),
+                toHttpEntity(input),
+                null
+            );
         assertEquals("Execute anomaly detector failed", RestStatus.OK, restStatus(response));
     }
 
@@ -225,23 +235,87 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
             randomAlphaOfLength(5),
             Instant.now().minusSeconds(60 * 10),
-            Instant.now()
+            Instant.now(),
+            null
         );
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
                 () -> TestHelpers
-                    .makeRequest(client(), "POST", TestHelpers.AD_BASE_PREVIEW_URI, ImmutableMap.of(), toHttpEntity(input), null)
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                        ImmutableMap.of(),
+                        toHttpEntity(input),
+                        null
+                    )
             );
     }
 
     public void testExecuteAnomalyDetectorWithNullDetectorId() throws Exception {
-        AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(null, Instant.now().minusSeconds(60 * 10), Instant.now());
+        AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
+            null,
+            Instant.now().minusSeconds(60 * 10),
+            Instant.now(),
+            null
+        );
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
                 () -> TestHelpers
-                    .makeRequest(client(), "POST", TestHelpers.AD_BASE_PREVIEW_URI, ImmutableMap.of(), toHttpEntity(input), null)
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                        ImmutableMap.of(),
+                        toHttpEntity(input),
+                        null
+                    )
+            );
+    }
+
+    public void testPreviewAnomalyDetectorWithDetector() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
+            detector.getDetectorId(),
+            Instant.now().minusSeconds(60 * 10),
+            Instant.now(),
+            detector
+        );
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                ImmutableMap.of(),
+                toHttpEntity(input),
+                null
+            );
+        assertEquals("Execute anomaly detector failed", RestStatus.OK, restStatus(response));
+    }
+
+    public void testPreviewAnomalyDetectorWithDetectorAndNoFeatures() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
+            detector.getDetectorId(),
+            Instant.now().minusSeconds(60 * 10),
+            Instant.now(),
+            randomAnomalyDetectorWithEmptyFeature()
+        );
+        TestHelpers
+            .assertFailWith(
+                ResponseException.class,
+                "Can't preview detector without feature",
+                () -> TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                        ImmutableMap.of(),
+                        toHttpEntity(input),
+                        null
+                    )
             );
     }
 

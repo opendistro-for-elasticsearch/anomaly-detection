@@ -93,7 +93,7 @@ public class TestHelpers {
 
     public static final String AD_BASE_DETECTORS_URI = "/_opendistro/_anomaly_detection/detectors";
     public static final String AD_BASE_RESULT_URI = "/_opendistro/_anomaly_detection/detectors/results";
-    public static final String AD_BASE_PREVIEW_URI = "/_opendistro/_anomaly_detection/detectors/_preview";
+    public static final String AD_BASE_PREVIEW_URI = "/_opendistro/_anomaly_detection/detectors/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_opendistro/_anomaly_detection/stats";
     private static final Logger logger = LogManager.getLogger(TestHelpers.class);
 
@@ -171,6 +171,42 @@ public class TestHelpers {
         );
     }
 
+    public static AnomalyDetector randomAnomalyDetector(List<Feature> features) throws IOException {
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            features,
+            randomQuery(),
+            randomIntervalTimeConfiguration(),
+            randomIntervalTimeConfiguration(),
+            null,
+            randomInt(),
+            Instant.now()
+        );
+    }
+
+    public static AnomalyDetector randomAnomalyDetectorWithEmptyFeature() throws IOException {
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(),
+            randomQuery(),
+            randomIntervalTimeConfiguration(),
+            randomIntervalTimeConfiguration(),
+            null,
+            randomInt(),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        );
+    }
+
     public static SearchSourceBuilder randomFeatureQuery() throws IOException {
         String query = "{\"query\":{\"match\":{\"user\":{\"query\":\"kimchy\",\"operator\":\"OR\",\"prefix_length\":0,"
             + "\"max_expansions\":50,\"fuzzy_transpositions\":true,\"lenient\":false,\"zero_terms_query\":\"NONE\","
@@ -193,7 +229,11 @@ public class TestHelpers {
     }
 
     public static AggregationBuilder randomAggregation() throws IOException {
-        XContentParser parser = parser("{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}");
+        return randomAggregation(randomAlphaOfLength(5));
+    }
+
+    public static AggregationBuilder randomAggregation(String aggregationName) throws IOException {
+        XContentParser parser = parser("{\"" + aggregationName + "\":{\"value_count\":{\"field\":\"ok\"}}}");
 
         AggregatorFactories.Builder parsed = AggregatorFactories.parseAggregators(parser);
         return parsed.getAggregatorFactories().iterator().next();
@@ -216,14 +256,18 @@ public class TestHelpers {
     }
 
     public static Feature randomFeature() {
+        return randomFeature(randomAlphaOfLength(5), randomAlphaOfLength(5));
+    }
+
+    public static Feature randomFeature(String featureName, String aggregationName) {
         AggregationBuilder testAggregation = null;
         try {
-            testAggregation = randomAggregation();
+            testAggregation = randomAggregation(aggregationName);
         } catch (IOException e) {
             logger.error("Fail to generate test aggregation");
             throw new RuntimeException();
         }
-        return new Feature(randomAlphaOfLength(5), randomAlphaOfLength(5), ESRestTestCase.randomBoolean(), testAggregation);
+        return new Feature(randomAlphaOfLength(5), featureName, ESRestTestCase.randomBoolean(), testAggregation);
     }
 
     public static <S, T> void assertFailWith(Class<S> clazz, Callable<T> callable) throws Exception {
@@ -275,11 +319,12 @@ public class TestHelpers {
         );
     }
 
-    public static AnomalyDetectorExecutionInput randomAnomalyDetectorExecutionInput() {
+    public static AnomalyDetectorExecutionInput randomAnomalyDetectorExecutionInput() throws IOException {
         return new AnomalyDetectorExecutionInput(
             randomAlphaOfLength(5),
             Instant.now().minus(10, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            randomAnomalyDetector(null, Instant.now().truncatedTo(ChronoUnit.SECONDS))
         );
     }
 

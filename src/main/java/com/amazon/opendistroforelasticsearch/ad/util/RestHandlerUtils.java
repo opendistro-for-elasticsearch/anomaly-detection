@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.util;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.google.common.collect.ImmutableMap;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.bytes.BytesReference;
@@ -29,6 +30,9 @@ import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Utility functions for REST handlers.
@@ -75,5 +79,43 @@ public final class RestHandlerUtils {
     public static XContentParser createXContentParser(RestChannel channel, BytesReference bytesReference) throws IOException {
         return XContentHelper
             .createParser(channel.request().getXContentRegistry(), LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON);
+    }
+
+    public static String validateAnomalyDetector(AnomalyDetector anomalyDetector, int maxAnomalyFeatures) {
+        List<Feature> features = anomalyDetector.getFeatureAttributes();
+        if (features != null) {
+            if (features.size() > maxAnomalyFeatures) {
+                return "Can't create anomaly features more than " + maxAnomalyFeatures;
+            }
+            return validateFeatures(anomalyDetector.getFeatureAttributes());
+        }
+        return null;
+    }
+
+    private static String validateFeatures(List<Feature> features) {
+        final Set<String> duplicateFeatureNames = new HashSet<>();
+        final Set<String> featureNames = new HashSet<>();
+        final Set<String> duplicateFeatureAggNames = new HashSet<>();
+        final Set<String> featureAggNames = new HashSet<>();
+
+        features.forEach(feature -> {
+            if (!featureNames.add(feature.getName())) {
+                duplicateFeatureNames.add(feature.getName());
+            }
+            if (!featureAggNames.add(feature.getAggregation().getName())) {
+                duplicateFeatureAggNames.add(feature.getAggregation().getName());
+            }
+        });
+
+        StringBuilder errorMsgBuilder = new StringBuilder();
+        if (duplicateFeatureNames.size() > 0) {
+            errorMsgBuilder.append("Detector has duplicate feature names: ");
+            errorMsgBuilder.append(String.join(", ", duplicateFeatureNames)).append("\n");
+        }
+        if (duplicateFeatureAggNames.size() > 0) {
+            errorMsgBuilder.append("Detector has duplicate feature aggregation query names: ");
+            errorMsgBuilder.append(String.join(", ", duplicateFeatureAggNames));
+        }
+        return errorMsgBuilder.toString();
     }
 }

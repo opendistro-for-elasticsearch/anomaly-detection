@@ -93,13 +93,6 @@
         }
       }
     },
-    "enabled": {
-      "type": "boolean"
-    },
-    "enabled_time": {
-      "type": "date",
-      "format": "strict_date_time||epoch_millis"
-    },
     "last_update_time": {
       "type": "date",
       "format": "strict_date_time||epoch_millis"

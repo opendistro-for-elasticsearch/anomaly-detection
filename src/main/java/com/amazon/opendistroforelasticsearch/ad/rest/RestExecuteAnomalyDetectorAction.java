@@ -15,12 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRunner;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultRequest;
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -47,6 +48,7 @@ import org.elasticsearch.rest.action.RestToXContentListener;
 import java.io.IOException;
 import java.util.Locale;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PREVIEW;
@@ -64,6 +66,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
     private final AnomalyDetectorRunner anomalyDetectorRunner;
     // TODO: apply timeout config
     private volatile TimeValue requestTimeout;
+    private volatile Integer maxAnomalyFeatures;
 
     private final Logger logger = LogManager.getLogger(RestExecuteAnomalyDetectorAction.class);
 
@@ -75,7 +78,9 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
     ) {
         this.anomalyDetectorRunner = anomalyDetectorRunner;
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
+        maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
 
         // get AD result, for regular run
         controller
@@ -85,7 +90,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
                 this
             );
 
-        // preivew AD
+        // preview detector
         controller
             .registerHandler(
                 RestRequest.Method.POST,
@@ -105,13 +110,28 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
         return channel -> {
             String rawPath = request.rawPath();
             String error = validateAdExecutionInput(input);
-            if (error != null) {
-                channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, error));
+            if (StringUtils.isNotBlank(error)) {
+                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
                 return;
             }
 
             if (rawPath.endsWith(PREVIEW)) {
-                preivewAnomalyDetector(client, channel, input);
+                if (input.getDetector() != null) {
+                    error = validateDetector(input.getDetector());
+                    if (StringUtils.isNotBlank(error)) {
+                        channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
+                        return;
+                    }
+                    anomalyDetectorRunner
+                        .executeDetector(
+                            input.getDetector(),
+                            input.getPeriodStart(),
+                            input.getPeriodEnd(),
+                            getPreviewDetectorActionListener(channel, input.getDetector())
+                        );
+                } else {
+                    preivewAnomalyDetector(client, channel, input);
+                }
             } else if (rawPath.endsWith(RUN)) {
                 AnomalyResultRequest getRequest = new AnomalyResultRequest(
                     input.getDetectorId(),
@@ -123,6 +143,14 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
         };
     }
 
+    private String validateDetector(AnomalyDetector detector) {
+        if (detector.getFeatureAttributes().isEmpty()) {
+            return "Can't preview detector without feature";
+        } else {
+            return RestHandlerUtils.validateAnomalyDetector(detector, maxAnomalyFeatures);
+        }
+    }
+
     private AnomalyDetectorExecutionInput getAnomalyDetectorExecutionInput(RestRequest request) throws IOException {
         String detectorId = null;
         if (request.hasParam(DETECTOR_ID)) {
@@ -131,7 +159,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
 
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
-        AnomalyDetectorExecutionInput input = AnomalyDetectorExecutionInput.parse(parser);
+        AnomalyDetectorExecutionInput input = AnomalyDetectorExecutionInput.parse(parser, detectorId);
         if (detectorId != null) {
             input.setDetectorId(detectorId);
         }
@@ -185,24 +213,33 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
                 anomalyDetectorRunner
-                    .executeDetector(detector, input.getPeriodStart(), input.getPeriodEnd(), ActionListener.wrap(anomalyResult -> {
-                        XContentBuilder builder = channel
-                            .newBuilder()
-                            .startObject()
-                            .field(ANOMALY_RESULT, anomalyResult)
-                            .field(ANOMALY_DETECTOR, detector)
-                            .endObject();
-                        channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
-                    }, exception -> {
-                        logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(), exception);
-                        try {
-                            XContentBuilder builder = channel.newBuilder().startObject().field(ANOMALY_DETECTOR, detector).endObject();
-                            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, builder));
-                        } catch (IOException e) {
-                            logger.error("Fail to send back exception message" + detector.getDetectorId(), exception);
-                        }
-                    }));
+                    .executeDetector(
+                        detector,
+                        input.getPeriodStart(),
+                        input.getPeriodEnd(),
+                        getPreviewDetectorActionListener(channel, detector)
+                    );
             }
         };
+    }
+
+    private ActionListener getPreviewDetectorActionListener(RestChannel channel, AnomalyDetector detector) {
+        return ActionListener.wrap(anomalyResult -> {
+            XContentBuilder builder = channel
+                .newBuilder()
+                .startObject()
+                .field(ANOMALY_RESULT, anomalyResult)
+                .field(ANOMALY_DETECTOR, detector)
+                .endObject();
+            channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
+        }, exception -> {
+            logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(), exception);
+            try {
+                XContentBuilder builder = channel.newBuilder().startObject().field(ANOMALY_DETECTOR, detector).endObject();
+                channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, builder));
+            } catch (IOException e) {
+                logger.error("Fail to send back exception message" + detector.getDetectorId(), exception);
+            }
+        });
     }
 }

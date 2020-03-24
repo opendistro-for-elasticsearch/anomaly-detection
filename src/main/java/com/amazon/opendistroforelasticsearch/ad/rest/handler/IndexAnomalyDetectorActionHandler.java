@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -48,11 +47,9 @@ import org.elasticsearch.rest.action.RestResponseListener;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_DETECTORS;
@@ -150,7 +147,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         // 2).If filter will only return one document,
         // 3).If custom expression has specific logic to return one number for some case,
         // but multiple for others, like some if/else branch
-        String error = validateAnomalyDetector(anomalyDetector);
+        String error = RestHandlerUtils.validateAnomalyDetector(anomalyDetector, maxAnomalyFeatures);
         if (StringUtils.isNotBlank(error)) {
             channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
             return;
@@ -160,42 +157,6 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         } else {
             createAnomalyDetector();
         }
-    }
-
-    private String validateAnomalyDetector(AnomalyDetector anomalyDetector) {
-        if (anomalyDetector.getFeatureAttributes().size() > maxAnomalyFeatures) {
-            return "Can't create anomaly features more than " + maxAnomalyFeatures;
-        }
-        return validateFeatures(anomalyDetector.getFeatureAttributes());
-    }
-
-    public String validateFeatures(List<Feature> features) {
-        final Set<String> duplicateFeatureNames = new HashSet<>();
-        final Set<String> featureNames = new HashSet<>();
-        final Set<String> duplicateFeatureAggNames = new HashSet<>();
-        final Set<String> featureAggNames = new HashSet<>();
-
-        if (features != null) {
-            features.forEach(feature -> {
-                if (!featureNames.add(feature.getName())) {
-                    duplicateFeatureNames.add(feature.getName());
-                }
-                if (!featureAggNames.add(feature.getAggregation().getName())) {
-                    duplicateFeatureAggNames.add(feature.getAggregation().getName());
-                }
-            });
-        }
-
-        StringBuilder errorMsgBuilder = new StringBuilder();
-        if (duplicateFeatureNames.size() > 0) {
-            errorMsgBuilder.append("Detector has duplicate feature names: ");
-            errorMsgBuilder.append(String.join(", ", duplicateFeatureNames)).append("\n");
-        }
-        if (duplicateFeatureAggNames.size() > 0) {
-            errorMsgBuilder.append("Detector has duplicate feature aggregation query names: ");
-            errorMsgBuilder.append(String.join(", ", duplicateFeatureAggNames));
-        }
-        return errorMsgBuilder.toString();
     }
 
     private void updateAnomalyDetector(NodeClient client, String detectorId) {
@@ -268,9 +229,24 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
     }
 
     private void indexAnomalyDetector(String detectorId) throws IOException {
+        AnomalyDetector detector = new AnomalyDetector(
+            anomalyDetector.getDetectorId(),
+            anomalyDetector.getVersion(),
+            anomalyDetector.getName(),
+            anomalyDetector.getDescription(),
+            anomalyDetector.getTimeField(),
+            anomalyDetector.getIndices(),
+            anomalyDetector.getFeatureAttributes(),
+            anomalyDetector.getFilterQuery(),
+            anomalyDetector.getDetectionInterval(),
+            anomalyDetector.getWindowDelay(),
+            anomalyDetector.getUiMetadata(),
+            anomalyDetector.getSchemaVersion(),
+            Instant.now()
+        );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)
-            .source(anomalyDetector.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
+            .source(detector.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
             .setIfSeqNo(seqNo)
             .setIfPrimaryTerm(primaryTerm)
             .timeout(requestTimeout);

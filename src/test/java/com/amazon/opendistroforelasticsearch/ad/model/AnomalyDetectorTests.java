@@ -25,6 +25,7 @@ import org.elasticsearch.test.ESTestCase;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
 public class AnomalyDetectorTests extends ESTestCase {
@@ -233,5 +234,20 @@ public class AnomalyDetectorTests extends ESTestCase {
                     Instant.now()
                 )
             );
+    }
+
+    public void testNullFeatures() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, null, Instant.now().truncatedTo(ChronoUnit.SECONDS));
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals(0, parsedDetector.getFeatureAttributes().size());
+    }
+
+    public void testEmptyFeatures() throws IOException {
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(ImmutableList.of(), null, Instant.now().truncatedTo(ChronoUnit.SECONDS));
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals(0, parsedDetector.getFeatureAttributes().size());
     }
 }

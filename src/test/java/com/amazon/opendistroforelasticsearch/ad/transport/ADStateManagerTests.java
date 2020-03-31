@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
@@ -28,13 +29,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
-import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
@@ -60,16 +61,17 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.After;
 import org.junit.Before;
 
-import com.amazon.randomcutforest.RandomCutForest;
-
 public class ADStateManagerTests extends ESTestCase {
     private ADStateManager stateManager;
     private ModelManager modelManager;
     private Client client;
+    private ClientUtil clientUtil;
     private Clock clock;
     private Duration duration;
     private Throttler throttler;
     private ThreadPool context;
+    private AnomalyDetector detectorToCheck;
+    private Settings settings;
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {
@@ -82,10 +84,10 @@ public class ADStateManagerTests extends ESTestCase {
     public void setUp() throws Exception {
         super.setUp();
         modelManager = mock(ModelManager.class);
-        when(modelManager.getPartitionedForestSizes(any(RandomCutForest.class), any(String.class)))
-            .thenReturn(new SimpleImmutableEntry<>(2, 20));
+        when(modelManager.getPartitionedForestSizes(any(String.class), anyInt())).thenReturn(new SimpleImmutableEntry<>(2, 20));
         client = mock(Client.class);
-        Settings settings = Settings
+        clientUtil = mock(ClientUtil.class);
+        settings = Settings
             .builder()
             .put("opendistro.anomaly_detection.max_retry_for_unresponsive_node", 3)
             .put("opendistro.anomaly_detection.ad_mute_minutes", TimeValue.timeValueMinutes(10))
@@ -94,15 +96,7 @@ public class ADStateManagerTests extends ESTestCase {
         duration = Duration.ofHours(1);
         throttler = new Throttler(clock);
 
-        stateManager = new ADStateManager(
-            client,
-            xContentRegistry(),
-            modelManager,
-            settings,
-            new ClientUtil(settings, client, throttler, context),
-            clock,
-            duration
-        );
+        stateManager = new ADStateManager(client, xContentRegistry(), modelManager, settings, clientUtil, clock, duration);
 
     }
 
@@ -113,12 +107,14 @@ public class ADStateManagerTests extends ESTestCase {
         stateManager = null;
         modelManager = null;
         client = null;
+        clientUtil = null;
+        detectorToCheck = null;
     }
 
     @SuppressWarnings("unchecked")
     private String setupDetector(boolean responseExists) throws IOException {
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
-        XContentBuilder content = detector.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS);
+        detectorToCheck = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
+        XContentBuilder content = detectorToCheck.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -129,8 +125,8 @@ public class ADStateManagerTests extends ESTestCase {
             if (args[0] instanceof GetRequest) {
                 request = (GetRequest) args[0];
             }
-            if (args[1] instanceof ActionListener) {
-                listener = (ActionListener<GetResponse>) args[1];
+            if (args[2] instanceof ActionListener) {
+                listener = (ActionListener<GetResponse>) args[2];
             }
 
             assertTrue(request != null && listener != null);
@@ -140,7 +136,7 @@ public class ADStateManagerTests extends ESTestCase {
                         new GetResult(
                             AnomalyDetector.ANOMALY_DETECTORS_INDEX,
                             MapperService.SINGLE_MAPPING_NAME,
-                            detector.getDetectorId(),
+                            detectorToCheck.getDetectorId(),
                             UNASSIGNED_SEQ_NO,
                             0,
                             -1,
@@ -153,19 +149,15 @@ public class ADStateManagerTests extends ESTestCase {
                 );
 
             return null;
-        }).when(client).get(any(), any());
-        return detector.getDetectorId();
+        }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
+        return detectorToCheck.getDetectorId();
     }
 
     public void testGetPartitionNumber() throws IOException, InterruptedException {
         String detectorId = setupDetector(true);
-        int partitionNumber = stateManager.getPartitionNumber(detectorId);
+        int partitionNumber = stateManager
+            .getPartitionNumber(detectorId, Optional.of(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null)));
         assertEquals(2, partitionNumber);
-    }
-
-    public void testGetResponseNotFound() throws IOException, InterruptedException {
-        String detectorId = setupDetector(false);
-        expectThrows(AnomalyDetectionException.class, () -> stateManager.getPartitionNumber(detectorId));
     }
 
     public void testShouldMute() {
@@ -213,10 +205,29 @@ public class ADStateManagerTests extends ESTestCase {
     }
 
     public void testHasRunningQuery() throws IOException {
+        stateManager = new ADStateManager(
+            client,
+            xContentRegistry(),
+            modelManager,
+            settings,
+            new ClientUtil(settings, client, throttler, context),
+            clock,
+            duration
+        );
+
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);
         SearchRequest dummySearchRequest = new SearchRequest();
         assertFalse(stateManager.hasRunningQuery(detector));
         throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest);
         assertTrue(stateManager.hasRunningQuery(detector));
+    }
+
+    public void testGetAnomalyDetector() throws IOException {
+        String detectorId = setupDetector(true);
+        stateManager
+            .getAnomalyDetector(
+                detectorId,
+                ActionListener.wrap(asDetector -> { assertEquals(detectorToCheck, asDetector.get()); }, exception -> assertTrue(false))
+            );
     }
 }

@@ -28,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultRequest;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyResultHandler;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter;
@@ -39,7 +40,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
@@ -71,6 +74,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     private Settings settings;
     private int maxRetryForEndRunException;
     private Client client;
+    private ClientUtil clientUtil;
     private ThreadPool threadPool;
     private AnomalyResultHandler anomalyResultHandler;
     private ConcurrentHashMap<String, Integer> detectorEndRunExceptionCount;
@@ -95,6 +99,10 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
 
     public void setClient(Client client) {
         this.client = client;
+    }
+
+    public void setClientUtil(ClientUtil clientUtil) {
+        this.clientUtil = clientUtil;
     }
 
     public void setThreadPool(ThreadPool threadPool) {
@@ -258,7 +266,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     ) {
         String detectorId = jobParameter.getName();
         if (exception instanceof EndRunException) {
-            log.error("EndRunException happened when executed anomaly result action for " + detectorId, exception);
+            log.error("EndRunException happened when executing anomaly result action for " + detectorId, exception);
 
             if (((EndRunException) exception).isEndNow()) {
                 // Stop AD job if EndRunException shows we should end job now.
@@ -349,9 +357,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         try {
             GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
 
-            client.get(getRequest, ActionListener.wrap(response -> {
+            clientUtil.<GetRequest, GetResponse>asyncRequest(getRequest, client::get, ActionListener.wrap(response -> {
                 if (response.isExists()) {
-                    String s = response.getSourceAsString();
                     try (
                         XContentParser parser = XContentType.JSON
                             .xContent()
@@ -374,14 +381,19 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                                 .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
                                 .source(newJob.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), XCONTENT_WITH_TYPE))
                                 .id(detectorId);
-                            client.index(indexRequest, ActionListener.wrap(indexResponse -> {
-                                if (indexResponse != null
-                                    && (indexResponse.getResult() == CREATED || indexResponse.getResult() == UPDATED)) {
-                                    log.info("AD Job was disabled by JobRunner for " + detectorId);
-                                } else {
-                                    log.warn("Failed to disable AD job for " + detectorId);
-                                }
-                            }, exception -> log.error("JobRunner failed to update AD job as disabled for " + detectorId, exception)));
+                            clientUtil
+                                .<IndexRequest, IndexResponse>asyncRequest(
+                                    indexRequest,
+                                    client::index,
+                                    ActionListener.wrap(indexResponse -> {
+                                        if (indexResponse != null
+                                            && (indexResponse.getResult() == CREATED || indexResponse.getResult() == UPDATED)) {
+                                            log.info("AD Job was disabled by JobRunner for " + detectorId);
+                                        } else {
+                                            log.warn("Failed to disable AD job for " + detectorId);
+                                        }
+                                    }, exception -> log.error("JobRunner failed to update AD job as disabled for " + detectorId, exception))
+                                );
                         }
                     } catch (IOException e) {
                         log.error("JobRunner failed to stop detector job " + detectorId, e);

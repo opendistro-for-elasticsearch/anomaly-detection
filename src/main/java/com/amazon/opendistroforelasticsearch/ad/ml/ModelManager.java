@@ -273,6 +273,35 @@ public class ModelManager {
     }
 
     /**
+     * Construct a RCF model and then partition it by forest size.
+     *
+     * A RCF model is constructed based on the number of input features.
+     *
+     * Then a RCF model is first partitioned into desired size based on heap.
+     * If there are more partitions than the number of nodes in the cluster,
+     * the model is partitioned by the number of nodes and verified to
+     * ensure the size of a partition does not exceed the max size limit based on heap.
+     *
+     * @param detectorId ID of the detector with no effects on partitioning
+     * @param rcfNumFeatures the number of features
+     * @return a pair of number of partitions and size of a parition (number of trees)
+     * @throws LimitExceededException when there is no sufficient resouce available
+     */
+    public Entry<Integer, Integer> getPartitionedForestSizes(String detectorId, int rcfNumFeatures) {
+        return getPartitionedForestSizes(
+            RandomCutForest
+                .builder()
+                .dimensions(rcfNumFeatures)
+                .sampleSize(rcfNumSamplesInTree)
+                .numberOfTrees(rcfNumTrees)
+                .outputAfter(rcfNumSamplesInTree)
+                .parallelExecutionEnabled(false)
+                .build(),
+            detectorId
+        );
+    }
+
+    /**
      * Gets the estimated size of a RCF model.
      *
      * @param forest RCF configuration
@@ -545,17 +574,8 @@ public class ModelManager {
         int rcfNumFeatures = dataPoints[0].length;
 
         // Create partitioned RCF models
-        Entry<Integer, Integer> partitionResults = getPartitionedForestSizes(
-            RandomCutForest
-                .builder()
-                .dimensions(rcfNumFeatures)
-                .sampleSize(rcfNumSamplesInTree)
-                .numberOfTrees(rcfNumTrees)
-                .outputAfter(rcfNumSamplesInTree)
-                .parallelExecutionEnabled(false)
-                .build(),
-            anomalyDetector.getDetectorId()
-        );
+        Entry<Integer, Integer> partitionResults = getPartitionedForestSizes(anomalyDetector.getDetectorId(), rcfNumFeatures);
+
         int numForests = partitionResults.getKey();
         int forestSize = partitionResults.getValue();
         double[] scores = new double[dataPoints.length];

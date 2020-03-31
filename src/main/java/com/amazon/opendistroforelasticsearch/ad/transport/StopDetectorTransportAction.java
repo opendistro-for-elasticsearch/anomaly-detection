@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.cluster.DeleteDetector;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.InternalFailure;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -39,20 +38,17 @@ public class StopDetectorTransportAction extends HandledTransportAction<ActionRe
 
     private final Client client;
     private final ClusterService clusterService;
-    private final DeleteDetector deleteUtil;
 
     @Inject
     public StopDetectorTransportAction(
         TransportService transportService,
         ClusterService clusterService,
         ActionFilters actionFilters,
-        Client client,
-        DeleteDetector deleteUtil
+        Client client
     ) {
         super(StopDetectorAction.NAME, transportService, actionFilters, StopDetectorRequest::new);
         this.client = client;
         this.clusterService = clusterService;
-        this.deleteUtil = deleteUtil;
     }
 
     @Override

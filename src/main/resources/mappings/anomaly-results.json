@@ -45,6 +45,9 @@
     "execution_end_time": {
       "type": "date",
       "format": "strict_date_time||epoch_millis"
+    },
+    "error": {
+      "type": "text"
     }
   }
 }

@@ -18,6 +18,9 @@ package com.amazon.opendistroforelasticsearch.ad.model;
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 import com.google.common.base.Objects;
+
+import org.elasticsearch.common.ParseField;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -35,10 +38,17 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
  */
 public class AnomalyResult implements ToXContentObject {
 
+    public static final String PARSE_FIELD_NAME = "AnomalyResult";
+    public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
+        AnomalyResult.class,
+        new ParseField(PARSE_FIELD_NAME),
+        it -> parse(it)
+    );
+
     public static final String ANOMALY_RESULT_INDEX = ".opendistro-anomaly-results";
 
     public static final String DETECTOR_ID_FIELD = "detector_id";
-    private static final String ANOMALY_SCORE_FIELD = "anomaly_score";
+    public static final String ANOMALY_SCORE_FIELD = "anomaly_score";
     private static final String ANOMALY_GRADE_FIELD = "anomaly_grade";
     private static final String CONFIDENCE_FIELD = "confidence";
     private static final String FEATURE_DATA_FIELD = "feature_data";

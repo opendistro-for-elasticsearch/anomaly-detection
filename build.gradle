@@ -44,7 +44,7 @@ repositories {
 ext {
     opendistroVersion = '1.4.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-    job_scheduler_plugin_zip = "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}"
+    job_scheduler_plugin_zip = "https://github.com/opendistro-for-elasticsearch/job-scheduler/releases/download/v1.4.0.0/opendistro-job-scheduler-1.4.0.0.zip"
 }
 
 version = "${opendistroVersion}.0"

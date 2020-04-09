@@ -94,6 +94,7 @@ public class ADStateManagerTests extends ESTestCase {
             .build();
         clock = mock(Clock.class);
         duration = Duration.ofHours(1);
+        context = TestHelpers.createThreadPool();
         throttler = new Throttler(clock);
 
         stateManager = new ADStateManager(client, xContentRegistry(), modelManager, settings, clientUtil, clock, duration);

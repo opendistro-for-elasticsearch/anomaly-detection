@@ -23,6 +23,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import java.time.Clock;
 
 import static org.mockito.Mockito.mock;
@@ -36,8 +37,8 @@ public class IndexUtilsTests extends ESIntegTestCase {
         Client client = client();
         Clock clock = mock(Clock.class);
         Throttler throttler = new Throttler(clock);
-        ThreadPool threadPool = mock(ThreadPool.class);
-        clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, threadPool);
+        ThreadPool context = TestHelpers.createThreadPool();
+        clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, context);
     }
 
     @Test

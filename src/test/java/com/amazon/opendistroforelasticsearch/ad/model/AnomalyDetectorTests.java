@@ -94,16 +94,6 @@ public class AnomalyDetectorTests extends ESTestCase {
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
     }
 
-    public void testParseAnomalyDetectorWithNullLastUpdateTime() throws IOException {
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);
-        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
-        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), detector.getDetectorId());
-        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
-        assertEquals("Parsing anomaly detector doesn't work", detector.getDetectorId(), parsedDetector.getDetectorId());
-        assertNull(detector.getLastUpdateTime());
-        assertNotNull(parsedDetector.getLastUpdateTime());
-    }
-
     public void testNullDetectorName() throws Exception {
         TestHelpers
             .assertFailWith(

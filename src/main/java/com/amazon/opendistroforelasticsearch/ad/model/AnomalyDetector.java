@@ -233,7 +233,7 @@ public class AnomalyDetector implements ToXContentObject {
         List<Feature> features = new ArrayList<>();
         int schemaVersion = 0;
         Map<String, Object> uiMetadata = null;
-        Instant lastUpdateTime = Instant.now();
+        Instant lastUpdateTime = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {

@@ -58,6 +58,7 @@ import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ClientException;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.InternalFailure;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
@@ -168,7 +169,7 @@ public class AnomalyResultTests extends AbstractADTest {
         clusterService = testNodes[0].clusterService;
         stateManager = mock(ADStateManager.class);
         // return 2 RCF partitions
-        when(stateManager.getPartitionNumber(any(String.class), any(Optional.class))).thenReturn(2);
+        when(stateManager.getPartitionNumber(any(String.class), any(AnomalyDetector.class))).thenReturn(2);
         when(stateManager.isMuted(any(String.class))).thenReturn(false);
 
         detector = mock(AnomalyDetector.class);
@@ -1084,5 +1085,39 @@ public class AnomalyResultTests extends AbstractADTest {
         );
         listener.onResponse(null);
         assertTrue(testAppender.containsMessage(AnomalyResultTransportAction.NULL_RESPONSE));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testAllFeaturesDisabled() {
+        // doThrow(IllegalArgumentException.class).when(featureQuery)
+        // .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            ActionListener<SinglePointFeatures> listener = (ActionListener<SinglePointFeatures>) args[3];
+            listener.onFailure(new IllegalArgumentException());
+            return null;
+        }).when(featureQuery).getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
+        when(detector.getEnabledFeatureIds()).thenReturn(Collections.emptyList());
+
+        AnomalyResultTransportAction action = new AnomalyResultTransportAction(
+            new ActionFilters(Collections.emptySet()),
+            transportService,
+            settings,
+            stateManager,
+            runner,
+            featureQuery,
+            normalModelManager,
+            hashRing,
+            clusterService,
+            indexNameResolver,
+            adCircuitBreakerService,
+            adStats
+        );
+
+        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+        action.doExecute(null, request, listener);
+
+        assertException(listener, EndRunException.class, AnomalyResultTransportAction.ALL_FEATURES_DISABLED_ERR_MSG);
     }
 }

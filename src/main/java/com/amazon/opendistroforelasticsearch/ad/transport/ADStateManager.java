@@ -26,7 +26,6 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -92,18 +91,14 @@ public class ADStateManager {
      * @throws InterruptedException when we cannot get anomaly detector object for adID before timeout
      * @throws LimitExceededException when there is no sufficient resource available
      */
-    public int getPartitionNumber(String adID, Optional<AnomalyDetector> detector) throws InterruptedException {
+    public int getPartitionNumber(String adID, AnomalyDetector detector) throws InterruptedException {
         Entry<Integer, Instant> partitonAndTime = partitionNumber.get(adID);
         if (partitonAndTime != null) {
             partitonAndTime.setValue(clock.instant());
             return partitonAndTime.getKey();
         }
 
-        if (!detector.isPresent()) {
-            throw new AnomalyDetectionException(adID, "AnomalyDetector is not found");
-        }
-
-        int partitionNum = modelManager.getPartitionedForestSizes(adID, detector.get().getEnabledFeatureIds().size()).getKey();
+        int partitionNum = modelManager.getPartitionedForestSizes(detector).getKey();
         partitionNumber.putIfAbsent(adID, new SimpleEntry<>(partitionNum, clock.instant()));
         return partitionNum;
     }

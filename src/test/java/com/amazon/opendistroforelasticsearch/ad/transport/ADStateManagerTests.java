@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
@@ -29,7 +28,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map.Entry;
@@ -84,7 +82,7 @@ public class ADStateManagerTests extends ESTestCase {
     public void setUp() throws Exception {
         super.setUp();
         modelManager = mock(ModelManager.class);
-        when(modelManager.getPartitionedForestSizes(any(String.class), anyInt())).thenReturn(new SimpleImmutableEntry<>(2, 20));
+        when(modelManager.getPartitionedForestSizes(any(AnomalyDetector.class))).thenReturn(new SimpleImmutableEntry<>(2, 20));
         client = mock(Client.class);
         clientUtil = mock(ClientUtil.class);
         settings = Settings
@@ -157,7 +155,7 @@ public class ADStateManagerTests extends ESTestCase {
     public void testGetPartitionNumber() throws IOException, InterruptedException {
         String detectorId = setupDetector(true);
         int partitionNumber = stateManager
-            .getPartitionNumber(detectorId, Optional.of(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null)));
+            .getPartitionNumber(detectorId, TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null));
         assertEquals(2, partitionNumber);
     }
 

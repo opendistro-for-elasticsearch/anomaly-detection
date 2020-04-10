@@ -82,6 +82,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         + " models are not ready or all nodes are unresponsive or the system might have bugs.";
     static final String WAIT_FOR_THRESHOLD_ERR_MSG = "Exception in waiting for threshold result";
     static final String NODE_UNRESPONSIVE_ERR_MSG = "Model node is unresponsive.  Mute model";
+    static final String ALL_FEATURES_DISABLED_ERR_MSG = "Having trouble querying data because all of your features have been disabled.";
     static final String READ_WRITE_BLOCKED = "Cannot read/write due to global block.";
     static final String INDEX_READ_BLOCKED = "Cannot read user index due to read block.";
     static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
@@ -174,19 +175,19 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *   + training data for cold start not available
      *   + cold start cannot succeed
      *   + unknown prediction error
-     *   + anomaly detector is not available
-     *   + Having trouble querying feature data due to
-     *    * all features have been disabled
-     *    * index does not exist
      *
      *  Known cause of EndRunException with endNow returning true:
      *   + a model's memory size reached limit
      *   + models' total memory size reached limit
+     *   + Having trouble querying feature data due to
+     *    * index does not exist
+     *    * all features have been disabled
+     *   + anomaly detector is not available
+    
      *
      *  Known cause of InternalFailure:
      *   + threshold model node is not available
      *   + cluster read/write is blocked
-     *   + interrupted while waiting for rcf/threshold model nodes' responses
      *   + cold start hasn't been finished
      *   + fail to get all of rcf model nodes' responses
      *   + fail to get threshold model node's response
@@ -226,19 +227,21 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     ) {
         return ActionListener.wrap(detector -> {
             if (!detector.isPresent()) {
-                listener.onFailure(new EndRunException(adID, "AnomalyDetector is not available.", false));
+                listener.onFailure(new EndRunException(adID, "AnomalyDetector is not available.", true));
                 return;
             }
             AnomalyDetector anomalyDetector = detector.get();
 
             String thresholdModelID = modelManager.getThresholdModelId(adID);
-            Optional<DiscoveryNode> thresholdNode = hashRing.getOwningNode(thresholdModelID);
-            if (!thresholdNode.isPresent()) {
+            Optional<DiscoveryNode> asThresholdNode = hashRing.getOwningNode(thresholdModelID);
+            if (!asThresholdNode.isPresent()) {
                 listener.onFailure(new InternalFailure(adID, "Threshold model node is not available."));
                 return;
             }
 
-            if (!shouldStart(listener, adID, detector.get(), thresholdNode.get().getId(), thresholdModelID)) {
+            DiscoveryNode thresholdNode = asThresholdNode.get();
+
+            if (!shouldStart(listener, adID, anomalyDetector, thresholdNode.getId(), thresholdModelID)) {
                 return;
             }
 
@@ -254,7 +257,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     anomalyDetector,
                     dataStartTime,
                     dataEndTime,
-                    onFeatureResponse(adID, detector, listener, thresholdModelID, thresholdNode, dataStartTime, dataEndTime)
+                    onFeatureResponse(adID, anomalyDetector, listener, thresholdModelID, thresholdNode, dataStartTime, dataEndTime)
                 );
         }, exception -> handleExecuteException(exception, listener, adID));
 
@@ -262,10 +265,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
     private ActionListener<SinglePointFeatures> onFeatureResponse(
         String adID,
-        Optional<AnomalyDetector> detector,
+        AnomalyDetector detector,
         ActionListener<AnomalyResultResponse> listener,
         String thresholdModelID,
-        Optional<DiscoveryNode> thresholdNode,
+        DiscoveryNode thresholdNode,
         long dataStartTime,
         long dataEndTime
     ) {
@@ -273,7 +276,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             List<FeatureData> featureInResponse = null;
 
             if (featureOptional.getUnprocessedFeatures().isPresent()) {
-                featureInResponse = getFeatureData(featureOptional.getUnprocessedFeatures().get(), detector.get());
+                featureInResponse = getFeatureData(featureOptional.getUnprocessedFeatures().get(), detector);
             }
 
             if (!featureOptional.getProcessedFeatures().isPresent()) {
@@ -359,14 +362,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     );
             }
         }, exception -> {
-            LOG.warn(exception);
             if (exception instanceof IndexNotFoundException) {
-                listener.onFailure(new EndRunException(adID, "Having trouble querying data: " + exception.getMessage(), false));
-            } else if (exception instanceof IllegalArgumentException) {
-                listener
-                    .onFailure(
-                        new EndRunException(adID, "Having trouble querying data. Maybe all of your features have been disabled.", false)
-                    );
+                listener.onFailure(new EndRunException(adID, "Having trouble querying data: " + exception.getMessage(), true));
+            } else if (exception instanceof IllegalArgumentException && detector.getEnabledFeatureIds().isEmpty()) {
+                listener.onFailure(new EndRunException(adID, ALL_FEATURES_DISABLED_ERR_MSG, true));
             } else {
                 handleExecuteException(exception, listener, adID);
             }
@@ -496,10 +495,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private String modelID;
         private AtomicReference<AnomalyDetectionException> failure;
         private String rcfNodeID;
-        private Optional<AnomalyDetector> detector;
+        private AnomalyDetector detector;
         private ActionListener<AnomalyResultResponse> listener;
         private String thresholdModelID;
-        private Optional<DiscoveryNode> thresholdNode;
+        private DiscoveryNode thresholdNode;
         private List<FeatureData> featureInResponse;
         private int nodeCount;
         private final AtomicInteger responseCount;
@@ -510,10 +509,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             String modelID,
             AtomicReference<AnomalyDetectionException> failure,
             String rcfNodeID,
-            Optional<AnomalyDetector> detector,
+            AnomalyDetector detector,
             ActionListener<AnomalyResultResponse> listener,
             String thresholdModelID,
-            Optional<DiscoveryNode> thresholdNode,
+            DiscoveryNode thresholdNode,
             List<FeatureData> features,
             int nodeCount,
             AtomicInteger responseCount,
@@ -566,7 +565,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         private void handleRCFResults() {
             try {
-                if (coldStartIfNoModel(failure, detector.get()) || rcfResults.isEmpty()) {
+                if (coldStartIfNoModel(failure, detector) || rcfResults.isEmpty()) {
                     listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                     return;
                 }
@@ -576,7 +575,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
                 final AtomicReference<AnomalyResultResponse> anomalyResultResponse = new AtomicReference<>();
 
-                String thresholdNodeId = thresholdNode.get().getId();
+                String thresholdNodeId = thresholdNode.getId();
                 LOG.info("Sending threshold request to {} for model {}", thresholdNodeId, thresholdModelID);
                 ThresholdActionListener thresholdListener = new ThresholdActionListener(
                     anomalyResultResponse,
@@ -590,7 +589,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 );
                 transportService
                     .sendRequest(
-                        thresholdNode.get(),
+                        thresholdNode,
                         ThresholdResultAction.NAME,
                         new ThresholdResultRequest(adID, thresholdModelID, combinedScore),
                         option,
@@ -609,7 +608,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private AtomicReference<AnomalyDetectionException> failure;
         private String thresholdNodeID;
         private ActionListener<AnomalyResultResponse> listener;
-        private Optional<AnomalyDetector> detector;
+        private AnomalyDetector detector;
         private CombinedRcfResult combinedResult;
         private String adID;
 
@@ -618,7 +617,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             List<FeatureData> features,
             String modelID,
             String thresholdNodeID,
-            Optional<AnomalyDetector> detector,
+            AnomalyDetector detector,
             CombinedRcfResult combinedResult,
             ActionListener<AnomalyResultResponse> listener,
             String adID
@@ -660,7 +659,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         private void handleThresholdResult() {
             try {
-                if (coldStartIfNoModel(failure, detector.get())) {
+                if (coldStartIfNoModel(failure, detector)) {
                     listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                     return;
                 }

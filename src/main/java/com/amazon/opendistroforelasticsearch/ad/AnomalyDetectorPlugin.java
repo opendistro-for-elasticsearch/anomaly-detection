@@ -274,7 +274,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             HybridThresholdingModel.class,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.SHINGLE_SIZE
         );
 
         HashRing hashRing = new HashRing(clusterService, clock, settings);

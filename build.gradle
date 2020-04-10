@@ -16,9 +16,9 @@
 buildscript {
     ext {
         es_group = "org.elasticsearch"
-        es_version = '7.4.2'
-        es_distribution = 'oss-zip'
+        es_version = '7.6.1'
     }
+
     repositories {
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
@@ -31,8 +31,9 @@ buildscript {
 }
 
 plugins {
-    id 'nebula.ospackage' version "5.3.0"
+    id 'nebula.ospackage' version "8.2.0" apply false
     id "com.diffplug.gradle.spotless" version "3.26.1"
+    id 'java-library'
 }
 
 repositories {
@@ -42,9 +43,8 @@ repositories {
 }
 
 ext {
-    opendistroVersion = '1.4.0'
+    opendistroVersion = '1.6.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-    job_scheduler_plugin_zip = "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}"
 }
 
 version = "${opendistroVersion}.0"
@@ -135,61 +135,6 @@ def getSeedHosts = { int num ->
     _seed_hosts
 }
 
-tasks.create(name : "runMultiNode", type: org.elasticsearch.gradle.test.RunTask) {
-    daemonize = true
-    numNodes = _numNodes
-    // this has to be false otherwise ClusterFormationTasks.groovy will set discovery.seed_providers to file
-    autoSetHostsProvider = false
-    setting 'http.port', '9200-9300'
-    setting 'transport.port', '9300-9400'
-    setting 'discovery.seed_hosts', getSeedHosts(numNodes)
-    clusterName = 'multi-node-run'
-    plugin project.path
-    distribution = es_distribution
-    // Temporary until job-scheduler is published to Maven
-    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install', job_scheduler_plugin_zip)
-}
-
-tasks.create(name: "startMultiNode") {
-    if (_numNodes == 1) {
-        dependsOn "runMultiNode#start"
-    } else {
-        (0..<_numNodes).each { n -> dependsOn "runMultiNode#node${n}.start" }
-    }
-}
-
-tasks.create(name : "runSingleNode", type: org.elasticsearch.gradle.test.RunTask) {
-    daemonize = true
-    numNodes = 3
-    // this has to be false otherwise ClusterFormationTasks.groovy will set discovery.seed_providers to file
-    autoSetHostsProvider = false
-    // this has to be false otherwise ClusterFormationTasks.groovy will set cluster.initial_master_nodes to all 3 nodes
-    autoSetInitialMasterNodes = false
-    setting 'http.port', '9200-9300'
-    setting 'transport.port', '9300-9400'
-    setting 'discovery.seed_hosts', getSeedHosts(numNodes)
-    setting 'node.master', true
-    setting 'node.data', true
-    setting 'node.ingest', true
-    // since we want to start one node at a time, we have to provide the node we are going to start first
-    setting 'cluster.initial_master_nodes', "[\"node-0\"]" 
-    clusterName = 'multi-node-run'
-    plugin project.path
-    distribution = es_distribution
-}
-
-(0..2).each { i ->
-    tasks.create(name: "startSingleNode$i") {
-        dependsOn "runSingleNode#node${i}.start"
-    }
-}
-
-task stopMultiNode(type: Exec) {
-    commandLine "bash", "-c", "kill -9 \$(ps aux | grep lastic | grep -v grep | grep -v stopMultiNode | awk '{print \$2}')"
-    sleep(1000)
-    dependsOn "clean"
-}
-
 def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
 es_tmp_dir.mkdirs()
 
@@ -198,31 +143,59 @@ test {
     systemProperty 'tests.security.manager', 'false'
 }
 
-integTestRunner {
-    systemProperty 'tests.security.manager', 'false'
-    systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
-    systemProperty 'tests.locale', 'en'
-    // Tell the test JVM if the cluster JVM is running under a debugger so that tests can use longer timeouts for
-    // requests. The 'doFirst' delays reading the debug setting on the cluster till execution time.
-    doFirst { systemProperty 'cluster.debug', integTestCluster.debug }
+integTest {
+    runner {
+        systemProperty 'tests.security.manager', 'false'
+        systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
+        // The 'doFirst' delays till execution time.
+        doFirst {
+            // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
+            // use longer timeouts for requests.
+            def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
+            systemProperty 'cluster.debug', isDebuggingCluster
+            // Set number of nodes system property to be used in tests
+            systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+            // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+            // not being written, the waitForAllConditions ensures it's written
+//            getClusters().forEach { cluster ->
+//                cluster.waitForAllConditions()
+//            }
+        }
 
-    // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
-    if (System.getProperty("test.debug") != null) {
-        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+        // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
+        if (System.getProperty("test.debug") != null) {
+            jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+        }
     }
 }
 
-integTestCluster {
-    distribution = es_distribution
-    // Temporary until job-scheduler is published to Maven
-    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install', job_scheduler_plugin_zip)
+testClusters.integTest {
+    testDistribution = "OSS"
+    // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
+    if (_numNodes > 1) numberOfNodes = _numNodes
+    // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
+    // i.e. we have to use a custom property to flag when we want to debug elasticsearch JVM
+    // since we also support multi node integration tests we increase debugPort per node
+    if (System.getProperty("es.debug") != null) {
+        def debugPort = 5005
+        nodes.forEach { node ->
+            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=*:${debugPort}")
+            debugPort += 1
+        }
+    }
+    plugin(fileTree("src/test/resources/job-scheduler").getSingleFile())
 }
 
-run {
-    distribution = es_distribution
-    // Temporary until job-scheduler is published to Maven
-    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install', job_scheduler_plugin_zip)
-}
+//run {
+//    doFirst {
+//        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+//        // not being written, the waitForAllConditions ensures it's written
+//        getClusters().forEach { cluster ->
+//            cluster.waitForAllConditions()
+//        }
+//    }
+//    plugin(fileTree("src/test/resources/job-scheduler").getSingleFile())
+//}
 
 evaluationDependsOnChildren()
 
@@ -296,8 +269,9 @@ check.dependsOn jacocoTestCoverageVerification
 jacocoTestCoverageVerification.dependsOn jacocoTestReport
 
 dependencies {
+    compile "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.4.0.0"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.6.0.0"
     compile group: 'com.google.guava', name: 'guava', version:'15.0'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     compile group: 'com.google.code.gson', name: 'gson', version: '2.8.5'
@@ -327,28 +301,28 @@ apply plugin: 'nebula.ospackage'
 
 // This is afterEvaluate because the bundlePlugin ZIP task is updated afterEvaluate and changes the ZIP name to match the plugin name
 afterEvaluate {
-    project.tasks.getByName("run#installOpendistroAnomalyDetectorPlugin").dependsOn("run#installPlugin")
-    project.tasks.getByName("run#installPlugin").dependsOn.remove(project.tasks.getByName("run#installOpendistroAnomalyDetectorPlugin"))
-    project.tasks.getByName("run#installPlugin").dependsOn("run#copyPlugins")
-    project.tasks.getByName("run#start").dependsOn.remove(project.tasks.getByName("run#installPlugin"))
-    project.tasks.getByName("run#start").dependsOn("run#installOpendistroAnomalyDetectorPlugin")
-
-    if (_numNodes == 1) {
-        project.tasks.getByName("runMultiNode#installOpendistroAnomalyDetectorPlugin").dependsOn("runMultiNode#installPlugin")
-        project.tasks.getByName("runMultiNode#installPlugin").dependsOn.remove(project.tasks.getByName("runMultiNode#installOpendistroAnomalyDetectorPlugin"))
-        project.tasks.getByName("runMultiNode#installPlugin").dependsOn("runMultiNode#copyPlugins")
-        project.tasks.getByName("runMultiNode#start").dependsOn.remove(project.tasks.getByName("runMultiNode#installPlugin"))
-        project.tasks.getByName("runMultiNode#start").dependsOn("runMultiNode#installOpendistroAnomalyDetectorPlugin")
-    } else {
-        (0..<_numNodes).each {
-            n ->
-                project.tasks.getByName("runMultiNode#node${n}.installOpendistroAnomalyDetectorPlugin").dependsOn("runMultiNode#node${n}.installPlugin")
-                project.tasks.getByName("runMultiNode#node${n}.installPlugin").dependsOn.remove(project.tasks.getByName("runMultiNode#node${n}.installOpendistroAnomalyDetectorPlugin"))
-                project.tasks.getByName("runMultiNode#node${n}.installPlugin").dependsOn("runMultiNode#node${n}.copyPlugins")
-                project.tasks.getByName("runMultiNode#node${n}.start").dependsOn.remove(project.tasks.getByName("runMultiNode#node${n}.installPlugin"))
-                project.tasks.getByName("runMultiNode#node${n}.start").dependsOn("runMultiNode#node${n}.installOpendistroAnomalyDetectorPlugin")
-        }
-    }
+//    project.tasks.getByName("run#installOpendistroAnomalyDetectorPlugin").dependsOn("run#installPlugin")
+//    project.tasks.getByName("run#installPlugin").dependsOn.remove(project.tasks.getByName("run#installOpendistroAnomalyDetectorPlugin"))
+//    project.tasks.getByName("run#installPlugin").dependsOn("run#copyPlugins")
+//    project.tasks.getByName("run#start").dependsOn.remove(project.tasks.getByName("run#installPlugin"))
+//    project.tasks.getByName("run#start").dependsOn("run#installOpendistroAnomalyDetectorPlugin")
+//
+//    if (_numNodes == 1) {
+//        project.tasks.getByName("runMultiNode#installOpendistroAnomalyDetectorPlugin").dependsOn("runMultiNode#installPlugin")
+//        project.tasks.getByName("runMultiNode#installPlugin").dependsOn.remove(project.tasks.getByName("runMultiNode#installOpendistroAnomalyDetectorPlugin"))
+//        project.tasks.getByName("runMultiNode#installPlugin").dependsOn("runMultiNode#copyPlugins")
+//        project.tasks.getByName("runMultiNode#start").dependsOn.remove(project.tasks.getByName("runMultiNode#installPlugin"))
+//        project.tasks.getByName("runMultiNode#start").dependsOn("runMultiNode#installOpendistroAnomalyDetectorPlugin")
+//    } else {
+//        (0..<_numNodes).each {
+//            n ->
+//                project.tasks.getByName("runMultiNode#node${n}.installOpendistroAnomalyDetectorPlugin").dependsOn("runMultiNode#node${n}.installPlugin")
+//                project.tasks.getByName("runMultiNode#node${n}.installPlugin").dependsOn.remove(project.tasks.getByName("runMultiNode#node${n}.installOpendistroAnomalyDetectorPlugin"))
+//                project.tasks.getByName("runMultiNode#node${n}.installPlugin").dependsOn("runMultiNode#node${n}.copyPlugins")
+//                project.tasks.getByName("runMultiNode#node${n}.start").dependsOn.remove(project.tasks.getByName("runMultiNode#node${n}.installPlugin"))
+//                project.tasks.getByName("runMultiNode#node${n}.start").dependsOn("runMultiNode#node${n}.installOpendistroAnomalyDetectorPlugin")
+//        }
+//    }
 
     ospackage {
         packageName = "${name}"

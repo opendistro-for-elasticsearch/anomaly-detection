@@ -609,6 +609,45 @@ public class ModelManagerTests {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    public void trainModel_returnExpectedToListener_putCheckpoints() {
+        double[][] trainData = new Random().doubles().limit(100).mapToObj(d -> new double[] { d }).toArray(double[][]::new);
+        doReturn(new SimpleEntry<>(2, 10)).when(modelManager).getPartitionedForestSizes(anyObject(), anyObject());
+        doAnswer(invocation -> {
+            ActionListener<Void> listener = invocation.getArgument(2);
+            listener.onResponse(null);
+            return null;
+        }).when(checkpointDao).putModelCheckpoint(any(), any(), any(ActionListener.class));
+
+        ActionListener<Void> listener = mock(ActionListener.class);
+        modelManager.trainModel(anomalyDetector, trainData, listener);
+
+        verify(listener).onResponse(eq(null));
+        verify(checkpointDao, times(3)).putModelCheckpoint(any(), any(), any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    @Parameters(method = "trainModelIllegalArgumentData")
+    public void trainModel_throwIllegalArgumentToListener_forInvalidTrainData(double[][] trainData) {
+        ActionListener<Void> listener = mock(ActionListener.class);
+        modelManager.trainModel(anomalyDetector, trainData, listener);
+
+        verify(listener).onFailure(any(IllegalArgumentException.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void trainModel_throwLimitExceededToListener_whenLimitExceed() {
+        doThrow(new LimitExceededException(null, null)).when(modelManager).getPartitionedForestSizes(anyObject(), anyObject());
+
+        ActionListener<Void> listener = mock(ActionListener.class);
+        modelManager.trainModel(anomalyDetector, new double[][] { { 0 } }, listener);
+
+        verify(listener).onFailure(any(LimitExceededException.class));
+    }
+
+    @Test
     public void getRcfModelId_returnNonEmptyString() {
         String rcfModelId = modelManager.getRcfModelId(anomalyDetector.getDetectorId(), 0);
 

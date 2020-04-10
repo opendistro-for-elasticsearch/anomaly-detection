@@ -239,6 +239,31 @@ public class SearchFeatureDaoTests {
         assertFalse(result.isPresent());
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getLatestDataTime_returnExpectedToListener() {
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
+            .aggregation(AggregationBuilders.max(SearchFeatureDao.AGG_NAME_MAX).field(detector.getTimeField()))
+            .size(0);
+        searchRequest.source(searchSourceBuilder);
+        long epochTime = 100L;
+        aggsMap.put(SearchFeatureDao.AGG_NAME_MAX, max);
+        when(max.getValue()).thenReturn((double) epochTime);
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(eq(searchRequest), any(ActionListener.class));
+
+        ActionListener<Optional<Long>> listener = mock(ActionListener.class);
+        searchFeatureDao.getLatestDataTime(detector, listener);
+
+        ArgumentCaptor<Optional<Long>> captor = ArgumentCaptor.forClass(Optional.class);
+        verify(listener).onResponse(captor.capture());
+        Optional<Long> result = captor.getValue();
+        assertEquals(epochTime, result.get().longValue());
+    }
+
     @SuppressWarnings("unchecked")
     private Object[] getFeaturesForPeriodData() {
         String maxName = "max";
@@ -598,6 +623,61 @@ public class SearchFeatureDaoTests {
             assertTrue(Arrays.deepEquals(expected.get().getKey(), result.get().getKey()));
             assertEquals(expected.get().getValue(), result.get().getValue());
         }
+    }
+
+    @Test
+    @Parameters(method = "getFeaturesForSampledPeriodsData")
+    @SuppressWarnings("unchecked")
+    public void getFeaturesForSampledPeriods_returnExpectedToListener(
+        Long[][] queryRanges,
+        double[][] queryResults,
+        long endTime,
+        int maxStride,
+        int maxSamples,
+        Optional<Entry<double[][], Integer>> expected
+    ) {
+        doAnswer(invocation -> {
+            ActionListener<Optional<double[]>> listener = invocation.getArgument(3);
+            listener.onResponse(Optional.empty());
+            return null;
+        }).when(searchFeatureDao).getFeaturesForPeriod(any(), anyLong(), anyLong(), any(ActionListener.class));
+        for (int i = 0; i < queryRanges.length; i++) {
+            double[] queryResult = queryResults[i];
+            doAnswer(invocation -> {
+                ActionListener<Optional<double[]>> listener = invocation.getArgument(3);
+                listener.onResponse(Optional.of(queryResult));
+                return null;
+            })
+                .when(searchFeatureDao)
+                .getFeaturesForPeriod(eq(detector), eq(queryRanges[i][0]), eq(queryRanges[i][1]), any(ActionListener.class));
+        }
+
+        ActionListener<Optional<Entry<double[][], Integer>>> listener = mock(ActionListener.class);
+        searchFeatureDao.getFeaturesForSampledPeriods(detector, maxSamples, maxStride, endTime, listener);
+
+        ArgumentCaptor<Optional<Entry<double[][], Integer>>> captor = ArgumentCaptor.forClass(Optional.class);
+        verify(listener).onResponse(captor.capture());
+        Optional<Entry<double[][], Integer>> result = captor.getValue();
+        assertEquals(expected.isPresent(), result.isPresent());
+        if (expected.isPresent()) {
+            assertTrue(Arrays.deepEquals(expected.get().getKey(), result.get().getKey()));
+            assertEquals(expected.get().getValue(), result.get().getValue());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getFeaturesForSampledPeriods_throwToListener_whenSamplingFail() {
+        doAnswer(invocation -> {
+            ActionListener<Optional<double[]>> listener = invocation.getArgument(3);
+            listener.onFailure(new RuntimeException());
+            return null;
+        }).when(searchFeatureDao).getFeaturesForPeriod(any(), anyLong(), anyLong(), any(ActionListener.class));
+
+        ActionListener<Optional<Entry<double[][], Integer>>> listener = mock(ActionListener.class);
+        searchFeatureDao.getFeaturesForSampledPeriods(detector, 1, 1, 0, listener);
+
+        verify(listener).onFailure(any(Exception.class));
     }
 
     private <K, V> Entry<K, V> pair(K key, V value) {

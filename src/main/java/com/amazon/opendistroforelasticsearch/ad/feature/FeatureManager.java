@@ -257,6 +257,52 @@ public class FeatureManager {
     }
 
     /**
+     * Returns to listener data for cold-start training.
+     *
+     * Training data starts with getting samples from (costly) search.
+     * Samples are increased in size via interpolation and then
+     * in dimension via shingling.
+     *
+     * @param detector contains data info (indices, documents, etc)
+     * @param listener onResponse is called with data for cold-start training, or empty if unavailable
+     */
+    public void getColdStartData(AnomalyDetector detector, ActionListener<Optional<double[][]>> listener) {
+        searchFeatureDao
+            .getLatestDataTime(
+                detector,
+                ActionListener.wrap(latest -> getColdStartSamples(latest, detector, listener), listener::onFailure)
+            );
+    }
+
+    private void getColdStartSamples(Optional<Long> latest, AnomalyDetector detector, ActionListener<Optional<double[][]>> listener) {
+        if (latest.isPresent()) {
+            searchFeatureDao
+                .getFeaturesForSampledPeriods(
+                    detector,
+                    maxTrainSamples,
+                    maxSampleStride,
+                    latest.get(),
+                    ActionListener.wrap(samples -> processColdStartSamples(samples, listener), listener::onFailure)
+                );
+        } else {
+            listener.onResponse(Optional.empty());
+        }
+    }
+
+    private void processColdStartSamples(Optional<Entry<double[][], Integer>> samples, ActionListener<Optional<double[][]>> listener) {
+        listener
+            .onResponse(
+                samples
+                    .map(
+                        results -> transpose(
+                            interpolator.interpolate(transpose(results.getKey()), results.getValue() * (results.getKey().length - 1) + 1)
+                        )
+                    )
+                    .map(points -> batchShingle(points, shingleSize))
+            );
+    }
+
+    /**
      * Shingles a batch of data points by concatenating neighboring data points.
      *
      * @param points M, N where M is the number of data points and N is the dimension of a point

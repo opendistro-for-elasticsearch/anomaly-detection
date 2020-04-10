@@ -89,9 +89,12 @@ public class SearchFeatureDao {
     /**
      * Returns epoch time of the latest data under the detector.
      *
+     * @deprecated use getLatestDataTime with listener instead.
+     *
      * @param detector info about the indices and documents
      * @return epoch time of the latest data in milliseconds
      */
+    @Deprecated
     public Optional<Long> getLatestDataTime(AnomalyDetector detector) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .aggregation(AggregationBuilders.max(AGG_NAME_MAX).field(detector.getTimeField()))
@@ -99,6 +102,30 @@ public class SearchFeatureDao {
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         return clientUtil
             .<SearchRequest, SearchResponse>timedRequest(searchRequest, logger, client::search)
+            .map(SearchResponse::getAggregations)
+            .map(aggs -> aggs.asMap())
+            .map(map -> (Max) map.get(AGG_NAME_MAX))
+            .map(agg -> (long) agg.getValue());
+    }
+
+    /**
+     * Returns to listener the epoch time of the latset data under the detector.
+     *
+     * @param detector info about the data
+     * @param listener onResponse is called with the epoch time of the latset data under the detector
+     */
+    public void getLatestDataTime(AnomalyDetector detector, ActionListener<Optional<Long>> listener) {
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
+            .aggregation(AggregationBuilders.max(AGG_NAME_MAX).field(detector.getTimeField()))
+            .size(0);
+        SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        client
+            .search(searchRequest, ActionListener.wrap(response -> listener.onResponse(getLatestDataTime(response)), listener::onFailure));
+    }
+
+    private Optional<Long> getLatestDataTime(SearchResponse searchResponse) {
+        return Optional
+            .ofNullable(searchResponse)
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap())
             .map(map -> (Max) map.get(AGG_NAME_MAX))
@@ -238,6 +265,8 @@ public class SearchFeatureDao {
     /**
      * Gets features for sampled periods.
      *
+     * @deprecated use getFeaturesForSampledPeriods with listener instead.
+     *
      * Sampling starts with the latest period and goes backwards in time until there are up to {@code maxSamples} samples.
      * If the initial stride {@code maxStride} results into a low count of samples, the implementation
      * may attempt with (exponentially) reduced strides and interpolate missing points.
@@ -248,6 +277,7 @@ public class SearchFeatureDao {
      * @param endTime the end time of the latest period
      * @return sampled features and stride, empty when no data found
      */
+    @Deprecated
     public Optional<Entry<double[][], Integer>> getFeaturesForSampledPeriods(
         AnomalyDetector detector,
         int maxSamples,
@@ -307,6 +337,184 @@ public class SearchFeatureDao {
                 }
             }
         }
+        Optional<double[][]> samples;
+        if (sampledFeatures.isEmpty()) {
+            samples = Optional.empty();
+        } else {
+            samples = Optional.of(sampledFeatures.toArray(new double[0][0]));
+        }
+        return samples;
+    }
+
+    /**
+     * Returns to listener features for sampled periods.
+     *
+     * Sampling starts with the latest period and goes backwards in time until there are up to {@code maxSamples} samples.
+     * If the initial stride {@code maxStride} results into a low count of samples, the implementation
+     * may attempt with (exponentially) reduced strides and interpolate missing points.
+     *
+     * @param detector info about indices, documents, feature query
+     * @param maxSamples the maximum number of samples to return
+     * @param maxStride the maximum number of periods between samples
+     * @param endTime the end time of the latest period
+     * @param listener onResponse is called with sampled features and stride between points, or empty for no data
+     */
+    public void getFeaturesForSampledPeriods(
+        AnomalyDetector detector,
+        int maxSamples,
+        int maxStride,
+        long endTime,
+        ActionListener<Optional<Entry<double[][], Integer>>> listener
+    ) {
+        Map<Long, double[]> cache = new HashMap<>();
+        getFeatureSamplesWithCache(detector, maxSamples, maxStride, endTime, cache, maxStride, listener);
+    }
+
+    private void getFeatureSamplesWithCache(
+        AnomalyDetector detector,
+        int maxSamples,
+        int maxStride,
+        long endTime,
+        Map<Long, double[]> cache,
+        int currentStride,
+        ActionListener<Optional<Entry<double[][], Integer>>> listener
+    ) {
+        getFeatureSamplesForStride(
+            detector,
+            maxSamples,
+            maxStride,
+            currentStride,
+            endTime,
+            cache,
+            ActionListener
+                .wrap(
+                    features -> processFeatureSamplesForStride(
+                        features,
+                        detector,
+                        maxSamples,
+                        maxStride,
+                        currentStride,
+                        endTime,
+                        cache,
+                        listener
+                    ),
+                    listener::onFailure
+                )
+        );
+    }
+
+    private void processFeatureSamplesForStride(
+        Optional<double[][]> features,
+        AnomalyDetector detector,
+        int maxSamples,
+        int maxStride,
+        int currentStride,
+        long endTime,
+        Map<Long, double[]> cache,
+        ActionListener<Optional<Entry<double[][], Integer>>> listener
+    ) {
+        if (!features.isPresent()) {
+            listener.onResponse(Optional.empty());
+        } else if (features.get().length > maxSamples / 2 || currentStride == 1) {
+            listener.onResponse(Optional.of(new SimpleEntry<>(features.get(), currentStride)));
+        } else {
+            getFeatureSamplesWithCache(detector, maxSamples, maxStride, endTime, cache, currentStride / 2, listener);
+        }
+    }
+
+    private void getFeatureSamplesForStride(
+        AnomalyDetector detector,
+        int maxSamples,
+        int maxStride,
+        int currentStride,
+        long endTime,
+        Map<Long, double[]> cache,
+        ActionListener<Optional<double[][]>> listener
+    ) {
+        ArrayDeque<double[]> sampledFeatures = new ArrayDeque<>(maxSamples);
+        boolean isInterpolatable = currentStride < maxStride;
+        long span = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
+        sampleForIteration(detector, cache, maxSamples, endTime, span, currentStride, sampledFeatures, isInterpolatable, 0, listener);
+    }
+
+    private void sampleForIteration(
+        AnomalyDetector detector,
+        Map<Long, double[]> cache,
+        int maxSamples,
+        long endTime,
+        long span,
+        int stride,
+        ArrayDeque<double[]> sampledFeatures,
+        boolean isInterpolatable,
+        int iteration,
+        ActionListener<Optional<double[][]>> listener
+    ) {
+        if (iteration < maxSamples) {
+            long end = endTime - span * stride * iteration;
+            if (cache.containsKey(end)) {
+                sampledFeatures.addFirst(cache.get(end));
+                sampleForIteration(
+                    detector,
+                    cache,
+                    maxSamples,
+                    endTime,
+                    span,
+                    stride,
+                    sampledFeatures,
+                    isInterpolatable,
+                    iteration + 1,
+                    listener
+                );
+            } else {
+                getFeaturesForPeriod(detector, end - span, end, ActionListener.wrap(features -> {
+                    if (features.isPresent()) {
+                        cache.put(end, features.get());
+                        sampledFeatures.addFirst(features.get());
+                        sampleForIteration(
+                            detector,
+                            cache,
+                            maxSamples,
+                            endTime,
+                            span,
+                            stride,
+                            sampledFeatures,
+                            isInterpolatable,
+                            iteration + 1,
+                            listener
+                        );
+                    } else if (isInterpolatable) {
+                        Optional<double[]> previous = Optional.ofNullable(cache.get(end - span * stride));
+                        Optional<double[]> next = Optional.ofNullable(cache.get(end + span * stride));
+                        if (previous.isPresent() && next.isPresent()) {
+                            double[] interpolants = getInterpolants(previous.get(), next.get());
+                            cache.put(end, interpolants);
+                            sampledFeatures.addFirst(interpolants);
+                            sampleForIteration(
+                                detector,
+                                cache,
+                                maxSamples,
+                                endTime,
+                                span,
+                                stride,
+                                sampledFeatures,
+                                isInterpolatable,
+                                iteration + 1,
+                                listener
+                            );
+                        } else {
+                            listener.onResponse(toMatrix(sampledFeatures));
+                        }
+                    } else {
+                        listener.onResponse(toMatrix(sampledFeatures));
+                    }
+                }, listener::onFailure));
+            }
+        } else {
+            listener.onResponse(toMatrix(sampledFeatures));
+        }
+    }
+
+    private Optional<double[][]> toMatrix(ArrayDeque<double[]> sampledFeatures) {
         Optional<double[][]> samples;
         if (sampledFeatures.isEmpty()) {
             samples = Optional.empty();

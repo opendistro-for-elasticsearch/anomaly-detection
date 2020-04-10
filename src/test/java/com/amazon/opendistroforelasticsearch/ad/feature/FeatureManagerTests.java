@@ -41,6 +41,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -261,6 +262,64 @@ public class FeatureManagerTests {
         Optional<double[][]> results = featureManager.getColdStartData(detector);
 
         assertTrue(Arrays.deepEquals(expected, results.orElse(null)));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    @Parameters(method = "getColdStartDataTestData")
+    public void getColdStartData_returnExpectedToListener(
+        Long latestTime,
+        Entry<double[][], Integer> data,
+        int interpolants,
+        double[][] expected
+    ) {
+        doAnswer(invocation -> {
+            ActionListener<Optional<Long>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.ofNullable(latestTime));
+            return null;
+        }).when(searchFeatureDao).getLatestDataTime(eq(detector), any(ActionListener.class));
+        if (latestTime != null) {
+            doAnswer(invocation -> {
+                ActionListener<Optional<Entry<double[][], Integer>>> listener = invocation.getArgument(4);
+                listener.onResponse(ofNullable(data));
+                return null;
+            })
+                .when(searchFeatureDao)
+                .getFeaturesForSampledPeriods(
+                    eq(detector),
+                    eq(maxTrainSamples),
+                    eq(maxSampleStride),
+                    eq(latestTime),
+                    any(ActionListener.class)
+                );
+        }
+        if (data != null) {
+            when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(data.getKey())), eq(interpolants))).thenReturn(data.getKey());
+            doReturn(data.getKey()).when(featureManager).batchShingle(argThat(new ArrayEqMatcher<>(data.getKey())), eq(shingleSize));
+        }
+
+        ActionListener<Optional<double[][]>> listener = mock(ActionListener.class);
+        featureManager.getColdStartData(detector, listener);
+
+        ArgumentCaptor<Optional<double[][]>> captor = ArgumentCaptor.forClass(Optional.class);
+        verify(listener).onResponse(captor.capture());
+        Optional<double[][]> result = captor.getValue();
+        assertTrue(Arrays.deepEquals(expected, result.orElse(null)));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getColdStartData_throwToListener_whenSearchFail() {
+        doAnswer(invocation -> {
+            ActionListener<Optional<Long>> listener = invocation.getArgument(1);
+            listener.onFailure(new RuntimeException());
+            return null;
+        }).when(searchFeatureDao).getLatestDataTime(eq(detector), any(ActionListener.class));
+
+        ActionListener<Optional<double[][]>> listener = mock(ActionListener.class);
+        featureManager.getColdStartData(detector, listener);
+
+        verify(listener).onFailure(any(Exception.class));
     }
 
     private Object[] batchShingleData() {

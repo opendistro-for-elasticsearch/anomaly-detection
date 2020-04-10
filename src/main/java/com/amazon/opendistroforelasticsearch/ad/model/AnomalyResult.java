@@ -47,6 +47,7 @@ public class AnomalyResult implements ToXContentObject {
     private static final String EXECUTION_START_TIME_FIELD = "execution_start_time";
     public static final String EXECUTION_END_TIME_FIELD = "execution_end_time";
     public static final String ERROR_FIELD = "error";
+    public static final String ENTITY_FIELD = "entity";
 
     private final String detectorId;
     private final Double anomalyScore;
@@ -58,6 +59,7 @@ public class AnomalyResult implements ToXContentObject {
     private final Instant executionStartTime;
     private final Instant executionEndTime;
     private final String error;
+    private final String entity;
 
     public AnomalyResult(
         String detectorId,
@@ -81,6 +83,33 @@ public class AnomalyResult implements ToXContentObject {
         this.executionStartTime = executionStartTime;
         this.executionEndTime = executionEndTime;
         this.error = error;
+        this.entity = null;
+    }
+
+    public AnomalyResult(
+        String detectorId,
+        Double anomalyScore,
+        Double anomalyGrade,
+        Double confidence,
+        List<FeatureData> featureData,
+        Instant dataStartTime,
+        Instant dataEndTime,
+        Instant executionStartTime,
+        Instant executionEndTime,
+        String error,
+        String entity
+    ) {
+        this.detectorId = detectorId;
+        this.anomalyScore = anomalyScore;
+        this.anomalyGrade = anomalyGrade;
+        this.confidence = confidence;
+        this.featureData = featureData;
+        this.dataStartTime = dataStartTime;
+        this.dataEndTime = dataEndTime;
+        this.executionStartTime = executionStartTime;
+        this.executionEndTime = executionEndTime;
+        this.error = error;
+        this.entity = entity;
     }
 
     @Override
@@ -114,6 +143,9 @@ public class AnomalyResult implements ToXContentObject {
         if (error != null) {
             xContentBuilder.field(ERROR_FIELD, error);
         }
+        if (entity != null) {
+            xContentBuilder.field(ENTITY_FIELD, entity);
+        }
         return xContentBuilder.endObject();
     }
 
@@ -128,6 +160,7 @@ public class AnomalyResult implements ToXContentObject {
         Instant executionStartTime = null;
         Instant executionEndTime = null;
         String error = null;
+        String entity = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -168,6 +201,9 @@ public class AnomalyResult implements ToXContentObject {
                 case ERROR_FIELD:
                     error = parser.text();
                     break;
+                case ENTITY_FIELD:
+                    entity = parser.text();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -183,7 +219,8 @@ public class AnomalyResult implements ToXContentObject {
             dataEndTime,
             executionStartTime,
             executionEndTime,
-            error
+            error,
+            entity
         );
     }
 

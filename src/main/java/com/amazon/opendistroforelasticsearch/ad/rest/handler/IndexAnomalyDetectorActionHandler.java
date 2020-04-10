@@ -242,7 +242,8 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
             anomalyDetector.getWindowDelay(),
             anomalyDetector.getUiMetadata(),
             anomalyDetector.getSchemaVersion(),
-            Instant.now()
+            Instant.now(),
+            anomalyDetector.getEntityByField()
         );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)

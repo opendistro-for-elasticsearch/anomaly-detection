@@ -69,6 +69,7 @@ public class AnomalyDetector implements ToXContentObject {
     private static final String WINDOW_DELAY_FIELD = "window_delay";
     private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String UI_METADATA_FIELD = "ui_metadata";
+    public static final String ENTITY_BY_FIELD = "entity_by_field";
 
     private final String detectorId;
     private final Long version;
@@ -83,6 +84,7 @@ public class AnomalyDetector implements ToXContentObject {
     private final Map<String, Object> uiMetadata;
     private final Integer schemaVersion;
     private final Instant lastUpdateTime;
+    private final List<String> entityByField;
 
     /**
      * Constructor function.
@@ -114,7 +116,8 @@ public class AnomalyDetector implements ToXContentObject {
         TimeConfiguration windowDelay,
         Map<String, Object> uiMetadata,
         Integer schemaVersion,
-        Instant lastUpdateTime
+        Instant lastUpdateTime,
+        List<String> entityByField
     ) {
         if (Strings.isBlank(name)) {
             throw new IllegalArgumentException("Detector name should be set");
@@ -141,6 +144,7 @@ public class AnomalyDetector implements ToXContentObject {
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
+        this.entityByField = entityByField;
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -158,7 +162,8 @@ public class AnomalyDetector implements ToXContentObject {
             .field(FILTER_QUERY_FIELD, filterQuery)
             .field(DETECTION_INTERVAL_FIELD, detectionInterval)
             .field(WINDOW_DELAY_FIELD, windowDelay)
-            .field(SCHEMA_VERSION_FIELD, schemaVersion);
+            .field(SCHEMA_VERSION_FIELD, schemaVersion)
+            .field(ENTITY_BY_FIELD, this.entityByField);
 
         if (featureAttributes != null) {
             xContentBuilder.field(FEATURE_ATTRIBUTES_FIELD, featureAttributes.toArray());
@@ -234,6 +239,7 @@ public class AnomalyDetector implements ToXContentObject {
         int schemaVersion = 0;
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = Instant.now();
+        List<String> entityByField = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -287,6 +293,9 @@ public class AnomalyDetector implements ToXContentObject {
                 case LAST_UPDATE_TIME_FIELD:
                     lastUpdateTime = ParseUtils.toInstant(parser);
                     break;
+                case ENTITY_BY_FIELD:
+                    entityByField = (List)parser.list();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -305,7 +314,8 @@ public class AnomalyDetector implements ToXContentObject {
             windowDelay,
             uiMetadata,
             schemaVersion,
-            lastUpdateTime
+            lastUpdateTime,
+            entityByField
         );
     }
 
@@ -420,4 +430,7 @@ public class AnomalyDetector implements ToXContentObject {
         return lastUpdateTime;
     }
 
+    public List<String> getEntityByField() {
+        return this.entityByField;
+    }
 }

@@ -76,6 +76,15 @@ import org.elasticsearch.transport.TransportRequestOptions;
 import org.elasticsearch.transport.TransportService;
 import org.elasticsearch.common.settings.Settings;
 
+import java.util.Map;
+import java.util.HashMap;
+import org.elasticsearch.transport.EmptyTransportResponseHandler;
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.transport.EntityResultAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.EntityResultRequest;
+import java.util.stream.Collectors;
+import java.util.Map.Entry;
+
 public class AnomalyResultTransportAction extends HandledTransportAction<ActionRequest, AnomalyResultResponse> {
 
     private static final Logger LOG = LogManager.getLogger(AnomalyResultTransportAction.class);
@@ -207,13 +216,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *
      */
     @Override
-    protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<AnomalyResultResponse> listener) {
+    protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<AnomalyResultResponse> actionListener) {
         AnomalyResultRequest request = AnomalyResultRequest.fromActionRequest(actionRequest);
-        ActionListener<AnomalyResultResponse> original = listener;
-        listener = ActionListener.wrap(original::onResponse, e -> {
+        final ActionListener<AnomalyResultResponse> listener = ActionListener.wrap(actionListener::onResponse, e -> {
             adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-            original.onFailure(e);
+            actionListener.onFailure(e);
         });
+        final ActionListener<AnomalyResultResponse> finalListener = listener;
 
         String adID = request.getAdID();
 
@@ -232,6 +241,18 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
             AnomalyDetector anomalyDetector = detector.get();
 
+            List<String> detectorByField = anomalyDetector.getEntityByField();
+            if (detectorByField != null) {
+                featureManager.getFeaturesByEntities(anomalyDetector, request.getStart(), request.getEnd(), ActionListener.wrap(
+                    entityFeatures -> {
+                        entityFeatures.entrySet().stream()
+                            .collect(Collectors.groupingBy(e-> hashRing.getOwningNode(e.getKey()).get(), Collectors.toMap(Entry::getKey, Entry::getValue))).entrySet().stream()
+                            .forEach(nodeEntity -> transportService.sendRequest(nodeEntity.getKey(), EntityResultAction.NAME, new EntityResultRequest(adID, nodeEntity.getValue(), request.getStart(), request.getEnd()), this.option, new EmptyTransportResponseHandler(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)));
+                        listener.onResponse(new AnomalyResultResponse(0, 0, 0, new ArrayList<FeatureData>()));
+                    }, listener::onFailure));
+                return;
+            }
+
             String thresholdModelID = modelManager.getThresholdModelId(adID);
             Optional<DiscoveryNode> thresholdNode = hashRing.getOwningNode(thresholdModelID);
             if (!thresholdNode.isPresent()) {
@@ -249,6 +270,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 .orElse(0L);
             long dataStartTime = request.getStart() - delayMillis;
             long dataEndTime = request.getEnd() - delayMillis;
+
 
             SinglePointFeatures featureOptional = featureManager.getCurrentFeatures(anomalyDetector, dataStartTime, dataEndTime);
 

@@ -52,6 +52,13 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 
+import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
+import java.util.ArrayDeque;
+import java.util.Queue;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.util.Comparator;
+
 /**
  * A facade managing ML operations and models.
  */
@@ -60,10 +67,14 @@ public class ModelManager {
     protected static final String DETECTOR_ID_PATTERN = "(.*)_model_.+";
     protected static final String RCF_MODEL_ID_PATTERN = "%s_model_rcf_%d";
     protected static final String THRESHOLD_MODEL_ID_PATTERN = "%s_model_threshold";
+    protected static final String ENTITY_SAMPLE = "sp";
+    protected static final String ENTITY_RCF = "rcf";
+    protected static final String ENTITY_THRESHOLD = "th";
 
     public enum ModelType {
         RCF("rcf"),
-        THRESHOLD("threshold");
+        THRESHOLD("threshold"),
+        ENTITY("entity");
 
         private String name;
 
@@ -83,6 +94,7 @@ public class ModelManager {
     // states
     private Map<String, ModelState<RandomCutForest>> forests;
     private Map<String, ModelState<ThresholdingModel>> thresholds;
+    private Map<String, ModelState<EntityModel>> entityModels = new ConcurrentHashMap<>();
 
     // configuration
     private final double modelDesiredSizePercentage;
@@ -101,6 +113,13 @@ public class ModelManager {
     private final Duration modelTtl;
     private final Duration checkpointInterval;
 
+    private final int numBufferSize = 2000;
+    private final int numEntityDataPoints = 4;
+    private final int numEntityRcfSample = 256;
+    private final int numEntityRcfTree = 10;
+    private final double maxEntityRank = 0.001;
+    private final int maxEntityModels = 1000;
+
     // dependencies
     private final ClusterService clusterService;
     private final JvmService jvmService;
@@ -108,6 +127,7 @@ public class ModelManager {
     private final CheckpointDao checkpointDao;
     private final Gson gson;
     private final Clock clock;
+    public FeatureManager featureManager;
 
     // A tree of N samples has 2N nodes, with one bounding box for each node.
     private static final long BOUNDING_BOXES = 2L;
@@ -743,4 +763,135 @@ public class ModelManager {
             return Math.max(0, confidence); // Replaces -0 wth 0 for cosmetic purpose.
         }
     }
+
+    private String toCheckpoint(EntityModel model) {
+        return AccessController.doPrivileged((PrivilegedAction<String>) () -> {
+            JsonObject json = new JsonObject();
+            json.add(ENTITY_SAMPLE, gson.toJsonTree(model.getSamples()));
+            if (model.getRcf() != null) {
+                json.addProperty(ENTITY_RCF, rcfSerde.toJson(model.getRcf()));
+            }
+            if (model.getThreshold() != null) {
+                json.addProperty(ENTITY_THRESHOLD, gson.toJson(model.getThreshold()));
+            }
+            return gson.toJson(json);
+        });
+    }
+
+    private EntityModel fromEntityModelCheckpoint(String checkpoint, String modelId) {
+        try {
+        return AccessController.doPrivileged((PrivilegedAction<EntityModel>) () -> {
+            JsonObject json = new JsonParser().parse(checkpoint).getAsJsonObject();
+            ArrayDeque<double[]> samples = new ArrayDeque<>(Arrays.asList(this.gson.fromJson(json.getAsJsonArray(ENTITY_SAMPLE), new double[0][0].getClass())));
+            RandomCutForest rcf = null;
+            if (json.has(ENTITY_RCF)) {
+                rcf = rcfSerde.fromJson(json.getAsJsonPrimitive(ENTITY_RCF).getAsString());
+            }
+            ThresholdingModel threshold = null;
+            if (json.has(ENTITY_THRESHOLD)) {
+                threshold = this.gson.fromJson(json.getAsJsonPrimitive(ENTITY_THRESHOLD).getAsString(), thresholdingModelClass);
+            }
+            return new EntityModel(modelId, samples, rcf, threshold);
+        });
+        } catch(RuntimeException e) {
+            logger.warn("from", e);
+            throw e;
+        }
+    }
+
+    private void processEntityCheckpoint(Optional<String> checkpoint, String detectorId, String modelId, double[] datapoint) {
+        EntityModel model = null;
+        if (checkpoint.isPresent()) {
+            model = fromEntityModelCheckpoint(checkpoint.get(), modelId);
+        } else {
+            model = new EntityModel(
+                modelId,
+                new ArrayDeque<>(),
+                null, null);
+
+            model.getSamples().add(datapoint);
+
+            checkpointDao.putModelCheckpoint(modelId, toCheckpoint(model), ActionListener.wrap(v->{}, e->{}));
+        }
+
+        entityModels.put(modelId, new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock.instant()));
+    }
+
+    public ThresholdingResult getAnomalyResultForEntity(String detectorId, String modelId, double[] datapoint) {
+        ThresholdingResult result = null;
+        ModelState<EntityModel> modelState = entityModels.get(modelId);
+        if (modelState != null) {
+            EntityModel model = modelState.getModel();
+            Queue<double[]> samples = model.getSamples();
+            samples.add(datapoint);
+            if (samples.size() > this.numBufferSize) {
+                samples.remove();
+            }
+
+            if (samples.size() < this.numBufferSize) {
+                result = new ThresholdingResult(0, 0);
+            } else {
+                RandomCutForest rcf = model.getRcf();
+                ThresholdingModel threshold = model.getThreshold();
+                if (rcf == null || threshold == null) {
+                    rcf = RandomCutForest
+                        .builder()
+                        .randomSeed(0L)
+                        .dimensions(this.numEntityDataPoints * datapoint.length)
+                        .sampleSize(this.numEntityRcfSample)
+                        .numberOfTrees(this.numEntityRcfTree)
+                        .lambda(this.rcfTimeDecay)
+                        .outputAfter(this.numEntityRcfSample)
+                        .parallelExecutionEnabled(false)
+                        .build();
+                    model.setRcf(rcf);
+                    threshold = new HybridThresholdingModel(
+                        0.999,
+                        this.maxEntityRank,
+                        this.thresholdMaxScore,
+                        this.thresholdNumLogNormalQuantiles,
+                        this.thresholdDownsamples,
+                        this.thresholdMaxSamples);
+                    model.setThreshold(threshold);
+                    double[][] trainData = this.featureManager.batchShingle(samples.toArray(new double[0][0]), this.numEntityDataPoints);
+                    final RandomCutForest frcf = rcf;
+                    Arrays.stream(trainData).forEach(p -> frcf.update(p));
+                    double[] scores = Arrays.stream(trainData).mapToDouble(p -> frcf.getAnomalyScore(p)).toArray();
+                    threshold.train(scores);
+                }
+                double[][] sampleArray = samples.toArray(new double[0][0]);
+                double[] feature = this.featureManager.batchShingle(Arrays.copyOfRange(sampleArray, sampleArray.length - this.numEntityDataPoints, sampleArray.length), this.numEntityDataPoints)[0];
+                double rcfScore = rcf.getAnomalyScore(feature);
+                double anomalyGrade = threshold.grade(rcfScore);
+                double anomalyConfidence = computeRcfConfidence(rcf) * threshold.confidence();
+                result = new ThresholdingResult(anomalyGrade, anomalyConfidence);
+
+                rcf.update(feature);
+                threshold.update(rcfScore);
+            }
+            modelState.setLastUsedTime(clock.instant());
+        } else {
+            result = new ThresholdingResult(0, 0); 
+
+            checkpointDao.getModelCheckpoint(
+                modelId,
+                ActionListener.wrap(
+                    checkpoint -> processEntityCheckpoint(checkpoint, detectorId, modelId, datapoint),
+                    e -> {processEntityCheckpoint(Optional.empty(), detectorId, modelId, datapoint);}
+                )
+            );
+        }
+
+        if (entityModels.size() > maxEntityModels) {
+            Instant expireTime = entityModels.values().stream().map(ModelState::getLastUsedTime).sorted(Comparator.reverseOrder()).limit(maxEntityModels - 20).min(Comparator.naturalOrder()).orElse(clock.instant());
+
+            entityModels.entrySet().forEach(e -> { if (e.getValue().getLastUsedTime().isBefore(expireTime)) {
+                checkpointDao.putModelCheckpoint(modelId, toCheckpoint(e.getValue().getModel()), ActionListener.wrap(v->{}, x->{}));
+            }});
+            entityModels.entrySet().removeIf(e -> e.getValue().getLastUsedTime().isBefore(expireTime));
+        }
+
+        return result;
+    }
+
 }

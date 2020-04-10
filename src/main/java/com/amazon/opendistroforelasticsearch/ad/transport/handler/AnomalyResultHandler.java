@@ -46,6 +46,8 @@ import java.util.Locale;
 
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
+import org.elasticsearch.common.inject.Inject;
+
 public class AnomalyResultHandler {
     private static final Logger LOG = LogManager.getLogger(AnomalyResultHandler.class);
 
@@ -61,6 +63,7 @@ public class AnomalyResultHandler {
     private final ThreadPool threadPool;
     private final BackoffPolicy resultSavingBackoffPolicy;
 
+    @Inject
     public AnomalyResultHandler(
         Client client,
         Settings settings,

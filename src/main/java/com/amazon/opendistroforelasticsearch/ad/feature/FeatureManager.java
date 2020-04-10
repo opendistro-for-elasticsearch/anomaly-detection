@@ -490,4 +490,8 @@ public class FeatureManager {
     private long truncateToMinute(long epochMillis) {
         return Instant.ofEpochMilli(epochMillis).truncatedTo(ChronoUnit.MINUTES).toEpochMilli();
     }
+
+    public void getFeaturesByEntities(AnomalyDetector detector, long startMilli, long endMilli, ActionListener<Map<String, double[]>> listener) {
+        searchFeatureDao.getFeaturesByEntities(detector, startMilli, endMilli, listener);
+    }
 }

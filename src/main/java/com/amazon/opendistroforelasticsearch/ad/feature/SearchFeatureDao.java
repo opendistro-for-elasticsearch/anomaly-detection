@@ -56,12 +56,28 @@ import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 
 import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
 
+import org.elasticsearch.index.query.RangeQueryBuilder;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import com.amazon.opendistroforelasticsearch.ad.model.Feature;
+import org.elasticsearch.search.aggregations.AggregatorFactories;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
+import org.elasticsearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregation;
+import static java.util.Arrays.asList;
+
 /**
  * DAO for features from search.
  */
 public class SearchFeatureDao {
 
     protected static final String AGG_NAME_MAX = "max_timefield";
+    protected static final String AGG_NAME_TERM = "term_agg";
+    protected static final String AGG_NAME_COMP = "comp_agg";
 
     private static final Logger logger = LogManager.getLogger(SearchFeatureDao.class);
 
@@ -273,6 +289,72 @@ public class SearchFeatureDao {
         }
     }
 
+    public void getFeaturesByEntities(AnomalyDetector detector, long startMilli, long endMilli, ActionListener<Map<String, double[]>> listener) {
+        try {
+            RangeQueryBuilder rangeQuery = new RangeQueryBuilder(detector.getTimeField())
+                .from(startMilli).to(endMilli).format("epoch_millis");
+            BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(detector.getFilterQuery());
+
+            //CompositeAggregationBuilder composite = AggregationBuilders.composite(AGG_NAME_COMP, asList(new TermsValuesSourceBuilder(AGG_NAME_TERM).field(detector.getEntityByField()))).size(10000);
+            CompositeAggregationBuilder composite = AggregationBuilders.composite(AGG_NAME_COMP, detector.getEntityByField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())).size(10000);
+            for (Feature feature : detector.getFeatureAttributes()) {
+                AggregatorFactories.Builder internalAgg = ParseUtils.parseAggregators(
+                    feature.getAggregation().toString(),
+                    xContent,
+                    feature.getId()
+                );
+                composite.subAggregation(internalAgg.getAggregatorFactories().iterator().next());
+            }
+
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(internalFilterQuery).size(0).aggregation(composite);
+            SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
+            client.search(searchRequest, ActionListener.wrap(response -> {
+                Aggregations aggs = response.getAggregations();
+                if (aggs == null) {
+                    listener.onResponse(Collections.emptyMap());
+                    return;
+                }
+
+                Map<String, double[]> results = aggs.<CompositeAggregation>get(AGG_NAME_COMP).getBuckets().stream()
+                    .collect(Collectors.toMap(CompositeAggregation.Bucket::getKeyAsString, bucket -> parseBucket(bucket, detector.getEnabledFeatureIds()).get()));
+                listener.onResponse(results);
+                return;
+            }, listener::onFailure));
+
+            /* Terms aggregation implementation.
+            TermsAggregationBuilder termsAgg = AggregationBuilders.terms(AGG_NAME_TERM).field(detector.getEntityByField());
+            for (Feature feature : detector.getFeatureAttributes()) {
+                AggregatorFactories.Builder internalAgg = ParseUtils.parseAggregators(
+                    feature.getAggregation().toString(),
+                    xContent,
+                    feature.getId()
+                );
+                termsAgg.subAggregation(internalAgg.getAggregatorFactories().iterator().next());
+            }
+
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(internalFilterQuery).size(0).aggregation(termsAgg);
+            SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
+            client.search(searchRequest, ActionListener.wrap(response -> {
+                Aggregations aggs = response.getAggregations();
+                if (aggs == null) {
+                    listener.onResponse(Collections.emptyMap());
+                    return;
+                }
+
+                Map<String, double[]> results = aggs.asList()
+                        .stream()
+                        .filter(agg -> AGG_NAME_TERM.equals(agg.getName()))
+                        .flatMap(agg -> ((Terms) agg).getBuckets().stream())
+                        .collect(Collectors.toMap(Terms.Bucket::getKeyAsString, bucket -> parseBucket(bucket, detector.getEnabledFeatureIds()).get()));
+
+                listener.onResponse(results);
+                }, listener::onFailure));
+            */
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private Optional<double[][]> getFeaturesForSampledPeriods(
         AnomalyDetector detector,
         int maxSamples,
@@ -349,7 +431,7 @@ public class SearchFeatureDao {
         }
     }
 
-    private Optional<double[]> parseBucket(InternalDateRange.Bucket bucket, List<String> featureIds) {
+    private Optional<double[]> parseBucket(MultiBucketsAggregation.Bucket bucket, List<String> featureIds) {
         return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds);
     }
 

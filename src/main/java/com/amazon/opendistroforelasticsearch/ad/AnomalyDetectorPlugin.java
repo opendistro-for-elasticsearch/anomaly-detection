@@ -126,6 +126,9 @@ import java.util.function.Supplier;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_THEAD_POOL_QUEUE_SIZE;
 
+import com.amazon.opendistroforelasticsearch.ad.transport.EntityResultAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.EntityResultTransportAction;
+
 /**
  * Entry point of AD plugin.
  */
@@ -299,6 +302,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
         );
+        modelManager.featureManager = featureManager;
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
 
         DeleteDetector deleteUtil = new DeleteDetector(clusterService, clock);
@@ -408,6 +412,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays
             .asList(
+                new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class),
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
                 new ActionHandler<>(DeleteDetectorAction.INSTANCE, DeleteDetectorTransportAction.class),
                 new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),

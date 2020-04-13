@@ -88,10 +88,9 @@ public class ADStateManager {
      * @param adID detector id
      * @param detector object
      * @return the number of RCF model's partition number for adID
-     * @throws InterruptedException when we cannot get anomaly detector object for adID before timeout
      * @throws LimitExceededException when there is no sufficient resource available
      */
-    public int getPartitionNumber(String adID, AnomalyDetector detector) throws InterruptedException {
+    public int getPartitionNumber(String adID, AnomalyDetector detector) {
         Entry<Integer, Instant> partitonAndTime = partitionNumber.get(adID);
         if (partitonAndTime != null) {
             partitonAndTime.setValue(clock.instant());

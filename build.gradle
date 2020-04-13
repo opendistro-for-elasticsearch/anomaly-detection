@@ -44,7 +44,11 @@ repositories {
 ext {
     opendistroVersion = '1.4.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-    job_scheduler_plugin_zip = "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}"
+    if (System.properties['os.name'].toLowerCase().contains('windows')) {
+        job_scheduler_plugin_zip = "file:///${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}"
+    } else {
+        job_scheduler_plugin_zip = "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}"
+    }
 }
 
 version = "${opendistroVersion}.0"

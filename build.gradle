@@ -55,6 +55,9 @@ apply plugin: 'elasticsearch.esplugin'
 apply plugin: 'base'
 apply plugin: 'jacoco'
 
+def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
+def usingMultiNode = project.properties.containsKey('numNodes')
+
 allprojects {
     group = 'com.amazon.opendistroforelasticsearch'
 
@@ -116,25 +119,6 @@ thirdPartyAudit.enabled = false
 // See package README.md for details on using these tasks.
 def _numNodes = findProperty('numNodes') as Integer ?: 1
 
-def getSeedHosts = { int num ->
-    def _localhost = "127.0.0.1:"
-    def _startPort = 9300
-
-    def _seed_hosts = new StringBuilder()
-    _seed_hosts.append("[")
-
-    (0..< num).each { i ->
-        if (i>0) {
-            _seed_hosts.append(", ")
-        }
-        def _host = "\"" +  _localhost + (_startPort + i) + "\""
-        _seed_hosts.append(_host)
-    }
-
-    _seed_hosts.append("]")
-    _seed_hosts
-}
-
 def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
 es_tmp_dir.mkdirs()
 
@@ -157,9 +141,9 @@ integTest {
             systemProperty 'cluster.number_of_nodes', "${_numNodes}"
             // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
             // not being written, the waitForAllConditions ensures it's written
-//            getClusters().forEach { cluster ->
-//                cluster.waitForAllConditions()
-//            }
+            getClusters().forEach { cluster ->
+                cluster.waitForAllConditions()
+            }
         }
 
         // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
@@ -185,17 +169,6 @@ testClusters.integTest {
     }
     plugin(fileTree("src/test/resources/job-scheduler").getSingleFile())
 }
-
-//run {
-//    doFirst {
-//        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
-//        // not being written, the waitForAllConditions ensures it's written
-//        getClusters().forEach { cluster ->
-//            cluster.waitForAllConditions()
-//        }
-//    }
-//    plugin(fileTree("src/test/resources/job-scheduler").getSingleFile())
-//}
 
 evaluationDependsOnChildren()
 
@@ -301,29 +274,6 @@ apply plugin: 'nebula.ospackage'
 
 // This is afterEvaluate because the bundlePlugin ZIP task is updated afterEvaluate and changes the ZIP name to match the plugin name
 afterEvaluate {
-//    project.tasks.getByName("run#installOpendistroAnomalyDetectorPlugin").dependsOn("run#installPlugin")
-//    project.tasks.getByName("run#installPlugin").dependsOn.remove(project.tasks.getByName("run#installOpendistroAnomalyDetectorPlugin"))
-//    project.tasks.getByName("run#installPlugin").dependsOn("run#copyPlugins")
-//    project.tasks.getByName("run#start").dependsOn.remove(project.tasks.getByName("run#installPlugin"))
-//    project.tasks.getByName("run#start").dependsOn("run#installOpendistroAnomalyDetectorPlugin")
-//
-//    if (_numNodes == 1) {
-//        project.tasks.getByName("runMultiNode#installOpendistroAnomalyDetectorPlugin").dependsOn("runMultiNode#installPlugin")
-//        project.tasks.getByName("runMultiNode#installPlugin").dependsOn.remove(project.tasks.getByName("runMultiNode#installOpendistroAnomalyDetectorPlugin"))
-//        project.tasks.getByName("runMultiNode#installPlugin").dependsOn("runMultiNode#copyPlugins")
-//        project.tasks.getByName("runMultiNode#start").dependsOn.remove(project.tasks.getByName("runMultiNode#installPlugin"))
-//        project.tasks.getByName("runMultiNode#start").dependsOn("runMultiNode#installOpendistroAnomalyDetectorPlugin")
-//    } else {
-//        (0..<_numNodes).each {
-//            n ->
-//                project.tasks.getByName("runMultiNode#node${n}.installOpendistroAnomalyDetectorPlugin").dependsOn("runMultiNode#node${n}.installPlugin")
-//                project.tasks.getByName("runMultiNode#node${n}.installPlugin").dependsOn.remove(project.tasks.getByName("runMultiNode#node${n}.installOpendistroAnomalyDetectorPlugin"))
-//                project.tasks.getByName("runMultiNode#node${n}.installPlugin").dependsOn("runMultiNode#node${n}.copyPlugins")
-//                project.tasks.getByName("runMultiNode#node${n}.start").dependsOn.remove(project.tasks.getByName("runMultiNode#node${n}.installPlugin"))
-//                project.tasks.getByName("runMultiNode#node${n}.start").dependsOn("runMultiNode#node${n}.installOpendistroAnomalyDetectorPlugin")
-//        }
-//    }
-
     ospackage {
         packageName = "${name}"
         release = isSnapshot ? "0.1" : '1'
@@ -368,16 +318,6 @@ afterEvaluate {
 
     task buildPackages(type: GradleBuild) {
         tasks = ['build', 'buildRpm', 'buildDeb']
-    }
-}
-
-tasks.whenTaskAdded { task ->
-    if (task.name == "integTestCluster#wait") {
-        project.tasks.getByName("integTestCluster#installOpendistroAnomalyDetectorPlugin").dependsOn("integTestCluster#installPlugin")
-        project.tasks.getByName("integTestCluster#installPlugin").dependsOn.remove(project.tasks.getByName("integTestCluster#installOpendistroAnomalyDetectorPlugin"))
-        project.tasks.getByName("integTestCluster#installPlugin").dependsOn("integTestCluster#copyPlugins")
-        project.tasks.getByName("integTestCluster#start").dependsOn.remove(project.tasks.getByName("integTestCluster#installPlugin"))
-        project.tasks.getByName("integTestCluster#start").dependsOn("integTestCluster#installOpendistroAnomalyDetectorPlugin")
     }
 }
 

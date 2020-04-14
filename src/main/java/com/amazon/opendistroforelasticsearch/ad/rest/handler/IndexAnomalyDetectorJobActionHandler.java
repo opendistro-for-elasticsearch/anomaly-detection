@@ -154,6 +154,11 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
             AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
+            if (detector.getFeatureAttributes().size() == 0) {
+                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Can't start detector job as no features configured"));
+                return;
+            }
+
             IntervalTimeConfiguration interval = (IntervalTimeConfiguration) detector.getDetectionInterval();
             Schedule schedule = new IntervalSchedule(Instant.now(), (int) interval.getInterval(), interval.getUnit());
             Duration duration = Duration.of(interval.getInterval(), interval.getUnit());

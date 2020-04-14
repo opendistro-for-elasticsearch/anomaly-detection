@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
@@ -77,15 +78,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testCreateAnomalyDetector() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
         String indexName = detector.getIndices().get(0);
-        TestHelpers
-            .makeRequest(
-                client(),
-                "POST",
-                "/" + indexName + "/_doc/" + randomAlphaOfLength(5) + "?refresh=true",
-                ImmutableMap.of(),
-                toHttpEntity("{\"name\": \"test\"}"),
-                null
-            );
+        TestHelpers.createIndex(client(), indexName, toHttpEntity("{\"name\": \"test\"}"));
 
         Response response = TestHelpers
             .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null);
@@ -689,4 +682,45 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
     }
 
+    public void testStartAdjobWithNullFeatures() throws Exception {
+        AnomalyDetector detectorWithoutFeature = TestHelpers.randomAnomalyDetector(null, null, Instant.now());
+        String indexName = detectorWithoutFeature.getIndices().get(0);
+        TestHelpers.createIndex(client(), indexName, toHttpEntity("{\"name\": \"test\"}"));
+        AnomalyDetector detector = createAnomalyDetector(detectorWithoutFeature, true);
+        TestHelpers
+            .assertFailWith(
+                ResponseException.class,
+                "Can't start detector job as no features configured",
+                () -> TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
+                        ImmutableMap.of(),
+                        "",
+                        null
+                    )
+            );
+    }
+
+    public void testStartAdjobWithEmptyFeatures() throws Exception {
+        AnomalyDetector detectorWithoutFeature = TestHelpers.randomAnomalyDetector(ImmutableList.of(), null, Instant.now());
+        String indexName = detectorWithoutFeature.getIndices().get(0);
+        TestHelpers.createIndex(client(), indexName, toHttpEntity("{\"name\": \"test\"}"));
+        AnomalyDetector detector = createAnomalyDetector(detectorWithoutFeature, true);
+        TestHelpers
+            .assertFailWith(
+                ResponseException.class,
+                "Can't start detector job as no features configured",
+                () -> TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
+                        ImmutableMap.of(),
+                        "",
+                        null
+                    )
+            );
+    }
 }

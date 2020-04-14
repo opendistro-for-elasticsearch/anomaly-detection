@@ -220,7 +220,6 @@ public final class ParseUtils {
                             }
 
                             aggBuilder = parser.namedObject(BaseAggregationBuilder.class, fieldName, aggregationName
-                            // new AggregatorFactories.AggParseContext(aggregationName)
                             );
                     }
                 } else {

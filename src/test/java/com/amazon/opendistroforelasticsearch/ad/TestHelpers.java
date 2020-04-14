@@ -154,6 +154,11 @@ public class TestHelpers {
     }
 
     public static AnomalyDetector randomAnomalyDetector(Map<String, Object> uiMetadata, Instant lastUpdateTime) throws IOException {
+        return randomAnomalyDetector(ImmutableList.of(randomFeature()), uiMetadata, lastUpdateTime);
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(List<Feature> features, Map<String, Object> uiMetadata, Instant lastUpdateTime)
+        throws IOException {
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -161,7 +166,7 @@ public class TestHelpers {
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
             ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
-            ImmutableList.of(randomFeature()),
+            features,
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
@@ -388,5 +393,17 @@ public class TestHelpers {
         ThreadPool pool = mock(ThreadPool.class);
         when(pool.getThreadContext()).thenReturn(createThreadContext());
         return pool;
+    }
+
+    public static void createIndex(RestClient client, String indexName, HttpEntity data) throws IOException {
+        TestHelpers
+            .makeRequest(
+                client,
+                "POST",
+                "/" + indexName + "/_doc/" + randomAlphaOfLength(5) + "?refresh=true",
+                ImmutableMap.of(),
+                data,
+                null
+            );
     }
 }

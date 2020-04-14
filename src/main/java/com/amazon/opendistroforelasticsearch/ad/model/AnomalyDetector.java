@@ -155,11 +155,14 @@ public class AnomalyDetector implements ToXContentObject {
             .field(DESCRIPTION_FIELD, description)
             .field(TIMEFIELD_FIELD, timeField)
             .field(INDICES_FIELD, indices.toArray())
-            .field(FEATURE_ATTRIBUTES_FIELD, featureAttributes.toArray())
             .field(FILTER_QUERY_FIELD, filterQuery)
             .field(DETECTION_INTERVAL_FIELD, detectionInterval)
             .field(WINDOW_DELAY_FIELD, windowDelay)
             .field(SCHEMA_VERSION_FIELD, schemaVersion);
+
+        if (featureAttributes != null) {
+            xContentBuilder.field(FEATURE_ATTRIBUTES_FIELD, featureAttributes.toArray());
+        }
 
         if (uiMetadata != null && !uiMetadata.isEmpty()) {
             xContentBuilder.field(UI_METADATA_FIELD, uiMetadata);
@@ -230,7 +233,7 @@ public class AnomalyDetector implements ToXContentObject {
         List<Feature> features = new ArrayList<>();
         int schemaVersion = 0;
         Map<String, Object> uiMetadata = null;
-        Instant lastUpdateTime = Instant.now();
+        Instant lastUpdateTime = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {

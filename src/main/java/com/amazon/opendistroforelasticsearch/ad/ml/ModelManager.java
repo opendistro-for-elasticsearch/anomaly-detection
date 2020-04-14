@@ -599,6 +599,116 @@ public class ModelManager {
     }
 
     /**
+    * Trains and saves cold-start AD models.
+    *
+    * This implementations splits RCF models and trains them all.
+    * As all model partitions have the same size, the scores from RCF models are merged by averaging.
+    * Since RCF outputs 0 until it is ready, initial 0 scores are meaningless and therefore filtered out.
+    * Filtered (non-zero) RCF scores are the training data for a single thresholding model.
+    * All trained models are serialized and persisted to be hosted.
+    *
+    * @param anomalyDetector the detector for which models are trained
+    * @param dataPoints M, N shape, where M is the number of samples for training and N is the number of features
+    * @param listener onResponse is called with null when this operation is completed
+    *                 onFailure is called IllegalArgumentException when training data is invalid
+    *                 onFailure is called LimitExceededException when a limit for training is exceeded
+    */
+    public void trainModel(AnomalyDetector anomalyDetector, double[][] dataPoints, ActionListener<Void> listener) {
+        if (dataPoints.length == 0 || dataPoints[0].length == 0) {
+            listener.onFailure(new IllegalArgumentException("Data points must not be empty."));
+        } else {
+            int rcfNumFeatures = dataPoints[0].length;
+            // creates partitioned RCF models
+            try {
+                Entry<Integer, Integer> partitionResults = getPartitionedForestSizes(
+                    RandomCutForest
+                        .builder()
+                        .dimensions(rcfNumFeatures)
+                        .sampleSize(rcfNumSamplesInTree)
+                        .numberOfTrees(rcfNumTrees)
+                        .outputAfter(rcfNumSamplesInTree)
+                        .parallelExecutionEnabled(false)
+                        .build(),
+                    anomalyDetector.getDetectorId()
+                );
+                int numForests = partitionResults.getKey();
+                int forestSize = partitionResults.getValue();
+                double[] scores = new double[dataPoints.length];
+                Arrays.fill(scores, 0.);
+                trainModelForStep(anomalyDetector, dataPoints, rcfNumFeatures, numForests, forestSize, scores, 0, listener);
+            } catch (LimitExceededException e) {
+                listener.onFailure(e);
+            }
+        }
+    }
+
+    private void trainModelForStep(
+        AnomalyDetector detector,
+        double[][] dataPoints,
+        int rcfNumFeatures,
+        int numForests,
+        int forestSize,
+        final double[] scores,
+        int step,
+        ActionListener<Void> listener
+    ) {
+        if (step < numForests) {
+            RandomCutForest rcf = RandomCutForest
+                .builder()
+                .dimensions(rcfNumFeatures)
+                .sampleSize(rcfNumSamplesInTree)
+                .numberOfTrees(forestSize)
+                .lambda(rcfTimeDecay)
+                .outputAfter(rcfNumSamplesInTree)
+                .parallelExecutionEnabled(false)
+                .build();
+            for (int j = 0; j < dataPoints.length; j++) {
+                scores[j] += rcf.getAnomalyScore(dataPoints[j]);
+                rcf.update(dataPoints[j]);
+            }
+            String modelId = getRcfModelId(detector.getDetectorId(), step);
+            String checkpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> rcfSerde.toJson(rcf));
+            checkpointDao
+                .putModelCheckpoint(
+                    modelId,
+                    checkpoint,
+                    ActionListener
+                        .wrap(
+                            r -> trainModelForStep(
+                                detector,
+                                dataPoints,
+                                rcfNumFeatures,
+                                numForests,
+                                forestSize,
+                                scores,
+                                step + 1,
+                                listener
+                            ),
+                            listener::onFailure
+                        )
+                );
+        } else {
+            double[] rcfScores = DoubleStream.of(scores).filter(score -> score > 0).map(score -> score / numForests).toArray();
+
+            // Train thresholding model
+            ThresholdingModel threshold = new HybridThresholdingModel(
+                thresholdMinPvalue,
+                thresholdMaxRankError,
+                thresholdMaxScore,
+                thresholdNumLogNormalQuantiles,
+                thresholdDownsamples,
+                thresholdMaxSamples
+            );
+            threshold.train(rcfScores);
+
+            // Persist thresholding model
+            String modelId = getThresholdModelId(detector.getDetectorId());
+            String checkpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> gson.toJson(threshold));
+            checkpointDao.putModelCheckpoint(modelId, checkpoint, ActionListener.wrap(r -> listener.onResponse(null), listener::onFailure));
+        }
+    }
+
+    /**
      * Returns the model ID for the RCF model partition.
      *
      * @param detectorId ID of the detector for which the RCF model is trained

@@ -25,6 +25,7 @@ import org.elasticsearch.test.ESTestCase;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
 public class AnomalyDetectorTests extends ESTestCase {
@@ -91,16 +92,6 @@ public class AnomalyDetectorTests extends ESTestCase {
         String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
-    }
-
-    public void testParseAnomalyDetectorWithNullLastUpdateTime() throws IOException {
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);
-        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
-        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), detector.getDetectorId());
-        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
-        assertEquals("Parsing anomaly detector doesn't work", detector.getDetectorId(), parsedDetector.getDetectorId());
-        assertNull(detector.getLastUpdateTime());
-        assertNotNull(parsedDetector.getLastUpdateTime());
     }
 
     public void testNullDetectorName() throws Exception {
@@ -233,5 +224,20 @@ public class AnomalyDetectorTests extends ESTestCase {
                     Instant.now()
                 )
             );
+    }
+
+    public void testNullFeatures() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, null, Instant.now().truncatedTo(ChronoUnit.SECONDS));
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals(0, parsedDetector.getFeatureAttributes().size());
+    }
+
+    public void testEmptyFeatures() throws IOException {
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(ImmutableList.of(), null, Instant.now().truncatedTo(ChronoUnit.SECONDS));
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals(0, parsedDetector.getFeatureAttributes().size());
     }
 }

@@ -143,6 +143,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ThreadPool threadPool;
     private IndexNameExpressionResolver indexNameExpressionResolver;
     private ADStats adStats;
+    private ClientUtil clientUtil;
 
     static {
         SpecialPermission.check();
@@ -174,6 +175,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
         AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
         jobRunner.setClient(client);
+        jobRunner.setClientUtil(clientUtil);
         jobRunner.setThreadPool(threadPool);
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
         jobRunner.setSettings(settings);
@@ -237,7 +239,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         Settings settings = environment.settings();
         Clock clock = Clock.systemUTC();
         Throttler throttler = new Throttler(clock);
-        ClientUtil clientUtil = new ClientUtil(settings, client, throttler, threadPool);
+        this.clientUtil = new ClientUtil(settings, client, throttler, threadPool);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
         anomalyDetectionIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings, clientUtil);
         this.clusterService = clusterService;
@@ -272,7 +274,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             HybridThresholdingModel.class,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.SHINGLE_SIZE
         );
 
         HashRing hashRing = new HashRing(clusterService, clock, settings);

@@ -172,35 +172,27 @@ public class AnomalyResultHandler {
     }
 
     void saveDetectorResult(IndexRequest indexRequest, String context, Iterator<TimeValue> backoff) {
-        client
-            .index(
-                indexRequest,
-                ActionListener
-                    .<IndexResponse>wrap(
-                        response -> LOG.debug(SUCCESS_SAVING_MSG + context),
-                        exception -> {
-                            // Elasticsearch has a thread pool and a queue for write per node. A thread
-                            // pool will have N number of workers ready to handle the requests. When a
-                            // request comes and if a worker is free , this is handled by the worker. Now by
-                            // default the number of workers is equal to the number of cores on that CPU.
-                            // When the workers are full and there are more write requests, the request
-                            // will go to queue. The size of queue is also limited. If by default size is,
-                            // say, 200 and if there happens more parallel requests than this, then those
-                            // requests would be rejected as you can see EsRejectedExecutionException.
-                            // So EsRejectedExecutionException is the way that Elasticsearch tells us that
-                            // it cannot keep up with the current indexing rate.
-                            // When it happens, we should pause indexing a bit before trying again, ideally
-                            // with randomized exponential backoff.
-                            if (!(exception instanceof EsRejectedExecutionException) || !backoff.hasNext()) {
-                                LOG.error(FAIL_TO_SAVE_ERR_MSG + context, exception);
-                            } else {
-                                TimeValue nextDelay = backoff.next();
-                                LOG.warn(RETRY_SAVING_ERR_MSG + context, exception);
-                                threadPool
-                                    .schedule(() -> saveDetectorResult(indexRequest, context, backoff), nextDelay, ThreadPool.Names.SAME);
-                            }
-                        }
-                    )
-            );
+        client.index(indexRequest, ActionListener.<IndexResponse>wrap(response -> LOG.debug(SUCCESS_SAVING_MSG + context), exception -> {
+            // Elasticsearch has a thread pool and a queue for write per node. A thread
+            // pool will have N number of workers ready to handle the requests. When a
+            // request comes and if a worker is free , this is handled by the worker. Now by
+            // default the number of workers is equal to the number of cores on that CPU.
+            // When the workers are full and there are more write requests, the request
+            // will go to queue. The size of queue is also limited. If by default size is,
+            // say, 200 and if there happens more parallel requests than this, then those
+            // requests would be rejected as you can see EsRejectedExecutionException.
+            // So EsRejectedExecutionException is the way that Elasticsearch tells us that
+            // it cannot keep up with the current indexing rate.
+            // When it happens, we should pause indexing a bit before trying again, ideally
+            // with randomized exponential backoff.
+            Throwable cause = ExceptionsHelper.unwrapCause(exception);
+            if (!(cause instanceof EsRejectedExecutionException) || !backoff.hasNext()) {
+                LOG.error(FAIL_TO_SAVE_ERR_MSG + context, cause);
+            } else {
+                TimeValue nextDelay = backoff.next();
+                LOG.warn(RETRY_SAVING_ERR_MSG + context, cause);
+                threadPool.schedule(() -> saveDetectorResult(indexRequest, context, backoff), nextDelay, ThreadPool.Names.SAME);
+            }
+        }));
     }
 }

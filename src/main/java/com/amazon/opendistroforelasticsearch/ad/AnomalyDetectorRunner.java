@@ -58,6 +58,7 @@ public final class AnomalyDetectorRunner {
      * @param startTime detection period start time
      * @param endTime   detection period end time
      * @param listener handle anomaly result
+     * @throws IOException - if a user gives wrong query input when defining a detector
      */
     public void executeDetector(AnomalyDetector detector, Instant startTime, Instant endTime, ActionListener<List<AnomalyResult>> listener)
         throws IOException {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -22,19 +22,18 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.Client;
@@ -43,8 +42,6 @@ import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
-
-import com.amazon.randomcutforest.RandomCutForest;
 
 /**
  * ADStateManager is used by transport layer to manage AnomalyDetector object
@@ -56,7 +53,6 @@ public class ADStateManager {
     private ConcurrentHashMap<String, Entry<AnomalyDetector, Instant>> currentDetectors;
     private ConcurrentHashMap<String, Entry<Integer, Instant>> partitionNumber;
     private Client client;
-    private Random random;
     private ModelManager modelManager;
     private NamedXContentRegistry xContentRegistry;
     private ClientUtil clientUtil;
@@ -77,7 +73,6 @@ public class ADStateManager {
     ) {
         this.currentDetectors = new ConcurrentHashMap<>();
         this.client = client;
-        this.random = new Random();
         this.modelManager = modelManager;
         this.xContentRegistry = xContentRegistry;
         this.partitionNumber = new ConcurrentHashMap<>();
@@ -91,67 +86,58 @@ public class ADStateManager {
     /**
      * Get the number of RCF model's partition number for detector adID
      * @param adID detector id
+     * @param detector object
      * @return the number of RCF model's partition number for adID
-     * @throws InterruptedException when we cannot get anomaly detector object for adID before timeout
      * @throws LimitExceededException when there is no sufficient resource available
      */
-    public int getPartitionNumber(String adID) throws InterruptedException {
+    public int getPartitionNumber(String adID, AnomalyDetector detector) {
         Entry<Integer, Instant> partitonAndTime = partitionNumber.get(adID);
         if (partitonAndTime != null) {
             partitonAndTime.setValue(clock.instant());
             return partitonAndTime.getKey();
         }
 
-        Optional<AnomalyDetector> detector = getAnomalyDetector(adID);
-        if (!detector.isPresent()) {
-            throw new AnomalyDetectionException(adID, "AnomalyDetector is not found");
-        }
-
-        RandomCutForest forest = RandomCutForest
-            .builder()
-            .dimensions(detector.get().getFeatureAttributes().size() * AnomalyDetectorSettings.SHINGLE_SIZE)
-            .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
-            .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
-            .parallelExecutionEnabled(false)
-            .build();
-        int partitionNum = modelManager.getPartitionedForestSizes(forest, adID).getKey();
+        int partitionNum = modelManager.getPartitionedForestSizes(detector).getKey();
         partitionNumber.putIfAbsent(adID, new SimpleEntry<>(partitionNum, clock.instant()));
         return partitionNum;
     }
 
-    public Optional<AnomalyDetector> getAnomalyDetector(String adID) {
+    public void getAnomalyDetector(String adID, ActionListener<Optional<AnomalyDetector>> listener) {
         Entry<AnomalyDetector, Instant> detectorAndTime = currentDetectors.get(adID);
         if (detectorAndTime != null) {
             detectorAndTime.setValue(clock.instant());
-            return Optional.of(detectorAndTime.getKey());
+            listener.onResponse(Optional.of(detectorAndTime.getKey()));
+            return;
         }
 
         GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX, adID);
 
-        Optional<GetResponse> getResponse = clientUtil.<GetRequest, GetResponse>timedRequest(request, LOG, client::get);
-
-        return onGetResponse(getResponse, adID);
+        clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetResponse(adID, listener));
     }
 
-    private Optional<AnomalyDetector> onGetResponse(Optional<GetResponse> asResponse, String adID) {
-        if (!asResponse.isPresent() || !asResponse.get().isExists()) {
-            return Optional.empty();
-        }
+    private ActionListener<GetResponse> onGetResponse(String adID, ActionListener<Optional<AnomalyDetector>> listener) {
+        return ActionListener.wrap(response -> {
+            if (response == null || !response.isExists()) {
+                listener.onResponse(Optional.empty());
+                return;
+            }
 
-        GetResponse response = asResponse.get();
-        String xc = response.getSourceAsString();
-        LOG.debug("Fetched anomaly detector: {}", xc);
+            String xc = response.getSourceAsString();
+            LOG.info("Fetched anomaly detector: {}", xc);
 
-        try (XContentParser parser = XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, xc)) {
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
-            AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId());
-            currentDetectors.put(adID, new SimpleEntry<>(detector, clock.instant()));
-            return Optional.of(detector);
-        } catch (Exception t) {
-            LOG.error("Fail to parse detector {}", adID);
-            LOG.error("Stack trace:", t);
-            return Optional.empty();
-        }
+            try (
+                XContentParser parser = XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, xc)
+            ) {
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId());
+                currentDetectors.put(adID, new SimpleEntry<>(detector, clock.instant()));
+                listener.onResponse(Optional.of(detector));
+            } catch (Exception t) {
+                LOG.error("Fail to parse detector {}", adID);
+                LOG.error("Stack trace:", t);
+                listener.onResponse(Optional.empty());
+            }
+        }, listener::onFailure);
     }
 
     /**

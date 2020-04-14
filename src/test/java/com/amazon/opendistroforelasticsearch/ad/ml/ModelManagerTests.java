@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -135,6 +135,7 @@ public class ModelManagerTests {
     private String rcfModelId;
     private String thresholdModelId;
     private String checkpoint;
+    private int shingleSize;
 
     @Before
     public void setup() {
@@ -156,6 +157,7 @@ public class ModelManagerTests {
         minPreviewSize = 500;
         modelTtl = Duration.ofHours(1);
         checkpointInterval = Duration.ofHours(1);
+        shingleSize = 1;
 
         rcf = RandomCutForest.builder().dimensions(numFeatures).sampleSize(numSamples).numberOfTrees(numTrees).build();
 
@@ -185,7 +187,8 @@ public class ModelManagerTests {
                 thresholdingModelClass,
                 minPreviewSize,
                 modelTtl,
-                checkpointInterval
+                checkpointInterval,
+                shingleSize
             )
         );
 
@@ -591,7 +594,7 @@ public class ModelManagerTests {
     public void trainModel_putTrainedModels() {
         double[][] trainData = new Random().doubles().limit(100).mapToObj(d -> new double[] { d }).toArray(double[][]::new);
         doReturn(new SimpleEntry<>(1, 10)).when(modelManager).getPartitionedForestSizes(anyObject(), anyObject());
-
+        doReturn(asList("feature1")).when(anomalyDetector).getEnabledFeatureIds();
         modelManager.trainModel(anomalyDetector, trainData);
 
         verify(checkpointDao).putModelCheckpoint(eq(modelManager.getRcfModelId(anomalyDetector.getDetectorId(), 0)), anyObject());

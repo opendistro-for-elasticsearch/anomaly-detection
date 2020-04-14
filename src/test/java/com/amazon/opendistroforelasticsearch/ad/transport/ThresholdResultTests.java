@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -31,6 +31,8 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingResult;
+
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.PlainActionFuture;
@@ -50,6 +52,7 @@ import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
 public class ThresholdResultTests extends ESTestCase {
 
+    @SuppressWarnings("unchecked")
     public void testNormal() {
         TransportService transportService = new TransportService(
             Settings.EMPTY,
@@ -63,7 +66,11 @@ public class ThresholdResultTests extends ESTestCase {
 
         ModelManager manager = mock(ModelManager.class);
         ThresholdResultTransportAction action = new ThresholdResultTransportAction(mock(ActionFilters.class), transportService, manager);
-        when(manager.getThresholdingResult(any(String.class), any(String.class), anyDouble())).thenReturn(new ThresholdingResult(0, 1.0d));
+        doAnswer(invocation -> {
+            ActionListener<ThresholdingResult> listener = invocation.getArgument(3);
+            listener.onResponse(new ThresholdingResult(0, 1.0d));
+            return null;
+        }).when(manager).getThresholdingResult(any(String.class), any(String.class), anyDouble(), any(ActionListener.class));
 
         final PlainActionFuture<ThresholdResultResponse> future = new PlainActionFuture<>();
         ThresholdResultRequest request = new ThresholdResultRequest("123", "123-threshold", 2);
@@ -74,6 +81,7 @@ public class ThresholdResultTests extends ESTestCase {
         assertEquals(1, response.getConfidence(), 0.001);
     }
 
+    @SuppressWarnings("unchecked")
     public void testExecutionException() {
         TransportService transportService = new TransportService(
             Settings.EMPTY,
@@ -87,7 +95,9 @@ public class ThresholdResultTests extends ESTestCase {
 
         ModelManager manager = mock(ModelManager.class);
         ThresholdResultTransportAction action = new ThresholdResultTransportAction(mock(ActionFilters.class), transportService, manager);
-        doThrow(NullPointerException.class).when(manager).getThresholdingResult(any(String.class), any(String.class), anyDouble());
+        doThrow(NullPointerException.class)
+            .when(manager)
+            .getThresholdingResult(any(String.class), any(String.class), anyDouble(), any(ActionListener.class));
 
         final PlainActionFuture<ThresholdResultResponse> future = new PlainActionFuture<>();
         ThresholdResultRequest request = new ThresholdResultRequest("123", "123-threshold", 2);

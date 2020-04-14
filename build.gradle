@@ -170,6 +170,16 @@ testClusters.integTest {
     plugin(fileTree("src/test/resources/job-scheduler").getSingleFile())
 }
 
+run {
+    doFirst {
+        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+        // not being written, the waitForAllConditions ensures it's written
+        getClusters().forEach { cluster ->
+            cluster.waitForAllConditions()
+        }
+    }
+}
+
 evaluationDependsOnChildren()
 
 task release(type: Copy, group: 'build') {

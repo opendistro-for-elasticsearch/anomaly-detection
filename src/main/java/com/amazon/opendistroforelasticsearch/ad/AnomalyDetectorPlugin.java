@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestAnomalyDetectorJobAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestExecuteAnomalyDetectorAction;
@@ -141,8 +142,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private Client client;
     private ClusterService clusterService;
     private ThreadPool threadPool;
-    private IndexNameExpressionResolver indexNameExpressionResolver;
     private ADStats adStats;
+    private NamedXContentRegistry xContentRegistry;
     private ClientUtil clientUtil;
 
     static {
@@ -164,7 +165,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         IndexNameExpressionResolver indexNameExpressionResolver,
         Supplier<DiscoveryNodes> nodesInCluster
     ) {
-        this.indexNameExpressionResolver = indexNameExpressionResolver;
         AnomalyResultHandler anomalyResultHandler = new AnomalyResultHandler(
             client,
             settings,
@@ -180,7 +180,12 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
         jobRunner.setSettings(settings);
 
-        RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(restController);
+        AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(client, this.xContentRegistry);
+        RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(
+            restController,
+            profileRunner,
+            ProfileName.getNames()
+        );
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(
             settings,
             restController,
@@ -243,6 +248,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
         anomalyDetectionIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings, clientUtil);
         this.clusterService = clusterService;
+        this.xContentRegistry = xContentRegistry;
 
         SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
             new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
@@ -392,7 +398,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
     @Override
     public List<NamedXContentRegistry.Entry> getNamedXContent() {
-        return ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY, ADMetaData.XCONTENT_REGISTRY);
+        return ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY, ADMetaData.XCONTENT_REGISTRY, AnomalyResult.XCONTENT_REGISTRY);
     }
 
     @Override

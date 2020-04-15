@@ -80,13 +80,18 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
                     return new BytesRestResponse(RestStatus.REQUEST_TIMEOUT, response.toString());
                 }
 
-                for (SearchHit hit : response.getHits()) {
-                    XContentParser parser = XContentType.JSON
-                        .xContent()
-                        .createParser(channel.request().getXContentRegistry(), LoggingDeprecationHandler.INSTANCE, hit.getSourceAsString());
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                if (clazz == AnomalyDetector.class) {
+                    for (SearchHit hit : response.getHits()) {
+                        XContentParser parser = XContentType.JSON
+                            .xContent()
+                            .createParser(
+                                channel.request().getXContentRegistry(),
+                                LoggingDeprecationHandler.INSTANCE,
+                                hit.getSourceAsString()
+                            );
+                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
 
-                    if (clazz == AnomalyDetector.class) {
+                        // write back id and version to anomaly detector object
                         ToXContentObject xContentObject = AnomalyDetector.parse(parser, hit.getId(), hit.getVersion());
                         XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
                         hit.sourceRef(BytesReference.bytes(builder));

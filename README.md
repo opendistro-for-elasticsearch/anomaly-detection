@@ -76,39 +76,12 @@ The **test runner JVM** will start suspended and wait for a debugger to attach t
 
 ### Advanced: Launching multi node clusters locally
 
-Sometimes you need to launch a cluster with more than one ES server process. The `startMultiNode` tasks help with this.
+Sometimes you need to launch a cluster with more than one Elasticsearch server process.
 
-#### All nodes are started and stopped together
+You can do this by running `./gradlew run -PnumNodes=<numberOfNodesYouWant>`
 
-If you need a multi node cluster where all nodes are started together use: 
-
-```
-./gradlew -PnumNodes=2 startMultiNode # to launch 2 nodes
-
-```
-
-If you need a single node cluster use:
-
-```
-./gradlew startMultiNode 
-
-```
-
-#### Nodes join and leave the cluster independently
-
-If you need a multi node cluster (up to 3 nodes) where you'd like to be able to add and kill each node independently use:
-
-```
-./gradlew startSingleNode0
-./gradlew startSingleNode1
-./gradlew startSingleNode2
-```
-
-#### Kill the nodes when you're done!
-
-```
-./gradlew stopMultiNode
-```
+You can also debug a multi-node cluster, by using a combination of above multi-node and debug steps.
+But, you must set up debugger configurations to listen on each port starting from `5005` and increasing by 1 for each node.  
 
 ## Known Issues
 * We have a cold start period whenever we initialize a model, which could happen when we create a new detector or when the cluster restarts and models get restored from snapshots. Currently the detector always return errors during the cold start period. Please ignore these initial errors for now. We are actively working on the fix and will push in the next release.

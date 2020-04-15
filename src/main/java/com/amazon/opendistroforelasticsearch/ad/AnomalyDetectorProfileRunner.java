@@ -64,20 +64,19 @@ public class AnomalyDetectorProfileRunner {
     }
 
     public void profile(String detectorId, ActionListener<DetectorProfile> listener, Set<ProfileName> profiles) {
-        MultiResponsesDelegateActionListener<DetectorProfile> delegateListener = new MultiResponsesDelegateActionListener<DetectorProfile>(
-            listener,
-            profiles.size(),
-            "Fail to fetch profile for " + detectorId
-        );
 
         if (profiles.isEmpty()) {
             listener.onFailure(new RuntimeException("Unsupported profile types."));
             return;
         }
 
-        if (profiles.contains(ProfileName.STATE) || profiles.contains(ProfileName.ERROR)) {
-            prepareProfile(detectorId, delegateListener, profiles);
-        }
+        MultiResponsesDelegateActionListener<DetectorProfile> delegateListener = new MultiResponsesDelegateActionListener<DetectorProfile>(
+            listener,
+            profiles.size(),
+            "Fail to fetch profile for " + detectorId
+        );
+
+        prepareProfile(detectorId, delegateListener, profiles);
     }
 
     private void prepareProfile(
@@ -113,6 +112,7 @@ public class AnomalyDetectorProfileRunner {
             }
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {
+                logger.info(exception.getMessage());
                 GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
                 client.get(getDetectorRequest, onGetDetectorResponse(listener, detectorId, profiles));
             } else {

@@ -59,7 +59,7 @@ public enum ProfileName {
             case "error":
                 return ERROR;
             default:
-                throw new IllegalArgumentException("Unsupported prof");
+                throw new IllegalArgumentException("Unsupported profile types");
         }
     }
 

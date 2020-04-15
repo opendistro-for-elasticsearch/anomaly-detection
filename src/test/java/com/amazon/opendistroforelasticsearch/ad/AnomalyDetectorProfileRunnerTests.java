@@ -60,8 +60,8 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
     private AnomalyDetectorProfileRunner runner;
     private Client client;
     private AnomalyDetector detector;
-    private static Set<String> stateOnly;
-    private static Set<String> stateNError;
+    private static Set<ProfileName> stateOnly;
+    private static Set<ProfileName> stateNError;
     private static String error = "No full shingle in current detection window";
 
     @Override
@@ -74,11 +74,11 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
 
     @BeforeClass
     public static void setUpOnce() {
-        stateOnly = new HashSet<String>();
-        stateOnly.add(ProfileName.STATE.getName());
-        stateNError = new HashSet<String>();
-        stateNError.add(ProfileName.ERROR.getName());
-        stateNError.add(ProfileName.STATE.getName());
+        stateOnly = new HashSet<ProfileName>();
+        stateOnly.add(ProfileName.STATE);
+        stateNError = new HashSet<ProfileName>();
+        stateNError.add(ProfileName.ERROR);
+        stateNError.add(ProfileName.STATE);
     }
 
     @Override

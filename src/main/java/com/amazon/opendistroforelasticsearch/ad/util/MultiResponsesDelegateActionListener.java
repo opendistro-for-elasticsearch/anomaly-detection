@@ -27,21 +27,24 @@ import org.elasticsearch.action.ActionListener;
 
 import com.amazon.opendistroforelasticsearch.ad.model.Mergeable;
 
-public class DelegateActionListener<T extends Mergeable> implements ActionListener<T> {
-    private static final Logger LOG = LogManager.getLogger(DelegateActionListener.class);
+/**
+ * A listener wrapper to help send multiple requests asynchronously and return one final responses together
+ */
+public class MultiResponsesDelegateActionListener<T extends Mergeable> implements ActionListener<T> {
+    private static final Logger LOG = LogManager.getLogger(MultiResponsesDelegateActionListener.class);
     private final ActionListener<T> delegate;
     private final AtomicInteger collectedResponseCount;
     private final int expectedResponseCount;
+    // save responses from multiple requests
     private final List<T> savedResponses;
     private List<String> exceptions;
     private String finalErrorMsg;
 
-    public DelegateActionListener(ActionListener<T> delegate, int expectedResponseCount, String finalErrorMsg) {
+    public MultiResponsesDelegateActionListener(ActionListener<T> delegate, int expectedResponseCount, String finalErrorMsg) {
         this.delegate = delegate;
         this.collectedResponseCount = new AtomicInteger(0);
         this.expectedResponseCount = expectedResponseCount;
         this.savedResponses = Collections.synchronizedList(new ArrayList<T>());
-        ;
         this.exceptions = Collections.synchronizedList(new ArrayList<String>());
         this.finalErrorMsg = finalErrorMsg;
     }
@@ -52,8 +55,10 @@ public class DelegateActionListener<T extends Mergeable> implements ActionListen
             if (response != null) {
                 this.savedResponses.add(response);
             }
+        } catch (Exception e) {
+            onFailure(e);
         } finally {
-            if (collectedResponseCount.incrementAndGet() == expectedResponseCount) {
+            if (collectedResponseCount.incrementAndGet() >= expectedResponseCount) {
                 finish();
             }
         }
@@ -66,7 +71,7 @@ public class DelegateActionListener<T extends Mergeable> implements ActionListen
         try {
             this.exceptions.add(e.getMessage());
         } finally {
-            if (collectedResponseCount.incrementAndGet() == expectedResponseCount) {
+            if (collectedResponseCount.incrementAndGet() >= expectedResponseCount) {
                 finish();
             }
         }
@@ -78,15 +83,13 @@ public class DelegateActionListener<T extends Mergeable> implements ActionListen
                 this.delegate.onFailure(new RuntimeException(String.format("Unexpected exceptions")));
             } else {
                 T response0 = savedResponses.get(0);
-                LOG.info(response0);
                 for (int i = 1; i < savedResponses.size(); i++) {
                     response0.merge(savedResponses.get(i));
-                    LOG.info(response0);
                 }
                 this.delegate.onResponse(response0);
             }
         } else {
-            this.delegate.onFailure(new RuntimeException(String.format(Locale.ROOT, finalErrorMsg, exceptions)));
+            this.delegate.onFailure(new RuntimeException(String.format(Locale.ROOT, finalErrorMsg + " Exceptions: %s", exceptions)));
         }
     }
 
@@ -100,5 +103,9 @@ public class DelegateActionListener<T extends Mergeable> implements ActionListen
 
     public void failImmediately(String errMsg, Exception e) {
         this.delegate.onFailure(new RuntimeException(errMsg, e));
+    }
+
+    public void respondImmediately(T o) {
+        this.delegate.onResponse(o);
     }
 }

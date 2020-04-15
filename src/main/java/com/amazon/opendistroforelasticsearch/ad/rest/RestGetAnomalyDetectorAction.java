@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
+import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.google.common.collect.Sets;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
@@ -67,6 +68,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
     private static final Logger logger = LogManager.getLogger(RestGetAnomalyDetectorAction.class);
     private final AnomalyDetectorProfileRunner profileRunner;
     private final Set<String> allProfileTypeStrs;
+    private final Set<ProfileName> allProfileTypes;
 
     public RestGetAnomalyDetectorAction(
         RestController controller,
@@ -74,7 +76,8 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         Set<String> allProfileTypeStrs
     ) {
         this.profileRunner = profileRunner;
-        this.allProfileTypeStrs = allProfileTypeStrs;
+        this.allProfileTypes = new HashSet<ProfileName>(Arrays.asList(ProfileName.values()));
+        this.allProfileTypeStrs = ProfileName.getNames();
 
         String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
         controller.registerHandler(RestRequest.Method.GET, path, this);
@@ -85,6 +88,8 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
                 String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
                 this
             );
+        // types is a profile names. See a complete list of supported profiles names in
+        // com.amazon.opendistroforelasticsearch.ad.model.ProfileName.
         controller
             .registerHandler(
                 RestRequest.Method.GET,
@@ -191,12 +196,12 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         return new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, errorMsg);
     }
 
-    private Set<String> getProfilesToCollect(String typesStr) {
+    private Set<ProfileName> getProfilesToCollect(String typesStr) {
         if (Strings.isEmpty(typesStr)) {
-            return this.allProfileTypeStrs;
+            return this.allProfileTypes;
         } else {
             Set<String> typesInRequest = new HashSet<>(Arrays.asList(typesStr.split(",")));
-            return Sets.intersection(this.allProfileTypeStrs, typesInRequest);
+            return ProfileName.getNames(Sets.intersection(this.allProfileTypeStrs, typesInRequest));
         }
     }
 }

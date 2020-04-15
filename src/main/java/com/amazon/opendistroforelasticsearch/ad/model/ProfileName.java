@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.model;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -49,5 +50,24 @@ public enum ProfileName {
             names.add(statName.getName());
         }
         return names;
+    }
+
+    public static ProfileName getName(String name) {
+        switch (name) {
+            case "state":
+                return STATE;
+            case "error":
+                return ERROR;
+            default:
+                throw new IllegalArgumentException("Unsupported prof");
+        }
+    }
+
+    public static Set<ProfileName> getNames(Collection<String> names) {
+        Set<ProfileName> res = new HashSet<>();
+        for (String name : names) {
+            res.add(getName(name));
+        }
+        return res;
     }
 }

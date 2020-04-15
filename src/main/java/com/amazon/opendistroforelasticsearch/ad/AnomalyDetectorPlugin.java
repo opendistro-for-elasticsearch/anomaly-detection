@@ -145,7 +145,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ADStats adStats;
     private NamedXContentRegistry xContentRegistry;
     private ClientUtil clientUtil;
-    private NamedXContentRegistry xContentRegistry;
 
     static {
         SpecialPermission.check();

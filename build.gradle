@@ -55,9 +55,6 @@ apply plugin: 'elasticsearch.esplugin'
 apply plugin: 'base'
 apply plugin: 'jacoco'
 
-def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
-def usingMultiNode = project.properties.containsKey('numNodes')
-
 allprojects {
     group = 'com.amazon.opendistroforelasticsearch'
 

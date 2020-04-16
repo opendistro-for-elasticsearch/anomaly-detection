@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -32,9 +32,9 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.InternalFailure
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
 import com.amazon.opendistroforelasticsearch.ad.feature.SinglePointFeatures;
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.RcfResult;
 import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
@@ -45,6 +45,7 @@ import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -54,11 +55,9 @@ import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
 import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.IndicesOptions;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.block.ClusterBlockLevel;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
@@ -69,12 +68,12 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.node.NodeClosedException;
 import org.elasticsearch.tasks.Task;
-import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.ConnectTransportException;
 import org.elasticsearch.transport.ReceiveTimeoutTransportException;
 import org.elasticsearch.transport.TransportRequestOptions;
 import org.elasticsearch.transport.TransportService;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.IndexNotFoundException;
 
 public class AnomalyResultTransportAction extends HandledTransportAction<ActionRequest, AnomalyResultResponse> {
 
@@ -83,6 +82,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         + " models are not ready or all nodes are unresponsive or the system might have bugs.";
     static final String WAIT_FOR_THRESHOLD_ERR_MSG = "Exception in waiting for threshold result";
     static final String NODE_UNRESPONSIVE_ERR_MSG = "Model node is unresponsive.  Mute model";
+    static final String ALL_FEATURES_DISABLED_ERR_MSG = "Having trouble querying data because all of your features have been disabled.";
     static final String READ_WRITE_BLOCKED = "Cannot read/write due to global block.";
     static final String INDEX_READ_BLOCKED = "Cannot read user index due to read block.";
     static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
@@ -94,16 +94,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final TransportService transportService;
     private final ADStateManager stateManager;
     private final ColdStartRunner globalRunner;
-    private final AnomalyDetectionIndices anomalyDetectionIndices;
-    private final Client client;
     private final FeatureManager featureManager;
     private final ModelManager modelManager;
     private final HashRing hashRing;
     private final TransportRequestOptions option;
     private final ClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
-    private final ThreadPool threadPool;
-    private final BackoffPolicy resultSavingBackoffPolicy;
     private final ADStats adStats;
     private final ADCircuitBreakerService adCircuitBreakerService;
 
@@ -111,26 +107,21 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     public AnomalyResultTransportAction(
         ActionFilters actionFilters,
         TransportService transportService,
-        Client client,
         Settings settings,
         ADStateManager manager,
         ColdStartRunner eventExecutor,
-        AnomalyDetectionIndices anomalyDetectionIndices,
         FeatureManager featureManager,
         ModelManager modelManager,
         HashRing hashRing,
         ClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
-        ThreadPool threadPool,
         ADCircuitBreakerService adCircuitBreakerService,
         ADStats adStats
     ) {
         super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);
         this.transportService = transportService;
-        this.client = client;
         this.stateManager = manager;
         this.globalRunner = eventExecutor;
-        this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.featureManager = featureManager;
         this.modelManager = modelManager;
         this.hashRing = hashRing;
@@ -141,12 +132,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             .build();
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
-        this.threadPool = threadPool;
-        this.resultSavingBackoffPolicy = BackoffPolicy
-            .exponentialBackoff(
-                AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY.get(settings),
-                AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF.get(settings)
-            );
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.adStats = adStats;
     }
@@ -192,18 +177,22 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *   + unknown prediction error
      *
      *  Known cause of EndRunException with endNow returning true:
-     *   + anomaly detector is not available
-     *   + a models' memory size reached limit
+     *   + a model's memory size reached limit
      *   + models' total memory size reached limit
+     *   + Having trouble querying feature data due to
+     *    * index does not exist
+     *    * all features have been disabled
+     *   + anomaly detector is not available
+    
      *
      *  Known cause of InternalFailure:
      *   + threshold model node is not available
      *   + cluster read/write is blocked
-     *   + interrupted while waiting for rcf/threshold model nodes' responses
      *   + cold start hasn't been finished
      *   + fail to get all of rcf model nodes' responses
      *   + fail to get threshold model node's response
      *   + RCF/Threshold model node failing to get checkpoint to restore model before timeout
+     *   + Detection is throttle because previous detection query is running
      *
      */
     @Override
@@ -225,7 +214,18 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
 
         try {
-            Optional<AnomalyDetector> detector = stateManager.getAnomalyDetector(adID);
+            stateManager.getAnomalyDetector(adID, onGetDetector(listener, adID, request));
+        } catch (Exception ex) {
+            handleExecuteException(ex, listener, adID);
+        }
+    }
+
+    private ActionListener<Optional<AnomalyDetector>> onGetDetector(
+        ActionListener<AnomalyResultResponse> listener,
+        String adID,
+        AnomalyResultRequest request
+    ) {
+        return ActionListener.wrap(detector -> {
             if (!detector.isPresent()) {
                 listener.onFailure(new EndRunException(adID, "AnomalyDetector is not available.", true));
                 return;
@@ -233,13 +233,15 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             AnomalyDetector anomalyDetector = detector.get();
 
             String thresholdModelID = modelManager.getThresholdModelId(adID);
-            Optional<DiscoveryNode> thresholdNode = hashRing.getOwningNode(thresholdModelID);
-            if (!thresholdNode.isPresent()) {
+            Optional<DiscoveryNode> asThresholdNode = hashRing.getOwningNode(thresholdModelID);
+            if (!asThresholdNode.isPresent()) {
                 listener.onFailure(new InternalFailure(adID, "Threshold model node is not available."));
                 return;
             }
 
-            if (!shouldStart(listener, adID, detector.get(), thresholdNode.get().getId(), thresholdModelID)) {
+            DiscoveryNode thresholdNode = asThresholdNode.get();
+
+            if (!shouldStart(listener, adID, anomalyDetector, thresholdNode.getId(), thresholdModelID)) {
                 return;
             }
 
@@ -250,12 +252,31 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             long dataStartTime = request.getStart() - delayMillis;
             long dataEndTime = request.getEnd() - delayMillis;
 
-            SinglePointFeatures featureOptional = featureManager.getCurrentFeatures(anomalyDetector, dataStartTime, dataEndTime);
+            featureManager
+                .getCurrentFeatures(
+                    anomalyDetector,
+                    dataStartTime,
+                    dataEndTime,
+                    onFeatureResponse(adID, anomalyDetector, listener, thresholdModelID, thresholdNode, dataStartTime, dataEndTime)
+                );
+        }, exception -> handleExecuteException(exception, listener, adID));
 
+    }
+
+    private ActionListener<SinglePointFeatures> onFeatureResponse(
+        String adID,
+        AnomalyDetector detector,
+        ActionListener<AnomalyResultResponse> listener,
+        String thresholdModelID,
+        DiscoveryNode thresholdNode,
+        long dataStartTime,
+        long dataEndTime
+    ) {
+        return ActionListener.wrap(featureOptional -> {
             List<FeatureData> featureInResponse = null;
 
             if (featureOptional.getUnprocessedFeatures().isPresent()) {
-                featureInResponse = getFeatureData(featureOptional.getUnprocessedFeatures().get(), detector.get());
+                featureInResponse = getFeatureData(featureOptional.getUnprocessedFeatures().get(), detector);
             }
 
             if (!featureOptional.getProcessedFeatures().isPresent()) {
@@ -293,7 +314,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             // Can throw LimitExceededException when a single partition is more than X% of heap memory.
             // Compute this number once and the value won't change unless the coordinating AD node for an
             // detector changes or the cluster size changes.
-            int rcfPartitionNum = stateManager.getPartitionNumber(adID);
+            int rcfPartitionNum = stateManager.getPartitionNumber(adID, detector);
 
             List<RCFResultResponse> rcfResults = new ArrayList<>();
 
@@ -326,8 +347,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     thresholdModelID,
                     thresholdNode,
                     featureInResponse,
-                    dataStartTime,
-                    dataEndTime,
                     rcfPartitionNum,
                     responseCount,
                     adID
@@ -342,9 +361,15 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
                     );
             }
-        } catch (Exception ex) {
-            handleExecuteException(ex, listener, adID);
-        }
+        }, exception -> {
+            if (exception instanceof IndexNotFoundException) {
+                listener.onFailure(new EndRunException(adID, "Having trouble querying data: " + exception.getMessage(), true));
+            } else if (exception instanceof IllegalArgumentException && detector.getEnabledFeatureIds().isEmpty()) {
+                listener.onFailure(new EndRunException(adID, ALL_FEATURES_DISABLED_ERR_MSG, true));
+            } else {
+                handleExecuteException(exception, listener, adID);
+            }
+        });
     }
 
     /**
@@ -390,7 +415,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
 
         Exception causeException = (Exception) cause;
-        if (isException(causeException, ResourceNotFoundException.class, RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)) {
+        if (isException(causeException, ResourceNotFoundException.class, RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)
+            || (causeException instanceof IndexNotFoundException
+                && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
             // fetch previous cold start exception
             Optional<? extends AnomalyDetectionException> previousException = globalRunner.fetchException(adID);
 
@@ -468,13 +495,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private String modelID;
         private AtomicReference<AnomalyDetectionException> failure;
         private String rcfNodeID;
-        private Optional<AnomalyDetector> detector;
+        private AnomalyDetector detector;
         private ActionListener<AnomalyResultResponse> listener;
         private String thresholdModelID;
-        private Optional<DiscoveryNode> thresholdNode;
+        private DiscoveryNode thresholdNode;
         private List<FeatureData> featureInResponse;
-        private long startTime;
-        private long endTime;
         private int nodeCount;
         private final AtomicInteger responseCount;
         private final String adID;
@@ -484,13 +509,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             String modelID,
             AtomicReference<AnomalyDetectionException> failure,
             String rcfNodeID,
-            Optional<AnomalyDetector> detector,
+            AnomalyDetector detector,
             ActionListener<AnomalyResultResponse> listener,
             String thresholdModelID,
-            Optional<DiscoveryNode> thresholdNode,
+            DiscoveryNode thresholdNode,
             List<FeatureData> features,
-            long startTime,
-            long endTime,
             int nodeCount,
             AtomicInteger responseCount,
             String adID
@@ -504,8 +527,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.thresholdModelID = thresholdModelID;
             this.featureInResponse = features;
             this.failure = failure;
-            this.startTime = startTime;
-            this.endTime = endTime;
             this.nodeCount = nodeCount;
             this.responseCount = responseCount;
             this.adID = adID;
@@ -544,7 +565,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         private void handleRCFResults() {
             try {
-                if (coldStartIfNoModel(failure, detector.get()) || rcfResults.isEmpty()) {
+                if (coldStartIfNoModel(failure, detector) || rcfResults.isEmpty()) {
                     listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                     return;
                 }
@@ -554,7 +575,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
                 final AtomicReference<AnomalyResultResponse> anomalyResultResponse = new AtomicReference<>();
 
-                String thresholdNodeId = thresholdNode.get().getId();
+                String thresholdNodeId = thresholdNode.getId();
                 LOG.info("Sending threshold request to {} for model {}", thresholdNodeId, thresholdModelID);
                 ThresholdActionListener thresholdListener = new ThresholdActionListener(
                     anomalyResultResponse,
@@ -563,15 +584,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     thresholdNodeId,
                     detector,
                     combinedResult,
-                    featureInResponse,
                     listener,
-                    startTime,
-                    endTime,
                     adID
                 );
                 transportService
                     .sendRequest(
-                        thresholdNode.get(),
+                        thresholdNode,
                         ThresholdResultAction.NAME,
                         new ThresholdResultRequest(adID, thresholdModelID, combinedScore),
                         option,
@@ -590,11 +608,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private AtomicReference<AnomalyDetectionException> failure;
         private String thresholdNodeID;
         private ActionListener<AnomalyResultResponse> listener;
-        private Optional<AnomalyDetector> detector;
+        private AnomalyDetector detector;
         private CombinedRcfResult combinedResult;
-        private List<FeatureData> featureInResponse;
-        private long startTime;
-        private long endTime;
         private String adID;
 
         ThresholdActionListener(
@@ -602,12 +617,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             List<FeatureData> features,
             String modelID,
             String thresholdNodeID,
-            Optional<AnomalyDetector> detector,
+            AnomalyDetector detector,
             CombinedRcfResult combinedResult,
-            List<FeatureData> featureInResponse,
             ActionListener<AnomalyResultResponse> listener,
-            long startTime,
-            long endTime,
             String adID
         ) {
             this.anomalyResultResponse = anomalyResultResponse;
@@ -616,9 +628,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.thresholdNodeID = thresholdNodeID;
             this.detector = detector;
             this.combinedResult = combinedResult;
-            this.featureInResponse = featureInResponse;
-            this.startTime = startTime;
-            this.endTime = endTime;
             this.failure = new AtomicReference<AnomalyDetectionException>();
             this.listener = listener;
             this.adID = adID;
@@ -650,7 +659,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         private void handleThresholdResult() {
             try {
-                if (coldStartIfNoModel(failure, detector.get())) {
+                if (coldStartIfNoModel(failure, detector)) {
                     listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                     return;
                 }

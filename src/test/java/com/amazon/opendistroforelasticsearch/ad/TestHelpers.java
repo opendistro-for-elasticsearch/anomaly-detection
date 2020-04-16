@@ -33,9 +33,13 @@ import org.apache.http.nio.entity.NStringEntity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Strings;
+import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
+import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
@@ -58,14 +62,25 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.common.xcontent.ToXContent;
+import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.get.GetResult;
+import org.elasticsearch.index.mapper.MapperService;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.SearchModule;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregatorFactories;
+import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.internal.InternalSearchResponse;
+import org.elasticsearch.search.profile.SearchProfileShardResults;
+import org.elasticsearch.search.suggest.Suggest;
 import org.elasticsearch.test.ClusterServiceUtils;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.test.rest.ESRestTestCase;
@@ -82,6 +97,7 @@ import java.util.function.Consumer;
 
 import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
+import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import static org.elasticsearch.test.ESTestCase.randomAlphaOfLength;
 import static org.elasticsearch.test.ESTestCase.randomDouble;
 import static org.elasticsearch.test.ESTestCase.randomInt;
@@ -297,9 +313,21 @@ public class TestHelpers {
     }
 
     public static AnomalyResult randomAnomalyDetectResult() {
+        return randomAnomalyDetectResult(randomDouble(), randomAlphaOfLength(5));
+    }
+
+    public static AnomalyResult randomAnomalyDetectResult(double score) {
+        return randomAnomalyDetectResult(randomDouble(), null);
+    }
+
+    public static AnomalyResult randomAnomalyDetectResult(String error) {
+        return randomAnomalyDetectResult(Double.NaN, error);
+    }
+
+    public static AnomalyResult randomAnomalyDetectResult(double score, String error) {
         return new AnomalyResult(
             randomAlphaOfLength(5),
-            randomDouble(),
+            score,
             randomDouble(),
             randomDouble(),
             ImmutableList.of(randomFeatureData(), randomFeatureData()),
@@ -307,16 +335,20 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            randomAlphaOfLength(5)
+            error
         );
     }
 
     public static AnomalyDetectorJob randomAnomalyDetectorJob() {
+        return randomAnomalyDetectorJob(true);
+    }
+
+    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled) {
         return new AnomalyDetectorJob(
             randomAlphaOfLength(10),
             randomIntervalSchedule(),
             randomIntervalTimeConfiguration(),
-            true,
+            enabled,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
@@ -405,5 +437,71 @@ public class TestHelpers {
                 data,
                 null
             );
+    }
+
+    public static GetResponse createGetResponse(ToXContentObject o, String id) throws IOException {
+        XContentBuilder content = o.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS);
+
+        return new GetResponse(
+            new GetResult(
+                AnomalyDetector.ANOMALY_DETECTORS_INDEX,
+                MapperService.SINGLE_MAPPING_NAME,
+                id,
+                UNASSIGNED_SEQ_NO,
+                0,
+                -1,
+                true,
+                BytesReference.bytes(content),
+                Collections.emptyMap(),
+                Collections.emptyMap()
+            )
+        );
+    }
+
+    public static SearchResponse createSearchResponse(ToXContentObject o) throws IOException {
+        XContentBuilder content = o.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS);
+
+        SearchHit[] hits = new SearchHit[1];
+        hits[0] = new SearchHit(0).sourceRef(BytesReference.bytes(content));
+
+        return new SearchResponse(
+            new InternalSearchResponse(
+                new SearchHits(hits, new TotalHits(1, TotalHits.Relation.EQUAL_TO), 1.0f),
+                new InternalAggregations(Collections.emptyList()),
+                new Suggest(Collections.emptyList()),
+                new SearchProfileShardResults(Collections.emptyMap()),
+                false,
+                false,
+                1
+            ),
+            "",
+            5,
+            5,
+            0,
+            100,
+            ShardSearchFailure.EMPTY_ARRAY,
+            SearchResponse.Clusters.EMPTY
+        );
+    }
+
+    public static SearchResponse createEmptySearchResponse() throws IOException {
+        return new SearchResponse(
+            new InternalSearchResponse(
+                new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 1.0f),
+                new InternalAggregations(Collections.emptyList()),
+                new Suggest(Collections.emptyList()),
+                new SearchProfileShardResults(Collections.emptyMap()),
+                false,
+                false,
+                1
+            ),
+            "",
+            5,
+            5,
+            0,
+            100,
+            ShardSearchFailure.EMPTY_ARRAY,
+            SearchResponse.Clusters.EMPTY
+        );
     }
 }

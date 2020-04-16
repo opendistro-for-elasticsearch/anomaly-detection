@@ -96,7 +96,8 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
         String name = null;
         Schedule schedule = null;
         TimeConfiguration windowDelay = null;
-        Boolean isEnabled = null;
+        // we cannot set it to null as isEnabled() would do the unboxing and results in null pointer exception
+        Boolean isEnabled = Boolean.FALSE;
         Instant enabledTime = null;
         Instant disabledTime = null;
         Instant lastUpdateTime = null;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.Mockito.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyDouble;
@@ -53,12 +53,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ClientException;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.InternalFailure;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
@@ -85,7 +85,6 @@ import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequestValidationException;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.support.ActionFilters;
@@ -135,7 +134,6 @@ public class AnomalyResultTests extends AbstractADTest {
     private FeatureManager featureQuery;
     private ModelManager normalModelManager;
     private Client client;
-    private AnomalyDetectionIndices anomalyDetectionIndices;
     private AnomalyDetector detector;
     private HashRing hashRing;
     private IndexNameExpressionResolver indexNameResolver;
@@ -171,7 +169,7 @@ public class AnomalyResultTests extends AbstractADTest {
         clusterService = testNodes[0].clusterService;
         stateManager = mock(ADStateManager.class);
         // return 2 RCF partitions
-        when(stateManager.getPartitionNumber(any(String.class))).thenReturn(2);
+        when(stateManager.getPartitionNumber(any(String.class), any(AnomalyDetector.class))).thenReturn(2);
         when(stateManager.isMuted(any(String.class))).thenReturn(false);
 
         detector = mock(AnomalyDetector.class);
@@ -184,19 +182,35 @@ public class AnomalyResultTests extends AbstractADTest {
         userIndex.add("test*");
         when(detector.getIndices()).thenReturn(userIndex);
         when(detector.getDetectorId()).thenReturn("testDetectorId");
-        when(stateManager.getAnomalyDetector(any(String.class))).thenReturn(Optional.of(detector));
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(detector));
+            return null;
+        }).when(stateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
 
         hashRing = mock(HashRing.class);
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(clusterService.state().nodes().getLocalNode()));
         when(hashRing.build()).thenReturn(true);
         featureQuery = mock(FeatureManager.class);
-        when(featureQuery.getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong()))
-            .thenReturn(new SinglePointFeatures(Optional.of(new double[] { 0.0d }), Optional.of(new double[] { 0 })));
+
+        doAnswer(invocation -> {
+            ActionListener<SinglePointFeatures> listener = invocation.getArgument(3);
+            listener.onResponse(new SinglePointFeatures(Optional.of(new double[] { 0.0d }), Optional.of(new double[] { 0 })));
+            return null;
+        }).when(featureQuery).getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
+
         normalModelManager = mock(ModelManager.class);
-        when(normalModelManager.getThresholdingResult(any(String.class), any(String.class), anyDouble()))
-            .thenReturn(new ThresholdingResult(0, 1.0d));
-        when(normalModelManager.getRcfResult(any(String.class), any(String.class), any(double[].class)))
-            .thenReturn(new RcfResult(0.2, 0, 100));
+        doAnswer(invocation -> {
+            ActionListener<ThresholdingResult> listener = invocation.getArgument(3);
+            listener.onResponse(new ThresholdingResult(0, 1.0d));
+            return null;
+        }).when(normalModelManager).getThresholdingResult(any(String.class), any(String.class), anyDouble(), any(ActionListener.class));
+
+        doAnswer(invocation -> {
+            ActionListener<RcfResult> listener = invocation.getArgument(3);
+            listener.onResponse(new RcfResult(0.2, 0, 100));
+            return null;
+        }).when(normalModelManager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
         when(normalModelManager.combineRcfResults(any())).thenReturn(new CombinedRcfResult(0, 1.0d));
         adID = "123";
         rcfModelID = "123-rcf-1";
@@ -253,37 +267,6 @@ public class AnomalyResultTests extends AbstractADTest {
         runner = new ColdStartRunner();
     }
 
-    @SuppressWarnings("unchecked")
-    public void setUpSavingAnomalyResultIndex(boolean anomalyResultIndexExists) throws IOException {
-        anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 1);
-
-            ActionListener<CreateIndexResponse> listener = null;
-
-            if (args[0] instanceof ActionListener) {
-                listener = (ActionListener<CreateIndexResponse>) args[0];
-            }
-
-            assertTrue(listener != null);
-
-            listener.onResponse(new CreateIndexResponse(true, true, AnomalyResult.ANOMALY_RESULT_INDEX) {
-            });
-
-            return null;
-        }).when(anomalyDetectionIndices).initAnomalyResultIndexDirectly(any());
-
-        when(anomalyDetectionIndices.doesAnomalyResultIndexExist()).thenReturn(anomalyResultIndexExists);
-    }
-
-    public void setupInitResultIndexException(Class<? extends Throwable> exceptionType) throws IOException {
-        anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
-        doThrow(exceptionType).when(anomalyDetectionIndices).initAnomalyResultIndexDirectly(any());
-
-        when(anomalyDetectionIndices.doesAnomalyResultIndexExist()).thenReturn(false);
-    }
-
     @Override
     @After
     public final void tearDown() throws Exception {
@@ -293,7 +276,6 @@ public class AnomalyResultTests extends AbstractADTest {
         runner.shutDown();
         runner = null;
         client = null;
-        anomalyDetectionIndices = null;
         super.tearDownLog4jForJUnit();
         super.tearDown();
     }
@@ -309,7 +291,6 @@ public class AnomalyResultTests extends AbstractADTest {
 
     public void testNormal() throws IOException {
 
-        setUpSavingAnomalyResultIndex(false);
         // These constructors register handler in transport service
         new RCFResultTransportAction(
             new ActionFilters(Collections.emptySet()),
@@ -322,17 +303,14 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -377,17 +355,14 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             globalRunner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -441,10 +416,13 @@ public class AnomalyResultTests extends AbstractADTest {
         noModelExceptionTemplate(new AnomalyDetectionException(adID, ""), mockRunner, adID, error);
     }
 
+    @SuppressWarnings("unchecked")
     public void testInsufficientCapacityExceptionDuringColdStart() {
 
         ModelManager rcfManager = mock(ModelManager.class);
-        doThrow(ResourceNotFoundException.class).when(rcfManager).getRcfResult(any(String.class), any(String.class), any(double[].class));
+        doThrow(ResourceNotFoundException.class)
+            .when(rcfManager)
+            .getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
         when(rcfManager.getRcfModelId(any(String.class), anyInt())).thenReturn(rcfModelID);
 
         ColdStartRunner mockRunner = mock(ColdStartRunner.class);
@@ -458,17 +436,14 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             mockRunner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -480,12 +455,13 @@ public class AnomalyResultTests extends AbstractADTest {
         assertException(listener, LimitExceededException.class);
     }
 
+    @SuppressWarnings("unchecked")
     public void testInsufficientCapacityExceptionDuringRestoringModel() {
 
         ModelManager rcfManager = mock(ModelManager.class);
         doThrow(new NotSerializableExceptionWrapper(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)))
             .when(rcfManager)
-            .getRcfResult(any(String.class), any(String.class), any(double[].class));
+            .getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
         // These constructors register handler in transport service
         new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, rcfManager, adCircuitBreakerService);
@@ -494,17 +470,14 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -535,17 +508,14 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -569,17 +539,14 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             breakerService,
             adStats
         );
@@ -636,17 +603,14 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             exceptionTransportService,
-            client,
             settings,
             stateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             hackedClusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -692,24 +656,26 @@ public class AnomalyResultTests extends AbstractADTest {
         nodeNotConnectedExceptionTemplate(false, true, 1);
     }
 
+    @SuppressWarnings("unchecked")
     public void testMute() {
         ADStateManager muteStateManager = mock(ADStateManager.class);
         when(muteStateManager.isMuted(any(String.class))).thenReturn(true);
-        when(muteStateManager.getAnomalyDetector(any(String.class))).thenReturn(Optional.of(detector));
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(detector));
+            return null;
+        }).when(muteStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             muteStateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -722,7 +688,6 @@ public class AnomalyResultTests extends AbstractADTest {
     }
 
     public void alertingRequestTemplate(boolean anomalyResultIndexExists) throws IOException {
-        setUpSavingAnomalyResultIndex(anomalyResultIndexExists);
         // These constructors register handler in transport service
         new RCFResultTransportAction(
             new ActionFilters(Collections.emptySet()),
@@ -735,17 +700,14 @@ public class AnomalyResultTests extends AbstractADTest {
         new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -890,22 +852,19 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             new ColdStartRunner(),
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
-            null, null, null, null, null, null, null, null, null, 0, 0, 0, new AtomicInteger(), null
+            null, null, null, null, null, null, null, null, null, 0, new AtomicInteger(), null
         );
         listener.onFailure(null);
     }
@@ -915,17 +874,14 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -943,17 +899,14 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -968,32 +921,35 @@ public class AnomalyResultTests extends AbstractADTest {
         AD_EXCEPTION
     }
 
+    @SuppressWarnings("unchecked")
     public void featureTestTemplate(FeatureTestMode mode) {
         if (mode == FeatureTestMode.FEATURE_NOT_AVAILABLE) {
-            when(featureQuery.getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong()))
-                .thenReturn(new SinglePointFeatures(Optional.empty(), Optional.empty()));
+            doAnswer(invocation -> {
+                ActionListener<SinglePointFeatures> listener = invocation.getArgument(3);
+                listener.onResponse(new SinglePointFeatures(Optional.empty(), Optional.empty()));
+                return null;
+            }).when(featureQuery).getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
         } else if (mode == FeatureTestMode.ILLEGAL_STATE) {
-            doThrow(IllegalArgumentException.class).when(featureQuery).getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong());
+            doThrow(IllegalArgumentException.class)
+                .when(featureQuery)
+                .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
         } else if (mode == FeatureTestMode.AD_EXCEPTION) {
             doThrow(AnomalyDetectionException.class)
                 .when(featureQuery)
-                .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong());
+                .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
         }
 
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -1069,17 +1025,14 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             hackedClusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
@@ -1116,24 +1069,55 @@ public class AnomalyResultTests extends AbstractADTest {
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
-            client,
             settings,
             stateManager,
             runner,
-            anomalyDetectionIndices,
             featureQuery,
             normalModelManager,
             hashRing,
             clusterService,
             indexNameResolver,
-            threadPool,
             adCircuitBreakerService,
             adStats
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
-            null, "123-rcf-0", null, "123", null, null, null, null, null, 0, 0, 0, new AtomicInteger(), null
+            null, "123-rcf-0", null, "123", null, null, null, null, null, 0, new AtomicInteger(), null
         );
         listener.onResponse(null);
         assertTrue(testAppender.containsMessage(AnomalyResultTransportAction.NULL_RESPONSE));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testAllFeaturesDisabled() {
+        // doThrow(IllegalArgumentException.class).when(featureQuery)
+        // .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            ActionListener<SinglePointFeatures> listener = (ActionListener<SinglePointFeatures>) args[3];
+            listener.onFailure(new IllegalArgumentException());
+            return null;
+        }).when(featureQuery).getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
+        when(detector.getEnabledFeatureIds()).thenReturn(Collections.emptyList());
+
+        AnomalyResultTransportAction action = new AnomalyResultTransportAction(
+            new ActionFilters(Collections.emptySet()),
+            transportService,
+            settings,
+            stateManager,
+            runner,
+            featureQuery,
+            normalModelManager,
+            hashRing,
+            clusterService,
+            indexNameResolver,
+            adCircuitBreakerService,
+            adStats
+        );
+
+        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+        action.doExecute(null, request, listener);
+
+        assertException(listener, EndRunException.class, AnomalyResultTransportAction.ALL_FEATURES_DISABLED_ERR_MSG);
     }
 }

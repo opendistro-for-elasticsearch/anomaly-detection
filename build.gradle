@@ -207,23 +207,17 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException',
         'com.amazon.opendistroforelasticsearch.ad.util.ClientUtil',
 
-        'com.amazon.opendistroforelasticsearch.ad.ml.*',
-        'com.amazon.opendistroforelasticsearch.ad.feature.*',
-        'com.amazon.opendistroforelasticsearch.ad.dataprocessor.*',
-        'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRunner',
-        'com.amazon.opendistroforelasticsearch.ad.resthandler.RestGetAnomalyResultAction',
-        'com.amazon.opendistroforelasticsearch.ad.metrics.MetricFactory',
-        'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
-        'com.amazon.opendistroforelasticsearch.ad.transport.ForwardAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.ForwardTransportAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorRequest',
         'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorResponse',
         'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.ADStatsAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.CronRequest',
         'com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorAction',
-        'com.amazon.opendistroforelasticsearch.ad.util.ParseUtils'
+        'com.amazon.opendistroforelasticsearch.ad.transport.CronTransportAction',
+        'com.amazon.opendistroforelasticsearch.ad.transport.CronRequest',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADStatsAction',
+        'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRunner',
+        'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
+        'com.amazon.opendistroforelasticsearch.ad.util.ParseUtils',
 ]
 
 jacocoTestCoverageVerification {

@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyResultHandler;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter;
@@ -26,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalS
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
@@ -74,6 +76,10 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
     @Mock
     private Client client;
+
+    @Mock
+    private ClientUtil clientUtil;
+
     @Mock
     private ClusterService clusterService;
 
@@ -119,6 +125,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         doReturn(executorService).when(mockedThreadPool).executor(anyString());
         runner.setThreadPool(mockedThreadPool);
         runner.setClient(client);
+        runner.setClientUtil(clientUtil);
         runner.setAnomalyResultHandler(anomalyResultHandler);
 
         setUpJobParameter();
@@ -214,7 +221,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     public void testRunAdJobWithEndRunExceptionNowAndExistingAdJob() {
         testRunAdJobWithEndRunExceptionNowAndStopAdJob(true, true, true);
         verify(anomalyResultHandler).indexAnomalyResult(any());
-        verify(client).index(any(), any());
+        verify(clientUtil).asyncRequest(any(IndexRequest.class), any(), any());
         assertTrue(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
     }
 
@@ -222,7 +229,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     public void testRunAdJobWithEndRunExceptionNowAndExistingAdJobAndIndexException() {
         testRunAdJobWithEndRunExceptionNowAndStopAdJob(true, true, false);
         verify(anomalyResultHandler).indexAnomalyResult(any());
-        verify(client).index(any(), any());
+        verify(clientUtil).asyncRequest(any(IndexRequest.class), any(), any());
         assertTrue(testAppender.containsMessage("Failed to disable AD job for"));
     }
 
@@ -256,7 +263,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), true);
 
         doAnswer(invocation -> {
-            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            ActionListener<GetResponse> listener = invocation.getArgument(2);
             GetResponse response = new GetResponse(
                 new GetResult(
                     AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
@@ -286,11 +293,11 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
             listener.onResponse(response);
             return null;
-        }).when(client).get(any(), any());
+        }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any());
 
         doAnswer(invocation -> {
             IndexRequest request = invocation.getArgument(0);
-            ActionListener<IndexResponse> listener = invocation.getArgument(1);
+            ActionListener<IndexResponse> listener = invocation.getArgument(2);
             ShardId shardId = new ShardId(new Index(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, randomAlphaOfLength(10)), 0);
             if (disableSuccessfully) {
                 listener.onResponse(new IndexResponse(shardId, randomAlphaOfLength(10), request.id(), 1, 1, 1, true));
@@ -298,7 +305,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
                 listener.onResponse(null);
             }
             return null;
-        }).when(client).index(any(), any());
+        }).when(clientUtil).asyncRequest(any(IndexRequest.class), any(), any());
 
         runner.handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), exception);
     }
@@ -309,10 +316,10 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), true);
 
         doAnswer(invocation -> {
-            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            ActionListener<GetResponse> listener = invocation.getArgument(2);
             listener.onFailure(new RuntimeException("test"));
             return null;
-        }).when(client).get(any(), any());
+        }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any());
 
         runner.handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), exception);
         verify(anomalyResultHandler).indexAnomalyResult(any());
@@ -324,7 +331,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         LockModel lock = new LockModel("indexName", "jobId", Instant.now(), 10, false);
         Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), true);
 
-        doThrow(new RuntimeException("fail to get AD job")).when(client).get(any(), any());
+        doThrow(new RuntimeException("fail to get AD job")).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any());
 
         runner.handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), exception);
         verify(anomalyResultHandler).indexAnomalyResult(any());

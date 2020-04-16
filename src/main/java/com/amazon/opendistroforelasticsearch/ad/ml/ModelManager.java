@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -108,6 +109,7 @@ public class ModelManager {
     private final CheckpointDao checkpointDao;
     private final Gson gson;
     private final Clock clock;
+    private final int shingleSize;
 
     // A tree of N samples has 2N nodes, with one bounding box for each node.
     private static final long BOUNDING_BOXES = 2L;
@@ -160,7 +162,8 @@ public class ModelManager {
         Class<? extends ThresholdingModel> thresholdingModelClass,
         int minPreviewSize,
         Duration modelTtl,
-        Duration checkpointInterval
+        Duration checkpointInterval,
+        int shingleSize
     ) {
 
         this.clusterService = clusterService;
@@ -188,6 +191,7 @@ public class ModelManager {
 
         this.forests = new ConcurrentHashMap<>();
         this.thresholds = new ConcurrentHashMap<>();
+        this.shingleSize = shingleSize;
     }
 
     /**
@@ -270,6 +274,36 @@ public class ModelManager {
         }
 
         return new SimpleImmutableEntry<>(numPartitions, forestSize);
+    }
+
+    /**
+     * Construct a RCF model and then partition it by forest size.
+     *
+     * A RCF model is constructed based on the number of input features.
+     *
+     * Then a RCF model is first partitioned into desired size based on heap.
+     * If there are more partitions than the number of nodes in the cluster,
+     * the model is partitioned by the number of nodes and verified to
+     * ensure the size of a partition does not exceed the max size limit based on heap.
+     *
+     * @param detector detector object
+     * @return a pair of number of partitions and size of a parition (number of trees)
+     * @throws LimitExceededException when there is no sufficient resouce available
+     */
+    public Entry<Integer, Integer> getPartitionedForestSizes(AnomalyDetector detector) {
+        String detectorId = detector.getDetectorId();
+        int rcfNumFeatures = detector.getEnabledFeatureIds().size() * shingleSize;
+        return getPartitionedForestSizes(
+            RandomCutForest
+                .builder()
+                .dimensions(rcfNumFeatures)
+                .sampleSize(rcfNumSamplesInTree)
+                .numberOfTrees(rcfNumTrees)
+                .outputAfter(rcfNumSamplesInTree)
+                .parallelExecutionEnabled(false)
+                .build(),
+            detectorId
+        );
     }
 
     /**
@@ -542,20 +576,22 @@ public class ModelManager {
         if (dataPoints.length == 0 || dataPoints[0].length == 0) {
             throw new IllegalArgumentException("Data points must not be empty.");
         }
+        if (dataPoints[0].length != anomalyDetector.getEnabledFeatureIds().size() * shingleSize) {
+            throw new IllegalArgumentException(
+                String
+                    .format(
+                        Locale.ROOT,
+                        "Feature dimension is not correct, we expect %s but get %d",
+                        anomalyDetector.getEnabledFeatureIds().size() * shingleSize,
+                        dataPoints[0].length
+                    )
+            );
+        }
         int rcfNumFeatures = dataPoints[0].length;
 
         // Create partitioned RCF models
-        Entry<Integer, Integer> partitionResults = getPartitionedForestSizes(
-            RandomCutForest
-                .builder()
-                .dimensions(rcfNumFeatures)
-                .sampleSize(rcfNumSamplesInTree)
-                .numberOfTrees(rcfNumTrees)
-                .outputAfter(rcfNumSamplesInTree)
-                .parallelExecutionEnabled(false)
-                .build(),
-            anomalyDetector.getDetectorId()
-        );
+        Entry<Integer, Integer> partitionResults = getPartitionedForestSizes(anomalyDetector);
+
         int numForests = partitionResults.getKey();
         int forestSize = partitionResults.getValue();
         double[] scores = new double[dataPoints.length];

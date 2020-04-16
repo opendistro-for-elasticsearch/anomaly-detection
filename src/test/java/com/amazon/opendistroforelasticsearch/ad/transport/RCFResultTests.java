@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -33,6 +34,8 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.RcfResult;
+
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.PlainActionFuture;
@@ -56,6 +59,7 @@ import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 public class RCFResultTests extends ESTestCase {
     Gson gson = new GsonBuilder().create();
 
+    @SuppressWarnings("unchecked")
     public void testNormal() {
         TransportService transportService = new TransportService(
             Settings.EMPTY,
@@ -75,7 +79,12 @@ public class RCFResultTests extends ESTestCase {
             manager,
             adCircuitBreakerService
         );
-        when(manager.getRcfResult(any(String.class), any(String.class), any(double[].class))).thenReturn(new RcfResult(0, 0, 25));
+        doAnswer(invocation -> {
+            ActionListener<RcfResult> listener = invocation.getArgument(3);
+            listener.onResponse(new RcfResult(0, 0, 25));
+            return null;
+        }).when(manager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
+
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
@@ -87,6 +96,7 @@ public class RCFResultTests extends ESTestCase {
         assertEquals(25, response.getForestSize(), 0.001);
     }
 
+    @SuppressWarnings("unchecked")
     public void testExecutionException() {
         TransportService transportService = new TransportService(
             Settings.EMPTY,
@@ -106,7 +116,9 @@ public class RCFResultTests extends ESTestCase {
             manager,
             adCircuitBreakerService
         );
-        doThrow(NullPointerException.class).when(manager).getRcfResult(any(String.class), any(String.class), any(double[].class));
+        doThrow(NullPointerException.class)
+            .when(manager)
+            .getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
@@ -172,6 +184,7 @@ public class RCFResultTests extends ESTestCase {
         );
     }
 
+    @SuppressWarnings("unchecked")
     public void testCircuitBreaker() {
         TransportService transportService = new TransportService(
             Settings.EMPTY,
@@ -191,7 +204,11 @@ public class RCFResultTests extends ESTestCase {
             manager,
             breakerService
         );
-        when(manager.getRcfResult(any(String.class), any(String.class), any(double[].class))).thenReturn(new RcfResult(0, 0, 25));
+        doAnswer(invocation -> {
+            ActionListener<RcfResult> listener = invocation.getArgument(3);
+            listener.onResponse(new RcfResult(0, 0, 25));
+            return null;
+        }).when(manager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
         when(breakerService.isOpen()).thenReturn(true);
 
         final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();

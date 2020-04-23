@@ -219,12 +219,7 @@ public final class ParseUtils {
                                 );
                             }
 
-                            aggBuilder = parser
-                                .namedObject(
-                                    BaseAggregationBuilder.class,
-                                    fieldName,
-                                    new AggregatorFactories.AggParseContext(aggregationName)
-                                );
+                            aggBuilder = parser.namedObject(BaseAggregationBuilder.class, fieldName, aggregationName);
                     }
                 } else {
                     throw new ParsingException(

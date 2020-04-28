@@ -15,9 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiConsumer;
 
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
@@ -41,6 +44,7 @@ import org.mockito.MockitoAnnotations;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import static org.mockito.Matchers.any;
@@ -102,7 +106,10 @@ public class CheckpointDaoTests {
         assertEquals(indexName, indexRequest.index());
         assertEquals(CheckpointDao.DOC_TYPE, indexRequest.type());
         assertEquals(modelId, indexRequest.id());
+        Set<String> expectedSourceKeys = new HashSet<String>(Arrays.asList(CheckpointDao.FIELD_MODEL, CheckpointDao.TIMESTAMP));
+        assertEquals(expectedSourceKeys, indexRequest.sourceAsMap().keySet());
         assertEquals(model, indexRequest.sourceAsMap().get(CheckpointDao.FIELD_MODEL));
+        assertNotNull(indexRequest.sourceAsMap().get(CheckpointDao.TIMESTAMP));
     }
 
     @Test
@@ -174,7 +181,10 @@ public class CheckpointDaoTests {
         assertEquals(indexName, indexRequest.index());
         assertEquals(CheckpointDao.DOC_TYPE, indexRequest.type());
         assertEquals(modelId, indexRequest.id());
-        assertEquals(docSource, indexRequest.sourceAsMap());
+        Set<String> expectedSourceKeys = new HashSet<String>(Arrays.asList(CheckpointDao.FIELD_MODEL, CheckpointDao.TIMESTAMP));
+        assertEquals(expectedSourceKeys, indexRequest.sourceAsMap().keySet());
+        assertEquals(model, indexRequest.sourceAsMap().get(CheckpointDao.FIELD_MODEL));
+        assertNotNull(indexRequest.sourceAsMap().get(CheckpointDao.TIMESTAMP));
 
         ArgumentCaptor<Void> responseCaptor = ArgumentCaptor.forClass(Void.class);
         verify(listener).onResponse(responseCaptor.capture());

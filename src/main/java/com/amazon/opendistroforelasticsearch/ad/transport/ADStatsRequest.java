@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import org.elasticsearch.action.support.nodes.BaseNodesRequest;
+import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
@@ -47,6 +48,16 @@ public class ADStatsRequest extends BaseNodesRequest<ADStatsRequest> {
      */
     public ADStatsRequest(String... nodeIds) {
         super(nodeIds);
+        statsToBeRetrieved = new HashSet<>();
+    }
+
+    /**
+     * Constructor
+     *
+     * @param nodes nodes of nodes' stats to be retrieved
+     */
+    public ADStatsRequest(DiscoveryNode... nodes) {
+        super(nodes);
         statsToBeRetrieved = new HashSet<>();
     }
 

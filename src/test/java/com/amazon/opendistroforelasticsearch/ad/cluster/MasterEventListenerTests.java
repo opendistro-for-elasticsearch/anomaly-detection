@@ -28,6 +28,8 @@ import java.util.Arrays;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
+
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.component.LifecycleListener;
@@ -46,6 +48,7 @@ public class MasterEventListenerTests extends AbstractADTest {
     private Cancellable dailyCancellable;
     private MasterEventListener masterService;
     private ClientUtil clientUtil;
+    private ClusterStateUtils clusterStateUtils;
 
     @Override
     @Before
@@ -62,7 +65,9 @@ public class MasterEventListenerTests extends AbstractADTest {
         client = mock(Client.class);
         clock = mock(Clock.class);
         clientUtil = mock(ClientUtil.class);
-        masterService = new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil);
+        clusterStateUtils = new ClusterStateUtils(clusterService);
+
+        masterService = new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, clusterStateUtils);
     }
 
     public void testOnOffMaster() {

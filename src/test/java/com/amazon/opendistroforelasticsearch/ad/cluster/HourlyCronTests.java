@@ -29,6 +29,8 @@ import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronResponse;
+import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchException;
@@ -59,6 +61,7 @@ public class HourlyCronTests extends AbstractADTest {
         ClusterService clusterService = mock(ClusterService.class);
         ClusterState state = ClusterCreation.state(1);
         when(clusterService.state()).thenReturn(state);
+        ClusterStateUtils stateUtils = new ClusterStateUtils(clusterService);
 
         Client client = mock(Client.class);
         doAnswer(invocation -> {
@@ -104,7 +107,7 @@ public class HourlyCronTests extends AbstractADTest {
             return null;
         }).when(client).execute(eq(CronAction.INSTANCE), any(), any());
 
-        HourlyCron cron = new HourlyCron(clusterService, client);
+        HourlyCron cron = new HourlyCron(client, stateUtils);
         cron.run();
 
         Logger LOG = LogManager.getLogger(HourlyCron.class);

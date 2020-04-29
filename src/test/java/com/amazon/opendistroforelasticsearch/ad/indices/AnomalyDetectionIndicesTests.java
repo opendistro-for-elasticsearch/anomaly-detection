@@ -138,7 +138,7 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
             .initAnomalyResultIndexIfAbsent(
                 TestHelpers
                     .createActionListener(
-                        response -> response.isAcknowledged(),
+                        response -> logger.info("Acknowledged: " + response.isAcknowledged()),
                         failure -> { throw new RuntimeException("should not recreate index"); }
                     )
             );
@@ -149,7 +149,9 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
                     TestHelpers
                         .createActionListener(
                             response -> { throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX); },
-                            failure -> { throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX); }
+                            failure -> {
+                                throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX, failure);
+                            }
                         )
                 );
         }

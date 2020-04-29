@@ -178,6 +178,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
      * @return true if anomaly detector index exists
      */
     public boolean doesAnomalyResultIndexExist() {
+        logger.info("doesAnomalyResultIndexExist: " + clusterService.state().metaData().hasAlias(AnomalyResult.ANOMALY_RESULT_INDEX));
         return clusterService.state().metaData().hasAlias(AnomalyResult.ANOMALY_RESULT_INDEX);
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@ import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
+import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
+import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
@@ -55,6 +57,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
 
     private static final String STATS_ANOMALY_DETECTOR_ACTION = "stats_anomaly_detector";
     private ADStats adStats;
+    private ClusterStateUtils clusterStateUtils;
     private ClusterService clusterService;
 
     /**
@@ -63,10 +66,17 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
      * @param controller Rest Controller
      * @param clusterService ClusterService
      * @param adStats    ADStats object
+     * @param clusterStateUtils util to get eligible data nodes
      */
-    public RestStatsAnomalyDetectorAction(RestController controller, ClusterService clusterService, ADStats adStats) {
-        this.clusterService = clusterService;
+    public RestStatsAnomalyDetectorAction(
+        RestController controller,
+        ADStats adStats,
+        ClusterStateUtils clusterStateUtils,
+        ClusterService clusterService
+    ) {
         this.adStats = adStats;
+        this.clusterStateUtils = clusterStateUtils;
+        this.clusterService = clusterService;
     }
 
     @Override
@@ -88,15 +98,18 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
      */
     private ADStatsRequest getRequest(RestRequest request) {
         // parse the nodes the user wants to query the stats for
-        String[] nodeIdsArr = null;
         String nodesIdsStr = request.param("nodeId");
         Set<String> validStats = adStats.getStats().keySet();
 
+        ADStatsRequest adStatsRequest = null;
         if (!Strings.isEmpty(nodesIdsStr)) {
-            nodeIdsArr = nodesIdsStr.split(",");
+            String[] nodeIdsArr = nodesIdsStr.split(",");
+            adStatsRequest = new ADStatsRequest(nodeIdsArr);
+        } else {
+            DiscoveryNode[] dataNodes = clusterStateUtils.getEligibleDataNodes().values().toArray(DiscoveryNode.class);
+            adStatsRequest = new ADStatsRequest(dataNodes);
         }
 
-        ADStatsRequest adStatsRequest = new ADStatsRequest(nodeIdsArr);
         adStatsRequest.timeout(request.param("timeout"));
 
         // parse the stats the user wants to see

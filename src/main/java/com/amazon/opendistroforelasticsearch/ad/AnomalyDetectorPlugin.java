@@ -72,6 +72,7 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyResultHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
@@ -123,6 +124,7 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -147,6 +149,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ADStats adStats;
     private NamedXContentRegistry xContentRegistry;
     private ClientUtil clientUtil;
+    private ClusterStateUtils clusterStateUtils;
 
     static {
         SpecialPermission.check();
@@ -205,8 +208,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
         RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(
             restController,
-            clusterService,
-            adStats
+            adStats,
+            this.clusterStateUtils,
+            this.clusterService
         );
         RestAnomalyDetectorJobAction anomalyDetectorJobAction = new RestAnomalyDetectorJobAction(
             settings,
@@ -266,8 +270,11 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         RandomCutForestSerDe rcfSerde = new RandomCutForestSerDe();
         CheckpointDao checkpoint = new CheckpointDao(client, clientUtil, CommonName.CHECKPOINT_INDEX_NAME);
 
+        HashMap<String, String> ignoredAttributes = new HashMap<>();
+        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        this.clusterStateUtils = new ClusterStateUtils(clusterService, ignoredAttributes);
         ModelManager modelManager = new ModelManager(
-            clusterService,
+            clusterStateUtils,
             jvmService,
             rcfSerde,
             checkpoint,
@@ -291,7 +298,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.SHINGLE_SIZE
         );
 
-        HashRing hashRing = new HashRing(clusterService, clock, settings);
+        HashRing hashRing = new HashRing(clusterStateUtils, clock, settings);
         ADStateManager stateManager = new ADStateManager(
             client,
             xContentRegistry,
@@ -357,11 +364,12 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 clock,
                 stateManager,
                 runner,
-                new ADClusterEventListener(clusterService, hashRing, modelManager),
+                new ADClusterEventListener(clusterService, hashRing, modelManager, clusterStateUtils),
                 deleteUtil,
                 adCircuitBreakerService,
                 adStats,
-                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil)
+                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, clusterStateUtils),
+                clusterStateUtils
             );
     }
 

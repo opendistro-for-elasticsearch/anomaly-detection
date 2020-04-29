@@ -57,11 +57,6 @@ public class ADStatsNodeRequest extends BaseNodeRequest {
         return request;
     }
 
-    public void readFrom(StreamInput in) throws IOException {
-        request = new ADStatsRequest();
-        request.readFrom(in);
-    }
-
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);

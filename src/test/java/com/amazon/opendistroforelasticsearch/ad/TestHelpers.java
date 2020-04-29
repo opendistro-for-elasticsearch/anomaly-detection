@@ -36,6 +36,7 @@ import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchResponse;
@@ -373,7 +374,13 @@ public class TestHelpers {
     }
 
     public static void waitForIndexCreationToComplete(Client client, final String indexName) {
-        client.admin().cluster().prepareHealth(indexName).setWaitForEvents(Priority.URGENT).get();
+        ClusterHealthResponse clusterHealthResponse = client
+            .admin()
+            .cluster()
+            .prepareHealth(indexName)
+            .setWaitForEvents(Priority.URGENT)
+            .get();
+        logger.info("Status of " + indexName + ": " + clusterHealthResponse.getStatus());
     }
 
     public static ClusterService createClusterService(ThreadPool threadPool, ClusterSettings clusterSettings) {

@@ -42,7 +42,6 @@ import org.apache.logging.log4j.Logger;
 import com.google.gson.Gson;
 
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.monitor.jvm.JvmService;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
@@ -50,6 +49,7 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoun
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 
@@ -103,7 +103,7 @@ public class ModelManager {
     private final Duration checkpointInterval;
 
     // dependencies
-    private final ClusterService clusterService;
+    private final ClusterStateUtils clusterStateUtils;
     private final JvmService jvmService;
     private final RandomCutForestSerDe rcfSerde;
     private final CheckpointDao checkpointDao;
@@ -119,7 +119,7 @@ public class ModelManager {
     /**
      * Constructor.
      *
-     * @param clusterService cluster info
+     * @param clusterStateUtils cluster info
      * @param jvmService jvm info
      * @param rcfSerde RCF model serialization
      * @param checkpointDao model checkpoint storage
@@ -140,9 +140,10 @@ public class ModelManager {
      * @param minPreviewSize minimum number of data points for preview
      * @param modelTtl time to live for hosted models
      * @param checkpointInterval interval between checkpoints
+     * @param shingleSize size of a shingle
      */
     public ModelManager(
-        ClusterService clusterService,
+        ClusterStateUtils clusterStateUtils,
         JvmService jvmService,
         RandomCutForestSerDe rcfSerde,
         CheckpointDao checkpointDao,
@@ -166,7 +167,7 @@ public class ModelManager {
         int shingleSize
     ) {
 
-        this.clusterService = clusterService;
+        this.clusterStateUtils = clusterStateUtils;
         this.jvmService = jvmService;
         this.rcfSerde = rcfSerde;
         this.checkpointDao = checkpointDao;
@@ -259,7 +260,7 @@ public class ModelManager {
         int numPartitions = (int) Math.ceil((double) totalSize / (double) partitionSize);
         int forestSize = (int) Math.ceil((double) forest.getNumberOfTrees() / (double) numPartitions);
 
-        int numNodes = clusterService.state().nodes().getDataNodes().size();
+        int numNodes = clusterStateUtils.getEligibleDataNodes().size();
         if (numPartitions > numNodes) {
             // partition by cluster size
             partitionSize = (long) Math.ceil((double) totalSize / (double) numNodes);

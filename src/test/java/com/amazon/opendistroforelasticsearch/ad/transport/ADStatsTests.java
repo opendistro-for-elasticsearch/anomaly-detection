@@ -50,6 +50,7 @@ public class ADStatsTests extends ESTestCase {
     Map<String, Object> clusterStats;
     DiscoveryNode discoveryNode1;
 
+    @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
@@ -72,7 +73,7 @@ public class ADStatsTests extends ESTestCase {
         ADStatsNodeRequest adStatsNodeRequest1 = new ADStatsNodeRequest();
         assertNull("ADStatsNodeRequest default constructor failed", adStatsNodeRequest1.getADStatsRequest());
 
-        ADStatsRequest adStatsRequest = new ADStatsRequest();
+        ADStatsRequest adStatsRequest = new ADStatsRequest(new String[0]);
         ADStatsNodeRequest adStatsNodeRequest2 = new ADStatsNodeRequest(adStatsRequest);
         assertEquals("ADStatsNodeRequest has the wrong ADStatsRequest", adStatsNodeRequest2.getADStatsRequest(), adStatsRequest);
 
@@ -80,7 +81,7 @@ public class ADStatsTests extends ESTestCase {
         BytesStreamOutput output = new BytesStreamOutput();
         adStatsNodeRequest2.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        adStatsNodeRequest1.readFrom(streamInput);
+        adStatsNodeRequest1 = new ADStatsNodeRequest(streamInput);
         assertEquals(
             "readStats failed",
             adStatsNodeRequest2.getADStatsRequest().getStatsToBeRetrieved(),
@@ -117,7 +118,7 @@ public class ADStatsTests extends ESTestCase {
     @Test
     public void testADStatsRequest() throws IOException {
         List<String> allStats = Arrays.stream(StatNames.values()).map(StatNames::getName).collect(Collectors.toList());
-        ADStatsRequest adStatsRequest = new ADStatsRequest();
+        ADStatsRequest adStatsRequest = new ADStatsRequest(new String[0]);
 
         // Test clear()
         adStatsRequest.clear();

@@ -25,6 +25,7 @@ import static org.mockito.Matchers.any;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -85,7 +86,9 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         hashRing = mock(HashRing.class);
         when(hashRing.build()).thenReturn(true);
         modelManager = mock(ModelManager.class);
-        clusterStateUtils = new ClusterStateUtils(clusterService);
+        HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
+        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        clusterStateUtils = new ClusterStateUtils(clusterService, ignoredAttributes);
         masterNode = new DiscoveryNode(masterNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT);
         dataNode1 = new DiscoveryNode(dataNode1Id, buildNewFakeTransportAddress(), emptyMap(), BUILT_IN_ROLES, Version.CURRENT);
         oldClusterState = ClusterState

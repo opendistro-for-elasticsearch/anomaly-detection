@@ -24,8 +24,10 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronResponse;
@@ -61,7 +63,9 @@ public class HourlyCronTests extends AbstractADTest {
         ClusterService clusterService = mock(ClusterService.class);
         ClusterState state = ClusterCreation.state(1);
         when(clusterService.state()).thenReturn(state);
-        ClusterStateUtils stateUtils = new ClusterStateUtils(clusterService);
+        HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
+        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        ClusterStateUtils stateUtils = new ClusterStateUtils(clusterService, ignoredAttributes);
 
         Client client = mock(Client.class);
         doAnswer(invocation -> {

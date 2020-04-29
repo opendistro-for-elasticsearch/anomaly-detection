@@ -31,17 +31,17 @@ public class HourlyCron implements Runnable {
     static final String SUCCEEDS_LOG_MSG = "Hourly maintenance succeeds";
     static final String NODE_EXCEPTION_LOG_MSG = "Hourly maintenance of node has exception";
     static final String EXCEPTION_LOG_MSG = "Hourly maintenance has exception.";
-    private ClusterStateUtils clientStateUtils;
+    private ClusterStateUtils clusterStateUtils;
     private Client client;
 
-    public HourlyCron(Client client, ClusterStateUtils clientStateUtils) {
-        this.clientStateUtils = clientStateUtils;
+    public HourlyCron(Client client, ClusterStateUtils clusterStateUtils) {
+        this.clusterStateUtils = clusterStateUtils;
         this.client = client;
     }
 
     @Override
     public void run() {
-        DiscoveryNode[] dataNodes = clientStateUtils.getEligibleDataNodes().values().toArray(DiscoveryNode.class);
+        DiscoveryNode[] dataNodes = clusterStateUtils.getEligibleDataNodes().values().toArray(DiscoveryNode.class);
 
         // we also add the cancel query function here based on query text from the negative cache.
 

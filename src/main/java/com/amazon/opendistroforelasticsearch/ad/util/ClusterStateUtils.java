@@ -26,20 +26,36 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.inject.Inject;
 
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 
+/**
+ * Util methods for cluster state
+ *
+ */
 public class ClusterStateUtils {
     private static final Logger LOG = LogManager.getLogger(ClusterStateUtils.class);
     private final ClusterService clusterService;
-    private final Map<String, String> ignoredAttributes = new HashMap<String, String>();
+    private final HashMap<String, String> ignoredAttributes;
 
+    // We need @Inject because StopDetectorTransportAction needs this class.
+    // Transport action constructor uses Guice to find injected dependencies.
+    // Dependency classes must have either one (and only one) constructor
+    // annotated with @Inject or a zero-argument constructor. Otherwise, ES cannot start.
     @Inject
-    public ClusterStateUtils(ClusterService clusterService) {
+    public ClusterStateUtils(ClusterService clusterService, HashMap<String, String> ignoredAttributes) {
         this.clusterService = clusterService;
-        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        this.ignoredAttributes = ignoredAttributes;
     }
 
+    /**
+     * Find nodes that are elibile to be used by us.  For example, Ultrawarm
+     *  introduces warm nodes into the ES cluster. Currently, we distribute
+     *   model partitions to all data nodes in the cluster randomly, which
+     *    could cause a model performance downgrade issue once warm nodes
+     *     are throttled due to resource limitations. The PR excludes warm node
+     *     s to place model partitions.
+     * @return a immutable map of eligible data nodes
+     */
     public ImmutableOpenMap<String, DiscoveryNode> getEligibleDataNodes() {
         ImmutableOpenMap<String, DiscoveryNode> dataNodes = clusterService.state().nodes().getDataNodes();
         ImmutableOpenMap.Builder<String, DiscoveryNode> modelNodes = ImmutableOpenMap.builder();
@@ -53,13 +69,17 @@ public class ClusterStateUtils {
         return modelNodes.build();
     }
 
+    /**
+     * @param node a discovery node
+     * @return whether we should ignore this node or not for AD
+     */
     public boolean isIgnoredNode(DiscoveryNode node) {
         if (!node.isDataNode()) {
             return true;
         }
         for (Map.Entry<String, String> entry : ignoredAttributes.entrySet()) {
             String attribute = node.getAttributes().get(entry.getKey());
-            if (attribute != null && attribute.equals(entry.getValue())) {
+            if (entry.getValue().equals(attribute)) {
                 return true;
             }
         }

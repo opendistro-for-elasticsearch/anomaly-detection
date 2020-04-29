@@ -25,8 +25,11 @@ import static org.mockito.ArgumentMatchers.any;
 
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
 
@@ -65,7 +68,9 @@ public class MasterEventListenerTests extends AbstractADTest {
         client = mock(Client.class);
         clock = mock(Clock.class);
         clientUtil = mock(ClientUtil.class);
-        clusterStateUtils = new ClusterStateUtils(clusterService);
+        HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
+        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        clusterStateUtils = new ClusterStateUtils(clusterService, ignoredAttributes);
 
         masterService = new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, clusterStateUtils);
     }

@@ -92,6 +92,7 @@ import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.metadata.MetaData.Custom;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.IndexScopedSettings;
@@ -122,6 +123,7 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -265,7 +267,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         RandomCutForestSerDe rcfSerde = new RandomCutForestSerDe();
         CheckpointDao checkpoint = new CheckpointDao(client, clientUtil, CommonName.CHECKPOINT_INDEX_NAME);
 
-        this.clusterStateUtils = new ClusterStateUtils(clusterService);
+        HashMap<String, String> ignoredAttributes = new HashMap<>();
+        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        this.clusterStateUtils = new ClusterStateUtils(clusterService, ignoredAttributes);
         ModelManager modelManager = new ModelManager(
             clusterStateUtils,
             jvmService,
@@ -364,7 +368,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 deleteUtil,
                 adCircuitBreakerService,
                 adStats,
-                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, clusterStateUtils)
+                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, clusterStateUtils),
+                clusterStateUtils
             );
     }
 

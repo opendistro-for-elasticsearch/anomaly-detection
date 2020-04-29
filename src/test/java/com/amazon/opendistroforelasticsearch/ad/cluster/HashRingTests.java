@@ -99,7 +99,9 @@ public class HashRingTests extends AbstractADTest {
         super.setUp();
         super.setUpLog4jForJUnit(HashRing.class);
         clusterService = createClusterService(threadPool);
-        clusterStateUtils = new ClusterStateUtils(clusterService);
+        HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
+        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        clusterStateUtils = new ClusterStateUtils(clusterService, ignoredAttributes);
 
         settings = Settings
             .builder()

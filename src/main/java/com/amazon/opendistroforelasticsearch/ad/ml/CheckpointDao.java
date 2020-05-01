@@ -15,16 +15,23 @@
 
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+
+import com.google.common.io.Resources;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
+import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.get.GetRequest;
@@ -32,6 +39,8 @@ import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.xcontent.XContentType;
 
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 
@@ -42,6 +51,7 @@ public class CheckpointDao {
 
     protected static final String DOC_TYPE = "_doc";
     protected static final String FIELD_MODEL = "model";
+    protected static final String MAPPING_PATH = "mappings/checkpoint.json";
     public static final String TIMESTAMP = "timestamp";
 
     private static final Logger logger = LogManager.getLogger(CheckpointDao.class);
@@ -49,6 +59,7 @@ public class CheckpointDao {
     // dependencies
     private final Client client;
     private final ClientUtil clientUtil;
+    private final ClusterService clusterService;
 
     // configuration
     private final String indexName;
@@ -58,11 +69,13 @@ public class CheckpointDao {
      *
      * @param client ES search client
      * @param clientUtil utility with ES client
+     * @param clusterService provides cluster info
      * @param indexName name of the index for model checkpoints
      */
-    public CheckpointDao(Client client, ClientUtil clientUtil, String indexName) {
+    public CheckpointDao(Client client, ClientUtil clientUtil, ClusterService clusterService, String indexName) {
         this.client = client;
         this.clientUtil = clientUtil;
+        this.clusterService = clusterService;
         this.indexName = indexName;
     }
 
@@ -75,17 +88,23 @@ public class CheckpointDao {
      * @param modelCheckpoint Checkpoint data of the model
      */
     @Deprecated
-    public void putModelCheckpoint(String modelId, String modelCheckpoint) {
+    public void putModelCheckpoint(String modelId, byte[] modelCheckpoint) {
         Map<String, Object> source = new HashMap<>();
         source.put(FIELD_MODEL, modelCheckpoint);
         source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
 
-        clientUtil
-            .<IndexRequest, IndexResponse>timedRequest(
-                new IndexRequest(indexName, DOC_TYPE, modelId).source(source),
-                logger,
-                client::index
-            );
+        createCheckpointIndexIfAbsent(
+            ActionListener
+                .wrap(
+                    r -> clientUtil
+                        .<IndexRequest, IndexResponse>timedRequest(
+                            new IndexRequest(indexName, DOC_TYPE, modelId).source(source),
+                            logger,
+                            client::index
+                        ),
+                    e -> logger.warn("Failed to put checkpoint for " + modelId, e)
+                )
+        );
     }
 
     /**
@@ -95,16 +114,23 @@ public class CheckpointDao {
      * @param modelCheckpoint checkpoint of the model
      * @param listener onResponse is called with null when the operation is completed
      */
-    public void putModelCheckpoint(String modelId, String modelCheckpoint, ActionListener<Void> listener) {
+    public void putModelCheckpoint(String modelId, byte[] modelCheckpoint, ActionListener<Void> listener) {
         Map<String, Object> source = new HashMap<>();
         source.put(FIELD_MODEL, modelCheckpoint);
         source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
-        clientUtil
-            .<IndexRequest, IndexResponse>asyncRequest(
-                new IndexRequest(indexName, DOC_TYPE, modelId).source(source),
-                client::index,
-                ActionListener.wrap(r -> listener.onResponse(null), listener::onFailure)
-            );
+
+        createCheckpointIndexIfAbsent(
+            ActionListener
+                .wrap(
+                    s -> clientUtil
+                        .<IndexRequest, IndexResponse>asyncRequest(
+                            new IndexRequest(indexName, DOC_TYPE, modelId).source(source),
+                            client::index,
+                            ActionListener.wrap(r -> listener.onResponse(null), listener::onFailure)
+                        ),
+                    listener::onFailure
+                )
+        );
     }
 
     /**
@@ -116,12 +142,12 @@ public class CheckpointDao {
      * @return model checkpoint, or empty if not found
      */
     @Deprecated
-    public Optional<String> getModelCheckpoint(String modelId) {
+    public Optional<byte[]> getModelCheckpoint(String modelId) {
         return clientUtil
             .<GetRequest, GetResponse>timedRequest(new GetRequest(indexName, DOC_TYPE, modelId), logger, client::get)
             .filter(GetResponse::isExists)
             .map(GetResponse::getSource)
-            .map(source -> (String) source.get(FIELD_MODEL));
+            .map(source -> (byte[]) source.get(FIELD_MODEL));
     }
 
     /**
@@ -130,7 +156,7 @@ public class CheckpointDao {
      * @param modelId id of the model
      * @param listener onResponse is called with the model checkpoint, or empty for no such model
      */
-    public void getModelCheckpoint(String modelId, ActionListener<Optional<String>> listener) {
+    public void getModelCheckpoint(String modelId, ActionListener<Optional<byte[]>> listener) {
         clientUtil
             .<GetRequest, GetResponse>asyncRequest(
                 new GetRequest(indexName, DOC_TYPE, modelId),
@@ -139,12 +165,12 @@ public class CheckpointDao {
             );
     }
 
-    private Optional<String> processModelCheckpoint(GetResponse response) {
+    private Optional<byte[]> processModelCheckpoint(GetResponse response) {
         return Optional
             .ofNullable(response)
             .filter(GetResponse::isExists)
             .map(GetResponse::getSource)
-            .map(source -> (String) source.get(FIELD_MODEL));
+            .map(source -> Base64.getDecoder().decode((String) source.get(FIELD_MODEL)));
     }
 
     /**
@@ -172,5 +198,23 @@ public class CheckpointDao {
                 client::delete,
                 ActionListener.wrap(r -> listener.onResponse(null), listener::onFailure)
             );
+    }
+
+    private void createCheckpointIndexIfAbsent(ActionListener<CreateIndexResponse> listener) {
+        if (clusterService.state().getRoutingTable().hasIndex(indexName)) {
+            listener.onResponse(null);
+        } else {
+            try {
+                CreateIndexRequest request = new CreateIndexRequest(indexName)
+                    .mapping(
+                        DOC_TYPE,
+                        Resources.toString(getClass().getClassLoader().getResource(MAPPING_PATH), StandardCharsets.UTF_8),
+                        XContentType.JSON
+                    );
+                client.admin().indices().create(request, listener);
+            } catch (IOException e) {
+                listener.onFailure(e);
+            }
+        }
     }
 }

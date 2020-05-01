@@ -1,0 +1,10 @@
+{
+  "properties": {
+    "model": {
+      "type": "binary"
+    },
+    "timestamp": {
+      "type": "date"
+    }
+  }
+}

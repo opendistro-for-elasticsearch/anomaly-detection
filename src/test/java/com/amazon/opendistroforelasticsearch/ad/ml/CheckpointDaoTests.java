@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -25,6 +26,8 @@ import java.util.function.BiConsumer;
 
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
+import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.get.GetRequest;
@@ -32,6 +35,8 @@ import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.client.IndicesAdminClient;
+import org.elasticsearch.cluster.service.ClusterService;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -42,6 +47,7 @@ import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -66,6 +72,9 @@ public class CheckpointDaoTests {
     @Mock
     private ClientUtil clientUtil;
 
+    @Mock(answer = Answers.RETURNS_DEEP_STUBS)
+    private ClusterService clusterService;
+
     @Mock
     private GetResponse getResponse;
 
@@ -74,7 +83,7 @@ public class CheckpointDaoTests {
 
     // test data
     private String modelId;
-    private String model;
+    private byte[] model;
     private Map<String, Object> docSource;
 
     @Before
@@ -83,12 +92,14 @@ public class CheckpointDaoTests {
 
         indexName = "testIndexName";
 
-        checkpointDao = new CheckpointDao(client, clientUtil, indexName);
+        checkpointDao = new CheckpointDao(client, clientUtil, clusterService, indexName);
 
         modelId = "testModelId";
-        model = "testModel";
+        model = "model".getBytes();
         docSource = new HashMap<>();
         docSource.put(CheckpointDao.FIELD_MODEL, model);
+
+        when(clusterService.state().getRoutingTable().hasIndex(indexName)).thenReturn(true);
     }
 
     @Test
@@ -108,8 +119,8 @@ public class CheckpointDaoTests {
         assertEquals(modelId, indexRequest.id());
         Set<String> expectedSourceKeys = new HashSet<String>(Arrays.asList(CheckpointDao.FIELD_MODEL, CheckpointDao.TIMESTAMP));
         assertEquals(expectedSourceKeys, indexRequest.sourceAsMap().keySet());
-        assertEquals(model, indexRequest.sourceAsMap().get(CheckpointDao.FIELD_MODEL));
         assertNotNull(indexRequest.sourceAsMap().get(CheckpointDao.TIMESTAMP));
+        assertArrayEquals(model, Base64.getDecoder().decode((String) (indexRequest.sourceAsMap().get(CheckpointDao.FIELD_MODEL))));
     }
 
     @Test
@@ -125,7 +136,7 @@ public class CheckpointDaoTests {
         when(getResponse.isExists()).thenReturn(true);
         when(getResponse.getSource()).thenReturn(docSource);
 
-        Optional<String> result = checkpointDao.getModelCheckpoint(modelId);
+        Optional<byte[]> result = checkpointDao.getModelCheckpoint(modelId);
 
         assertTrue(result.isPresent());
         assertEquals(model, result.get());
@@ -142,7 +153,7 @@ public class CheckpointDaoTests {
             .timedRequest(anyObject(), anyObject(), Matchers.<BiConsumer<GetRequest, ActionListener<GetResponse>>>anyObject());
         when(getResponse.isExists()).thenReturn(false);
 
-        Optional<String> result = checkpointDao.getModelCheckpoint(modelId);
+        Optional<byte[]> result = checkpointDao.getModelCheckpoint(modelId);
 
         assertFalse(result.isPresent());
     }
@@ -166,7 +177,7 @@ public class CheckpointDaoTests {
 
     @Test
     @SuppressWarnings("unchecked")
-    public void putModelCheckpoint_callListener_whenCompleted() {
+    public void putModelCheckpoint_callListener_whenCompleted_withIndex() {
         ArgumentCaptor<IndexRequest> requestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
         doAnswer(invocation -> {
             ActionListener<IndexResponse> listener = invocation.getArgument(2);
@@ -183,8 +194,44 @@ public class CheckpointDaoTests {
         assertEquals(modelId, indexRequest.id());
         Set<String> expectedSourceKeys = new HashSet<String>(Arrays.asList(CheckpointDao.FIELD_MODEL, CheckpointDao.TIMESTAMP));
         assertEquals(expectedSourceKeys, indexRequest.sourceAsMap().keySet());
-        assertEquals(model, indexRequest.sourceAsMap().get(CheckpointDao.FIELD_MODEL));
         assertNotNull(indexRequest.sourceAsMap().get(CheckpointDao.TIMESTAMP));
+        assertArrayEquals(model, Base64.getDecoder().decode((String) (indexRequest.sourceAsMap().get(CheckpointDao.FIELD_MODEL))));
+
+        ArgumentCaptor<Void> responseCaptor = ArgumentCaptor.forClass(Void.class);
+        verify(listener).onResponse(responseCaptor.capture());
+        Void response = responseCaptor.getValue();
+        assertEquals(null, response);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void putModelCheckpoint_callListener_whenCompleted_withoutIndex() {
+        when(clusterService.state().getRoutingTable().hasIndex(indexName)).thenReturn(false);
+        IndicesAdminClient index = mock(IndicesAdminClient.class);
+        when(client.admin().indices()).thenReturn(index);
+        doAnswer(invocation -> {
+            ActionListener<CreateIndexResponse> listener = invocation.getArgument(1);
+            listener.onResponse(null);
+            return null;
+        }).when(index).create(any(CreateIndexRequest.class), any(ActionListener.class));
+        ArgumentCaptor<IndexRequest> requestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
+        doAnswer(invocation -> {
+            ActionListener<IndexResponse> listener = invocation.getArgument(2);
+            listener.onResponse(null);
+            return null;
+        }).when(clientUtil).asyncRequest(requestCaptor.capture(), any(BiConsumer.class), any(ActionListener.class));
+
+        ActionListener<Void> listener = mock(ActionListener.class);
+        checkpointDao.putModelCheckpoint(modelId, model, listener);
+
+        IndexRequest indexRequest = requestCaptor.getValue();
+        assertEquals(indexName, indexRequest.index());
+        assertEquals(CheckpointDao.DOC_TYPE, indexRequest.type());
+        assertEquals(modelId, indexRequest.id());
+        Set<String> expectedSourceKeys = new HashSet<String>(Arrays.asList(CheckpointDao.FIELD_MODEL, CheckpointDao.TIMESTAMP));
+        assertEquals(expectedSourceKeys, indexRequest.sourceAsMap().keySet());
+        assertNotNull(indexRequest.sourceAsMap().get(CheckpointDao.TIMESTAMP));
+        assertArrayEquals(model, Base64.getDecoder().decode((String) (indexRequest.sourceAsMap().get(CheckpointDao.FIELD_MODEL))));
 
         ArgumentCaptor<Void> responseCaptor = ArgumentCaptor.forClass(Void.class);
         verify(listener).onResponse(responseCaptor.capture());
@@ -201,21 +248,22 @@ public class CheckpointDaoTests {
             listener.onResponse(getResponse);
             return null;
         }).when(clientUtil).asyncRequest(requestCaptor.capture(), any(BiConsumer.class), any(ActionListener.class));
+        docSource.put(CheckpointDao.FIELD_MODEL, Base64.getEncoder().encodeToString(model));
         when(getResponse.isExists()).thenReturn(true);
         when(getResponse.getSource()).thenReturn(docSource);
 
-        ActionListener<Optional<String>> listener = mock(ActionListener.class);
+        ActionListener<Optional<byte[]>> listener = mock(ActionListener.class);
         checkpointDao.getModelCheckpoint(modelId, listener);
 
         GetRequest getRequest = requestCaptor.getValue();
         assertEquals(indexName, getRequest.index());
         assertEquals(CheckpointDao.DOC_TYPE, getRequest.type());
         assertEquals(modelId, getRequest.id());
-        ArgumentCaptor<Optional<String>> responseCaptor = ArgumentCaptor.forClass(Optional.class);
+        ArgumentCaptor<Optional<byte[]>> responseCaptor = ArgumentCaptor.forClass(Optional.class);
         verify(listener).onResponse(responseCaptor.capture());
-        Optional<String> result = responseCaptor.getValue();
+        Optional<byte[]> result = responseCaptor.getValue();
         assertTrue(result.isPresent());
-        assertEquals(model, result.get());
+        assertArrayEquals(model, result.get());
     }
 
     @Test
@@ -229,16 +277,16 @@ public class CheckpointDaoTests {
         }).when(clientUtil).asyncRequest(requestCaptor.capture(), any(BiConsumer.class), any(ActionListener.class));
         when(getResponse.isExists()).thenReturn(false);
 
-        ActionListener<Optional<String>> listener = mock(ActionListener.class);
+        ActionListener<Optional<byte[]>> listener = mock(ActionListener.class);
         checkpointDao.getModelCheckpoint(modelId, listener);
 
         GetRequest getRequest = requestCaptor.getValue();
         assertEquals(indexName, getRequest.index());
         assertEquals(CheckpointDao.DOC_TYPE, getRequest.type());
         assertEquals(modelId, getRequest.id());
-        ArgumentCaptor<Optional<String>> responseCaptor = ArgumentCaptor.forClass(Optional.class);
+        ArgumentCaptor<Optional<byte[]>> responseCaptor = ArgumentCaptor.forClass(Optional.class);
         verify(listener).onResponse(responseCaptor.capture());
-        Optional<String> result = responseCaptor.getValue();
+        Optional<byte[]> result = responseCaptor.getValue();
         assertFalse(result.isPresent());
     }
 

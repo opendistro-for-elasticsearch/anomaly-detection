@@ -261,7 +261,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         JvmService jvmService = new JvmService(environment.settings());
         RandomCutForestSerDe rcfSerde = new RandomCutForestSerDe();
-        CheckpointDao checkpoint = new CheckpointDao(client, clientUtil, CommonName.CHECKPOINT_INDEX_NAME);
+        CheckpointDao checkpoint = new CheckpointDao(client, clientUtil, clusterService, CommonName.CHECKPOINT_INDEX_NAME);
 
         ModelManager modelManager = new ModelManager(
             clusterService,

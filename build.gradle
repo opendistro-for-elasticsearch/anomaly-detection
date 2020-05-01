@@ -253,6 +253,11 @@ dependencies {
     compile group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
     compile group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
+    compile group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-ion', version: '2.8.10'
+    compile group: 'software.amazon.ion', name: 'ion-java', version: '1.5.1'
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-core', version: '2.8.10'
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.8.10'
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.8.10'
 
     compile "org.jacoco:org.jacoco.agent:0.8.3"
     compile "org.jacoco:org.jacoco.ant:0.8.3"

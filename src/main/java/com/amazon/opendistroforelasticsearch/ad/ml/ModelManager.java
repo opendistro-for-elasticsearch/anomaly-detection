@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
+import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
@@ -338,7 +339,7 @@ public class ModelManager {
                 model -> checkpointDao
                     .getModelCheckpoint(model)
                     .map(
-                        checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) () -> rcfSerde.fromJson(checkpoint))
+                        checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) () -> rcfSerde.fromIon(checkpoint))
                     )
                     .filter(rcf -> isHostingAllowed(detectorId, rcf))
                     .map(rcf -> new ModelState<>(rcf, modelId, detectorId, ModelType.RCF.getName(), clock.instant()))
@@ -388,14 +389,14 @@ public class ModelManager {
     }
 
     private void processRcfCheckpoint(
-        Optional<String> rcfCheckpoint,
+        Optional<byte[]> rcfCheckpoint,
         String modelId,
         String detectorId,
         double[] point,
         ActionListener<RcfResult> listener
     ) {
         Optional<ModelState<RandomCutForest>> model = rcfCheckpoint
-            .map(checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) () -> rcfSerde.fromJson(checkpoint)))
+            .map(checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) () -> rcfSerde.fromIon(checkpoint)))
             .filter(rcf -> isHostingAllowed(detectorId, rcf))
             .map(rcf -> new ModelState<>(rcf, modelId, detectorId, ModelType.RCF.getName(), clock.instant()));
         if (model.isPresent()) {
@@ -426,7 +427,9 @@ public class ModelManager {
                     .getModelCheckpoint(model)
                     .map(
                         checkpoint -> AccessController
-                            .doPrivileged((PrivilegedAction<ThresholdingModel>) () -> gson.fromJson(checkpoint, thresholdingModelClass))
+                            .doPrivileged(
+                                (PrivilegedAction<ThresholdingModel>) () -> gson.fromJson(new String(checkpoint), thresholdingModelClass)
+                            )
                     )
                     .map(threshold -> new ModelState<>(threshold, modelId, detectorId, ModelType.THRESHOLD.getName(), clock.instant()))
                     .orElseThrow(() -> new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId))
@@ -479,7 +482,7 @@ public class ModelManager {
     }
 
     private void processThresholdCheckpoint(
-        Optional<String> thresholdCheckpoint,
+        Optional<byte[]> thresholdCheckpoint,
         String modelId,
         String detectorId,
         double score,
@@ -489,7 +492,7 @@ public class ModelManager {
         Optional<ModelState<ThresholdingModel>> model = thresholdCheckpoint
             .map(
                 checkpoint -> AccessController
-                    .doPrivileged((PrivilegedAction<ThresholdingModel>) () -> gson.fromJson(checkpoint, thresholdingModelClass))
+                    .doPrivileged((PrivilegedAction<ThresholdingModel>) () -> gson.fromJson(new String(checkpoint), thresholdingModelClass))
             )
             .map(threshold -> new ModelState<>(threshold, modelId, detectorId, ModelType.THRESHOLD.getName(), clock.instant()));
         if (model.isPresent()) {
@@ -533,7 +536,7 @@ public class ModelManager {
         stopModel(thresholds, modelId, this::toCheckpoint);
     }
 
-    private <T> void stopModel(Map<String, ModelState<T>> models, String modelId, Function<T, String> toCheckpoint) {
+    private <T> void stopModel(Map<String, ModelState<T>> models, String modelId, Function<T, byte[]> toCheckpoint) {
         Instant now = clock.instant();
         Optional
             .ofNullable(models.remove(modelId))
@@ -561,7 +564,7 @@ public class ModelManager {
     private <T> void stopModel(
         Map<String, ModelState<T>> models,
         String modelId,
-        Function<T, String> toCheckpoint,
+        Function<T, byte[]> toCheckpoint,
         ActionListener<Void> listener
     ) {
         Instant now = clock.instant();
@@ -685,7 +688,7 @@ public class ModelManager {
                 rcf.update(dataPoints[j]);
             }
             String modelId = getRcfModelId(anomalyDetector.getDetectorId(), i);
-            String checkpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> rcfSerde.toJson(rcf));
+            byte[] checkpoint = AccessController.doPrivileged((PrivilegedAction<byte[]>) () -> rcfSerde.toIon(rcf));
             checkpointDao.putModelCheckpoint(modelId, checkpoint);
         }
 
@@ -704,7 +707,8 @@ public class ModelManager {
 
         // Persist thresholding model
         String modelId = getThresholdModelId(anomalyDetector.getDetectorId());
-        String checkpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> gson.toJson(threshold));
+        byte[] checkpoint = AccessController
+            .doPrivileged((PrivilegedAction<byte[]>) () -> gson.toJson(threshold).getBytes(StandardCharsets.UTF_8));
         checkpointDao.putModelCheckpoint(modelId, checkpoint);
     }
 
@@ -777,7 +781,7 @@ public class ModelManager {
                 rcf.update(dataPoints[j]);
             }
             String modelId = getRcfModelId(detector.getDetectorId(), step);
-            String checkpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> rcfSerde.toJson(rcf));
+            byte[] checkpoint = AccessController.doPrivileged((PrivilegedAction<byte[]>) () -> rcfSerde.toIon(rcf));
             checkpointDao
                 .putModelCheckpoint(
                     modelId,
@@ -813,7 +817,8 @@ public class ModelManager {
 
             // Persist thresholding model
             String modelId = getThresholdModelId(detector.getDetectorId());
-            String checkpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> gson.toJson(threshold));
+            byte[] checkpoint = AccessController
+                .doPrivileged((PrivilegedAction<byte[]>) () -> gson.toJson(threshold).getBytes(StandardCharsets.UTF_8));
             checkpointDao.putModelCheckpoint(modelId, checkpoint, ActionListener.wrap(r -> listener.onResponse(null), listener::onFailure));
         }
     }
@@ -859,12 +864,12 @@ public class ModelManager {
         }
     }
 
-    private String toCheckpoint(RandomCutForest forest) {
-        return AccessController.doPrivileged((PrivilegedAction<String>) () -> rcfSerde.toJson(forest));
+    private byte[] toCheckpoint(RandomCutForest forest) {
+        return AccessController.doPrivileged((PrivilegedAction<byte[]>) () -> rcfSerde.toIon(forest));
     }
 
-    private String toCheckpoint(ThresholdingModel threshold) {
-        return AccessController.doPrivileged((PrivilegedAction<String>) () -> gson.toJson(threshold));
+    private byte[] toCheckpoint(ThresholdingModel threshold) {
+        return AccessController.doPrivileged((PrivilegedAction<byte[]>) () -> gson.toJson(threshold).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -880,7 +885,7 @@ public class ModelManager {
         maintenance(thresholds, this::toCheckpoint);
     }
 
-    private <T> void maintenance(Map<String, ModelState<T>> models, Function<T, String> toCheckpoint) {
+    private <T> void maintenance(Map<String, ModelState<T>> models, Function<T, byte[]> toCheckpoint) {
         models.entrySet().stream().forEach(entry -> {
             String modelId = entry.getKey();
             try {

@@ -49,7 +49,7 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoun
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 
@@ -103,7 +103,7 @@ public class ModelManager {
     private final Duration checkpointInterval;
 
     // dependencies
-    private final ClusterStateUtils clusterStateUtils;
+    private final DiscoveryNodeFilterer nodeFilter;
     private final JvmService jvmService;
     private final RandomCutForestSerDe rcfSerde;
     private final CheckpointDao checkpointDao;
@@ -119,7 +119,7 @@ public class ModelManager {
     /**
      * Constructor.
      *
-     * @param clusterStateUtils cluster info
+     * @param nodeFilter utility class to select nodesr
      * @param jvmService jvm info
      * @param rcfSerde RCF model serialization
      * @param checkpointDao model checkpoint storage
@@ -143,7 +143,7 @@ public class ModelManager {
      * @param shingleSize size of a shingle
      */
     public ModelManager(
-        ClusterStateUtils clusterStateUtils,
+        DiscoveryNodeFilterer nodeFilter,
         JvmService jvmService,
         RandomCutForestSerDe rcfSerde,
         CheckpointDao checkpointDao,
@@ -167,7 +167,7 @@ public class ModelManager {
         int shingleSize
     ) {
 
-        this.clusterStateUtils = clusterStateUtils;
+        this.nodeFilter = nodeFilter;
         this.jvmService = jvmService;
         this.rcfSerde = rcfSerde;
         this.checkpointDao = checkpointDao;
@@ -260,7 +260,7 @@ public class ModelManager {
         int numPartitions = (int) Math.ceil((double) totalSize / (double) partitionSize);
         int forestSize = (int) Math.ceil((double) forest.getNumberOfTrees() / (double) numPartitions);
 
-        int numNodes = clusterStateUtils.getEligibleDataNodes().size();
+        int numNodes = nodeFilter.getEligibleDataNodes().length;
         if (numPartitions > numNodes) {
             // partition by cluster size
             partitionSize = (long) Math.ceil((double) totalSize / (double) numNodes);

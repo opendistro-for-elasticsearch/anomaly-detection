@@ -25,7 +25,6 @@ import static org.mockito.Matchers.any;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -36,7 +35,7 @@ import static java.util.Collections.emptySet;
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
-import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 import org.elasticsearch.cluster.ClusterChangedEvent;
 import org.elasticsearch.cluster.ClusterName;
@@ -65,7 +64,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
     private ClusterState newClusterState;
     private DiscoveryNode masterNode;
     private DiscoveryNode dataNode1;
-    private ClusterStateUtils clusterStateUtils;
+    private DiscoveryNodeFilterer nodeFilter;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -86,9 +85,8 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         hashRing = mock(HashRing.class);
         when(hashRing.build()).thenReturn(true);
         modelManager = mock(ModelManager.class);
-        HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
-        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
-        clusterStateUtils = new ClusterStateUtils(clusterService, ignoredAttributes);
+
+        nodeFilter = new DiscoveryNodeFilterer(clusterService);
         masterNode = new DiscoveryNode(masterNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT);
         dataNode1 = new DiscoveryNode(dataNode1Id, buildNewFakeTransportAddress(), emptyMap(), BUILT_IN_ROLES, Version.CURRENT);
         oldClusterState = ClusterState
@@ -100,7 +98,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             .nodes(new DiscoveryNodes.Builder().masterNodeId(masterNodeId).localNodeId(dataNode1Id).add(masterNode).add(dataNode1))
             .build();
 
-        listener = new ADClusterEventListener(clusterService, hashRing, modelManager, clusterStateUtils);
+        listener = new ADClusterEventListener(clusterService, hashRing, modelManager, nodeFilter);
     }
 
     @Override

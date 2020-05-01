@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronResponse;
-import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -65,7 +65,7 @@ public class HourlyCronTests extends AbstractADTest {
         when(clusterService.state()).thenReturn(state);
         HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
         ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
-        ClusterStateUtils stateUtils = new ClusterStateUtils(clusterService, ignoredAttributes);
+        DiscoveryNodeFilterer nodeFilter = new DiscoveryNodeFilterer(clusterService);
 
         Client client = mock(Client.class);
         doAnswer(invocation -> {
@@ -111,7 +111,7 @@ public class HourlyCronTests extends AbstractADTest {
             return null;
         }).when(client).execute(eq(CronAction.INSTANCE), any(), any());
 
-        HourlyCron cron = new HourlyCron(client, stateUtils);
+        HourlyCron cron = new HourlyCron(client, nodeFilter);
         cron.run();
 
         Logger LOG = LogManager.getLogger(HourlyCron.class);
@@ -135,7 +135,7 @@ public class HourlyCronTests extends AbstractADTest {
         templateHourlyCron(HourlyCronTestExecutionMode.ALL_FAIL);
     }
 
-    public void testNodeFail() {
+    public void testNodeFail() throws Exception {
         templateHourlyCron(HourlyCronTestExecutionMode.NODE_FAIL);
     }
 }

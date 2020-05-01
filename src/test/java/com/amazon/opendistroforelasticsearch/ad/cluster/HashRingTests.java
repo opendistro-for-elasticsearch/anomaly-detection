@@ -32,7 +32,7 @@ import java.util.HashMap;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
-import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 import org.elasticsearch.Version;
 import org.elasticsearch.cluster.ClusterState;
@@ -49,7 +49,7 @@ import org.junit.BeforeClass;
 public class HashRingTests extends AbstractADTest {
 
     private ClusterService clusterService;
-    private ClusterStateUtils clusterStateUtils;
+    private DiscoveryNodeFilterer nodeFilter;
     private Settings settings;
     private Clock clock;
 
@@ -101,7 +101,7 @@ public class HashRingTests extends AbstractADTest {
         clusterService = createClusterService(threadPool);
         HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
         ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
-        clusterStateUtils = new ClusterStateUtils(clusterService, ignoredAttributes);
+        nodeFilter = new DiscoveryNodeFilterer(clusterService);
 
         settings = Settings
             .builder()
@@ -122,7 +122,7 @@ public class HashRingTests extends AbstractADTest {
     public void testGetOwningNode() {
         setNodeState();
 
-        HashRing ring = new HashRing(clusterStateUtils, clock, settings);
+        HashRing ring = new HashRing(nodeFilter, clock, settings);
         Optional<DiscoveryNode> node = ring.getOwningNode("http-latency-rcf-1");
         assertTrue(node.isPresent());
         String id = node.get().getId();
@@ -140,7 +140,7 @@ public class HashRingTests extends AbstractADTest {
         attributesForNode1.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
         setNodeState(attributesForNode1);
 
-        HashRing ring = new HashRing(clusterStateUtils, clock, settings);
+        HashRing ring = new HashRing(nodeFilter, clock, settings);
         Optional<DiscoveryNode> node = ring.getOwningNode("http-latency-rcf-1");
         assertTrue(node.isPresent());
         String id = node.get().getId();

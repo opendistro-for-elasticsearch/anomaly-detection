@@ -31,8 +31,7 @@ import org.elasticsearch.cluster.routing.Murmur3HashFunction;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 
-import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
-import com.carrotsearch.hppc.cursors.ObjectCursor;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 public class HashRing {
     private static final Logger LOG = LogManager.getLogger(HashRing.class);
@@ -43,7 +42,7 @@ public class HashRing {
     static final String COOLDOWN_MSG = "Hash ring doesn't respond to cluster state change within the cooldown period.";
 
     private final int VIRTUAL_NODE_COUNT = 100;
-    private final ClusterStateUtils clusterStateUtils;
+    private final DiscoveryNodeFilterer nodeFilter;
     private TreeMap<Integer, DiscoveryNode> circle;
     private Semaphore inProgress;
     // the UTC epoch milliseconds of the most recent successful update
@@ -52,9 +51,9 @@ public class HashRing {
     private final Clock clock;
     private AtomicBoolean membershipChangeRequied;
 
-    public HashRing(ClusterStateUtils clusterStateUtils, Clock clock, Settings settings) {
+    public HashRing(DiscoveryNodeFilterer nodeFilter, Clock clock, Settings settings) {
         this.circle = new TreeMap<Integer, DiscoveryNode>();
-        this.clusterStateUtils = clusterStateUtils;
+        this.nodeFilter = nodeFilter;
         this.inProgress = new Semaphore(1);
         this.clock = clock;
         this.coolDownPeriod = COOLDOWN_MINUTES.get(settings);
@@ -93,8 +92,7 @@ public class HashRing {
         TreeMap<Integer, DiscoveryNode> newCircle = new TreeMap<>();
 
         try {
-            for (ObjectCursor<DiscoveryNode> cursor : clusterStateUtils.getEligibleDataNodes().values()) {
-                DiscoveryNode curNode = cursor.value;
+            for (DiscoveryNode curNode : nodeFilter.getEligibleDataNodes()) {
                 for (int i = 0; i < VIRTUAL_NODE_COUNT; i++) {
                     newCircle.put(Murmur3HashFunction.hash(curNode.getId() + i), curNode);
                 }

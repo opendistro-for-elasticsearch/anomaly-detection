@@ -6,18 +6,15 @@ The Open Distro for Elasticsearch Anomaly Detection plugin enables you to levera
 
 Anomaly detection is using Random Cut Forest (RCF) algorithm for detecting anomalous data points.
 
-You should use anomaly detection plugin with Open Distro Alerting plugin [1.2-alpha](https://github.com/opendistro-for-elasticsearch/alerting). You can also create a monitor based on anomaly detector. A scheduled monitor run will trigger the anomaly detection plugin and collecting anomalies to trigger alerts based on custom trigger conditions.
+You should use anomaly detection plugin with the same version of Open Distro Alerting plugin (https://github.com/opendistro-for-elasticsearch/alerting). You can also create a monitor based on anomaly detector. A scheduled monitor run will trigger the anomaly detection plugin and collecting anomalies to trigger alerts based on custom trigger conditions.
   
 ## Current Limitations
-* This is alpha code.
-* We inherit security features from Open Distro for Elasticsearch Alerting.
-* We use Alerting alpha code branch.
 * We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. This is a great area for developers from the community to contribute and help improve test coverage.
 * Please see documentation links and GitHub issues for other details.
 
 ## Documentation
 
-Please see our [documentation](https://opendistro.github.io/for-elasticsearch-docs/).
+Please see our [documentation](https://opendistro.github.io/for-elasticsearch-docs/docs/ad/).
   
 ## Setup
 
@@ -83,9 +80,6 @@ You can do this by running `./gradlew run -PnumNodes=<numberOfNodesYouWant>`
 You can also debug a multi-node cluster, by using a combination of above multi-node and debug steps.
 But, you must set up debugger configurations to listen on each port starting from `5005` and increasing by 1 for each node.  
 
-## Known Issues
-* We have a cold start period whenever we initialize a model, which could happen when we create a new detector or when the cluster restarts and models get restored from snapshots. Currently the detector always return errors during the cold start period. Please ignore these initial errors for now. We are actively working on the fix and will push in the next release.
-
 ## Interested in contributing to the Anomaly Detection plugin
 
 We welcome you to get involved in development, documentation, testing the anomaly detection plugin. See our [contribution guidelines](https://opendistro.github.io/for-elasticsearch/blob/development/CONTRIBUTING.md) and join in.
@@ -107,4 +101,4 @@ See the [LICENSE](./LICENSE.txt) file for our project's licensing. We will ask y
 
 ## Copyright
 
-Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.

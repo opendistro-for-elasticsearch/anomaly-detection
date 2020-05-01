@@ -4,9 +4,11 @@ The Open Distro for Elasticsearch Anomaly Detection plugin enables you to levera
 
 ## Highlights
 
-Anomaly detection is using Random Cut Forest (RCF) algorithm for detecting anomalous data points.
+Anomaly detection is using [Random Cut Forest (RCF) algorithm](https://github.com/aws/random-cut-forest-by-aws) for detecting anomalous data points.
 
-You should use anomaly detection plugin with the same version of Open Distro Alerting plugin (https://github.com/opendistro-for-elasticsearch/alerting). You can also create a monitor based on anomaly detector. A scheduled monitor run will trigger the anomaly detection plugin and collecting anomalies to trigger alerts based on custom trigger conditions.
+Anomaly detections run a scheduled job based on [job-scheduler](https://github.com/opendistro-for-elasticsearch/job-scheduler).
+
+You should use anomaly detection plugin with the same version of [Open Distro Alerting plugin](https://github.com/opendistro-for-elasticsearch/alerting). You can also create a monitor based on the anomaly detector. A scheduled monitor run checks the anomaly detection results regularly and collects anomalies to trigger alerts based on custom trigger conditions.
   
 ## Current Limitations
 * We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. This is a great area for developers from the community to contribute and help improve test coverage.

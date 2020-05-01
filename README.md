@@ -42,8 +42,8 @@ Currently we just put RCF jar in lib as dependency. Plan to publish to Maven and
 ### Building from the command line
 
 1. `./gradlew build` builds and tests
-1. `./gradlew :run` launches a single node cluster with the AD plugin installed
-1. `./gradlew :integTest` launches a single node cluster with the AD plugin installed and runs all integration tests
+1. `./gradlew :run` launches a single node cluster with the AD (and job-scheduler) plugin installed
+1. `./gradlew :integTest` launches a single node cluster with the AD (and job-scheduler) plugin installed and runs all integration tests
 1. ` ./gradlew :integTest --tests="**.test execute foo"` runs a single integration test class or method
 1. `./gradlew spotlessApply` formats code. And/or import formatting rules in `.eclipseformat.xml` with IDE.
 

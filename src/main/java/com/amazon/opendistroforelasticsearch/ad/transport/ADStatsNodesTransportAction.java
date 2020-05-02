@@ -32,9 +32,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- *  ADStatsTransportAction contains the logic to extract the stats from the nodes
+ *  ADStatsNodesTransportAction contains the logic to extract the stats from the nodes
  */
-public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest, ADStatsResponse, ADStatsNodeRequest, ADStatsNodeResponse> {
+public class ADStatsNodesTransportAction extends
+    TransportNodesAction<ADStatsRequest, ADStatsNodesResponse, ADStatsNodeRequest, ADStatsNodeResponse> {
 
     private ADStats adStats;
 
@@ -48,7 +49,7 @@ public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest,
      * @param adStats ADStats object
      */
     @Inject
-    public ADStatsTransportAction(
+    public ADStatsNodesTransportAction(
         ThreadPool threadPool,
         ClusterService clusterService,
         TransportService transportService,
@@ -56,7 +57,7 @@ public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest,
         ADStats adStats
     ) {
         super(
-            ADStatsAction.NAME,
+            ADStatsNodesAction.NAME,
             threadPool,
             clusterService,
             transportService,
@@ -70,18 +71,12 @@ public class ADStatsTransportAction extends TransportNodesAction<ADStatsRequest,
     }
 
     @Override
-    protected ADStatsResponse newResponse(ADStatsRequest request, List<ADStatsNodeResponse> responses, List<FailedNodeException> failures) {
-
-        Map<String, Object> clusterStats = new HashMap<>();
-        Set<String> statsToBeRetrieved = request.getStatsToBeRetrieved();
-
-        for (String statName : adStats.getClusterStats().keySet()) {
-            if (statsToBeRetrieved.contains(statName)) {
-                clusterStats.put(statName, adStats.getStats().get(statName).getValue());
-            }
-        }
-
-        return new ADStatsResponse(clusterService.getClusterName(), responses, failures, clusterStats);
+    protected ADStatsNodesResponse newResponse(
+        ADStatsRequest request,
+        List<ADStatsNodeResponse> responses,
+        List<FailedNodeException> failures
+    ) {
+        return new ADStatsNodesResponse(clusterService.getClusterName(), responses, failures);
     }
 
     @Override

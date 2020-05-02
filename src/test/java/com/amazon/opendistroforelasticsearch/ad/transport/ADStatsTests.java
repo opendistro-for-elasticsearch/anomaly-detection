@@ -145,34 +145,24 @@ public class ADStatsTests extends ESTestCase {
     }
 
     @Test
-    public void testADStatsResponse() throws IOException, JsonPathNotFoundException {
+    public void testADStatsNodesResponse() throws IOException, JsonPathNotFoundException {
         Map<String, Object> nodeStats = new HashMap<String, Object>() {
             {
                 put("testNodeKey", "testNodeValue");
             }
         };
 
-        Map<String, Object> clusterStats = new HashMap<String, Object>() {
-            {
-                put("testClusterKey", "testClusterValue");
-            }
-        };
         ADStatsNodeResponse adStatsNodeResponse = new ADStatsNodeResponse(discoveryNode1, nodeStats);
         List<ADStatsNodeResponse> adStatsNodeResponses = Collections.singletonList(adStatsNodeResponse);
         List<FailedNodeException> failures = Collections.emptyList();
-        ADStatsResponse adStatsResponse = new ADStatsResponse(new ClusterName(clusterName), adStatsNodeResponses, failures, clusterStats);
+        ADStatsNodesResponse adStatsNodesResponse = new ADStatsNodesResponse(new ClusterName(clusterName), adStatsNodeResponses, failures);
 
         // Test toXContent
         XContentBuilder builder = jsonBuilder();
-        adStatsResponse.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject();
+        adStatsNodesResponse.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject();
         String json = Strings.toString(builder);
 
         logger.info("JSON: " + json);
-
-        // clusterStats
-        for (Map.Entry<String, Object> stat : clusterStats.entrySet()) {
-            assertEquals("toXContent does not work for cluster stats", JsonDeserializer.getTextValue(json, stat.getKey()), stat.getValue());
-        }
 
         // nodeStats
         String nodesJson = JsonDeserializer.getChildNode(json, "nodes").toString();
@@ -189,9 +179,9 @@ public class ADStatsTests extends ESTestCase {
         // Test Serialization
         BytesStreamOutput output = new BytesStreamOutput();
 
-        adStatsResponse.writeTo(output);
+        adStatsNodesResponse.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        ADStatsResponse readRequest = new ADStatsResponse(streamInput);
+        ADStatsNodesResponse readRequest = new ADStatsNodesResponse(streamInput);
 
         builder = jsonBuilder();
         String readJson = Strings.toString(readRequest.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject());

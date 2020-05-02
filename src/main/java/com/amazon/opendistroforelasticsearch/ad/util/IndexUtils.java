@@ -17,13 +17,12 @@ package com.amazon.opendistroforelasticsearch.ad.util;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.health.ClusterIndexHealth;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.util.List;
 import java.util.Optional;
@@ -103,19 +102,19 @@ public class IndexUtils {
     /**
      * Gets the number of documents in an index.
      *
+     * @deprecated
+     *
      * @param indexName Name of the index
      * @return The number of documents in an index. 0 is returned if the index does not exist. -1 is returned if the
      * request fails.
      */
+    @Deprecated
     public Long getNumberOfDocumentsInIndex(String indexName) {
         if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
             return 0L;
         }
-        SearchRequest searchRequest = new SearchRequest(indexName);
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        sourceBuilder.size(0);
-        searchRequest.source(sourceBuilder);
-        Optional<SearchResponse> response = clientUtil.timedRequest(searchRequest, logger, client::search);
-        return response.map(r -> r.getHits().getTotalHits().value).orElse(-1L);
+        IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest();
+        Optional<IndicesStatsResponse> response = clientUtil.timedRequest(indicesStatsRequest, logger, client.admin().indices()::stats);
+        return response.map(r -> r.getIndex(indexName).getPrimaries().docs.getCount()).orElse(-1L);
     }
 }

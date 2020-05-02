@@ -24,7 +24,6 @@ import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupp
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
-import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
@@ -35,19 +34,17 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static org.mockito.Mockito.mock;
 
-public class ADStatsTransportActionTests extends ESIntegTestCase {
+public class ADStatsNodesTransportActionTests extends ESIntegTestCase {
 
-    private ADStatsTransportAction action;
+    private ADStatsNodesTransportAction action;
     private ADStats adStats;
     private Map<String, ADStat<?>> statsMap;
     private String clusterStatName1, clusterStatName2;
@@ -80,32 +77,13 @@ public class ADStatsTransportActionTests extends ESIntegTestCase {
 
         adStats = new ADStats(indexUtils, modelManager, statsMap);
 
-        action = new ADStatsTransportAction(
+        action = new ADStatsNodesTransportAction(
             client().threadPool(),
             clusterService(),
             mock(TransportService.class),
             mock(ActionFilters.class),
             adStats
         );
-    }
-
-    @Test
-    public void testNewResponse() {
-        String nodeId = clusterService().localNode().getId();
-        ADStatsRequest adStatsRequest = new ADStatsRequest((nodeId));
-        adStatsRequest.clear();
-
-        Set<String> clusterStatsToBeRetrieved = new HashSet<>(Arrays.asList(clusterStatName1, clusterStatName2));
-
-        for (String stat : clusterStatsToBeRetrieved) {
-            adStatsRequest.addStat(stat);
-        }
-
-        List<ADStatsNodeResponse> responses = new ArrayList<>();
-        List<FailedNodeException> failures = new ArrayList<>();
-
-        ADStatsResponse adStatsResponse = action.newResponse(adStatsRequest, responses, failures);
-        assertEquals(clusterStatsToBeRetrieved.size(), adStatsResponse.getClusterStats().size());
     }
 
     @Test

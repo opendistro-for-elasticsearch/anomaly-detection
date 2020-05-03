@@ -3,7 +3,7 @@ name: Testing Workflow
 on:
   pull_request:
     branches:
-      - development
+      - master
 jobs:
   build:
     strategy:

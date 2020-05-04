@@ -418,15 +418,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         if (isException(causeException, ResourceNotFoundException.class, RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)
             || (causeException instanceof IndexNotFoundException
                 && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
-            // fetch previous cold start exception
-            Optional<? extends AnomalyDetectionException> previousException = globalRunner.fetchException(adID);
-
-            if (previousException.isPresent()) {
-                LOG.error("Previous exception of {}: {}", () -> adID, () -> previousException.get());
-                failure.set(previousException.get());
-            } else {
-                failure.set(new ResourceNotFoundException(adID, causeException.getMessage()));
-            }
+            failure.set(new ResourceNotFoundException(adID, causeException.getMessage()));
         } else if (isException(causeException, LimitExceededException.class, LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE)) {
             failure.set(new LimitExceededException(adID, causeException.getMessage()));
         } else if (causeException instanceof ElasticsearchTimeoutException) {
@@ -553,7 +545,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         @Override
         public void onFailure(Exception e) {
             try {
-                handlePredictionFailure(e, modelID, rcfNodeID, failure);
+                handlePredictionFailure(e, adID, rcfNodeID, failure);
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
@@ -565,7 +557,20 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         private void handleRCFResults() {
             try {
-                if (coldStartIfNoModel(failure, detector) || rcfResults.isEmpty()) {
+                if (coldStartIfNoModel(failure, detector)) {
+                    // fetch previous cold start exception
+                    Optional<? extends AnomalyDetectionException> previousException = globalRunner.fetchException(adID);
+
+                    if (previousException.isPresent()) {
+                        LOG.error("Previous exception of {}: {}", () -> adID, () -> previousException.get());
+                        listener.onFailure(previousException.get());
+                    } else {
+                        listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
+                    }
+                    return;
+                }
+
+                if (rcfResults.isEmpty()) {
                     listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                     return;
                 }
@@ -580,7 +585,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 ThresholdActionListener thresholdListener = new ThresholdActionListener(
                     anomalyResultResponse,
                     featureInResponse,
-                    thresholdModelID,
                     thresholdNodeId,
                     detector,
                     combinedResult,
@@ -604,7 +608,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     class ThresholdActionListener implements ActionListener<ThresholdResultResponse> {
         private AtomicReference<AnomalyResultResponse> anomalyResultResponse;
         private List<FeatureData> features;
-        private String modelID;
         private AtomicReference<AnomalyDetectionException> failure;
         private String thresholdNodeID;
         private ActionListener<AnomalyResultResponse> listener;
@@ -615,7 +618,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         ThresholdActionListener(
             AtomicReference<AnomalyResultResponse> anomalyResultResponse,
             List<FeatureData> features,
-            String modelID,
             String thresholdNodeID,
             AnomalyDetector detector,
             CombinedRcfResult combinedResult,
@@ -624,7 +626,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         ) {
             this.anomalyResultResponse = anomalyResultResponse;
             this.features = features;
-            this.modelID = modelID;
             this.thresholdNodeID = thresholdNodeID;
             this.detector = detector;
             this.combinedResult = combinedResult;
@@ -649,7 +650,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         @Override
         public void onFailure(Exception e) {
             try {
-                handlePredictionFailure(e, modelID, thresholdNodeID, failure);
+                handlePredictionFailure(e, adID, thresholdNodeID, failure);
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
@@ -807,6 +808,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     "Time out while indexing cold start checkpoint or get training data",
                     timeoutEx
                 );
+            } catch (EndRunException endRunEx) {
+                throw endRunEx;
             } catch (Exception ex) {
                 throw new EndRunException(detector.getDetectorId(), "Error while cold start", ex, false);
             }

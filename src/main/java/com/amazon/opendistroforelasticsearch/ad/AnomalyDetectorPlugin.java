@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
+import static java.util.Collections.unmodifiableList;
+
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADClusterEventListener;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData;
@@ -46,6 +48,7 @@ import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyDetectorAc
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestStatsAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
@@ -125,8 +128,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_THEAD_POOL_QUEUE_SIZE;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Entry point of AD plugin.
@@ -245,6 +248,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         NodeEnvironment nodeEnvironment,
         NamedWriteableRegistry namedWriteableRegistry
     ) {
+        EnabledSetting.getInstance().init(clusterService);
         this.client = client;
         this.threadPool = threadPool;
         Settings settings = environment.settings();
@@ -378,7 +382,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                     settings,
                     AD_THREAD_POOL_NAME,
                     Math.max(1, EsExecutors.numberOfProcessors(settings) / 4),
-                    AD_THEAD_POOL_QUEUE_SIZE,
+                    AnomalyDetectorSettings.AD_THEAD_POOL_QUEUE_SIZE,
                     "opendistro.ad." + AD_THREAD_POOL_NAME
                 )
             );
@@ -386,7 +390,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
     @Override
     public List<Setting<?>> getSettings() {
-        return ImmutableList
+        List<Setting<?>> enabledSetting = EnabledSetting.getInstance().getSettings();
+
+        List<Setting<?>> systemSetting = ImmutableList
             .of(
                 AnomalyDetectorSettings.MAX_ANOMALY_DETECTORS,
                 AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
@@ -403,6 +409,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY,
                 AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF
             );
+        return unmodifiableList(Stream.concat(enabledSetting.stream(), systemSetting.stream()).collect(Collectors.toList()));
     }
 
     @Override

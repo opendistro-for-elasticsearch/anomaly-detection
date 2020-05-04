@@ -42,6 +42,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
@@ -183,7 +184,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *    * index does not exist
      *    * all features have been disabled
      *   + anomaly detector is not available
-    
+     *   + AD plugin is disabled
      *
      *  Known cause of InternalFailure:
      *   + threshold model node is not available
@@ -197,6 +198,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      */
     @Override
     protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<AnomalyResultResponse> listener) {
+
         AnomalyResultRequest request = AnomalyResultRequest.fromActionRequest(actionRequest);
         ActionListener<AnomalyResultResponse> original = listener;
         listener = ActionListener.wrap(original::onResponse, e -> {
@@ -205,6 +207,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         });
 
         String adID = request.getAdID();
+
+        if (!EnabledSetting.isADPluginEnabled()) {
+            throw new EndRunException(adID, CommonErrorMessages.DISABLED_ERR_MSG, true);
+        }
 
         adStats.getStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
 

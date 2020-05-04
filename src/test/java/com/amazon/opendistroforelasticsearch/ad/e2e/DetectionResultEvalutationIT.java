@@ -35,8 +35,6 @@ import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.test.rest.ESRestTestCase;
 
-import static org.junit.Assert.assertTrue;
-
 public class DetectionResultEvalutationIT extends ESRestTestCase {
 
     public void testDataset() throws Exception {

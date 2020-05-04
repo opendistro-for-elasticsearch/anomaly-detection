@@ -119,7 +119,7 @@ public class ModelManager {
     /**
      * Constructor.
      *
-     * @param nodeFilter utility class to select nodesr
+     * @param nodeFilter utility class to select nodes
      * @param jvmService jvm info
      * @param rcfSerde RCF model serialization
      * @param checkpointDao model checkpoint storage

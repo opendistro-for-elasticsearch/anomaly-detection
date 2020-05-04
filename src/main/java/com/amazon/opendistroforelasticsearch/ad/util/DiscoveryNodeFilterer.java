@@ -27,26 +27,32 @@ import org.elasticsearch.cluster.service.ClusterService;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 
+/**
+ * Util class to filter unwanted node types
+ *
+ */
 public class DiscoveryNodeFilterer {
     private static final Logger LOG = LogManager.getLogger(DiscoveryNodeFilterer.class);
     private final ClusterService clusterService;
+    private final HotDataNodePredicate eligibleNodeFilter;
 
     public DiscoveryNodeFilterer(ClusterService clusterService) {
         this.clusterService = clusterService;
+        eligibleNodeFilter = new HotDataNodePredicate();
     }
 
     /**
      * Find nodes that are elibile to be used by us.  For example, Ultrawarm
      *  introduces warm nodes into the ES cluster. Currently, we distribute
-     *   model partitions to all data nodes in the cluster randomly, which
-     *    could cause a model performance downgrade issue once warm nodes
-     *     are throttled due to resource limitations. The PR excludes warm nodes to place model partitions.
+     *  model partitions to all data nodes in the cluster randomly, which
+     *  could cause a model performance downgrade issue once warm nodes
+     *  are throttled due to resource limitations. The PR excludes warm nodes
+     *  to place model partitions.
      * @return an array of eligible data nodes
      */
     public DiscoveryNode[] getEligibleDataNodes() {
         ClusterState state = this.clusterService.state();
         final List<DiscoveryNode> eligibleNodes = new ArrayList<>();
-        final HotDataNodePredicate eligibleNodeFilter = new HotDataNodePredicate();
         for (DiscoveryNode node : state.nodes()) {
             if (eligibleNodeFilter.test(node)) {
                 eligibleNodes.add(node);
@@ -60,7 +66,7 @@ public class DiscoveryNodeFilterer {
      * @return whether we should use this node for AD
      */
     public boolean isEligibleNode(DiscoveryNode node) {
-        return new HotDataNodePredicate().test(node);
+        return eligibleNodeFilter.test(node);
     }
 
     static class HotDataNodePredicate implements Predicate<DiscoveryNode> {

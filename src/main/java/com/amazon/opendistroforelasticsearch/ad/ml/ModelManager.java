@@ -855,7 +855,7 @@ public class ModelManager {
         } else {
             throw new LimitExceededException(
                 detectorId,
-                String.format("Exceeded memory limit. New size is %d and max limit is %f", total, heapLimit)
+                String.format("Exceeded memory limit. New size is %d bytes and max limit is %f bytes", total, heapLimit)
             );
         }
     }

@@ -72,8 +72,8 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyResultHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
-import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension;
@@ -124,7 +124,6 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -149,7 +148,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ADStats adStats;
     private NamedXContentRegistry xContentRegistry;
     private ClientUtil clientUtil;
-    private ClusterStateUtils clusterStateUtils;
+    private DiscoveryNodeFilterer nodeFilter;
 
     static {
         SpecialPermission.check();
@@ -186,35 +185,27 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setSettings(settings);
 
         AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(client, this.xContentRegistry);
-        RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(
-            restController,
-            profileRunner,
-            ProfileName.getNames()
-        );
+        RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(profileRunner, ProfileName.getNames());
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(
             settings,
-            restController,
             clusterService,
             anomalyDetectionIndices
         );
-        RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction(settings, restController);
-        RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction(settings, restController);
-        RestDeleteAnomalyDetectorAction deleteAnomalyDetectorAction = new RestDeleteAnomalyDetectorAction(restController, clusterService);
+        RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction();
+        RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction();
+        RestDeleteAnomalyDetectorAction deleteAnomalyDetectorAction = new RestDeleteAnomalyDetectorAction(clusterService);
         RestExecuteAnomalyDetectorAction executeAnomalyDetectorAction = new RestExecuteAnomalyDetectorAction(
             settings,
-            restController,
             clusterService,
             anomalyDetectorRunner
         );
         RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(
-            restController,
             adStats,
-            this.clusterStateUtils,
+            this.nodeFilter,
             this.clusterService
         );
         RestAnomalyDetectorJobAction anomalyDetectorJobAction = new RestAnomalyDetectorJobAction(
             settings,
-            restController,
             clusterService,
             anomalyDetectionIndices
         );
@@ -257,7 +248,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         Throttler throttler = new Throttler(clock);
         this.clientUtil = new ClientUtil(settings, client, throttler, threadPool);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
-        anomalyDetectionIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings, clientUtil);
+        anomalyDetectionIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings);
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
 
@@ -270,11 +261,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         RandomCutForestSerDe rcfSerde = new RandomCutForestSerDe();
         CheckpointDao checkpoint = new CheckpointDao(client, clientUtil, CommonName.CHECKPOINT_INDEX_NAME);
 
-        HashMap<String, String> ignoredAttributes = new HashMap<>();
-        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
-        this.clusterStateUtils = new ClusterStateUtils(clusterService, ignoredAttributes);
+        this.nodeFilter = new DiscoveryNodeFilterer(this.clusterService);
+
         ModelManager modelManager = new ModelManager(
-            clusterStateUtils,
+            nodeFilter,
             jvmService,
             rcfSerde,
             checkpoint,
@@ -298,7 +288,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.SHINGLE_SIZE
         );
 
-        HashRing hashRing = new HashRing(clusterStateUtils, clock, settings);
+        HashRing hashRing = new HashRing(nodeFilter, clock, settings);
         ADStateManager stateManager = new ADStateManager(
             client,
             xContentRegistry,
@@ -364,12 +354,12 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 clock,
                 stateManager,
                 runner,
-                new ADClusterEventListener(clusterService, hashRing, modelManager, clusterStateUtils),
+                new ADClusterEventListener(clusterService, hashRing, modelManager, nodeFilter),
                 deleteUtil,
                 adCircuitBreakerService,
                 adStats,
-                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, clusterStateUtils),
-                clusterStateUtils
+                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, nodeFilter),
+                nodeFilter
             );
     }
 

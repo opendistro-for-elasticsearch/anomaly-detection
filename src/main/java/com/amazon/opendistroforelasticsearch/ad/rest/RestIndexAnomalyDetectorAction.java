@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.seqno.SequenceNumbers;
 import org.elasticsearch.rest.BaseRestHandler;
-import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 
 import java.io.IOException;
@@ -63,7 +62,6 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
 
     public RestIndexAnomalyDetectorAction(
         Settings settings,
-        RestController controller,
         ClusterService clusterService,
         AnomalyDetectionIndices anomalyDetectionIndices
     ) {

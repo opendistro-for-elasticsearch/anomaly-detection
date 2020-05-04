@@ -24,24 +24,24 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 
 import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronRequest;
-import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 public class HourlyCron implements Runnable {
     private static final Logger LOG = LogManager.getLogger(HourlyCron.class);
     static final String SUCCEEDS_LOG_MSG = "Hourly maintenance succeeds";
     static final String NODE_EXCEPTION_LOG_MSG = "Hourly maintenance of node has exception";
     static final String EXCEPTION_LOG_MSG = "Hourly maintenance has exception.";
-    private ClusterStateUtils clusterStateUtils;
+    private DiscoveryNodeFilterer nodeFilter;
     private Client client;
 
-    public HourlyCron(Client client, ClusterStateUtils clusterStateUtils) {
-        this.clusterStateUtils = clusterStateUtils;
+    public HourlyCron(Client client, DiscoveryNodeFilterer nodeFilter) {
+        this.nodeFilter = nodeFilter;
         this.client = client;
     }
 
     @Override
     public void run() {
-        DiscoveryNode[] dataNodes = clusterStateUtils.getEligibleDataNodes().values().toArray(DiscoveryNode.class);
+        DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
 
         // we also add the cancel query function here based on query text from the negative cache.
 

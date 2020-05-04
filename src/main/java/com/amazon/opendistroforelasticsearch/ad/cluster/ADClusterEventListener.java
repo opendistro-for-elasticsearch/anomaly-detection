@@ -20,7 +20,7 @@ import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
-import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -45,27 +45,27 @@ public class ADClusterEventListener implements ClusterStateListener {
     private HashRing hashRing;
     private ModelManager modelManager;
     private final ClusterService clusterService;
-    private final ClusterStateUtils clusterStateUtils;
+    private final DiscoveryNodeFilterer nodeFilter;
 
     @Inject
     public ADClusterEventListener(
         ClusterService clusterService,
         HashRing hashRing,
         ModelManager modelManager,
-        ClusterStateUtils clusterStateUtils
+        DiscoveryNodeFilterer nodeFilter
     ) {
         this.clusterService = clusterService;
         this.clusterService.addListener(this);
         this.hashRing = hashRing;
         this.modelManager = modelManager;
         this.inProgress = new Semaphore(1);
-        this.clusterStateUtils = clusterStateUtils;
+        this.nodeFilter = nodeFilter;
     }
 
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
 
-        if (clusterStateUtils.isIgnoredNode(event.state().nodes().getLocalNode())) {
+        if (!nodeFilter.isEligibleNode(event.state().nodes().getLocalNode())) {
             LOG.debug(NODE_NOT_APPLIED_MSG);
             return;
         }
@@ -88,7 +88,7 @@ public class ADClusterEventListener implements ClusterStateListener {
             // Check whether it was a data node that was removed
             boolean dataNodeRemoved = false;
             for (DiscoveryNode removedNode : delta.removedNodes()) {
-                if (!clusterStateUtils.isIgnoredNode(removedNode)) {
+                if (nodeFilter.isEligibleNode(removedNode)) {
                     LOG.info(NODE_REMOVED_MSG + " {}", removedNode.getId());
                     dataNodeRemoved = true;
                     break;
@@ -98,7 +98,7 @@ public class ADClusterEventListener implements ClusterStateListener {
             // Check whether it was a data node that was added
             boolean dataNodeAdded = false;
             for (DiscoveryNode addedNode : delta.addedNodes()) {
-                if (!clusterStateUtils.isIgnoredNode(addedNode)) {
+                if (nodeFilter.isEligibleNode(addedNode)) {
                     LOG.info(NODE_ADDED_MSG + " {}", addedNode.getId());
                     dataNodeAdded = true;
                     break;

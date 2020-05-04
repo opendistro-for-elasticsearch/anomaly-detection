@@ -23,21 +23,19 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsRequest;
 import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener;
 import com.google.common.collect.ImmutableList;
-
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsAction;
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
-import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.rest.BaseRestHandler;
-import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 
 import java.util.Arrays;
@@ -57,25 +55,19 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
 
     private static final String STATS_ANOMALY_DETECTOR_ACTION = "stats_anomaly_detector";
     private ADStats adStats;
-    private ClusterStateUtils clusterStateUtils;
     private ClusterService clusterService;
+    private DiscoveryNodeFilterer nodeFilter;
 
     /**
      * Constructor
      *
-     * @param controller Rest Controller
+     * @param adStats ADStats object
+     * @param nodeFilter util class to get eligible data nodes
      * @param clusterService ClusterService
-     * @param adStats    ADStats object
-     * @param clusterStateUtils util to get eligible data nodes
      */
-    public RestStatsAnomalyDetectorAction(
-        RestController controller,
-        ADStats adStats,
-        ClusterStateUtils clusterStateUtils,
-        ClusterService clusterService
-    ) {
+    public RestStatsAnomalyDetectorAction(ADStats adStats, DiscoveryNodeFilterer nodeFilter, ClusterService clusterService) {
         this.adStats = adStats;
-        this.clusterStateUtils = clusterStateUtils;
+        this.nodeFilter = nodeFilter;
         this.clusterService = clusterService;
     }
 
@@ -106,7 +98,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
             String[] nodeIdsArr = nodesIdsStr.split(",");
             adStatsRequest = new ADStatsRequest(nodeIdsArr);
         } else {
-            DiscoveryNode[] dataNodes = clusterStateUtils.getEligibleDataNodes().values().toArray(DiscoveryNode.class);
+            DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
             adStatsRequest = new ADStatsRequest(dataNodes);
         }
 

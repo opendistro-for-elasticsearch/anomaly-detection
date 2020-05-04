@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@ import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
-import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.action.RestStatusToXContentListener;
 
@@ -53,7 +52,7 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
     private final ClusterService clusterService;
     private final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
 
-    public RestDeleteAnomalyDetectorAction(RestController controller, ClusterService clusterService) {
+    public RestDeleteAnomalyDetectorAction(ClusterService clusterService) {
         this.clusterService = clusterService;
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.seqno.SequenceNumbers;
 import org.elasticsearch.rest.BaseRestHandler;
-import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 
 import java.io.IOException;
@@ -50,16 +49,9 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
     public static final String AD_JOB_ACTION = "anomaly_detector_job_action";
     private volatile TimeValue requestTimeout;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
-    private final Settings settings;
     private final ClusterService clusterService;
 
-    public RestAnomalyDetectorJobAction(
-        Settings settings,
-        RestController controller,
-        ClusterService clusterService,
-        AnomalyDetectionIndices anomalyDetectionIndices
-    ) {
-        this.settings = settings;
+    public RestAnomalyDetectorJobAction(Settings settings, ClusterService clusterService, AnomalyDetectionIndices anomalyDetectionIndices) {
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         this.clusterService = clusterService;

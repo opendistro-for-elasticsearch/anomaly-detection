@@ -36,6 +36,9 @@ public class CommonName {
     // Ultrawarm node attributes
     // ======================================
 
+    // hot node
+    public static String HOT_BOX_TYPE = "hot";
+
     // warm node
     public static String WARM_BOX_TYPE = "warm";
 

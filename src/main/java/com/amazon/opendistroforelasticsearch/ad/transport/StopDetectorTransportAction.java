@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.InternalFailure;
-import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -38,18 +38,18 @@ public class StopDetectorTransportAction extends HandledTransportAction<ActionRe
     private static final Logger LOG = LogManager.getLogger(StopDetectorTransportAction.class);
 
     private final Client client;
-    private final ClusterStateUtils clientStateUtils;
+    private final DiscoveryNodeFilterer nodeFilter;
 
     @Inject
     public StopDetectorTransportAction(
         TransportService transportService,
-        ClusterStateUtils clientStateUtils,
+        DiscoveryNodeFilterer nodeFilter,
         ActionFilters actionFilters,
         Client client
     ) {
         super(StopDetectorAction.NAME, transportService, actionFilters, StopDetectorRequest::new);
         this.client = client;
-        this.clientStateUtils = clientStateUtils;
+        this.nodeFilter = nodeFilter;
     }
 
     @Override
@@ -57,7 +57,7 @@ public class StopDetectorTransportAction extends HandledTransportAction<ActionRe
         StopDetectorRequest request = StopDetectorRequest.fromActionRequest(actionRequest);
         String adID = request.getAdID();
         try {
-            DiscoveryNode[] dataNodes = clientStateUtils.getEligibleDataNodes().values().toArray(DiscoveryNode.class);
+            DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
             DeleteModelRequest modelDeleteRequest = new DeleteModelRequest(adID, dataNodes);
             client.execute(DeleteModelAction.INSTANCE, modelDeleteRequest, ActionListener.wrap(response -> {
                 if (response.hasFailures()) {

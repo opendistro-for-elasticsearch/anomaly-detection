@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsRequest;
-import com.amazon.opendistroforelasticsearch.ad.util.ClusterStateUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.node.DiscoveryNode;
@@ -42,22 +42,22 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
 
     private static final String STATS_ANOMALY_DETECTOR_ACTION = "stats_anomaly_detector";
     private ADStats adStats;
-    private ClusterStateUtils clusterStateUtils;
+    private DiscoveryNodeFilterer nodeFilter;
 
     /**
      * Constructor
      *
      * @param controller Rest Controller
      * @param adStats ADStats object
-     * @param clusterStateUtils util to get eligible data nodes
+     * @param nodeFilter util class to get eligible data nodes
      */
-    public RestStatsAnomalyDetectorAction(RestController controller, ADStats adStats, ClusterStateUtils clusterStateUtils) {
+    public RestStatsAnomalyDetectorAction(RestController controller, ADStats adStats, DiscoveryNodeFilterer nodeFilter) {
         controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/", this);
         controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/{stat}", this);
         controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/stats/", this);
         controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/stats/{stat}", this);
         this.adStats = adStats;
-        this.clusterStateUtils = clusterStateUtils;
+        this.nodeFilter = nodeFilter;
     }
 
     @Override
@@ -87,7 +87,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
             String[] nodeIdsArr = nodesIdsStr.split(",");
             adStatsRequest = new ADStatsRequest(nodeIdsArr);
         } else {
-            DiscoveryNode[] dataNodes = clusterStateUtils.getEligibleDataNodes().values().toArray(DiscoveryNode.class);
+            DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
             adStatsRequest = new ADStatsRequest(dataNodes);
         }
 

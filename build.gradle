@@ -225,6 +225,9 @@ List<String> jacocoExclusions = [
         // Class containing just constants.  Don't need to test
         'com.amazon.opendistroforelasticsearch.ad.constant.*',
 
+        // mostly skeleton code.  Tested major logic in restful api tests
+        'com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting',
+
         'com.amazon.opendistroforelasticsearch.ad.common.exception.FeatureNotAvailableException',
         'com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException',
         'com.amazon.opendistroforelasticsearch.ad.util.ClientUtil',

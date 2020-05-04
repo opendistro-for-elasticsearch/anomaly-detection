@@ -19,11 +19,13 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorProfileRunner;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -84,6 +86,9 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+        if (!EnabledSetting.isADPluginEnabled()) {
+            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        }
         String detectorId = request.param(DETECTOR_ID);
         boolean returnJob = request.paramAsBoolean("job", false);
         String typesStr = request.param(TYPE);

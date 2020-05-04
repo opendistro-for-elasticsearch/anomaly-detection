@@ -19,7 +19,10 @@ import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import com.google.common.collect.ImmutableList;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.support.WriteRequest;
@@ -85,6 +88,10 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+        if (!EnabledSetting.isADPluginEnabled()) {
+            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        }
+
         String detectorId = request.param(DETECTOR_ID, AnomalyDetector.NO_ID);
         logger.info("AnomalyDetector {} action for detectorId {}", request.method(), detectorId);
 

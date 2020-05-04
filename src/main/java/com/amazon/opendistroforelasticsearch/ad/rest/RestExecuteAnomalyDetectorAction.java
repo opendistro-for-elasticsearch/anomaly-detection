@@ -17,8 +17,10 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRunner;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultRequest;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
@@ -87,6 +89,9 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+        if (!EnabledSetting.isADPluginEnabled()) {
+            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        }
         AnomalyDetectorExecutionInput input = getAnomalyDetectorExecutionInput(request);
         return channel -> {
             String rawPath = request.rawPath();

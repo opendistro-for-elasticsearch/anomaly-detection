@@ -15,8 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.google.common.collect.ImmutableList;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -66,6 +68,9 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+        if (!EnabledSetting.isADPluginEnabled()) {
+            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
         searchSourceBuilder.fetchSource(getSourceContext(request));

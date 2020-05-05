@@ -50,8 +50,10 @@ import org.elasticsearch.rest.action.RestResponseListener;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
@@ -71,15 +73,17 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
     private final AnomalyDetectorProfileRunner profileRunner;
     private final Set<String> allProfileTypeStrs;
     private final Set<ProfileName> allProfileTypes;
+    private final Set<ProfileName> defaultProfileTypes;
 
-    public RestGetAnomalyDetectorAction(
-        RestController controller,
-        AnomalyDetectorProfileRunner profileRunner,
-        Set<String> allProfileTypeStrs
-    ) {
+    public RestGetAnomalyDetectorAction(RestController controller, AnomalyDetectorProfileRunner profileRunner) {
         this.profileRunner = profileRunner;
-        this.allProfileTypes = new HashSet<ProfileName>(Arrays.asList(ProfileName.values()));
-        this.allProfileTypeStrs = ProfileName.getNames();
+
+        List<ProfileName> allProfiles = Arrays.asList(ProfileName.values());
+        this.allProfileTypes = new HashSet<ProfileName>(allProfiles);
+        this.allProfileTypeStrs = getProfileListStrs(allProfiles);
+
+        List<ProfileName> defaultProfiles = Arrays.asList(ProfileName.ERROR, ProfileName.STATE);
+        this.defaultProfileTypes = new HashSet<ProfileName>(defaultProfiles);
 
         String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
         controller.registerHandler(RestRequest.Method.GET, path, this);
@@ -111,13 +115,14 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
         String detectorId = request.param(DETECTOR_ID);
-        boolean returnJob = request.paramAsBoolean("job", false);
         String typesStr = request.param(TYPE);
         String rawPath = request.rawPath();
         if (!Strings.isEmpty(typesStr) || rawPath.endsWith(PROFILE) || rawPath.endsWith(PROFILE + "/")) {
+            boolean all = request.paramAsBoolean("_all", false);
             return channel -> profileRunner
-                .profile(detectorId, getProfileActionListener(channel, detectorId), getProfilesToCollect(typesStr));
+                .profile(detectorId, getProfileActionListener(channel, detectorId), getProfilesToCollect(typesStr, all));
         } else {
+            boolean returnJob = request.paramAsBoolean("job", false);
             MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorId)
                 .version(RestActions.parseVersion(request));
             MultiGetRequest multiGetRequest = new MultiGetRequest().add(adItem);
@@ -201,12 +206,18 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         return new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, errorMsg);
     }
 
-    private Set<ProfileName> getProfilesToCollect(String typesStr) {
-        if (Strings.isEmpty(typesStr)) {
+    private Set<ProfileName> getProfilesToCollect(String typesStr, boolean all) {
+        if (all) {
             return this.allProfileTypes;
+        } else if (Strings.isEmpty(typesStr)) {
+            return this.defaultProfileTypes;
         } else {
             Set<String> typesInRequest = new HashSet<>(Arrays.asList(typesStr.split(",")));
             return ProfileName.getNames(Sets.intersection(this.allProfileTypeStrs, typesInRequest));
         }
+    }
+
+    private Set<String> getProfileListStrs(List<ProfileName> profileList) {
+        return profileList.stream().map(profile -> profile.getName()).collect(Collectors.toSet());
     }
 }

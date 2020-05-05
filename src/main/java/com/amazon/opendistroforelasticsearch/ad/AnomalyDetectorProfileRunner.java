@@ -30,6 +30,7 @@ import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParseException;
@@ -44,23 +45,30 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
+import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorState;
 import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
+import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ProfileRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.ProfileResponse;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener;
 
 public class AnomalyDetectorProfileRunner {
     private final Logger logger = LogManager.getLogger(AnomalyDetectorProfileRunner.class);
     private Client client;
     private NamedXContentRegistry xContentRegistry;
+    private DiscoveryNodeFilterer nodeFilter;
     static String FAIL_TO_FIND_DETECTOR_MSG = "Fail to find detector with id: ";
     static String FAIL_TO_GET_PROFILE_MSG = "Fail to get profile for detector ";
 
-    public AnomalyDetectorProfileRunner(Client client, NamedXContentRegistry xContentRegistry) {
+    public AnomalyDetectorProfileRunner(Client client, NamedXContentRegistry xContentRegistry, DiscoveryNodeFilterer nodeFilter) {
         this.client = client;
         this.xContentRegistry = xContentRegistry;
+        this.nodeFilter = nodeFilter;
     }
 
     public void profile(String detectorId, ActionListener<DetectorProfile> listener, Set<ProfileName> profiles) {
@@ -70,9 +78,28 @@ public class AnomalyDetectorProfileRunner {
             return;
         }
 
+        // total number of listeners we need to define. Needed by MultiResponsesDelegateActionListener to decide when to consolidate results
+        // and return to users
+        int totalListener = 0;
+
+        if (profiles.contains(ProfileName.STATE)) {
+            totalListener++;
+        }
+
+        if (profiles.contains(ProfileName.ERROR)) {
+            totalListener++;
+        }
+
+        if (profiles.contains(ProfileName.COORDINATING_NODE)
+            || profiles.contains(ProfileName.SHINGLE_SIZE)
+            || profiles.contains(ProfileName.TOTAL_SIZE_IN_BYTES)
+            || profiles.contains(ProfileName.MODELS)) {
+            totalListener++;
+        }
+
         MultiResponsesDelegateActionListener<DetectorProfile> delegateListener = new MultiResponsesDelegateActionListener<DetectorProfile>(
             listener,
-            profiles.size(),
+            totalListener,
             "Fail to fetch profile for " + detectorId
         );
 
@@ -101,6 +128,13 @@ public class AnomalyDetectorProfileRunner {
                     }
                     if (profiles.contains(ProfileName.ERROR)) {
                         profileError(detectorId, enabledTimeMs, listener);
+                    }
+
+                    if (profiles.contains(ProfileName.COORDINATING_NODE)
+                        || profiles.contains(ProfileName.SHINGLE_SIZE)
+                        || profiles.contains(ProfileName.TOTAL_SIZE_IN_BYTES)
+                        || profiles.contains(ProfileName.MODELS)) {
+                        profileModels(detectorId, profiles, listener);
                     }
                 } catch (IOException | XContentParseException | NullPointerException e) {
                     logger.error(e);
@@ -280,8 +314,42 @@ public class AnomalyDetectorProfileRunner {
 
         SearchSourceBuilder source = new SearchSourceBuilder().query(filterQuery).size(1).sort(sortQuery);
 
-        SearchRequest request = new SearchRequest(AnomalyResult.ANOMALY_RESULT_INDEX);
+        SearchRequest request = new SearchRequest(AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN);
         request.source(source);
         return request;
+    }
+
+    private void profileModels(
+        String detectorId,
+        Set<ProfileName> profiles,
+        MultiResponsesDelegateActionListener<DetectorProfile> listener
+    ) {
+        DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
+        ProfileRequest profileRequest = new ProfileRequest(detectorId, profiles, dataNodes);
+        client.execute(ProfileAction.INSTANCE, profileRequest, onModelResponse(detectorId, profiles, listener));
+    }
+
+    private ActionListener<ProfileResponse> onModelResponse(
+        String detectorId,
+        Set<ProfileName> profiles,
+        MultiResponsesDelegateActionListener<DetectorProfile> listener
+    ) {
+        return ActionListener.wrap(profileResponse -> {
+            DetectorProfile profile = new DetectorProfile();
+            if (profiles.contains(ProfileName.COORDINATING_NODE)) {
+                profile.setCoordinatingNode(profileResponse.getCoordinatingNode());
+            }
+            if (profiles.contains(ProfileName.SHINGLE_SIZE)) {
+                profile.setShingleSize(profileResponse.getShingleSize());
+            }
+            if (profiles.contains(ProfileName.TOTAL_SIZE_IN_BYTES)) {
+                profile.setTotalSizeInBytes(profileResponse.getTotalSizeInBytes());
+            }
+            if (profiles.contains(ProfileName.MODELS)) {
+                profile.setModelProfile(profileResponse.getModelProfile());
+            }
+
+            listener.onResponse(profile);
+        }, listener::onFailure);
     }
 }

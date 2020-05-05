@@ -26,13 +26,20 @@ import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.apache.logging.log4j.util.StackLocatorUtil;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.threadpool.TestThreadPool;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import test.com.amazon.opendistroforelasticsearch.ad.util.FakeNode;
+
 public class AbstractADTest extends ESTestCase {
 
     protected static final Logger LOG = (Logger) LogManager.getLogger(AbstractADTest.class);
+
+    // transport test node
+    protected int nodesCount;
+    protected FakeNode[] testNodes;
 
     /**
      * Log4j appender that uses a list to store log messages
@@ -121,5 +128,21 @@ public class AbstractADTest extends ESTestCase {
     protected static void tearDownThreadPool() {
         ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
         threadPool = null;
+    }
+
+    public void setupTestNodes(Settings settings) {
+        nodesCount = randomIntBetween(2, 10);
+        testNodes = new FakeNode[nodesCount];
+        for (int i = 0; i < testNodes.length; i++) {
+            testNodes[i] = new FakeNode("node" + i, threadPool, settings);
+        }
+        FakeNode.connectNodes(testNodes);
+    }
+
+    public void tearDownTestNodes() {
+        for (FakeNode testNode : testNodes) {
+            testNode.close();
+        }
+        testNodes = null;
     }
 }

@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -554,6 +555,39 @@ public class ModelManager {
     public void clear(String detectorId) {
         clearModels(detectorId, forests);
         clearModels(detectorId, thresholds);
+    }
+
+    /**
+     * Permanently deletes models hosted in memory and persisted in index.
+     *
+     * @param detectorId id the of the detector for which models are to be permanently deleted
+     * @param listener onResponse is called with null when this operation is completed
+     */
+    public void clear(String detectorId, ActionListener<Void> listener) {
+        clearModels(detectorId, forests, ActionListener.wrap(r -> clearModels(detectorId, thresholds, listener), listener::onFailure));
+    }
+
+    private void clearModels(String detectorId, Map<String, ?> models, ActionListener<Void> listener) {
+        Iterator<String> id = models.keySet().iterator();
+        clearModelForIterator(detectorId, models, id, listener);
+    }
+
+    private void clearModelForIterator(String detectorId, Map<String, ?> models, Iterator<String> idIter, ActionListener<Void> listener) {
+        if (idIter.hasNext()) {
+            String modelId = idIter.next();
+            if (getDetectorIdForModelId(modelId).equals(detectorId)) {
+                models.remove(modelId);
+                checkpointDao
+                    .deleteModelCheckpoint(
+                        modelId,
+                        ActionListener.wrap(r -> clearModelForIterator(detectorId, models, idIter, listener), listener::onFailure)
+                    );
+            } else {
+                clearModelForIterator(detectorId, models, idIter, listener);
+            }
+        } else {
+            listener.onResponse(null);
+        }
     }
 
     /**

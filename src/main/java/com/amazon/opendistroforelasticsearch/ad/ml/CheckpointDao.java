@@ -98,6 +98,7 @@ public class CheckpointDao {
     public void putModelCheckpoint(String modelId, String modelCheckpoint, ActionListener<Void> listener) {
         Map<String, Object> source = new HashMap<>();
         source.put(FIELD_MODEL, modelCheckpoint);
+        source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
         clientUtil
             .<IndexRequest, IndexResponse>asyncRequest(
                 new IndexRequest(indexName, DOC_TYPE, modelId).source(source),

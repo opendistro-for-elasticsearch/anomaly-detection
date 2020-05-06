@@ -538,10 +538,50 @@ public class ModelManager {
         Optional
             .ofNullable(models.remove(modelId))
             .filter(model -> model.getLastCheckpointTime().plus(checkpointInterval).isBefore(now))
-            .ifPresent(model -> {
-                checkpointDao.putModelCheckpoint(modelId, toCheckpoint.apply(model.getModel()));
-                model.setLastCheckpointTime(now);
-            });
+            .ifPresent(model -> { checkpointDao.putModelCheckpoint(modelId, toCheckpoint.apply(model.getModel())); });
+    }
+
+    /**
+     * Stops hosting the model and creates a checkpoint.
+     *
+     * @param detectorId ID of the detector
+     * @param modelId ID of the model to stop hosting
+     * @param listener onResponse is called with null when the operation is completed
+     */
+    public void stopModel(String detectorId, String modelId, ActionListener<Void> listener) {
+        logger.info(String.format("Stopping detector %s model %s", detectorId, modelId));
+        stopModel(
+            forests,
+            modelId,
+            this::toCheckpoint,
+            ActionListener.wrap(r -> stopModel(thresholds, modelId, this::toCheckpoint, listener), listener::onFailure)
+        );
+    }
+
+    private <T> void stopModel(
+        Map<String, ModelState<T>> models,
+        String modelId,
+        Function<T, String> toCheckpoint,
+        ActionListener<Void> listener
+    ) {
+        Instant now = clock.instant();
+        Optional<ModelState<T>> modelState = Optional
+            .ofNullable(models.remove(modelId))
+            .filter(model -> model.getLastCheckpointTime().plus(checkpointInterval).isBefore(now));
+        if (modelState.isPresent()) {
+            modelState
+                .ifPresent(
+                    model -> checkpointDao
+                        .putModelCheckpoint(
+                            modelId,
+                            toCheckpoint.apply(model.getModel()),
+                            ActionListener.wrap(r -> listener.onResponse(null), listener::onFailure)
+                        )
+                );
+        } else {
+            listener.onResponse(null);
+        }
+        ;
     }
 
     /**

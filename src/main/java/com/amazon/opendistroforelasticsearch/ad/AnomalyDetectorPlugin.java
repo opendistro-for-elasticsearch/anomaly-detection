@@ -53,12 +53,12 @@ import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
-import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.DocumentCountSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.SettableSupplier;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
-import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
@@ -209,6 +209,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(
             restController,
             adStats,
+            clusterService,
             this.nodeFilter
         );
         RestAnomalyDetectorJobAction anomalyDetectorJobAction = new RestAnomalyDetectorJobAction(
@@ -341,10 +342,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(),
                 new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CHECKPOINT_INDEX_NAME))
             )
-            .put(
-                StatNames.DETECTOR_COUNT.getName(),
-                new ADStat<>(true, new DocumentCountSupplier(indexUtils, AnomalyDetector.ANOMALY_DETECTORS_INDEX))
-            )
+            .put(StatNames.DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
             .build();
 
         adStats = new ADStats(indexUtils, modelManager, stats);
@@ -440,7 +438,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(ThresholdResultAction.INSTANCE, ThresholdResultTransportAction.class),
                 new ActionHandler<>(AnomalyResultAction.INSTANCE, AnomalyResultTransportAction.class),
                 new ActionHandler<>(CronAction.INSTANCE, CronTransportAction.class),
-                new ActionHandler<>(ADStatsAction.INSTANCE, ADStatsTransportAction.class)
+                new ActionHandler<>(ADStatsNodesAction.INSTANCE, ADStatsNodesTransportAction.class)
             );
     }
 

@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.SettableSupplier;
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Test;
 
@@ -38,6 +39,14 @@ public class ADStatTests extends ESTestCase {
 
         ADStat<String> stat2 = new ADStat<>(false, new TestSupplier());
         assertEquals("GetValue returns the incorrect value", "test", stat2.getValue());
+    }
+
+    @Test
+    public void testSetValue() {
+        ADStat<Long> stat = new ADStat<>(false, new SettableSupplier());
+        assertEquals("GetValue returns the incorrect value", 0L, (long) (stat.getValue()));
+        stat.setValue(10L);
+        assertEquals("GetValue returns the incorrect value", 10L, (long) stat.getValue());
     }
 
     @Test

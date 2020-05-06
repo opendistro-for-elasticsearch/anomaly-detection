@@ -13,23 +13,17 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.ad.transport;
+package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import org.elasticsearch.action.ActionType;
+import org.elasticsearch.test.ESTestCase;
+import org.junit.Test;
 
-/**
- * ADStatsAction class
- */
-public class ADStatsAction extends ActionType<ADStatsResponse> {
-
-    public static final ADStatsAction INSTANCE = new ADStatsAction();
-    public static final String NAME = "cluster:admin/ad_stats_action";
-
-    /**
-     * Constructor
-     */
-    private ADStatsAction() {
-        super(NAME, ADStatsResponse::new);
+public class SettableSupplierTests extends ESTestCase {
+    @Test
+    public void testSetGet() {
+        Long setCount = 15L;
+        SettableSupplier settableSupplier = new SettableSupplier();
+        settableSupplier.set(setCount);
+        assertEquals("Get/Set fails", setCount, settableSupplier.get());
     }
-
 }

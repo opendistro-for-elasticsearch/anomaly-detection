@@ -15,30 +15,33 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
-
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
- * DocumentCountSupplier provides the number of documents for a given index
+ * SettableSupplier allows a user to set the value of the supplier to be returned
  */
-public class DocumentCountSupplier implements Supplier<Long> {
-    private IndexUtils indexUtils;
-    private String indexName;
+public class SettableSupplier implements Supplier<Long> {
+    protected AtomicLong value;
 
     /**
      * Constructor
-     *
-     * @param indexUtils Utility for getting information about indices
-     * @param indexName Name of index to extract stats from
      */
-    public DocumentCountSupplier(IndexUtils indexUtils, String indexName) {
-        this.indexUtils = indexUtils;
-        this.indexName = indexName;
+    public SettableSupplier() {
+        this.value = new AtomicLong(0L);
     }
 
     @Override
     public Long get() {
-        return indexUtils.getNumberOfDocumentsInIndex(indexName);
+        return value.get();
+    }
+
+    /**
+     * Set value to be returned by get
+     *
+     * @param value to set
+     */
+    public void set(Long value) {
+        this.value.set(value);
     }
 }

@@ -139,7 +139,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
      * @param channel Channel to send response
      * @param adStatsRequest Request containing stats to be retrieved
      */
-    public void getStats(Client client, RestChannel channel, ADStatsRequest adStatsRequest) {
+    private void getStats(Client client, RestChannel channel, ADStatsRequest adStatsRequest) {
         // Use MultiResponsesDelegateActionListener to execute 2 async requests and create the response once they finish
         MultiResponsesDelegateActionListener<ADStatsResponse> delegateListener = new MultiResponsesDelegateActionListener<>(
             getRestStatsListener(channel),
@@ -147,8 +147,8 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
             "Unable to return AD Stats"
         );
 
-        onGetClusterStats(client, delegateListener, adStatsRequest);
-        onGetNodeStats(client, delegateListener, adStatsRequest);
+        getClusterStats(client, delegateListener, adStatsRequest);
+        getNodeStats(client, delegateListener, adStatsRequest);
     }
 
     /**
@@ -159,7 +159,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
      * @param listener MultiResponsesDelegateActionListener to be used once both requests complete
      * @param adStatsRequest Request containing stats to be retrieved
      */
-    public void onGetClusterStats(
+    private void getClusterStats(
         Client client,
         MultiResponsesDelegateActionListener<ADStatsResponse> listener,
         ADStatsRequest adStatsRequest
@@ -167,21 +167,21 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
         ADStatsResponse adStatsResponse = new ADStatsResponse();
         if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())) {
             if (clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
-                IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest();
+                IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest().docs(true);
                 client.execute(IndicesStatsAction.INSTANCE, indicesStatsRequest, ActionListener.wrap(indicesStatsResponse -> {
                     adStats
                         .getStat(StatNames.DETECTOR_COUNT.getName())
                         .setValue(indicesStatsResponse.getIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX).getPrimaries().docs.getCount());
-                    adStatsResponse.setClusterStats(getClusterStats(adStatsRequest));
+                    adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
                     listener.onResponse(adStatsResponse);
-                }, e -> listener.onFailure(new RuntimeException("Failed to get AD cluster stats: " + e))));
+                }, e -> listener.onFailure(new RuntimeException("Failed to get AD cluster stats", e))));
             } else {
                 adStats.getStat(StatNames.DETECTOR_COUNT.getName()).setValue(0L);
-                adStatsResponse.setClusterStats(getClusterStats(adStatsRequest));
+                adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
                 listener.onResponse(adStatsResponse);
             }
         } else {
-            adStatsResponse.setClusterStats(getClusterStats(adStatsRequest));
+            adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
             listener.onResponse(adStatsResponse);
         }
     }
@@ -194,7 +194,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
      * @param listener MultiResponsesDelegateActionListener to be used once both requests complete
      * @param adStatsRequest Request containing stats to be retrieved
      */
-    public void onGetNodeStats(
+    private void getNodeStats(
         Client client,
         MultiResponsesDelegateActionListener<ADStatsResponse> listener,
         ADStatsRequest adStatsRequest
@@ -212,14 +212,15 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
      * @param adStatsRequest Request containing stats to be retrieved
      * @return Map containing Cluster Stats
      */
-    private Map<String, Object> getClusterStats(ADStatsRequest adStatsRequest) {
+    private Map<String, Object> getClusterStatsMap(ADStatsRequest adStatsRequest) {
         Map<String, Object> clusterStats = new HashMap<>();
         Set<String> statsToBeRetrieved = adStatsRequest.getStatsToBeRetrieved();
-        for (String statName : adStats.getClusterStats().keySet()) {
-            if (statsToBeRetrieved.contains(statName)) {
-                clusterStats.put(statName, adStats.getStats().get(statName).getValue());
-            }
-        }
+        adStats
+            .getClusterStats()
+            .entrySet()
+            .stream()
+            .filter(s -> statsToBeRetrieved.contains(s.getKey()))
+            .forEach(s -> clusterStats.put(s.getKey(), s.getValue().getValue()));
         return clusterStats;
     }
 

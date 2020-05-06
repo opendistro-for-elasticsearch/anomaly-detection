@@ -93,7 +93,7 @@ public class ADStatsResponse implements ToXContentObject, Mergeable {
 
     @Override
     public void merge(Mergeable other) {
-        if (this == other || other == null || getClass() != other.getClass()) {
+        if (!(other instanceof ADStatsResponse)) {
             return;
         }
 

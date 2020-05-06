@@ -39,7 +39,7 @@ public class ADStatsIT extends ESIntegTestCase {
     public void testNormalADStats() throws ExecutionException, InterruptedException {
         ADStatsRequest adStatsRequest = new ADStatsRequest();
 
-        ADStatsResponse response = client().execute(ADStatsAction.INSTANCE, adStatsRequest).get();
+        ADStatsNodesResponse response = client().execute(ADStatsNodesAction.INSTANCE, adStatsRequest).get();
         assertTrue("getting stats failed", !response.hasFailures());
     }
 }

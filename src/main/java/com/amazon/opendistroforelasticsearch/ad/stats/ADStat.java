@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.SettableSupplier;
 
 import java.util.function.Supplier;
 
@@ -53,6 +54,17 @@ public class ADStat<T> {
      */
     public T getValue() {
         return supplier.get();
+    }
+
+    /**
+     * Set the value of the statistic
+     *
+     * @param value set value
+     */
+    public void setValue(Long value) {
+        if (supplier instanceof SettableSupplier) {
+            ((SettableSupplier) supplier).set(value);
+        }
     }
 
     /**

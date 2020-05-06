@@ -211,7 +211,7 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.CronTransportAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.CronRequest',
-        'com.amazon.opendistroforelasticsearch.ad.transport.ADStatsAction',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesAction',
         'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRunner',
         'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
         'com.amazon.opendistroforelasticsearch.ad.util.ParseUtils',

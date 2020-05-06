@@ -13,4 +13,4 @@
  *   permissions and limitations under the License.
  */
 
-rootProject.name = 'opendistro-anomaly-detector'
+rootProject.name = 'opendistro-anomaly-detection'

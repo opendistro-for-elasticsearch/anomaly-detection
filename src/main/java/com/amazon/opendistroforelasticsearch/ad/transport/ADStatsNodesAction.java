@@ -23,7 +23,7 @@ import org.elasticsearch.action.ActionType;
 public class ADStatsNodesAction extends ActionType<ADStatsNodesResponse> {
 
     public static final ADStatsNodesAction INSTANCE = new ADStatsNodesAction();
-    public static final String NAME = "cluster:admin/ad_stats_nodes_action";
+    public static final String NAME = "cluster:admin/ad/stats/nodes";
 
     /**
      * Constructor

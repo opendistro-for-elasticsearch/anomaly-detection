@@ -137,7 +137,18 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
         if (otherProfile.getError() != null) {
             this.error = otherProfile.getError();
         }
-
+        if (otherProfile.getCoordinatingNode() != null) {
+            this.coordinatingNode = otherProfile.getCoordinatingNode();
+        }
+        if (otherProfile.getShingleSize() != -1) {
+            this.shingleSize = otherProfile.getShingleSize();
+        }
+        if (otherProfile.getModelProfile() != null) {
+            this.modelProfile = otherProfile.getModelProfile();
+        }
+        if (otherProfile.getTotalSizeInBytes() != -1) {
+            this.totalSizeInBytes = otherProfile.getTotalSizeInBytes();
+        }
     }
 
     @Override

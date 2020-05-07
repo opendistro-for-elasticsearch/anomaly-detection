@@ -17,6 +17,8 @@ package com.amazon.opendistroforelasticsearch.ad;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -25,21 +27,28 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.ClusterName;
+import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.search.SearchModule;
@@ -53,16 +62,37 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorState;
+import com.amazon.opendistroforelasticsearch.ad.model.ModelProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
+import com.amazon.opendistroforelasticsearch.ad.transport.ProfileNodeResponse;
+import com.amazon.opendistroforelasticsearch.ad.transport.ProfileResponse;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
     private static final Logger LOG = LogManager.getLogger(AnomalyDetectorProfileRunnerTests.class);
     private AnomalyDetectorProfileRunner runner;
     private Client client;
+    private DiscoveryNodeFilterer nodeFilter;
     private AnomalyDetector detector;
     private static Set<ProfileName> stateOnly;
     private static Set<ProfileName> stateNError;
+    private static Set<ProfileName> modelProfile;
     private static String error = "No full shingle in current detection window";
+
+    // profile model related
+    String node1;
+    String nodeName1;
+    DiscoveryNode discoveryNode1;
+
+    String node2;
+    String nodeName2;
+    DiscoveryNode discoveryNode2;
+
+    long modelSize;
+    String model1Id;
+    String model0Id;
+
+    int shingleSize;
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {
@@ -79,6 +109,9 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
         stateNError = new HashSet<ProfileName>();
         stateNError.add(ProfileName.ERROR);
         stateNError.add(ProfileName.STATE);
+        modelProfile = new HashSet<ProfileName>(
+            Arrays.asList(ProfileName.SHINGLE_SIZE, ProfileName.MODELS, ProfileName.COORDINATING_NODE, ProfileName.TOTAL_SIZE_IN_BYTES)
+        );
     }
 
     @Override
@@ -86,7 +119,8 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
     public void setUp() throws Exception {
         super.setUp();
         client = mock(Client.class);
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry());
+        nodeFilter = mock(DiscoveryNodeFilterer.class);
+        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter);
     }
 
     enum JobStatus {
@@ -312,6 +346,97 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
             assertTrue("Unexcpeted exception " + exception.getMessage(), exception instanceof RuntimeException);
             inProgressLatch.countDown();
         }), stateOnly);
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setUpClientExecute() {
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            ActionListener<ProfileResponse> listener = (ActionListener<ProfileResponse>) args[2];
+
+            node1 = "node1";
+            nodeName1 = "nodename1";
+            discoveryNode1 = new DiscoveryNode(
+                nodeName1,
+                node1,
+                new TransportAddress(TransportAddress.META_ADDRESS, 9300),
+                emptyMap(),
+                emptySet(),
+                Version.CURRENT
+            );
+
+            node2 = "node2";
+            nodeName2 = "nodename2";
+            discoveryNode2 = new DiscoveryNode(
+                nodeName2,
+                node2,
+                new TransportAddress(TransportAddress.META_ADDRESS, 9301),
+                emptyMap(),
+                emptySet(),
+                Version.CURRENT
+            );
+
+            modelSize = 4456448L;
+            model1Id = "Pl536HEBnXkDrah03glg_model_rcf_1";
+            model0Id = "Pl536HEBnXkDrah03glg_model_rcf_0";
+
+            shingleSize = 6;
+
+            String clusterName = "test-cluster-name";
+
+            Map<String, Long> modelSizeMap1 = new HashMap<String, Long>() {
+                {
+                    put(model1Id, modelSize);
+                }
+            };
+
+            Map<String, Long> modelSizeMap2 = new HashMap<String, Long>() {
+                {
+                    put(model0Id, modelSize);
+                }
+            };
+
+            LOG.info("hello");
+            ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(discoveryNode1, modelSizeMap1, shingleSize);
+            ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(discoveryNode2, modelSizeMap2, -1);
+            List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2);
+            List<FailedNodeException> failures = Collections.emptyList();
+            ProfileResponse profileResponse = new ProfileResponse(new ClusterName(clusterName), profileNodeResponses, failures);
+
+            listener.onResponse(profileResponse);
+
+            return null;
+        }).when(client).execute(any(), any(), any());
+
+    }
+
+    public void testProfileModels() throws InterruptedException, IOException {
+        setUpClientGet(true, JobStatus.ENABLED);
+        setUpClientExecute();
+
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        runner.profile(detector.getDetectorId(), ActionListener.wrap(profileResponse -> {
+            assertEquals(node1, profileResponse.getCoordinatingNode());
+            assertEquals(shingleSize, profileResponse.getShingleSize());
+            assertEquals(modelSize * 2, profileResponse.getTotalSizeInBytes());
+            assertEquals(2, profileResponse.getModelProfile().length);
+            for (ModelProfile profile : profileResponse.getModelProfile()) {
+                assertTrue(node1.equals(profile.getNodeId()) || node2.equals(profile.getNodeId()));
+                assertEquals(modelSize, profile.getModelSize());
+                if (node1.equals(profile.getNodeId())) {
+                    assertEquals(model1Id, profile.getModelId());
+                }
+                if (node2.equals(profile.getNodeId())) {
+                    assertEquals(model0Id, profile.getModelId());
+                }
+            }
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue("Should not reach here ", false);
+            inProgressLatch.countDown();
+        }), modelProfile);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 }

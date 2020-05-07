@@ -536,4 +536,13 @@ public class FeatureManager {
     private long truncateToMinute(long epochMillis) {
         return Instant.ofEpochMilli(epochMillis).truncatedTo(ChronoUnit.MINUTES).toEpochMilli();
     }
+
+    public int getShingleSize(String detectorId) {
+        Deque<Entry<Long, double[]>> shingle = detectorIdsToTimeShingles.get(detectorId);
+        if (shingle != null) {
+            return shingle.size();
+        } else {
+            return -1;
+        }
+    }
 }

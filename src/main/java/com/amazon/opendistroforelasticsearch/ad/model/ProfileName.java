@@ -19,9 +19,15 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+
 public enum ProfileName {
-    STATE("state"),
-    ERROR("error");
+    STATE(CommonName.STATE),
+    ERROR(CommonName.ERROR),
+    COORDINATING_NODE(CommonName.COORDINATING_NODE),
+    SHINGLE_SIZE(CommonName.SHINGLE_SIZE),
+    TOTAL_SIZE_IN_BYTES(CommonName.TOTAL_SIZE_IN_BYTES),
+    MODELS(CommonName.MODELS);
 
     private String name;
 
@@ -38,26 +44,20 @@ public enum ProfileName {
         return name;
     }
 
-    /**
-     * Get set of profile names
-     *
-     * @return set of profile names
-     */
-    public static Set<String> getNames() {
-        Set<String> names = new HashSet<>();
-
-        for (ProfileName statName : ProfileName.values()) {
-            names.add(statName.getName());
-        }
-        return names;
-    }
-
     public static ProfileName getName(String name) {
         switch (name) {
-            case "state":
+            case CommonName.STATE:
                 return STATE;
-            case "error":
+            case CommonName.ERROR:
                 return ERROR;
+            case CommonName.COORDINATING_NODE:
+                return COORDINATING_NODE;
+            case CommonName.SHINGLE_SIZE:
+                return SHINGLE_SIZE;
+            case CommonName.TOTAL_SIZE_IN_BYTES:
+                return TOTAL_SIZE_IN_BYTES;
+            case CommonName.MODELS:
+                return MODELS;
             default:
                 throw new IllegalArgumentException("Unsupported profile types");
         }

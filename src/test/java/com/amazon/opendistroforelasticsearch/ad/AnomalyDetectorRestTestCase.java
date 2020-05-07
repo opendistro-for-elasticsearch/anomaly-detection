@@ -134,7 +134,7 @@ public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
             );
         assertEquals("Unable to get anomaly detector " + detectorId, RestStatus.OK, restStatus(response));
         XContentParser parser = createAdParser(XContentType.JSON.xContent(), response.getEntity().getContent());
-        XContentParser.Token token = parser.nextToken();
+        parser.nextToken();
         XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
 
         String id = null;
@@ -214,15 +214,23 @@ public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
-    public Response getDetectorProfile(String detectorId) throws IOException {
+    public Response getDetectorProfile(String detectorId, boolean all, String customizedProfile) throws IOException {
         return TestHelpers
             .makeRequest(
                 client(),
                 "GET",
-                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/" + RestHandlerUtils.PROFILE,
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/" + RestHandlerUtils.PROFILE + customizedProfile + "?_all=" + all,
                 null,
                 "",
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
+    }
+
+    public Response getDetectorProfile(String detectorId) throws IOException {
+        return getDetectorProfile(detectorId, false, "");
+    }
+
+    public Response getDetectorProfile(String detectorId, boolean all) throws IOException {
+        return getDetectorProfile(detectorId, all, "");
     }
 }

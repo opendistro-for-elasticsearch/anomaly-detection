@@ -900,6 +900,56 @@ public class ModelManager {
     }
 
     /**
+     * Does model maintenance.
+     *
+     * The implementation makes checkpoints for hosted models and stops hosting models not recently used.
+     *
+     * @param listener onResponse is called with null when this operation is completed.
+     */
+    public void maintenance(ActionListener<Void> listener) {
+        maintenanceForIterator(
+            forests,
+            this::toCheckpoint,
+            forests.entrySet().iterator(),
+            ActionListener
+                .wrap(
+                    r -> maintenanceForIterator(thresholds, this::toCheckpoint, thresholds.entrySet().iterator(), listener),
+                    listener::onFailure
+                )
+        );
+    }
+
+    private <T> void maintenanceForIterator(
+        Map<String, ModelState<T>> models,
+        Function<T, String> toCheckpoint,
+        Iterator<Entry<String, ModelState<T>>> iter,
+        ActionListener<Void> listener
+    ) {
+        if (iter.hasNext()) {
+            Entry<String, ModelState<T>> modelEntry = iter.next();
+            String modelId = modelEntry.getKey();
+            ModelState<T> modelState = modelEntry.getValue();
+            Instant now = clock.instant();
+            if (modelState.getLastUsedTime().plus(modelTtl).isBefore(now)) {
+                models.remove(modelId);
+            }
+            if (modelState.getLastCheckpointTime().plus(checkpointInterval).isBefore(now)) {
+                checkpointDao.putModelCheckpoint(modelId, toCheckpoint.apply(modelState.getModel()), ActionListener.wrap(r -> {
+                    modelState.setLastCheckpointTime(now);
+                    maintenanceForIterator(models, toCheckpoint, iter, listener);
+                }, e -> {
+                    logger.warn("Failed to finish maintenance for model id " + modelId, e);
+                    maintenanceForIterator(models, toCheckpoint, iter, listener);
+                }));
+            } else {
+                maintenanceForIterator(models, toCheckpoint, iter, listener);
+            }
+        } else {
+            listener.onResponse(null);
+        }
+    }
+
+    /**
      * Returns computed anomaly results for preview data points.
      *
      * @param dataPoints features of preview data points

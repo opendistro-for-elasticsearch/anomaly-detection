@@ -44,4 +44,14 @@ public class CommonName {
 
     // box type
     public static final String BOX_TYPE_KEY = "box_type";
+
+    // ======================================
+    // Profile name
+    // ======================================
+    public static final String STATE = "state";
+    public static final String ERROR = "error";
+    public static final String COORDINATING_NODE = "coordinating_node";
+    public static final String SHINGLE_SIZE = "shingle_size";
+    public static final String TOTAL_SIZE_IN_BYTES = "total_size_in_bytes";
+    public static final String MODELS = "models";
 }

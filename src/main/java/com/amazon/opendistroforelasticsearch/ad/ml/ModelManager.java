@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -1013,5 +1014,25 @@ public class ModelManager {
             double confidence = (eTotal - Math.exp(lambda * Math.min(total, forest.getSampleSize()))) / (eTotal - 1);
             return Math.max(0, confidence); // Replaces -0 wth 0 for cosmetic purpose.
         }
+    }
+
+    /**
+     * Get all RCF partition's size corresponding to a detector.  Thresholding models' size is a constant since they are small in size (KB).
+     * @param detectorId detector id
+     * @return a map of model id to its memory size
+     */
+    public Map<String, Long> getModelSize(String detectorId) {
+        Map<String, Long> res = new HashMap<>();
+        forests
+            .entrySet()
+            .stream()
+            .filter(entry -> getDetectorIdForModelId(entry.getKey()).equals(detectorId))
+            .forEach(entry -> { res.put(entry.getKey(), estimateModelSize(entry.getValue().getModel())); });
+        thresholds
+            .entrySet()
+            .stream()
+            .filter(entry -> getDetectorIdForModelId(entry.getKey()).equals(detectorId))
+            .forEach(entry -> { res.put(entry.getKey(), 0L); });
+        return res;
     }
 }

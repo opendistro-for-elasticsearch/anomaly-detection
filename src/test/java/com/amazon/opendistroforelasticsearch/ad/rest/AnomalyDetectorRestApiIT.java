@@ -310,7 +310,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testPreviewAnomalyDetectorWhichNotExist() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        createRandomAnomalyDetector(true, false);
         AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
             randomAlphaOfLength(5),
             Instant.now().minusSeconds(60 * 10),
@@ -885,7 +885,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
     }
 
-    public void testProfileAnomalyDetector() throws Exception {
+    public void testDefaultProfileAnomalyDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true);
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
@@ -896,6 +896,20 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
         Response profileResponse = getDetectorProfile(detector.getDetectorId());
+        assertEquals("Incorrect profile status", RestStatus.OK, restStatus(profileResponse));
+    }
+
+    public void testAllProfileAnomalyDetector() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+
+        Response profileResponse = getDetectorProfile(detector.getDetectorId(), true);
+        assertEquals("Incorrect profile status", RestStatus.OK, restStatus(profileResponse));
+    }
+
+    public void testCustomizedProfileAnomalyDetector() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+
+        Response profileResponse = getDetectorProfile(detector.getDetectorId(), true, "/models/");
         assertEquals("Incorrect profile status", RestStatus.OK, restStatus(profileResponse));
     }
 }

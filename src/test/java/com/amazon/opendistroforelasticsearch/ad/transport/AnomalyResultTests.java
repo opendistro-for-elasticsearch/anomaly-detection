@@ -121,13 +121,10 @@ import org.junit.BeforeClass;
 
 import com.google.gson.JsonElement;
 
-import test.com.amazon.opendistroforelasticsearch.ad.util.FakeNode;
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
 public class AnomalyResultTests extends AbstractADTest {
     private static Settings settings = Settings.EMPTY;
-    private FakeNode[] testNodes;
-    private int nodesCount;
     private TransportService transportService;
     private ClusterService clusterService;
     private ADStateManager stateManager;
@@ -149,13 +146,11 @@ public class AnomalyResultTests extends AbstractADTest {
     @BeforeClass
     public static void setUpBeforeClass() {
         setUpThreadPool(AnomalyResultTests.class.getSimpleName());
-        settings = Settings.EMPTY;
     }
 
     @AfterClass
     public static void tearDownAfterClass() {
         tearDownThreadPool();
-        settings = null;
     }
 
     @SuppressWarnings("unchecked")
@@ -164,8 +159,8 @@ public class AnomalyResultTests extends AbstractADTest {
     public void setUp() throws Exception {
         super.setUp();
         super.setUpLog4jForJUnit(AnomalyResultTransportAction.class);
-        setupTestNodes(Settings.EMPTY);
-        FakeNode.connectNodes(testNodes);
+        setupTestNodes(settings);
+
         runner = new ColdStartRunner();
         transportService = testNodes[0].transportService;
         clusterService = testNodes[0].clusterService;
@@ -260,21 +255,10 @@ public class AnomalyResultTests extends AbstractADTest {
         adStats = new ADStats(indexUtils, normalModelManager, statsMap);
     }
 
-    public void setupTestNodes(Settings settings) {
-        nodesCount = randomIntBetween(2, 10);
-        testNodes = new FakeNode[nodesCount];
-        for (int i = 0; i < testNodes.length; i++) {
-            testNodes[i] = new FakeNode("node" + i, threadPool, settings);
-        }
-    }
-
     @Override
     @After
     public final void tearDown() throws Exception {
-        for (FakeNode testNode : testNodes) {
-            testNode.close();
-        }
-        testNodes = null;
+        tearDownTestNodes();
         runner.shutDown();
         runner = null;
         client = null;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ public class ADStatsIT extends ESIntegTestCase {
     public void testNormalADStats() throws ExecutionException, InterruptedException {
         ADStatsRequest adStatsRequest = new ADStatsRequest(new String[0]);
 
-        ADStatsResponse response = client().execute(ADStatsAction.INSTANCE, adStatsRequest).get();
+        ADStatsNodesResponse response = client().execute(ADStatsNodesAction.INSTANCE, adStatsRequest).get();
         assertTrue("getting stats failed", !response.hasFailures());
     }
 }

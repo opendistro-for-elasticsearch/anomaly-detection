@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -18,18 +18,18 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 import org.elasticsearch.action.ActionType;
 
 /**
- * ADStatsAction class
+ * ADStatsNodesAction class
  */
-public class ADStatsAction extends ActionType<ADStatsResponse> {
+public class ADStatsNodesAction extends ActionType<ADStatsNodesResponse> {
 
-    public static final ADStatsAction INSTANCE = new ADStatsAction();
-    public static final String NAME = "cluster:admin/ad_stats_action";
+    public static final ADStatsNodesAction INSTANCE = new ADStatsNodesAction();
+    public static final String NAME = "cluster:admin/ad/stats/nodes";
 
     /**
      * Constructor
      */
-    private ADStatsAction() {
-        super(NAME, ADStatsResponse::new);
+    private ADStatsNodesAction() {
+        super(NAME, ADStatsNodesResponse::new);
     }
 
 }

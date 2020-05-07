@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.SettableSupplier;
 
 import java.util.function.Supplier;
 
@@ -53,6 +54,17 @@ public class ADStat<T> {
      */
     public T getValue() {
         return supplier.get();
+    }
+
+    /**
+     * Set the value of the statistic
+     *
+     * @param value set value
+     */
+    public void setValue(Long value) {
+        if (supplier instanceof SettableSupplier) {
+            ((SettableSupplier) supplier).set(value);
+        }
     }
 
     /**

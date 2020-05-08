@@ -22,10 +22,12 @@ import static java.util.Collections.emptySet;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,7 +48,10 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterName;
+import org.elasticsearch.cluster.ClusterState;
+import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
@@ -57,6 +62,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData;
+import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
@@ -74,10 +80,17 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
     private Client client;
     private DiscoveryNodeFilterer nodeFilter;
     private AnomalyDetector detector;
+    private IndexNameExpressionResolver resolver;
+    private ClusterService clusterService;
+
     private static Set<ProfileName> stateOnly;
     private static Set<ProfileName> stateNError;
     private static Set<ProfileName> modelProfile;
-    private static String error = "No full shingle in current detection window";
+    private static String noFullShingleError = "No full shingle in current detection window";
+    private static String stoppedError = "Stopped detector as job failed consecutively for more than 3 times: Having trouble querying data."
+        + " Maybe all of your features have been disabled.";
+    private Calendar calendar;
+    private String indexWithRequiredError = ".opendistro-anomaly-results-history-2020.04.07-000002";
 
     // profile model related
     String node1;
@@ -120,13 +133,27 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
         super.setUp();
         client = mock(Client.class);
         nodeFilter = mock(DiscoveryNodeFilterer.class);
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter);
+        calendar = mock(Calendar.class);
+        resolver = mock(IndexNameExpressionResolver.class);
+        clusterService = mock(ClusterService.class);
+        when(resolver.concreteIndexNames(any(), any(), any()))
+            .thenReturn(
+                new String[] {
+                    ".opendistro-anomaly-results-history-2020.04.06-1",
+                    indexWithRequiredError,
+                    ".opendistro-anomaly-results-history-2020.04.08-000003" }
+            );
+        when(clusterService.state()).thenReturn(ClusterState.builder(new ClusterName("test cluster")).build());
+
+        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, resolver, clusterService, calendar);
     }
 
     enum JobStatus {
         INDEX_NOT_EXIT,
         DISABLED,
-        ENABLED
+        ENABLED,
+        DISABLED_ROTATED_1,
+        DISABLED_ROTATED_2
     }
 
     enum InittedEverResultStatus {
@@ -139,7 +166,8 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
     enum ErrorResultStatus {
         INDEX_NOT_EXIT,
         NO_ERROR,
-        ERROR
+        SHINGLE_ERROR,
+        STOPPED_ERROR
     }
 
     @SuppressWarnings("unchecked")
@@ -168,6 +196,20 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
                         break;
                     case ENABLED:
                         job = TestHelpers.randomAnomalyDetectorJob(true);
+                        listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId()));
+                        break;
+                    case DISABLED_ROTATED_1:
+                        // enabled time is smaller than 1586217600000, while disabled time is larger than 1586217600000
+                        // which is April 7, 2020 12:00:00 AM.
+                        job = TestHelpers
+                            .randomAnomalyDetectorJob(false, Instant.ofEpochMilli(1586217500000L), Instant.ofEpochMilli(1586227600000L));
+                        listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId()));
+                        break;
+                    case DISABLED_ROTATED_2:
+                        // both enabled and disabled time are larger than 1586217600000,
+                        // which is April 7, 2020 12:00:00 AM.
+                        job = TestHelpers
+                            .randomAnomalyDetectorJob(false, Instant.ofEpochMilli(1586217500000L), Instant.ofEpochMilli(1586227600000L));
                         listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId()));
                         break;
                     default:
@@ -214,9 +256,17 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
                         result = TestHelpers.randomAnomalyDetectResult(null);
                         listener.onResponse(TestHelpers.createSearchResponse(result));
                         break;
-                    case ERROR:
-                        result = TestHelpers.randomAnomalyDetectResult(error);
+                    case SHINGLE_ERROR:
+                        result = TestHelpers.randomAnomalyDetectResult(noFullShingleError);
                         listener.onResponse(TestHelpers.createSearchResponse(result));
+                        break;
+                    case STOPPED_ERROR:
+                        if (request.indices().length == 1 && request.indices()[0].equals(indexWithRequiredError)) {
+                            result = TestHelpers.randomAnomalyDetectResult(stoppedError);
+                            listener.onResponse(TestHelpers.createSearchResponse(result));
+                        } else {
+                            assertTrue("should not reach here", false);
+                        }
                         break;
                     default:
                         assertTrue("should not reach here", false);
@@ -326,11 +376,16 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
     }
 
     public void testRunningWithError() throws IOException, InterruptedException {
-        testErrorStateTemplate(InittedEverResultStatus.GREATER_THAN_ZERO, ErrorResultStatus.ERROR, DetectorState.RUNNING, error);
+        testErrorStateTemplate(
+            InittedEverResultStatus.GREATER_THAN_ZERO,
+            ErrorResultStatus.SHINGLE_ERROR,
+            DetectorState.RUNNING,
+            noFullShingleError
+        );
     }
 
     public void testInitWithError() throws IOException, InterruptedException {
-        testErrorStateTemplate(InittedEverResultStatus.EMPTY, ErrorResultStatus.ERROR, DetectorState.INIT, error);
+        testErrorStateTemplate(InittedEverResultStatus.EMPTY, ErrorResultStatus.SHINGLE_ERROR, DetectorState.INIT, noFullShingleError);
     }
 
     public void testExceptionOnStateFetching() throws IOException, InterruptedException {
@@ -438,5 +493,47 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
             inProgressLatch.countDown();
         }), modelProfile);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    /**
+     * A detector's error message can be on a rotated index. This test makes sure we get error info
+     *  from .opendistro-anomaly-results index that has been rolled over.
+     * @param state expected detector state
+     * @param jobStatus job status to config in the test case
+     * @throws IOException when profile API throws it
+     * @throws InterruptedException when our CountDownLatch has been interruptted
+     */
+    private void stoppedDetectorErrorTemplate(DetectorState state, JobStatus jobStatus) throws IOException, InterruptedException {
+        setUpClientGet(true, jobStatus);
+        setUpClientSearch(InittedEverResultStatus.GREATER_THAN_ZERO, ErrorResultStatus.STOPPED_ERROR);
+        DetectorProfile expectedProfile = new DetectorProfile();
+        expectedProfile.setState(state);
+        expectedProfile.setError(stoppedError);
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+            assertEquals(expectedProfile, response);
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue("Should not reach here ", false);
+            inProgressLatch.countDown();
+        }), stateNError);
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    public void testDetectorStoppedEnabledTimeLtIndexDate() throws IOException, InterruptedException {
+        stoppedDetectorErrorTemplate(DetectorState.DISABLED, JobStatus.DISABLED_ROTATED_1);
+    }
+
+    public void testDetectorStoppedEnabledTimeGtIndexDate() throws IOException, InterruptedException {
+        stoppedDetectorErrorTemplate(DetectorState.DISABLED, JobStatus.DISABLED_ROTATED_2);
+    }
+
+    public void testAssumption() {
+        assertEquals(
+            "profileError depends on this assumption.",
+            ".opendistro-anomaly-results*",
+            AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN
+        );
     }
 }

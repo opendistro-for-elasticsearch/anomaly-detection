@@ -126,10 +126,12 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -188,7 +190,14 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
         jobRunner.setSettings(settings);
 
-        AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(client, this.xContentRegistry, this.nodeFilter);
+        AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(
+            client,
+            this.xContentRegistry,
+            this.nodeFilter,
+            indexNameExpressionResolver,
+            clusterService,
+            Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        );
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(profileRunner);
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(
             settings,

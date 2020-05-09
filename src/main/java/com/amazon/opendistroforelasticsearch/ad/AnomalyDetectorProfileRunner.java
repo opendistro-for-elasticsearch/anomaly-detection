@@ -23,11 +23,11 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -265,6 +265,14 @@ public class AnomalyDetectorProfileRunner {
      * 2. Latest entry with error is recorded within enabled and disabled time.  Note disabled time can be null.
      *
      * Error is populated if error of the latest anomaly result is not empty.
+     *
+     * Two optimization to avoid scanning all anomaly result indices to get a detector's most recent error
+     *
+     * First, when a detector is running, we only need to scan the current index, not all of the rolled over ones
+     *  since we are interested in the latest error.
+     * Second, when a detector is disabled, we only need to scan the latest anomaly result indices created before the
+     *  detector's enable time.
+     *
      * @param detectorId detector id
      * @param enabledTimeMillis the time when AD job is enabled in milliseconds
      * @param listener listener to process the returned error or exception
@@ -296,7 +304,7 @@ public class AnomalyDetectorProfileRunner {
             // find the latest from result indices such as .opendistro-anomaly-results-history-2020.04.06-1 and
             // /.opendistro-anomaly-results-history-2020.04.07-000002
             long maxTimestamp = -1;
-            Map<Long, List<String>> candidateIndices = new HashMap<>();
+            TreeMap<Long, List<String>> candidateIndices = new TreeMap<>();
             for (String indexName : concreteIndices) {
                 Matcher m = Pattern.compile("\\.opendistro-anomaly-results-history-(\\d{4})\\.(\\d{2})\\.(\\d{2})-\\d+").matcher(indexName);
                 if (m.matches()) {
@@ -319,7 +327,24 @@ public class AnomalyDetectorProfileRunner {
                     }
                 }
             }
-            latestIndex = candidateIndices.getOrDefault(maxTimestamp, new ArrayList<String>()).toArray(new String[0]);
+            List<String> candidates = new ArrayList<String>();
+            List<String> latestCandidate = candidateIndices.get(maxTimestamp);
+
+            if (latestCandidate != null) {
+                candidates.addAll(latestCandidate);
+            }
+
+            // look back one more index for an edge case:
+            // Suppose detector interval is 1 minute. Detector last run is at 2020-05-07, 11:59:50 PM,
+            // then AD result indices rolled over as .opendistro-anomaly-results-history-2020.05.07-001
+            // Detector next run will be 2020-05-08, 00:00:50 AM. If a user stop the detector at
+            // 2020-05-08 00:00:10 AM, detector will not have AD result on 2020-05-08.
+            // We check AD result indices one day earlier to make sure we can always get AD result.
+            Map.Entry<Long, List<String>> earlierCandidate = candidateIndices.lowerEntry(maxTimestamp);
+            if (earlierCandidate != null) {
+                candidates.addAll(earlierCandidate.getValue());
+            }
+            latestIndex = candidates.toArray(new String[0]);
         }
 
         if (latestIndex == null || latestIndex.length == 0) {

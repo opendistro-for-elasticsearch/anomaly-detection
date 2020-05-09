@@ -90,7 +90,8 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
     private static String stoppedError = "Stopped detector as job failed consecutively for more than 3 times: Having trouble querying data."
         + " Maybe all of your features have been disabled.";
     private Calendar calendar;
-    private String indexWithRequiredError = ".opendistro-anomaly-results-history-2020.04.07-000002";
+    private String indexWithRequiredError1 = ".opendistro-anomaly-results-history-2020.04.06-1";
+    private String indexWithRequiredError2 = ".opendistro-anomaly-results-history-2020.04.07-000002";
 
     // profile model related
     String node1;
@@ -138,10 +139,7 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
         clusterService = mock(ClusterService.class);
         when(resolver.concreteIndexNames(any(), any(), any()))
             .thenReturn(
-                new String[] {
-                    ".opendistro-anomaly-results-history-2020.04.06-1",
-                    indexWithRequiredError,
-                    ".opendistro-anomaly-results-history-2020.04.08-000003" }
+                new String[] { indexWithRequiredError1, indexWithRequiredError2, ".opendistro-anomaly-results-history-2020.04.08-000003" }
             );
         when(clusterService.state()).thenReturn(ClusterState.builder(new ClusterName("test cluster")).build());
 
@@ -153,7 +151,8 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
         DISABLED,
         ENABLED,
         DISABLED_ROTATED_1,
-        DISABLED_ROTATED_2
+        DISABLED_ROTATED_2,
+        DISABLED_ROTATED_3
     }
 
     enum InittedEverResultStatus {
@@ -167,7 +166,8 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
         INDEX_NOT_EXIT,
         NO_ERROR,
         SHINGLE_ERROR,
-        STOPPED_ERROR
+        STOPPED_ERROR_1,
+        STOPPED_ERROR_2
     }
 
     @SuppressWarnings("unchecked")
@@ -210,6 +210,13 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
                         // which is April 7, 2020 12:00:00 AM.
                         job = TestHelpers
                             .randomAnomalyDetectorJob(false, Instant.ofEpochMilli(1586217500000L), Instant.ofEpochMilli(1586227600000L));
+                        listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId()));
+                        break;
+                    case DISABLED_ROTATED_3:
+                        // both enabled and disabled time are larger than 1586131200000,
+                        // which is April 6, 2020 12:00:00 AM.
+                        job = TestHelpers
+                            .randomAnomalyDetectorJob(false, Instant.ofEpochMilli(1586131300000L), Instant.ofEpochMilli(1586131400000L));
                         listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId()));
                         break;
                     default:
@@ -260,8 +267,22 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
                         result = TestHelpers.randomAnomalyDetectResult(noFullShingleError);
                         listener.onResponse(TestHelpers.createSearchResponse(result));
                         break;
-                    case STOPPED_ERROR:
-                        if (request.indices().length == 1 && request.indices()[0].equals(indexWithRequiredError)) {
+                    case STOPPED_ERROR_2:
+                        if (request.indices().length == 2) {
+                            for (int i = 0; i < 2; i++) {
+                                assertTrue(
+                                    request.indices()[i].equals(indexWithRequiredError1)
+                                        || request.indices()[i].equals(indexWithRequiredError2)
+                                );
+                            }
+                            result = TestHelpers.randomAnomalyDetectResult(stoppedError);
+                            listener.onResponse(TestHelpers.createSearchResponse(result));
+                        } else {
+                            assertTrue("should not reach here", false);
+                        }
+                        break;
+                    case STOPPED_ERROR_1:
+                        if (request.indices().length == 1 && request.indices()[0].equals(indexWithRequiredError1)) {
                             result = TestHelpers.randomAnomalyDetectResult(stoppedError);
                             listener.onResponse(TestHelpers.createSearchResponse(result));
                         } else {
@@ -503,9 +524,10 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
      * @throws IOException when profile API throws it
      * @throws InterruptedException when our CountDownLatch has been interruptted
      */
-    private void stoppedDetectorErrorTemplate(DetectorState state, JobStatus jobStatus) throws IOException, InterruptedException {
+    private void stoppedDetectorErrorTemplate(DetectorState state, JobStatus jobStatus, ErrorResultStatus errorStatus) throws IOException,
+        InterruptedException {
         setUpClientGet(true, jobStatus);
-        setUpClientSearch(InittedEverResultStatus.GREATER_THAN_ZERO, ErrorResultStatus.STOPPED_ERROR);
+        setUpClientSearch(InittedEverResultStatus.GREATER_THAN_ZERO, errorStatus);
         DetectorProfile expectedProfile = new DetectorProfile();
         expectedProfile.setState(state);
         expectedProfile.setError(stoppedError);
@@ -521,12 +543,25 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
-    public void testDetectorStoppedEnabledTimeLtIndexDate() throws IOException, InterruptedException {
-        stoppedDetectorErrorTemplate(DetectorState.DISABLED, JobStatus.DISABLED_ROTATED_1);
+    /**
+     * Job enabled time is earlier than and disabled time is later than index 2 creation date, we expect to search 2 indices
+     */
+    public void testDetectorStoppedEnabledTimeLtIndex2Date() throws IOException, InterruptedException {
+        stoppedDetectorErrorTemplate(DetectorState.DISABLED, JobStatus.DISABLED_ROTATED_1, ErrorResultStatus.STOPPED_ERROR_2);
     }
 
-    public void testDetectorStoppedEnabledTimeGtIndexDate() throws IOException, InterruptedException {
-        stoppedDetectorErrorTemplate(DetectorState.DISABLED, JobStatus.DISABLED_ROTATED_2);
+    /**
+     * Both job enabled and disabled time are later than index 2 creation date, we expect to search 2 indices
+     */
+    public void testDetectorStoppedEnabledTimeGtIndex2Date() throws IOException, InterruptedException {
+        stoppedDetectorErrorTemplate(DetectorState.DISABLED, JobStatus.DISABLED_ROTATED_2, ErrorResultStatus.STOPPED_ERROR_2);
+    }
+
+    /**
+     * Both job enabled and disabled time are earlier than index 2 creation date, we expect to search 1 indices
+     */
+    public void testDetectorStoppedEnabledTimeGtIndex1Date() throws IOException, InterruptedException {
+        stoppedDetectorErrorTemplate(DetectorState.DISABLED, JobStatus.DISABLED_ROTATED_3, ErrorResultStatus.STOPPED_ERROR_1);
     }
 
     public void testAssumption() {

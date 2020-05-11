@@ -84,7 +84,7 @@ But, you must set up debugger configurations to listen on each port starting fro
 
 ## Interested in contributing to the Anomaly Detection plugin
 
-We welcome you to get involved in development, documentation, testing the anomaly detection plugin. See our [contribution guidelines](https://opendistro.github.io/for-elasticsearch/contribute.html ) and join in.
+We welcome you to get involved in development, documentation, testing the anomaly detection plugin. See our [contribution guidelines](https://github.com/opendistro-for-elasticsearch/anomaly-detection/blob/master/CONTRIBUTING.md) and join in.
 
 ## Code of Conduct
 

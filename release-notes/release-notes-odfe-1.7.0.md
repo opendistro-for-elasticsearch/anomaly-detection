@@ -4,11 +4,9 @@
 The Anomaly Detection Elasticsearch plugin enables you to detect anomalies in streaming log data as it is ingested using the random cut forest (RCF) algorithm.
 You can create anomaly detectors and add features to them to customize what parts of your data you want to detect anomalies over.
 
-This plugin can be used with the [Anomaly Detection Kibana plugin](https://github.com/opendistro-for-elasticsearch/anomaly-detection-kibana-plugin)
-for an intuitive user interface that can be used to configure, start, and stop anomaly detectors. You can also view the anomaly history for all of your created detectors. 
+This plugin can be used with the [Anomaly Detection Kibana plugin](https://github.com/opendistro-for-elasticsearch/anomaly-detection-kibana-plugin) for an intuitive user interface that can be used to configure, start, and stop anomaly detectors. You can also view the anomaly history for all of your created detectors. 
 
-You can use the plugin with the same version of the [Open Distro Alerting plugin](https://github.com/opendistro-for-elasticsearch/alerting) and 
-[Open Distro Alerting Kibana plugin](https://github.com/opendistro-for-elasticsearch/alerting-kibana-plugin) to get alert notifications. You can create a monitor based on an anomaly detector directly on the Alerting Kibana plugin. Monitors run checks on the anomaly detection results regularly and trigger alerts based on custom trigger conditions.
+You can use the plugin with the same version of the [Open Distro Alerting plugin](https://github.com/opendistro-for-elasticsearch/alerting) and [Open Distro Alerting Kibana plugin](https://github.com/opendistro-for-elasticsearch/alerting-kibana-plugin) to get alert notifications. You can create a monitor based on an anomaly detector directly on the Alerting Kibana plugin. Monitors run checks on the anomaly detection results regularly and trigger alerts based on custom trigger conditions.
 
 ## Features
 

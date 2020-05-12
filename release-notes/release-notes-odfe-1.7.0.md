@@ -1,4 +1,5 @@
 ## Open Distro for Elasticsearch 1.7.0 Release Notes
+Compatible with Elasticsearch 7.6.1 and Open Distro for Elasticsearch 1.7.0.
 
 ## Initial Release
 The Anomaly Detection Elasticsearch plugin enables you to detect anomalies in streaming time series data based on the random cut forest (RCF) algorithm.
@@ -19,9 +20,9 @@ You can use the plugin with the same version of the [Open Distro Alerting plugin
 
 ## Current Limitations
 
-- Supports Elasticsearch / Kibana 7.6.1.
 - Limit of 1000 detectors per Elasticsearch cluster
 - Limit of 5 features per detector
-- Not all API calls have complete error handling.
-- We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. This is a great area for developers from the community to contribute and help improve test coverage.
-- Please see documentation links and GitHub issues for other details.
+- Total detectors memory limit of 10% of JVM heap
+- Not all API calls have complete error handling
+- We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. This is a great area for developers from the community to contribute and help improve test coverage
+- Please see documentation links and GitHub issues for other details

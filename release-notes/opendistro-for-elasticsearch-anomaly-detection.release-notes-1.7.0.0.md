@@ -9,7 +9,15 @@ This plugin can be used with the [Anomaly Detection Kibana plugin](https://githu
 
 This plugin works independently. You can also use the plugin with the same version of the [Open Distro Alerting plugin](https://github.com/opendistro-for-elasticsearch/alerting) and [Open Distro Alerting Kibana plugin](https://github.com/opendistro-for-elasticsearch/alerting-kibana-plugin) to get alert notifications. You can create a monitor based on an anomaly detector directly on the Alerting Kibana plugin. Monitors run checks on the anomaly detection results regularly and trigger alerts based on custom trigger conditions.
 
-## Features
+## Current Limitations
+- Limit of 1000 detectors per Elasticsearch cluster
+- Limit of 5 features per detector
+- Total detectors memory limit of 10% of JVM heap
+- Not all API calls have complete error handling
+- We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. This is a great area for developers from the community to contribute and help improve test coverage
+- Please see documentation links and GitHub issues for other details
+
+## Major Changes
 * Add state and error to profile API [PR #84](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/84)
 * preview detector on the fly [PR #72](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/72)
 * Cancel query if given detector already have one [PR #54](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/54)
@@ -60,7 +68,7 @@ This plugin works independently. You can also use the plugin with the same versi
 * Revert "merge changes from alpha branch: change setting name and fix … [PR #38](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/38)
 * fix stop detector api to use correct request [PR #25](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/25)
 
-## Build & Workflow Changes
+## Infra Changes
 * Add release notes for ODFE 1.7.0 [PR #120](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/120) [PR #119](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/119)
 * Opendistro Release 1.7.0 [PR #106](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/106)
 * Create opendistro-elasticsearch-anomaly-detection.release-notes.md [PR #103](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/103)
@@ -75,11 +83,3 @@ This plugin works independently. You can also use the plugin with the same versi
 * update third-party [PR #14](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/14)
 * build artifacts for rpm, deb, zip [PR #5](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/5)
 * Update test-workflow.yml [PR #2](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/2)
-
-## Current Limitations
-- Limit of 1000 detectors per Elasticsearch cluster
-- Limit of 5 features per detector
-- Total detectors memory limit of 10% of JVM heap
-- Not all API calls have complete error handling
-- We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. This is a great area for developers from the community to contribute and help improve test coverage
-- Please see documentation links and GitHub issues for other details

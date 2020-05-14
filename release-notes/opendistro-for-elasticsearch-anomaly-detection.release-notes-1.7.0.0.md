@@ -4,13 +4,13 @@ Compatible with Elasticsearch 7.6.1 and Open Distro for Elasticsearch 1.7.0.
 
 ## Initial Release
 
-The Anomaly Detection Elasticsearch plugin enables you to detect anomalies in streaming time series data based on the random cut forest (RCF) algorithm.
+The Open Distro for Elasticsearch Anomaly Detection plugin enables you to detect anomalies in streaming time series data based on the random cut forest (RCF) algorithm.
 
 You can create anomaly detectors and add features to them to customize what data you want to detect anomalies over.
 
 This plugin can be used with the [Anomaly Detection Kibana plugin](https://github.com/opendistro-for-elasticsearch/anomaly-detection-kibana-plugin) for an intuitive user interface that can be used to configure, start, and stop anomaly detectors. You can also view the anomaly history for all of your created detectors. 
 
-This plugin works independently. You can also use the plugin with the same version of the [Open Distro Alerting plugin](https://github.com/opendistro-for-elasticsearch/alerting) and [Open Distro Alerting Kibana plugin](https://github.com/opendistro-for-elasticsearch/alerting-kibana-plugin) to get alert notifications. You can create a monitor based on an anomaly detector directly on the Alerting Kibana plugin. Monitors run checks on the anomaly detection results regularly and trigger alerts based on custom trigger conditions.
+This plugin works independently. You can also use the plugin with the same version of the [Open Distro for Elasticsearch Alerting Kibana plugin](https://github.com/opendistro-for-elasticsearch/alerting-kibana-plugin) to get alert notifications. You can create a monitor based on an anomaly detector directly on the Alerting Kibana plugin. Monitors run checks on the anomaly detection results regularly and trigger alerts based on custom trigger conditions.
 
 ## Features
 1. Create and configure anomaly detectors over user-specified indices and features
@@ -30,12 +30,12 @@ This plugin works independently. You can also use the plugin with the same versi
 
 ## Major Changes
 * Add state and error to profile API [PR #84](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/84)
-* preview detector on the fly [PR #72](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/72)
+* Preview detector on the fly [PR #72](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/72)
 * Cancel query if given detector already have one [PR #54](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/54)
-* support return AD job when get detector [PR #50](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/50)
-* add AD job on top of JobScheduler [PR #44](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/44)
+* Support return AD job when get detector [PR #50](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/50)
+* Add AD job on top of JobScheduler [PR #44](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/44)
 * Adding negative cache to throttle extra request [PR #40](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/40)
-* add window delay support [PR #24](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/24)
+* Add window delay support [PR #24](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/24)
 * Circuit breaker [PR #10](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/10) [PR #7](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/7)
 * Stats collection [PR #8](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/8)
 

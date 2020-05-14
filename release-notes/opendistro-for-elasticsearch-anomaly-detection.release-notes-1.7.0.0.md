@@ -9,6 +9,14 @@ This plugin can be used with the [Anomaly Detection Kibana plugin](https://githu
 
 This plugin works independently. You can also use the plugin with the same version of the [Open Distro Alerting plugin](https://github.com/opendistro-for-elasticsearch/alerting) and [Open Distro Alerting Kibana plugin](https://github.com/opendistro-for-elasticsearch/alerting-kibana-plugin) to get alert notifications. You can create a monitor based on an anomaly detector directly on the Alerting Kibana plugin. Monitors run checks on the anomaly detection results regularly and trigger alerts based on custom trigger conditions.
 
+## Features
+1. Create and configure anomaly detectors over user-specified indices and features
+2. Start and stop detectors at any time
+3. Query anomaly results
+4. Query existing detectors
+5. Query specific detector details and current state
+6. Preview anomaly results for new detector features
+
 ## Current Limitations
 - Limit of 1000 detectors per Elasticsearch cluster
 - Limit of 5 features per detector

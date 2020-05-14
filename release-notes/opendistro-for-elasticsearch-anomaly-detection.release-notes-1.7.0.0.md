@@ -1,8 +1,11 @@
-## Open Distro for Elasticsearch 1.7.0.0 Release Notes
+## Open Distro for Elasticsearch Anomaly Detection Plugin 1.7.0.0 Release Notes
+
 Compatible with Elasticsearch 7.6.1 and Open Distro for Elasticsearch 1.7.0.
 
 ## Initial Release
+
 The Anomaly Detection Elasticsearch plugin enables you to detect anomalies in streaming time series data based on the random cut forest (RCF) algorithm.
+
 You can create anomaly detectors and add features to them to customize what data you want to detect anomalies over.
 
 This plugin can be used with the [Anomaly Detection Kibana plugin](https://github.com/opendistro-for-elasticsearch/anomaly-detection-kibana-plugin) for an intuitive user interface that can be used to configure, start, and stop anomaly detectors. You can also view the anomaly history for all of your created detectors. 
@@ -38,56 +41,56 @@ This plugin works independently. You can also use the plugin with the same versi
 
 ## Enhancements
 * Stats API: moved detector count call outside transport layer and make asynchronous [PR #108](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/108)
-* change AD result index rollover setting [PR #100](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/100)
-* add async maintenance [PR #94](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/94)
-* add async stopModel [PR #93](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/93)
-* add timestamp to async putModelCheckpoint [PR #92](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/92)
+* Change AD result index rollover setting [PR #100](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/100)
+* Add async maintenance [PR #94](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/94)
+* Add async stopModel [PR #93](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/93)
+* Add timestamp to async putModelCheckpoint [PR #92](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/92)
 * Add async clear [PR #91](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/91)
 * Use callbacks and bug fix [PR #83](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/83)
-* add async trainModel [PR #81](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/81)
+* Add async trainModel [PR #81](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/81)
 * Add async getColdStartData [PR #80](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/80)
 * Change the default value of lastUpdateTime [PR #77](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/77)
-* add async getThresholdingResult [PR #70](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/70)
-* add async getRcfResult [PR #69](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/69)
-* fix rcf random seed in preview [PR #68](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/68)
+* Add async getThresholdingResult [PR #70](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/70)
+* Add async getRcfResult [PR #69](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/69)
+* Fix rcf random seed in preview [PR #68](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/68)
 * Fix empty preview result due to insufficient sample [PR #65](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/65)
 * Add async CheckpointDao methods. [PR #62](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/62)
-* record error and execution start/end time in AD result; handle except… [PR #59](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/59)
+* Record error and execution start/end time in AD result; handle except… [PR #59](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/59)
 * Improve log message when we cannot get anomaly result [PR #58](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/58)
 * Write detection code path in callbacks [PR #48](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/48)
 * Send back error response when failing to stop detector [PR #45](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/45)
-* adjust preview configuration for more data [PR #39](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/39)
+* Adjust preview configuration for more data [PR #39](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/39)
 * Refactor using ClientUtil [PR #32](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/32)
-* return empty preview results on failure [PR #31](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/31)
-* allow non-negative window delay [PR #30](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/30)
-* return no data error message to preview [PR #29](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/29)
-* change AD setting name [PR #26](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/26)
+* Return empty preview results on failure [PR #31](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/31)
+* Allow non-negative window delay [PR #30](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/30)
+* Return no data error message to preview [PR #29](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/29)
+* Change AD setting name [PR #26](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/26)
 * Add async CheckpointDao methods. [PR #17](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/17)
 * Add async implementation of getFeaturesForSampledPeriods. [PR #16](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/16)
 * Add async implementation of getFeaturesForPeriod. [PR #15](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/15)
-* add test evaluating anomaly results [PR #13](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/13)
+* Add test evaluating anomaly results [PR #13](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/13)
 
 ## Bug Fixes
 * Change setting name so that rpm/deb has the same name as zip [PR #109](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/109)
 * Can't start AD job if detector has no feature [PR #76](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/76)
 * Fix null pointer exception during preview [PR #74](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/74)
 * Add threadpool prefix and change threadpool name [PR #56](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/56)
-* change setting name and fix stop AD request [PR #41](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/41)
+* Change setting name and fix stop AD request [PR #41](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/41)
 * Revert "merge changes from alpha branch: change setting name and fix … [PR #38](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/38)
-* fix stop detector api to use correct request [PR #25](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/25)
+* Fix stop detector api to use correct request [PR #25](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/25)
 
 ## Infra Changes
 * Add release notes for ODFE 1.7.0 [PR #120](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/120) [PR #119](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/119)
-* Opendistro Release 1.7.0 [PR #106](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/106)
+* Open Distro Release 1.7.0 [PR #106](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/106)
 * Create opendistro-elasticsearch-anomaly-detection.release-notes.md [PR #103](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/103)
 * Update test branch [PR #101](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/101)
-* bump opendistroVersion to 1.6.1 [PR #99](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/99)
+* Bump opendistroVersion to 1.6.1 [PR #99](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/99)
 * Change to mention we support only JDK 13 [PR #98](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/98)
 * AD opendistro 1.6 support [PR #87](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/87)
 * Added URL for jb_scheduler-plugin_zip instead of local file path [PR #82](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/82)
 * Change build instruction for JDK [PR #61](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/61)
-* Odfe 1.4.0 [PR #43](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/43)
+* ODFE 1.4.0 [PR #43](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/43)
 * Add spotless for code format [PR #22](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/22)
-* update third-party [PR #14](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/14)
-* build artifacts for rpm, deb, zip [PR #5](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/5)
+* Update third-party [PR #14](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/14)
+* Build artifacts for rpm, deb, zip [PR #5](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/5)
 * Update test-workflow.yml [PR #2](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/2)

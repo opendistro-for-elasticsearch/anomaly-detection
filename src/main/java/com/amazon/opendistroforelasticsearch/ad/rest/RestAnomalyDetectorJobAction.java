@@ -18,6 +18,8 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
+import com.google.common.collect.ImmutableList;
+
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -29,6 +31,7 @@ import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Locale;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
@@ -61,22 +64,6 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         this.clusterService = clusterService;
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
-
-        // start AD job
-        controller
-            .registerHandler(
-                RestRequest.Method.POST,
-                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, START_JOB),
-                this
-            );
-
-        // stop AD job
-        controller
-            .registerHandler(
-                RestRequest.Method.POST,
-                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP_JOB),
-                this
-            );
     }
 
     @Override
@@ -115,5 +102,22 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
                 handler.stopAnomalyDetectorJob(detectorId);
             }
         };
+    }
+
+    @Override
+    public List<Route> routes() {
+        return ImmutableList
+            .of(
+                // start AD job
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, START_JOB)
+                ),
+                // stop AD job
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP_JOB)
+                )
+            );
     }
 }

@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorActionHandler;
+import com.google.common.collect.ImmutableList;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,6 +37,7 @@ import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.action.RestStatusToXContentListener;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Locale;
 
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
@@ -53,13 +55,6 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
 
     public RestDeleteAnomalyDetectorAction(RestController controller, ClusterService clusterService) {
         this.clusterService = clusterService;
-        // delete anomaly detector document
-        controller
-            .registerHandler(
-                RestRequest.Method.DELETE,
-                String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
-                this
-            );
     }
 
     @Override
@@ -115,4 +110,15 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
         client.delete(deleteRequest, new RestStatusToXContentListener<>(channel));
     }
 
+    @Override
+    public List<Route> routes() {
+        return ImmutableList
+            .of(
+                // delete anomaly detector document
+                new Route(
+                    RestRequest.Method.DELETE,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID)
+                )
+            );
+    }
 }

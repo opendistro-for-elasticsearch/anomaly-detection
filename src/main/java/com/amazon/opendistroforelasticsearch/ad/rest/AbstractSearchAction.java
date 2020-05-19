@@ -16,6 +16,8 @@
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.google.common.collect.ImmutableList;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchRequest;
@@ -39,6 +41,7 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
+import java.util.List;
 
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.getSourceContext;
 import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
@@ -52,14 +55,14 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     private final String index;
     private final Class<T> clazz;
+    private final String urlPath;
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
     public AbstractSearchAction(RestController controller, String urlPath, String index, Class<T> clazz) {
         this.index = index;
         this.clazz = clazz;
-        controller.registerHandler(RestRequest.Method.POST, urlPath, this);
-        controller.registerHandler(RestRequest.Method.GET, urlPath, this);
+        this.urlPath = urlPath;
     }
 
     @Override
@@ -101,5 +104,10 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
                 return new BytesRestResponse(RestStatus.OK, response.toXContent(channel.newBuilder(), EMPTY_PARAMS));
             }
         };
+    }
+
+    @Override
+    public List<Route> routes() {
+        return ImmutableList.of(new Route(RestRequest.Method.POST, urlPath), new Route(RestRequest.Method.GET, urlPath));
     }
 }

@@ -1,5 +1,5 @@
 /*
- *   Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *   
  *   Licensed under the Apache License, Version 2.0 (the "License").
  *   You may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 buildscript {
     ext {
         es_group = "org.elasticsearch"
-        es_version = '7.6.1'
+        es_version = '7.7.0'
     }
 
     repositories {
@@ -31,9 +31,10 @@ buildscript {
 }
 
 plugins {
-    id 'nebula.ospackage' version "8.2.0" apply false
+    id 'nebula.ospackage' version "8.3.0" apply false
     id "com.diffplug.gradle.spotless" version "3.26.1"
     id 'java-library'
+    id 'checkstyle'
 }
 
 repositories {
@@ -43,7 +44,7 @@ repositories {
 }
 
 ext {
-    opendistroVersion = '1.7.0'
+    opendistroVersion = '1.8.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
@@ -165,6 +166,30 @@ testClusters.integTest {
         }
     }
     plugin(fileTree("src/test/resources/job-scheduler").getSingleFile())
+
+    // As of ES 7.7.0 the opendistro-anomaly-detection plugin is being added to the list of plugins for the testCluster during build before
+    // the opendistro-job-scheduler plugin, which is causing build failures. From the stack trace, this looks like a bug.
+    //
+    // Exception in thread "main" java.lang.IllegalArgumentException: Missing plugin [opendistro-job-scheduler], dependency of [opendistro-anomaly-detection]
+    //       at org.elasticsearch.plugins.PluginsService.addSortedBundle(PluginsService.java:452)
+    //
+    // One explanation is that ES build script sort plugins according to the natural ordering of their names.
+    // opendistro-anomaly-detection comes before opendistro-job-scheduler.
+    //
+    // The following is a comparison of different plugin installation order:
+    // Before 7.7:
+    // ./bin/elasticsearch-plugin install --batch file:opendistro-anomaly-detection.zip file:opendistro-job-scheduler.zip
+    //
+    // After 7.7:
+    // ./bin/elasticsearch-plugin install --batch file:opendistro-job-scheduler.zip file:opendistro-anomaly-detection.zip 
+    //
+    // A temporary hack is to reorder the plugins list after evaluation but prior to task execution when the plugins are installed.
+    nodes.each { node ->
+        def plugins = node.plugins
+        def firstPlugin = plugins.get(0)
+        plugins.remove(0)
+        plugins.add(firstPlugin)
+    }
 }
 
 run {
@@ -242,6 +267,10 @@ jacocoTestCoverageVerification {
 check.dependsOn jacocoTestCoverageVerification
 jacocoTestCoverageVerification.dependsOn jacocoTestReport
 
+checkstyle {
+    toolVersion = '8.20'
+}
+
 dependencies {
     compile "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
@@ -254,10 +283,10 @@ dependencies {
     compile group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
 
-    compile "org.jacoco:org.jacoco.agent:0.8.3"
-    compile "org.jacoco:org.jacoco.ant:0.8.3"
-    compile "org.jacoco:org.jacoco.core:0.8.3"
-    compile "org.jacoco:org.jacoco.report:0.8.3"
+    compile "org.jacoco:org.jacoco.agent:0.8.5"
+    compile "org.jacoco:org.jacoco.ant:0.8.5"
+    compile "org.jacoco:org.jacoco.core:0.8.5"
+    compile "org.jacoco:org.jacoco.report:0.8.5"
 
     testCompile group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
     testImplementation group: 'org.mockito', name: 'mockito-core', version: '3.0.0'

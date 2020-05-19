@@ -22,6 +22,8 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionIn
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultRequest;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.google.common.collect.ImmutableList;
+
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -46,6 +48,7 @@ import org.elasticsearch.rest.action.RestActionListener;
 import org.elasticsearch.rest.action.RestToXContentListener;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Locale;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
@@ -81,22 +84,6 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
         maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
-
-        // get AD result, for regular run
-        controller
-            .registerHandler(
-                RestRequest.Method.POST,
-                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, RUN),
-                this
-            );
-
-        // preview detector
-        controller
-            .registerHandler(
-                RestRequest.Method.POST,
-                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PREVIEW),
-                this
-            );
     }
 
     @Override
@@ -241,5 +228,22 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
                 logger.error("Fail to send back exception message" + detector.getDetectorId(), exception);
             }
         });
+    }
+
+    @Override
+    public List<Route> routes() {
+        return ImmutableList
+            .of(
+                // get AD result, for regular run
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, RUN)
+                ),
+                // preview detector
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PREVIEW)
+                )
+            );
     }
 }

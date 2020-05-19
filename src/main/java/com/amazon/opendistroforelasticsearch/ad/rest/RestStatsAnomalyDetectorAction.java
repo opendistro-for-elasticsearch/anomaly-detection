@@ -22,6 +22,8 @@ import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsRequest;
 import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener;
+import com.google.common.collect.ImmutableList;
+
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsAction;
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest;
@@ -39,6 +41,7 @@ import org.elasticsearch.rest.RestRequest;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -62,10 +65,6 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
      * @param adStats    ADStats object
      */
     public RestStatsAnomalyDetectorAction(RestController controller, ClusterService clusterService, ADStats adStats) {
-        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/", this);
-        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/{stat}", this);
-        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/stats/", this);
-        controller.registerHandler(RestRequest.Method.GET, AD_BASE_URI + "/stats/{stat}", this);
         this.clusterService = clusterService;
         this.adStats = adStats;
     }
@@ -237,6 +236,17 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
                     channel.sendResponse(new BytesRestResponse(RestStatus.OK, adStatsResponse.toXContent(channel.newBuilder())));
                 },
                 exception -> channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, exception.getMessage()))
+            );
+    }
+
+    @Override
+    public List<Route> routes() {
+        return ImmutableList
+            .of(
+                new Route(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/"),
+                new Route(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/{stat}"),
+                new Route(RestRequest.Method.GET, AD_BASE_URI + "/stats/"),
+                new Route(RestRequest.Method.GET, AD_BASE_URI + "/stats/{stat}")
             );
     }
 }

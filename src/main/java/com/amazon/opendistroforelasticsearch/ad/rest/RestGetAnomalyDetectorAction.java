@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorProfileRunner;
@@ -48,6 +49,7 @@ import org.elasticsearch.rest.action.RestResponseListener;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -78,24 +80,6 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         this.profileRunner = profileRunner;
         this.allProfileTypes = new HashSet<ProfileName>(Arrays.asList(ProfileName.values()));
         this.allProfileTypeStrs = ProfileName.getNames();
-
-        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
-        controller.registerHandler(RestRequest.Method.GET, path, this);
-        controller.registerHandler(RestRequest.Method.HEAD, path, this);
-        controller
-            .registerHandler(
-                RestRequest.Method.GET,
-                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
-                this
-            );
-        // types is a profile names. See a complete list of supported profiles names in
-        // com.amazon.opendistroforelasticsearch.ad.model.ProfileName.
-        controller
-            .registerHandler(
-                RestRequest.Method.GET,
-                String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE),
-                this
-            );
     }
 
     @Override
@@ -203,5 +187,25 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
             Set<String> typesInRequest = new HashSet<>(Arrays.asList(typesStr.split(",")));
             return ProfileName.getNames(Sets.intersection(this.allProfileTypeStrs, typesInRequest));
         }
+    }
+
+    @Override
+    public List<Route> routes() {
+        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
+        return ImmutableList
+            .of(
+                new Route(RestRequest.Method.GET, path),
+                new Route(RestRequest.Method.HEAD, path),
+                new Route(
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE)
+                ),
+                // types is a profile names. See a complete list of supported profiles names in
+                // com.amazon.opendistroforelasticsearch.ad.model.ProfileName.
+                new Route(
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE)
+                )
+            );
     }
 }

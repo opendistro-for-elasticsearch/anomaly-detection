@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
+import com.google.common.collect.ImmutableList;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,6 +34,7 @@ import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Locale;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DETECTION_INTERVAL;
@@ -65,13 +67,6 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
         ClusterService clusterService,
         AnomalyDetectionIndices anomalyDetectionIndices
     ) {
-        controller.registerHandler(RestRequest.Method.POST, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, this); // Create
-        controller
-            .registerHandler(
-                RestRequest.Method.PUT,
-                String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
-                this
-            ); // update
         this.settings = settings;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
@@ -121,4 +116,17 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
         ).start();
     }
 
+    @Override
+    public List<Route> routes() {
+        return ImmutableList
+            .of(
+                // Create
+                new Route(RestRequest.Method.POST, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI),
+                // update
+                new Route(
+                    RestRequest.Method.PUT,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID)
+                )
+            );
+    }
 }

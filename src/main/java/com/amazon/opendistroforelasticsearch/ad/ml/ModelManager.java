@@ -141,6 +141,7 @@ public class ModelManager {
      * @param minPreviewSize minimum number of data points for preview
      * @param modelTtl time to live for hosted models
      * @param checkpointInterval interval between checkpoints
+     * @param shingleSize required shingle size before RCF emitting anomaly scores
      */
     public ModelManager(
         ClusterService clusterService,

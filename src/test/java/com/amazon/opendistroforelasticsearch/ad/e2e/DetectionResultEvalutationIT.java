@@ -24,6 +24,7 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -34,8 +35,6 @@ import com.google.gson.JsonParser;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.test.rest.ESRestTestCase;
-
-import static org.junit.Assert.assertTrue;
 
 public class DetectionResultEvalutationIT extends ESRestTestCase {
 
@@ -180,6 +179,7 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
         Request request = new Request("POST", "/_opendistro/_anomaly_detection/detectors/");
         String requestBody = String
             .format(
+                Locale.ROOT,
                 "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
                     + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
                     + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
@@ -242,7 +242,10 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
     private Map<String, Object> getDetectionResult(String detectorId, Instant begin, Instant end, RestClient client) {
         try {
             Request request = new Request("POST", String.format("/_opendistro/_anomaly_detection/detectors/%s/_run", detectorId));
-            request.setJsonEntity(String.format("{ \"period_start\": %d, \"period_end\": %d }", begin.toEpochMilli(), end.toEpochMilli()));
+            request
+                .setJsonEntity(
+                    String.format(Locale.ROOT, "{ \"period_start\": %d, \"period_end\": %d }", begin.toEpochMilli(), end.toEpochMilli())
+                );
             return entityAsMap(client.performRequest(request));
         } catch (Exception e) {
             throw new RuntimeException(e);

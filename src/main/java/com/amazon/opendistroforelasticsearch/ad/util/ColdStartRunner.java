@@ -71,6 +71,9 @@ public class ColdStartRunner {
             if (cause instanceof AnomalyDetectionException) {
                 AnomalyDetectionException adException = (AnomalyDetectionException) cause;
                 currentExceptions.put(adException.getAnomalyDetectorId(), adException);
+                LOG.info("added cause for {}", adException.getAnomalyDetectorId());
+            } else {
+                LOG.error("Get an unexpected exception");
             }
         }
         return Optional.empty();
@@ -79,9 +82,12 @@ public class ColdStartRunner {
     public Optional<AnomalyDetectionException> fetchException(String adID) {
         checkResult();
 
-        if (currentExceptions.containsKey(adID)) {
-            LOG.error("Found matching exception for {}", adID);
+        AnomalyDetectionException ex = currentExceptions.get(adID);
+        if (ex != null) {
+            LOG.error("Found a matching exception for " + adID, ex);
             return Optional.of(currentExceptions.remove(adID));
+        } else {
+            LOG.info("Cannot find a matching exception for {}", adID);
         }
         return Optional.empty();
     }

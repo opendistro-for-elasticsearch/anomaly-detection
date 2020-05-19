@@ -15,35 +15,38 @@
 
 package com.amazon.opendistroforelasticsearch.ad.indices;
 
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Before;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Collection;
+import java.util.Collections;
 
 public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
 
     private AnomalyDetectionIndices indices;
-    private ClusterSettings clusterSetting;
     private Settings settings;
-    private ClusterService clusterService;
+
+    // help register setting using AnomalyDetectorPlugin.getSettings. Otherwise, AnomalyDetectionIndices's constructor would fail due to
+    // unregistered settings like AD_RESULT_HISTORY_MAX_DOCS.
+    @Override
+    protected Collection<Class<? extends Plugin>> nodePlugins() {
+        return Collections.singletonList(AnomalyDetectorPlugin.class);
+    }
 
     @Before
     public void setup() {
@@ -55,15 +58,7 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
             .put("opendistro.anomaly_detection.request_timeout", TimeValue.timeValueSeconds(10))
             .build();
 
-        Set<Setting<?>> clusterSettings = new HashSet<>();
-        clusterSettings.addAll(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        clusterSettings.add(AnomalyDetectorSettings.AD_RESULT_HISTORY_INDEX_MAX_AGE);
-        clusterSettings.add(AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS);
-        clusterSettings.add(AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD);
-        clusterSettings.add(AnomalyDetectorSettings.REQUEST_TIMEOUT);
-        clusterSetting = new ClusterSettings(settings, clusterSettings);
-        clusterService = TestHelpers.createClusterService(client().threadPool(), clusterSetting);
-        indices = new AnomalyDetectionIndices(client(), clusterService, client().threadPool(), settings);
+        indices = new AnomalyDetectionIndices(client(), clusterService(), client().threadPool(), settings);
     }
 
     public void testAnomalyDetectorIndexNotExists() {

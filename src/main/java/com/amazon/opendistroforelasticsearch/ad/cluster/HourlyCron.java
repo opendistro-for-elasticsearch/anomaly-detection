@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -21,27 +21,27 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.service.ClusterService;
 
 import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronRequest;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 public class HourlyCron implements Runnable {
     private static final Logger LOG = LogManager.getLogger(HourlyCron.class);
     static final String SUCCEEDS_LOG_MSG = "Hourly maintenance succeeds";
     static final String NODE_EXCEPTION_LOG_MSG = "Hourly maintenance of node has exception";
     static final String EXCEPTION_LOG_MSG = "Hourly maintenance has exception.";
-    private ClusterService clusterService;
+    private DiscoveryNodeFilterer nodeFilter;
     private Client client;
 
-    public HourlyCron(ClusterService clusterService, Client client) {
-        this.clusterService = clusterService;
+    public HourlyCron(Client client, DiscoveryNodeFilterer nodeFilter) {
+        this.nodeFilter = nodeFilter;
         this.client = client;
     }
 
     @Override
     public void run() {
-        DiscoveryNode[] dataNodes = clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class);
+        DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
 
         // we also add the cancel query function here based on query text from the negative cache.
 

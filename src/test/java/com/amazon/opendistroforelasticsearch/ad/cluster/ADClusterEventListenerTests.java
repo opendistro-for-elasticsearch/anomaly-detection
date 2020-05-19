@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Matchers.any;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -32,7 +33,9 @@ import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 import org.elasticsearch.cluster.ClusterChangedEvent;
 import org.elasticsearch.cluster.ClusterName;
@@ -61,6 +64,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
     private ClusterState newClusterState;
     private DiscoveryNode masterNode;
     private DiscoveryNode dataNode1;
+    private DiscoveryNodeFilterer nodeFilter;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -81,6 +85,8 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         hashRing = mock(HashRing.class);
         when(hashRing.build()).thenReturn(true);
         modelManager = mock(ModelManager.class);
+
+        nodeFilter = new DiscoveryNodeFilterer(clusterService);
         masterNode = new DiscoveryNode(masterNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT);
         dataNode1 = new DiscoveryNode(dataNode1Id, buildNewFakeTransportAddress(), emptyMap(), BUILT_IN_ROLES, Version.CURRENT);
         oldClusterState = ClusterState
@@ -92,7 +98,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             .nodes(new DiscoveryNodes.Builder().masterNodeId(masterNodeId).localNodeId(dataNode1Id).add(masterNode).add(dataNode1))
             .build();
 
-        listener = new ADClusterEventListener(clusterService, hashRing, modelManager);
+        listener = new ADClusterEventListener(clusterService, hashRing, modelManager, nodeFilter);
     }
 
     @Override
@@ -109,7 +115,21 @@ public class ADClusterEventListenerTests extends AbstractADTest {
 
     public void testIsMasterNode() {
         listener.clusterChanged(new ClusterChangedEvent("foo", oldClusterState, oldClusterState));
-        assertTrue(testAppender.containsMessage(ADClusterEventListener.MASTER_NOT_APPLIED_MSG));
+        assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_NOT_APPLIED_MSG));
+    }
+
+    public void testIsWarmNode() {
+        HashMap<String, String> attributesForNode1 = new HashMap<>();
+        attributesForNode1.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        dataNode1 = new DiscoveryNode(dataNode1Id, buildNewFakeTransportAddress(), attributesForNode1, BUILT_IN_ROLES, Version.CURRENT);
+
+        ClusterState warmNodeClusterState = ClusterState
+            .builder(new ClusterName(clusterName))
+            .nodes(new DiscoveryNodes.Builder().masterNodeId(masterNodeId).localNodeId(dataNode1Id).add(masterNode).add(dataNode1))
+            .blocks(ClusterBlocks.builder().addGlobalBlock(GatewayService.STATE_NOT_RECOVERED_BLOCK))
+            .build();
+        listener.clusterChanged(new ClusterChangedEvent("foo", warmNodeClusterState, oldClusterState));
+        assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_NOT_APPLIED_MSG));
     }
 
     public void testNotRecovered() {

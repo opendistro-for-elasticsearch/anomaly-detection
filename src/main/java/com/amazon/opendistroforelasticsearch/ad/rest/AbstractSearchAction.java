@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
-import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestResponse;
 import org.elasticsearch.rest.RestStatus;
@@ -59,7 +58,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
-    public AbstractSearchAction(RestController controller, String urlPath, String index, Class<T> clazz) {
+    public AbstractSearchAction(String urlPath, String index, Class<T> clazz) {
         this.index = index;
         this.clazz = clazz;
         this.urlPath = urlPath;

@@ -31,4 +31,17 @@ public class CommonName {
     // Anomaly Detector name for X-Opaque-Id header
     // ======================================
     public static final String ANOMALY_DETECTOR = "[Anomaly Detector]";
+
+    // ======================================
+    // Ultrawarm node attributes
+    // ======================================
+
+    // hot node
+    public static String HOT_BOX_TYPE = "hot";
+
+    // warm node
+    public static String WARM_BOX_TYPE = "warm";
+
+    // box type
+    public static final String BOX_TYPE_KEY = "box_type";
 }

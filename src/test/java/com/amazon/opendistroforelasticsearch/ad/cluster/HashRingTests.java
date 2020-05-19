@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -24,11 +24,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
+
 import org.elasticsearch.Version;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.node.DiscoveryNode;
@@ -44,11 +49,38 @@ import org.junit.BeforeClass;
 public class HashRingTests extends AbstractADTest {
 
     private ClusterService clusterService;
+    private DiscoveryNodeFilterer nodeFilter;
     private Settings settings;
     private Clock clock;
 
-    private DiscoveryNode createNode(String nodeId) {
-        return new DiscoveryNode(nodeId, buildNewFakeTransportAddress(), emptyMap(), BUILT_IN_ROLES, Version.CURRENT);
+    private DiscoveryNode createNode(String nodeId, Map<String, String> attributes) {
+        return new DiscoveryNode(nodeId, buildNewFakeTransportAddress(), attributes, BUILT_IN_ROLES, Version.CURRENT);
+    }
+
+    private void setNodeState() {
+        setNodeState(emptyMap());
+    }
+
+    private void setNodeState(Map<String, String> attributesForNode1) {
+        DiscoveryNodes.Builder discoBuilder = DiscoveryNodes.builder();
+        List<DiscoveryNode> discoveryNodes = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            DiscoveryNode node = null;
+            if (i != 1) {
+                node = createNode(Integer.toString(i), emptyMap());
+            } else {
+                node = createNode(Integer.toString(i), attributesForNode1);
+            }
+
+            discoBuilder = discoBuilder.add(node);
+            discoveryNodes.add(node);
+        }
+        discoBuilder.localNodeId("1");
+        discoBuilder.masterNodeId("0");
+        ClusterState.Builder stateBuilder = ClusterState.builder(clusterService.getClusterName());
+        stateBuilder.nodes(discoBuilder);
+        ClusterState clusterState = stateBuilder.build();
+        setState(clusterService.getClusterApplierService(), clusterState);
     }
 
     @BeforeClass
@@ -67,19 +99,9 @@ public class HashRingTests extends AbstractADTest {
         super.setUp();
         super.setUpLog4jForJUnit(HashRing.class);
         clusterService = createClusterService(threadPool);
-        DiscoveryNodes.Builder discoBuilder = DiscoveryNodes.builder();
-        List<DiscoveryNode> discoveryNodes = new ArrayList<>();
-        for (int i = 0; i < 2; i++) {
-            final DiscoveryNode node = createNode(Integer.toString(i));
-            discoBuilder = discoBuilder.add(node);
-            discoveryNodes.add(node);
-        }
-        discoBuilder.localNodeId(randomFrom(discoveryNodes).getId());
-        discoBuilder.masterNodeId(randomFrom(discoveryNodes).getId());
-        ClusterState.Builder stateBuilder = ClusterState.builder(clusterService.getClusterName());
-        stateBuilder.nodes(discoBuilder);
-        ClusterState clusterState = stateBuilder.build();
-        setState(clusterService.getClusterApplierService(), clusterState);
+        HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
+        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        nodeFilter = new DiscoveryNodeFilterer(clusterService);
 
         settings = Settings
             .builder()
@@ -98,7 +120,9 @@ public class HashRingTests extends AbstractADTest {
     }
 
     public void testGetOwningNode() {
-        HashRing ring = new HashRing(clusterService, clock, settings);
+        setNodeState();
+
+        HashRing ring = new HashRing(nodeFilter, clock, settings);
         Optional<DiscoveryNode> node = ring.getOwningNode("http-latency-rcf-1");
         assertTrue(node.isPresent());
         String id = node.get().getId();
@@ -109,5 +133,17 @@ public class HashRingTests extends AbstractADTest {
         Optional<DiscoveryNode> node2 = ring.getOwningNode("http-latency-rcf-1");
         assertEquals(node, node2);
         assertTrue(testAppender.containsMessage(HashRing.COOLDOWN_MSG));
+    }
+
+    public void testWarmNodeExcluded() {
+        HashMap<String, String> attributesForNode1 = new HashMap<>();
+        attributesForNode1.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        setNodeState(attributesForNode1);
+
+        HashRing ring = new HashRing(nodeFilter, clock, settings);
+        Optional<DiscoveryNode> node = ring.getOwningNode("http-latency-rcf-1");
+        assertTrue(node.isPresent());
+        String id = node.get().getId();
+        assertTrue(id.equals("2"));
     }
 }

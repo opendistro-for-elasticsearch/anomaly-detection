@@ -32,6 +32,7 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededEx
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.google.gson.Gson;
 
 import junitparams.JUnitParamsRunner;
@@ -39,7 +40,6 @@ import junitparams.Parameters;
 
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.monitor.jvm.JvmService;
 
@@ -92,7 +92,7 @@ public class ModelManagerTests {
     private AnomalyDetector anomalyDetector;
 
     @Mock(answer = Answers.RETURNS_DEEP_STUBS)
-    private ClusterService clusterService;
+    private DiscoveryNodeFilterer nodeFilter;
 
     @Mock(answer = Answers.RETURNS_DEEP_STUBS)
     private JvmService jvmService;
@@ -167,7 +167,7 @@ public class ModelManagerTests {
 
         modelManager = spy(
             new ModelManager(
-                clusterService,
+                nodeFilter,
                 jvmService,
                 rcfSerde,
                 checkpointDao,
@@ -283,7 +283,7 @@ public class ModelManagerTests {
 
         when(modelManager.estimateModelSize(rcf)).thenReturn(totalModelSize);
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
-        when(clusterService.state().nodes().getDataNodes()).thenReturn(dataNodes);
+        when(nodeFilter.getEligibleDataNodes()).thenReturn(dataNodes.values().toArray(DiscoveryNode.class));
 
         assertEquals(expected, modelManager.getPartitionedForestSizes(rcf, "id"));
     }
@@ -304,7 +304,7 @@ public class ModelManagerTests {
     ) {
         when(modelManager.estimateModelSize(rcf)).thenReturn(totalModelSize);
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
-        when(clusterService.state().nodes().getDataNodes()).thenReturn(dataNodes);
+        when(nodeFilter.getEligibleDataNodes()).thenReturn(dataNodes.values().toArray(DiscoveryNode.class));
 
         modelManager.getPartitionedForestSizes(rcf, "id");
     }

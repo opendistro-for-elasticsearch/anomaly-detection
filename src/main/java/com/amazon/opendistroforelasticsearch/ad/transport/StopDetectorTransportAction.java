@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.InternalFailure;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -27,7 +29,6 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
@@ -37,18 +38,18 @@ public class StopDetectorTransportAction extends HandledTransportAction<ActionRe
     private static final Logger LOG = LogManager.getLogger(StopDetectorTransportAction.class);
 
     private final Client client;
-    private final ClusterService clusterService;
+    private final DiscoveryNodeFilterer nodeFilter;
 
     @Inject
     public StopDetectorTransportAction(
         TransportService transportService,
-        ClusterService clusterService,
+        DiscoveryNodeFilterer nodeFilter,
         ActionFilters actionFilters,
         Client client
     ) {
         super(StopDetectorAction.NAME, transportService, actionFilters, StopDetectorRequest::new);
         this.client = client;
-        this.clusterService = clusterService;
+        this.nodeFilter = nodeFilter;
     }
 
     @Override
@@ -56,7 +57,7 @@ public class StopDetectorTransportAction extends HandledTransportAction<ActionRe
         StopDetectorRequest request = StopDetectorRequest.fromActionRequest(actionRequest);
         String adID = request.getAdID();
         try {
-            DiscoveryNode[] dataNodes = clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class);
+            DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
             DeleteModelRequest modelDeleteRequest = new DeleteModelRequest(adID, dataNodes);
             client.execute(DeleteModelAction.INSTANCE, modelDeleteRequest, ActionListener.wrap(response -> {
                 if (response.hasFailures()) {

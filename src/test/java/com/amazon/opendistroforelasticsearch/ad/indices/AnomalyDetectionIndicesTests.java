@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,19 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.indices;
 
-import static org.mockito.Mockito.mock;
-
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
-import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
-import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Setting;
@@ -37,11 +32,9 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.test.ESIntegTestCase;
-import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
 
 import java.io.IOException;
-import java.time.Clock;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -49,11 +42,8 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
 
     private AnomalyDetectionIndices indices;
     private ClusterSettings clusterSetting;
-    private ClientUtil requestUtil;
     private Settings settings;
     private ClusterService clusterService;
-    private Client client;
-    private ThreadPool context;
 
     @Before
     public void setup() {
@@ -73,12 +63,7 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
         clusterSettings.add(AnomalyDetectorSettings.REQUEST_TIMEOUT);
         clusterSetting = new ClusterSettings(settings, clusterSettings);
         clusterService = TestHelpers.createClusterService(client().threadPool(), clusterSetting);
-        context = TestHelpers.createThreadPool();
-        client = mock(Client.class);
-        Clock clock = Clock.systemUTC();
-        Throttler throttler = new Throttler(clock);
-        requestUtil = new ClientUtil(settings, client, throttler, context);
-        indices = new AnomalyDetectionIndices(client(), clusterService, client().threadPool(), settings, requestUtil);
+        indices = new AnomalyDetectionIndices(client(), clusterService, client().threadPool(), settings);
     }
 
     public void testAnomalyDetectorIndexNotExists() {
@@ -138,7 +123,7 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
             .initAnomalyResultIndexIfAbsent(
                 TestHelpers
                     .createActionListener(
-                        response -> response.isAcknowledged(),
+                        response -> logger.info("Acknowledged: " + response.isAcknowledged()),
                         failure -> { throw new RuntimeException("should not recreate index"); }
                     )
             );
@@ -149,7 +134,9 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
                     TestHelpers
                         .createActionListener(
                             response -> { throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX); },
-                            failure -> { throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX); }
+                            failure -> {
+                                throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX, failure);
+                            }
                         )
                 );
         }

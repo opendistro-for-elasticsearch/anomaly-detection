@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -41,7 +41,6 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
-import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.rest.action.RestActionListener;
@@ -73,12 +72,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
 
     private final Logger logger = LogManager.getLogger(RestExecuteAnomalyDetectorAction.class);
 
-    public RestExecuteAnomalyDetectorAction(
-        Settings settings,
-        RestController controller,
-        ClusterService clusterService,
-        AnomalyDetectorRunner anomalyDetectorRunner
-    ) {
+    public RestExecuteAnomalyDetectorAction(Settings settings, ClusterService clusterService, AnomalyDetectorRunner anomalyDetectorRunner) {
         this.anomalyDetectorRunner = anomalyDetectorRunner;
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);

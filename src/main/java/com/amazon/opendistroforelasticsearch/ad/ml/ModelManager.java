@@ -43,7 +43,6 @@ import org.apache.logging.log4j.Logger;
 import com.google.gson.Gson;
 
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.monitor.jvm.JvmService;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
@@ -51,6 +50,7 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoun
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 
@@ -104,7 +104,7 @@ public class ModelManager {
     private final Duration checkpointInterval;
 
     // dependencies
-    private final ClusterService clusterService;
+    private final DiscoveryNodeFilterer nodeFilter;
     private final JvmService jvmService;
     private final RandomCutForestSerDe rcfSerde;
     private final CheckpointDao checkpointDao;
@@ -120,7 +120,7 @@ public class ModelManager {
     /**
      * Constructor.
      *
-     * @param clusterService cluster info
+     * @param nodeFilter utility class to select nodes
      * @param jvmService jvm info
      * @param rcfSerde RCF model serialization
      * @param checkpointDao model checkpoint storage
@@ -144,7 +144,7 @@ public class ModelManager {
      * @param shingleSize required shingle size before RCF emitting anomaly scores
      */
     public ModelManager(
-        ClusterService clusterService,
+        DiscoveryNodeFilterer nodeFilter,
         JvmService jvmService,
         RandomCutForestSerDe rcfSerde,
         CheckpointDao checkpointDao,
@@ -168,7 +168,7 @@ public class ModelManager {
         int shingleSize
     ) {
 
-        this.clusterService = clusterService;
+        this.nodeFilter = nodeFilter;
         this.jvmService = jvmService;
         this.rcfSerde = rcfSerde;
         this.checkpointDao = checkpointDao;
@@ -261,7 +261,7 @@ public class ModelManager {
         int numPartitions = (int) Math.ceil((double) totalSize / (double) partitionSize);
         int forestSize = (int) Math.ceil((double) forest.getNumberOfTrees() / (double) numPartitions);
 
-        int numNodes = clusterService.state().nodes().getDataNodes().size();
+        int numNodes = nodeFilter.getEligibleDataNodes().length;
         if (numPartitions > numNodes) {
             // partition by cluster size
             partitionSize = (long) Math.ceil((double) totalSize / (double) numNodes);

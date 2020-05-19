@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.ClusterChangedEvent;
@@ -32,7 +34,7 @@ import org.elasticsearch.gateway.GatewayService;
 
 public class ADClusterEventListener implements ClusterStateListener {
     private static final Logger LOG = LogManager.getLogger(ADClusterEventListener.class);
-    static final String MASTER_NOT_APPLIED_MSG = "AD does not use master nodes";
+    static final String NODE_NOT_APPLIED_MSG = "AD does not use master or ultrawarm nodes";
     static final String NOT_RECOVERED_MSG = "CLuster is not recovered yet.";
     static final String IN_PROGRESS_MSG = "Cluster state change in progress, return.";
     static final String REMOVE_MODEL_MSG = "Remove model";
@@ -43,21 +45,28 @@ public class ADClusterEventListener implements ClusterStateListener {
     private HashRing hashRing;
     private ModelManager modelManager;
     private final ClusterService clusterService;
+    private final DiscoveryNodeFilterer nodeFilter;
 
     @Inject
-    public ADClusterEventListener(ClusterService clusterService, HashRing hashRing, ModelManager modelManager) {
+    public ADClusterEventListener(
+        ClusterService clusterService,
+        HashRing hashRing,
+        ModelManager modelManager,
+        DiscoveryNodeFilterer nodeFilter
+    ) {
         this.clusterService = clusterService;
         this.clusterService.addListener(this);
         this.hashRing = hashRing;
         this.modelManager = modelManager;
         this.inProgress = new Semaphore(1);
+        this.nodeFilter = nodeFilter;
     }
 
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
 
-        if (!event.state().nodes().getLocalNode().isDataNode()) {
-            LOG.debug(MASTER_NOT_APPLIED_MSG);
+        if (!nodeFilter.isEligibleNode(event.state().nodes().getLocalNode())) {
+            LOG.debug(NODE_NOT_APPLIED_MSG);
             return;
         }
 
@@ -79,7 +88,7 @@ public class ADClusterEventListener implements ClusterStateListener {
             // Check whether it was a data node that was removed
             boolean dataNodeRemoved = false;
             for (DiscoveryNode removedNode : delta.removedNodes()) {
-                if (removedNode.isDataNode()) {
+                if (nodeFilter.isEligibleNode(removedNode)) {
                     LOG.info(NODE_REMOVED_MSG + " {}", removedNode.getId());
                     dataNodeRemoved = true;
                     break;
@@ -89,7 +98,7 @@ public class ADClusterEventListener implements ClusterStateListener {
             // Check whether it was a data node that was added
             boolean dataNodeAdded = false;
             for (DiscoveryNode addedNode : delta.addedNodes()) {
-                if (addedNode.isDataNode()) {
+                if (nodeFilter.isEligibleNode(addedNode)) {
                     LOG.info(NODE_ADDED_MSG + " {}", addedNode.getId());
                     dataNodeAdded = true;
                     break;

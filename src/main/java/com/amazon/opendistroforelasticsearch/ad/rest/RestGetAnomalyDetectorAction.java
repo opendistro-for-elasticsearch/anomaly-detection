@@ -39,7 +39,6 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
-import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestResponse;
 import org.elasticsearch.rest.RestStatus;
@@ -72,11 +71,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
     private final Set<String> allProfileTypeStrs;
     private final Set<ProfileName> allProfileTypes;
 
-    public RestGetAnomalyDetectorAction(
-        RestController controller,
-        AnomalyDetectorProfileRunner profileRunner,
-        Set<String> allProfileTypeStrs
-    ) {
+    public RestGetAnomalyDetectorAction(AnomalyDetectorProfileRunner profileRunner, Set<String> allProfileTypeStrs) {
         this.profileRunner = profileRunner;
         this.allProfileTypes = new HashSet<ProfileName>(Arrays.asList(ProfileName.values()));
         this.allProfileTypeStrs = ProfileName.getNames();

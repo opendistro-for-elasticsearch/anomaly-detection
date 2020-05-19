@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.elasticsearch.threadpool.Scheduler.Cancellable;
 
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -39,6 +40,7 @@ public class MasterEventListener implements LocalNodeMasterListener {
     private Client client;
     private Clock clock;
     private ClientUtil clientUtil;
+    private DiscoveryNodeFilterer nodeFilter;
 
     public MasterEventListener(
         ClusterService clusterService,
@@ -46,7 +48,8 @@ public class MasterEventListener implements LocalNodeMasterListener {
         DeleteDetector deleteUtil,
         Client client,
         Clock clock,
-        ClientUtil clientUtil
+        ClientUtil clientUtil,
+        DiscoveryNodeFilterer nodeFilter
     ) {
         this.clusterService = clusterService;
         this.threadPool = threadPool;
@@ -55,13 +58,13 @@ public class MasterEventListener implements LocalNodeMasterListener {
         this.clusterService.addLocalNodeMasterListener(this);
         this.clock = clock;
         this.clientUtil = clientUtil;
+        this.nodeFilter = nodeFilter;
     }
 
     @Override
     public void onMaster() {
         if (hourlyCron == null) {
-            hourlyCron = threadPool
-                .scheduleWithFixedDelay(new HourlyCron(clusterService, client), TimeValue.timeValueHours(1), executorName());
+            hourlyCron = threadPool.scheduleWithFixedDelay(new HourlyCron(client, nodeFilter), TimeValue.timeValueHours(1), executorName());
             clusterService.addLifecycleListener(new LifecycleListener() {
                 @Override
                 public void beforeStop() {

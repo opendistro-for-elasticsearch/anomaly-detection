@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.ad.indices;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
@@ -31,8 +30,6 @@ import org.elasticsearch.action.admin.indices.rollover.RolloverRequest;
 import org.elasticsearch.action.admin.indices.rollover.RolloverResponse;
 import org.elasticsearch.client.AdminClient;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.ClusterChangedEvent;
-import org.elasticsearch.cluster.ClusterStateListener;
 import org.elasticsearch.cluster.LocalNodeMasterListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
@@ -55,7 +52,7 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 /**
  * This class manages creation of anomaly detector index.
  */
-public class AnomalyDetectionIndices implements LocalNodeMasterListener, ClusterStateListener {
+public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     // The alias of the index in which to write AD result history
     public static final String AD_RESULT_HISTORY_WRITE_INDEX_ALIAS = AnomalyResult.ANOMALY_RESULT_INDEX;
@@ -71,7 +68,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
 
     private ClusterService clusterService;
     private final AdminClient adminClient;
-    private final Client client;
     private final ThreadPool threadPool;
 
     private volatile TimeValue requestTimeout;
@@ -82,8 +78,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
     private Scheduler.Cancellable scheduledRollover = null;
 
     private static final Logger logger = LogManager.getLogger(AnomalyDetectionIndices.class);
-    private TimeValue lastRolloverTime = null;
-    private ClientUtil requestUtil;
 
     /**
      * Constructor function
@@ -92,20 +86,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
      * @param clusterService ES cluster service
      * @param threadPool     ES thread pool
      * @param settings       ES cluster setting
-     * @param requestUtil   wrapper to send a non-blocking timed request
      */
-    public AnomalyDetectionIndices(
-        Client client,
-        ClusterService clusterService,
-        ThreadPool threadPool,
-        Settings settings,
-        ClientUtil requestUtil
-    ) {
-        this.client = client;
+    public AnomalyDetectionIndices(Client client, ClusterService clusterService, ThreadPool threadPool, Settings settings) {
         this.adminClient = client.admin();
         this.clusterService = clusterService;
         this.threadPool = threadPool;
-        this.clusterService.addListener(this);
         this.clusterService.addLocalNodeMasterListener(this);
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         this.historyMaxAge = AD_RESULT_HISTORY_INDEX_MAX_AGE.get(settings);
@@ -118,7 +103,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
             rescheduleRollover();
         });
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
-        this.requestUtil = requestUtil;
     }
 
     /**
@@ -269,11 +253,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
         return ThreadPool.Names.MANAGEMENT;
     }
 
-    @Override
-    public void clusterChanged(ClusterChangedEvent event) {
-        boolean hasAdResultAlias = event.state().metaData().hasAlias(AD_RESULT_HISTORY_WRITE_INDEX_ALIAS);
-    }
-
     private void rescheduleRollover() {
         if (clusterService.state().getNodes().isLocalNodeElectedMaster()) {
             if (scheduledRollover != null) {
@@ -303,8 +282,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener, Cluster
         RolloverResponse response = adminClient.indices().rolloversIndex(request).actionGet(requestTimeout);
         if (!response.isRolledOver()) {
             logger.warn("{} not rolled over. Conditions were: {}", AD_RESULT_HISTORY_WRITE_INDEX_ALIAS, response.getConditionStatus());
-        } else {
-            lastRolloverTime = TimeValue.timeValueMillis(threadPool.absoluteTimeInMillis());
         }
         return response.isRolledOver();
     }

@@ -52,8 +52,6 @@ import java.util.Arrays;
 import java.util.Locale;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_DETECTORS;
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
 
@@ -74,8 +72,8 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
 
     private final Logger logger = LogManager.getLogger(IndexAnomalyDetectorActionHandler.class);
     private final TimeValue requestTimeout;
-    private volatile Integer maxAnomalyDetectors;
-    private volatile Integer maxAnomalyFeatures;
+    private final Integer maxAnomalyDetectors;
+    private final Integer maxAnomalyFeatures;
     private final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
 
     /**
@@ -104,7 +102,9 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         Long primaryTerm,
         WriteRequest.RefreshPolicy refreshPolicy,
         AnomalyDetector anomalyDetector,
-        TimeValue requestTimeout
+        TimeValue requestTimeout,
+        Integer maxAnomalyDetectors,
+        Integer maxAnomalyFeatures
     ) {
         super(client, channel);
         this.clusterService = clusterService;
@@ -115,10 +115,8 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         this.refreshPolicy = refreshPolicy;
         this.anomalyDetector = anomalyDetector;
         this.requestTimeout = requestTimeout;
-        maxAnomalyDetectors = MAX_ANOMALY_DETECTORS.get(settings);
-        maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_DETECTORS, it -> maxAnomalyDetectors = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
+        this.maxAnomalyDetectors = maxAnomalyDetectors;
+        this.maxAnomalyFeatures = maxAnomalyFeatures;
     }
 
     /**

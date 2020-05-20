@@ -344,16 +344,24 @@ public class TestHelpers {
         return randomAnomalyDetectorJob(true);
     }
 
-    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled) {
+    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
         return new AnomalyDetectorJob(
             randomAlphaOfLength(10),
             randomIntervalSchedule(),
             randomIntervalTimeConfiguration(),
             enabled,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            enabledTime,
+            disabledTime,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             60L
+        );
+    }
+
+    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled) {
+        return randomAnomalyDetectorJob(
+            enabled,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
         );
     }
 

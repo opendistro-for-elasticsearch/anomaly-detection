@@ -24,15 +24,27 @@ import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+
 public class DetectorProfile implements ToXContentObject, Mergeable {
     private DetectorState state;
     private String error;
-
-    private static final String STATE_FIELD = "state";
-    private static final String ERROR_FIELD = "error";
+    private ModelProfile[] modelProfile;
+    private int shingleSize;
+    private String coordinatingNode;
+    private long totalSizeInBytes;
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
         return toXContent(builder, ToXContent.EMPTY_PARAMS);
+    }
+
+    public DetectorProfile() {
+        state = null;
+        error = null;
+        modelProfile = null;
+        shingleSize = -1;
+        coordinatingNode = null;
+        totalSizeInBytes = -1;
     }
 
     @Override
@@ -40,11 +52,28 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
         XContentBuilder xContentBuilder = builder.startObject();
 
         if (state != null) {
-            xContentBuilder.field(STATE_FIELD, state);
+            xContentBuilder.field(CommonName.STATE, state);
         }
         if (error != null) {
-            xContentBuilder.field(ERROR_FIELD, error);
+            xContentBuilder.field(CommonName.ERROR, error);
         }
+        if (modelProfile != null && modelProfile.length > 0) {
+            xContentBuilder.startArray(CommonName.MODELS);
+            for (ModelProfile profile : modelProfile) {
+                profile.toXContent(xContentBuilder, params);
+            }
+            xContentBuilder.endArray();
+        }
+        if (shingleSize != -1) {
+            xContentBuilder.field(CommonName.SHINGLE_SIZE, shingleSize);
+        }
+        if (coordinatingNode != null) {
+            xContentBuilder.field(CommonName.COORDINATING_NODE, coordinatingNode);
+        }
+        if (totalSizeInBytes != -1) {
+            xContentBuilder.field(CommonName.TOTAL_SIZE_IN_BYTES, totalSizeInBytes);
+        }
+
         return xContentBuilder.endObject();
     }
 
@@ -64,6 +93,38 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
         this.error = error;
     }
 
+    public ModelProfile[] getModelProfile() {
+        return modelProfile;
+    }
+
+    public void setModelProfile(ModelProfile[] modelProfile) {
+        this.modelProfile = modelProfile;
+    }
+
+    public int getShingleSize() {
+        return shingleSize;
+    }
+
+    public void setShingleSize(int shingleSize) {
+        this.shingleSize = shingleSize;
+    }
+
+    public String getCoordinatingNode() {
+        return coordinatingNode;
+    }
+
+    public void setCoordinatingNode(String coordinatingNode) {
+        this.coordinatingNode = coordinatingNode;
+    }
+
+    public long getTotalSizeInBytes() {
+        return totalSizeInBytes;
+    }
+
+    public void setTotalSizeInBytes(long totalSizeInBytes) {
+        this.totalSizeInBytes = totalSizeInBytes;
+    }
+
     @Override
     public void merge(Mergeable other) {
         if (this == other || other == null || getClass() != other.getClass()) {
@@ -76,7 +137,18 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
         if (otherProfile.getError() != null) {
             this.error = otherProfile.getError();
         }
-
+        if (otherProfile.getCoordinatingNode() != null) {
+            this.coordinatingNode = otherProfile.getCoordinatingNode();
+        }
+        if (otherProfile.getShingleSize() != -1) {
+            this.shingleSize = otherProfile.getShingleSize();
+        }
+        if (otherProfile.getModelProfile() != null) {
+            this.modelProfile = otherProfile.getModelProfile();
+        }
+        if (otherProfile.getTotalSizeInBytes() != -1) {
+            this.totalSizeInBytes = otherProfile.getTotalSizeInBytes();
+        }
     }
 
     @Override

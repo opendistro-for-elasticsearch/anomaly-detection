@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -333,11 +333,12 @@ public class JsonDeserializer {
     }
 
     /**
-     * Search an int number inside a JSON string matching the input path expression
+     * Search an array inside a JSON string matching the input path expression and convert each element using a function
      *
      * @param jsonString an encoded JSON string
-     * @param paths      path fragments
-     * @return list of double
+     * @param function function to parse each element
+     * @param paths path fragments
+     * @return an array of values
      * @throws JsonPathNotFoundException if json path is invalid
      * @throws IOException               if the underlying input source has problems
      *                                   during parsing
@@ -354,6 +355,24 @@ public class JsonDeserializer {
                 values[i] = function.apply(array.get(i));
             }
             return (T[]) values;
+        }
+        throw new JsonPathNotFoundException();
+    }
+
+    /**
+     * Search an array inside a JSON string matching the input path expression
+     *
+     * @param jsonString an encoded JSON string
+     * @param paths      path fragments
+     * @throws JsonPathNotFoundException if json path is invalid
+     * @throws IOException               if the underlying input source has problems
+     *                                   during parsing
+     */
+    @SuppressWarnings("unchecked")
+    public static JsonArray getArrayValue(String jsonString, String... paths) throws JsonPathNotFoundException, IOException {
+        JsonElement jsonNode = getChildNode(jsonString, paths);
+        if (jsonNode != null && jsonNode.isJsonArray()) {
+            return jsonNode.getAsJsonArray();
         }
         throw new JsonPathNotFoundException();
     }

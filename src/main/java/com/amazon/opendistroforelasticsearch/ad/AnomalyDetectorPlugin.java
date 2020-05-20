@@ -38,7 +38,6 @@ import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
-import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestAnomalyDetectorJobAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestExecuteAnomalyDetectorAction;
@@ -67,6 +66,8 @@ import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ProfileTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
@@ -125,10 +126,12 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -187,8 +190,15 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
         jobRunner.setSettings(settings);
 
-        AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(client, this.xContentRegistry);
-        RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(profileRunner, ProfileName.getNames());
+        AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(
+            client,
+            this.xContentRegistry,
+            this.nodeFilter,
+            indexNameExpressionResolver,
+            clusterService,
+            Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        );
+        RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(profileRunner);
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(
             settings,
             clusterService,
@@ -433,7 +443,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(ThresholdResultAction.INSTANCE, ThresholdResultTransportAction.class),
                 new ActionHandler<>(AnomalyResultAction.INSTANCE, AnomalyResultTransportAction.class),
                 new ActionHandler<>(CronAction.INSTANCE, CronTransportAction.class),
-                new ActionHandler<>(ADStatsNodesAction.INSTANCE, ADStatsNodesTransportAction.class)
+                new ActionHandler<>(ADStatsNodesAction.INSTANCE, ADStatsNodesTransportAction.class),
+                new ActionHandler<>(ProfileAction.INSTANCE, ProfileTransportAction.class)
             );
     }
 

@@ -29,8 +29,7 @@ import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.indices.stats.IndicesStatsAction;
-import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.Strings;
@@ -186,11 +185,13 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
         ADStatsResponse adStatsResponse = new ADStatsResponse();
         if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())) {
             if (clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
-                IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest().docs(true);
-                client.execute(IndicesStatsAction.INSTANCE, indicesStatsRequest, ActionListener.wrap(indicesStatsResponse -> {
-                    adStats
-                        .getStat(StatNames.DETECTOR_COUNT.getName())
-                        .setValue(indicesStatsResponse.getIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX).getPrimaries().docs.getCount());
+                final SearchRequest request = client
+                    .prepareSearch(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+                    .setSize(0)
+                    .setTrackTotalHits(true)
+                    .request();
+                client.search(request, ActionListener.wrap(indicesStatsResponse -> {
+                    adStats.getStat(StatNames.DETECTOR_COUNT.getName()).setValue(indicesStatsResponse.getHits().getTotalHits().value);
                     adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
                     listener.onResponse(adStatsResponse);
                 }, e -> listener.onFailure(new RuntimeException("Failed to get AD cluster stats", e))));

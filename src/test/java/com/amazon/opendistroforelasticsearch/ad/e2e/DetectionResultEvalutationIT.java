@@ -172,7 +172,22 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
             } catch (Exception e) {}
         }
         Thread.sleep(5_000);
-        getDetectionResult(detectorId, begin, end, client);
+        // It takes more time to wait for model initialization on a remote cluster
+        long startTime = System.currentTimeMillis();
+        while (true) {
+            try {
+                getDetectionResult(detectorId, begin, end, client);
+                break;
+            } catch (Exception e) {
+                long duration = System.currentTimeMillis() - startTime;
+                // we wait at most 60 secs
+                if (duration < 60_000) {
+                    Thread.sleep(2_000);
+                } else {
+                    break;
+                }
+            }
+        }
     }
 
     private String createDetector(String datasetName, int intervalMinutes, RestClient client) throws Exception {

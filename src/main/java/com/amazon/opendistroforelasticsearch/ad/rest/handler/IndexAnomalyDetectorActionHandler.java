@@ -36,6 +36,7 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.BytesRestResponse;
@@ -44,13 +45,13 @@ import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestResponse;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.rest.action.RestResponseListener;
-import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
@@ -228,10 +229,12 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
     }
 
     private void checkADNameExists(String detectorId) throws IOException {
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            // src/main/resources/mappings/anomaly-detectors.json#L14
-            .query(QueryBuilders.termQuery("name.keyword", anomalyDetector.getName()))
-            .timeout(requestTimeout);
+        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+        // src/main/resources/mappings/anomaly-detectors.json#L14
+        boolQueryBuilder.must(QueryBuilders.termQuery("name.keyword", anomalyDetector.getName()));
+        // _id field does not allow "", but allows " "
+        boolQueryBuilder.mustNot(QueryBuilders.termQuery(RestHandlerUtils._ID, StringUtils.isBlank(detectorId) ? " " : detectorId));
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(boolQueryBuilder).timeout(requestTimeout);
         SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
 
         client
@@ -246,21 +249,14 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
     }
 
     private void onSearchADNameResponse(SearchResponse response, String detectorId, String name) throws IOException {
-        boolean hasDuplicateName = false;
-        String existingDetectorId = null;
         if (response.getHits().getTotalHits().value > 0) {
-            for (SearchHit hit : response.getHits()) {
-                if (!hit.getId().equals(detectorId)) {
-                    hasDuplicateName = true;
-                    existingDetectorId = hit.getId();
-                    break;
-                }
-            }
-        }
-
-        if (hasDuplicateName) {
-            String errorMsg = String.format("Cannot create anomaly detector with name[%s] used by detectorId %s", name, existingDetectorId);
-            logger.error(errorMsg);
+            String errorMsg = String
+                .format(
+                    "Cannot create anomaly detector with name[%s] used by detectorId %s",
+                    name,
+                    Arrays.stream(response.getHits().getHits()).map(hit -> hit.getId()).collect(Collectors.toList())
+                );
+            logger.warn(errorMsg);
             onFailure(new IllegalArgumentException(errorMsg));
         } else {
             indexAnomalyDetector(detectorId);

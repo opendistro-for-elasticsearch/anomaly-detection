@@ -36,6 +36,7 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.BytesRestResponse;
@@ -50,6 +51,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
@@ -220,6 +222,42 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
             String errorMsg = "Can't create anomaly detector as no document found in indices: "
                 + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));
             logger.error(errorMsg);
+            onFailure(new IllegalArgumentException(errorMsg));
+        } else {
+            checkADNameExists(detectorId);
+        }
+    }
+
+    private void checkADNameExists(String detectorId) throws IOException {
+        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+        // src/main/resources/mappings/anomaly-detectors.json#L14
+        boolQueryBuilder.must(QueryBuilders.termQuery("name.keyword", anomalyDetector.getName()));
+        if (StringUtils.isNotBlank(detectorId)) {
+            boolQueryBuilder.mustNot(QueryBuilders.termQuery(RestHandlerUtils._ID, detectorId));
+        }
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(boolQueryBuilder).timeout(requestTimeout);
+        SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
+
+        client
+            .search(
+                searchRequest,
+                ActionListener
+                    .wrap(
+                        searchResponse -> onSearchADNameResponse(searchResponse, detectorId, anomalyDetector.getName()),
+                        exception -> onFailure(exception)
+                    )
+            );
+    }
+
+    private void onSearchADNameResponse(SearchResponse response, String detectorId, String name) throws IOException {
+        if (response.getHits().getTotalHits().value > 0) {
+            String errorMsg = String
+                .format(
+                    "Cannot create anomaly detector with name [%s] as it's already used by detector %s",
+                    name,
+                    Arrays.stream(response.getHits().getHits()).map(hit -> hit.getId()).collect(Collectors.toList())
+                );
+            logger.warn(errorMsg);
             onFailure(new IllegalArgumentException(errorMsg));
         } else {
             indexAnomalyDetector(detectorId);

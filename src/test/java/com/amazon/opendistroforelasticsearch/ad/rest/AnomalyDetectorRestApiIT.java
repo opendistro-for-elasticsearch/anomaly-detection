@@ -42,6 +42,10 @@ import java.util.Map;
 
 import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.AD_BASE_PREVIEW_URI;
 import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomAnomalyDetectorWithEmptyFeature;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomFeature;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomIntervalTimeConfiguration;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomQuery;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomUiMetadata;
 import static org.hamcrest.Matchers.containsString;
 
 public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
@@ -75,6 +79,41 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "Can't create anomaly detector as no document found in indices",
                 () -> TestHelpers
                     .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null)
+            );
+    }
+
+    public void testCreateAnomalyDetectorWithDuplicateName() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+
+        AnomalyDetector detectorDuplicateName = new AnomalyDetector(
+            AnomalyDetector.NO_ID,
+            randomLong(),
+            detector.getName(),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            detector.getIndices(),
+            ImmutableList.of(randomFeature()),
+            randomQuery(),
+            randomIntervalTimeConfiguration(),
+            randomIntervalTimeConfiguration(),
+            randomUiMetadata(),
+            randomInt(),
+            null
+        );
+
+        TestHelpers
+            .assertFailWith(
+                ResponseException.class,
+                "Cannot create anomaly detector with name",
+                () -> TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI,
+                        ImmutableMap.of(),
+                        toHttpEntity(detectorDuplicateName),
+                        null
+                    )
             );
     }
 
@@ -179,6 +218,82 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector updatedDetector = getAnomalyDetector(detector.getDetectorId());
         assertNotEquals("Anomaly detector last update time not changed", updatedDetector.getLastUpdateTime(), detector.getLastUpdateTime());
         assertEquals("Anomaly detector description not updated", newDescription, updatedDetector.getDescription());
+    }
+
+    public void testUpdateAnomalyDetectorNameToExisting() throws Exception {
+        AnomalyDetector detector1 = createRandomAnomalyDetector(true, true);
+
+        AnomalyDetector detector2 = createRandomAnomalyDetector(true, true);
+
+        AnomalyDetector newDetector1WithDetector2Name = new AnomalyDetector(
+            detector1.getDetectorId(),
+            detector1.getVersion(),
+            detector2.getName(),
+            detector1.getDescription(),
+            detector1.getTimeField(),
+            detector1.getIndices(),
+            detector1.getFeatureAttributes(),
+            detector1.getFilterQuery(),
+            detector1.getDetectionInterval(),
+            detector1.getWindowDelay(),
+            detector1.getUiMetadata(),
+            detector1.getSchemaVersion(),
+            detector1.getLastUpdateTime()
+        );
+
+        TestHelpers
+            .assertFailWith(
+                ResponseException.class,
+                "Cannot create anomaly detector with name",
+                () -> TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI,
+                        ImmutableMap.of(),
+                        toHttpEntity(newDetector1WithDetector2Name),
+                        null
+                    )
+            );
+    }
+
+    public void testUpdateAnomalyDetectorNameToNew() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+
+        AnomalyDetector detectorWithNewName = new AnomalyDetector(
+            detector.getDetectorId(),
+            detector.getVersion(),
+            randomAlphaOfLength(5),
+            detector.getDescription(),
+            detector.getTimeField(),
+            detector.getIndices(),
+            detector.getFeatureAttributes(),
+            detector.getFilterQuery(),
+            detector.getDetectionInterval(),
+            detector.getWindowDelay(),
+            detector.getUiMetadata(),
+            detector.getSchemaVersion(),
+            Instant.now()
+        );
+
+        TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "?refresh=true",
+                ImmutableMap.of(),
+                toHttpEntity(detectorWithNewName),
+                null
+            );
+
+        AnomalyDetector resultDetector = getAnomalyDetector(detectorWithNewName.getDetectorId());
+        assertEquals("Detector name updating failed", detectorWithNewName.getName(), resultDetector.getName());
+        assertEquals("Updated anomaly detector id doesn't match", detectorWithNewName.getDetectorId(), resultDetector.getDetectorId());
+        assertNotEquals(
+            "Anomaly detector last update time not changed",
+            detectorWithNewName.getLastUpdateTime(),
+            resultDetector.getLastUpdateTime()
+        );
     }
 
     public void testUpdateAnomalyDetectorWithNotExistingIndex() throws Exception {

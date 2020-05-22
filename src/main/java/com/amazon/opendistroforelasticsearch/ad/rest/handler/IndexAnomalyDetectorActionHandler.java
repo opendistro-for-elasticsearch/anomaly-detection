@@ -232,8 +232,9 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
         // src/main/resources/mappings/anomaly-detectors.json#L14
         boolQueryBuilder.must(QueryBuilders.termQuery("name.keyword", anomalyDetector.getName()));
-        // _id field does not allow "", but allows " "
-        boolQueryBuilder.mustNot(QueryBuilders.termQuery(RestHandlerUtils._ID, StringUtils.isBlank(detectorId) ? " " : detectorId));
+        if (StringUtils.isNotBlank(detectorId)) {
+            boolQueryBuilder.mustNot(QueryBuilders.termQuery(RestHandlerUtils._ID, detectorId));
+        }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(boolQueryBuilder).timeout(requestTimeout);
         SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
 
@@ -252,7 +253,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         if (response.getHits().getTotalHits().value > 0) {
             String errorMsg = String
                 .format(
-                    "Cannot create anomaly detector with name[%s] used by detectorId %s",
+                    "Cannot create anomaly detector with name [%s] as it's already used by detector %s",
                     name,
                     Arrays.stream(response.getHits().getHits()).map(hit -> hit.getId()).collect(Collectors.toList())
                 );

@@ -257,6 +257,45 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
     }
 
+    public void testUpdateAnomalyDetectorNameToNew() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+
+        AnomalyDetector detectorWithNewName = new AnomalyDetector(
+            detector.getDetectorId(),
+            detector.getVersion(),
+            randomAlphaOfLength(5),
+            detector.getDescription(),
+            detector.getTimeField(),
+            detector.getIndices(),
+            detector.getFeatureAttributes(),
+            detector.getFilterQuery(),
+            detector.getDetectionInterval(),
+            detector.getWindowDelay(),
+            detector.getUiMetadata(),
+            detector.getSchemaVersion(),
+            Instant.now()
+        );
+
+        TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "?refresh=true",
+                ImmutableMap.of(),
+                toHttpEntity(detectorWithNewName),
+                null
+            );
+
+        AnomalyDetector resultDetector = getAnomalyDetector(detectorWithNewName.getDetectorId());
+        assertEquals("Detector name updating failed", detectorWithNewName.getName(), resultDetector.getName());
+        assertEquals("Updated anomaly detector id doesn't match", detectorWithNewName.getDetectorId(), resultDetector.getDetectorId());
+        assertNotEquals(
+            "Anomaly detector last update time not changed",
+            detectorWithNewName.getLastUpdateTime(),
+            resultDetector.getLastUpdateTime()
+        );
+    }
+
     public void testUpdateAnomalyDetectorWithNotExistingIndex() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true);
 

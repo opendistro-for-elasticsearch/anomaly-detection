@@ -44,6 +44,7 @@ import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestResponse;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.rest.action.RestResponseListener;
+import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
@@ -219,6 +220,46 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         if (response.getHits().getTotalHits().value == 0) {
             String errorMsg = "Can't create anomaly detector as no document found in indices: "
                 + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));
+            logger.error(errorMsg);
+            onFailure(new IllegalArgumentException(errorMsg));
+        } else {
+            checkADNameExists(detectorId);
+        }
+    }
+
+    private void checkADNameExists(String detectorId) throws IOException {
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
+            // src/main/resources/mappings/anomaly-detectors.json#L14
+            .query(QueryBuilders.termQuery("name.keyword", anomalyDetector.getName()))
+            .timeout(requestTimeout);
+        SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
+
+        client
+            .search(
+                searchRequest,
+                ActionListener
+                    .wrap(
+                        searchResponse -> onSearchADNameResponse(searchResponse, detectorId, anomalyDetector.getName()),
+                        exception -> onFailure(exception)
+                    )
+            );
+    }
+
+    private void onSearchADNameResponse(SearchResponse response, String detectorId, String name) throws IOException {
+        boolean hasDuplicateName = false;
+        String existingDetectorId = null;
+        if (response.getHits().getTotalHits().value > 0) {
+            for (SearchHit hit : response.getHits()) {
+                if (!hit.getId().equals(detectorId)) {
+                    hasDuplicateName = true;
+                    existingDetectorId = hit.getId();
+                    break;
+                }
+            }
+        }
+
+        if (hasDuplicateName) {
+            String errorMsg = String.format("Cannot create anomaly detector with name[%s] used by detectorId %s", name, existingDetectorId);
             logger.error(errorMsg);
             onFailure(new IllegalArgumentException(errorMsg));
         } else {

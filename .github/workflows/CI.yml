@@ -59,5 +59,4 @@ jobs:
 
       - name: Run AD Test
         run: |
-          ./gradlew ':integTestRunner' --tests "com.amazon.opendistroforelasticsearch.ad.rest.*IT" -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
-          ./gradlew :integTestRunner --tests "com.amazon.opendistroforelasticsearch.ad.e2e.*IT"  -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
+          ./gradlew :integTestRunner --tests "com.amazon.opendistroforelasticsearch.ad.rest.*IT" --tests "com.amazon.opendistroforelasticsearch.ad.e2e.*IT" -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"

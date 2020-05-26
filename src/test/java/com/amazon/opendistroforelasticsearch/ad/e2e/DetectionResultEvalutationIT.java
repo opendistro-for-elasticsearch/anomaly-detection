@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -171,8 +171,21 @@ public class DetectionResultEvalutationIT extends ESRestTestCase {
                 getDetectionResult(detectorId, begin, end, client);
             } catch (Exception e) {}
         }
-        Thread.sleep(5_000);
-        getDetectionResult(detectorId, begin, end, client);
+        // It takes time to wait for model initialization
+        long startTime = System.currentTimeMillis();
+        do {
+            try {
+                Thread.sleep(5_000);
+                getDetectionResult(detectorId, begin, end, client);
+                break;
+            } catch (Exception e) {
+                long duration = System.currentTimeMillis() - startTime;
+                // we wait at most 60 secs
+                if (duration > 60_000) {
+                    throw new RuntimeException(e);
+                }
+            }
+        } while (true);
     }
 
     private String createDetector(String datasetName, int intervalMinutes, RestClient client) throws Exception {

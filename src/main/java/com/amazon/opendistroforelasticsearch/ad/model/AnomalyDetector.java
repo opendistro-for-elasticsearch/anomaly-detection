@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,9 +15,17 @@
 
 package com.amazon.opendistroforelasticsearch.ad.model;
 
-import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
-import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
-import com.google.common.base.Objects;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.apache.logging.log4j.util.Strings;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.unit.TimeValue;
@@ -30,16 +38,9 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
-import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
-import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
+import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
+import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
+import com.google.common.base.Objects;
 
 /**
  * An AnomalyDetector is used to represent anomaly detection model(RCF) related parameters.

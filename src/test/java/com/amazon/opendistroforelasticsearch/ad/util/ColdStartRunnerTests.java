@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -22,12 +22,13 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.test.ESTestCase;
 import org.junit.After;
 import org.junit.Before;
+
+import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 
 public class ColdStartRunnerTests extends ESTestCase {
     private static final Logger LOG = LogManager.getLogger(ColdStartRunnerTests.class);

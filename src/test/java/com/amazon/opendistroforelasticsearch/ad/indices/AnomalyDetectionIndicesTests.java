@@ -15,12 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.indices;
 
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
-import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Collections;
 
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
-import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.common.settings.Settings;
@@ -32,9 +30,11 @@ import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Before;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 
 public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
 

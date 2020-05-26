@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -26,14 +26,15 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Arrays;
 
-import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
-import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
+import org.elasticsearch.index.reindex.DeleteByQueryAction;
+
+import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 
 public class DailyCronTests extends AbstractADTest {
 

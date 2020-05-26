@@ -15,12 +15,17 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
-import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
-import com.google.common.collect.ImmutableList;
-import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.REFRESH;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.START_JOB;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.STOP_JOB;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
 
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
@@ -31,17 +36,12 @@ import org.elasticsearch.index.seqno.SequenceNumbers;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.RestRequest;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Locale;
-
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.REFRESH;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.START_JOB;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.STOP_JOB;
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+import com.google.common.collect.ImmutableList;
 
 /**
  * This class consists of the REST handler to handle request to start/stop AD job.

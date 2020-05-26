@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,11 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import static org.apache.http.entity.ContentType.APPLICATION_JSON;
+import static org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Map;
+
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.StringEntity;
@@ -41,12 +43,11 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.test.rest.ESRestTestCase;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Map;
-
-import static org.apache.http.entity.ContentType.APPLICATION_JSON;
-import static org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
 

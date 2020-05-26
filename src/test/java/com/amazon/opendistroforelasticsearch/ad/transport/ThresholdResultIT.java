@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,11 +19,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.test.ESIntegTestCase;
+
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 
 @ESIntegTestCase.ClusterScope(transportClientRatio = 0.9)
 public class ThresholdResultIT extends ESIntegTestCase {

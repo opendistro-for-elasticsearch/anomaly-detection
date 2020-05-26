@@ -15,13 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorActionHandler;
-import com.google.common.collect.ImmutableList;
-import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -38,11 +36,13 @@ import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.action.RestStatusToXContentListener;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Locale;
-
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorActionHandler;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+import com.google.common.collect.ImmutableList;
 
 /**
  * This class consists of the REST handler to delete anomaly detector.

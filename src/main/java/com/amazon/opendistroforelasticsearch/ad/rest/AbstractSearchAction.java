@@ -15,10 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.google.common.collect.ImmutableList;
-import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.getSourceContext;
+import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+
+import java.io.IOException;
+import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -41,13 +44,10 @@ import org.elasticsearch.rest.action.RestResponseListener;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
-import java.io.IOException;
-import java.util.List;
-
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.getSourceContext;
-import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+import com.google.common.collect.ImmutableList;
 
 /**
  * Abstract class to handle search request.

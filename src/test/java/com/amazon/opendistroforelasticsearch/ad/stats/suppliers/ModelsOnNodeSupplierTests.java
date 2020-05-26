@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,25 +15,26 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
-import com.amazon.randomcutforest.RandomCutForest;
+import static com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier.MODEL_STATE_STAT_KEYS;
+import static org.mockito.Mockito.when;
+
+import java.time.Clock;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.time.Clock;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import static com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier.MODEL_STATE_STAT_KEYS;
-import static org.mockito.Mockito.when;
+import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
+import com.amazon.randomcutforest.RandomCutForest;
 
 public class ModelsOnNodeSupplierTests extends ESTestCase {
     private RandomCutForest rcf;

@@ -18,14 +18,15 @@ package com.amazon.opendistroforelasticsearch.ad.stats;
 import java.io.IOException;
 import java.util.Map;
 
-import com.amazon.opendistroforelasticsearch.ad.model.Mergeable;
-import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesResponse;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+
+import com.amazon.opendistroforelasticsearch.ad.model.Mergeable;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesResponse;
 
 /**
  * ADStatsResponse contains logic to merge the node stats and cluster stats together and return them to user

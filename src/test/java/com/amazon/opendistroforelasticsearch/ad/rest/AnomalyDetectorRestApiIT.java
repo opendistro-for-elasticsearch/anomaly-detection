@@ -15,6 +15,28 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.AD_BASE_PREVIEW_URI;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomAnomalyDetectorWithEmptyFeature;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomFeature;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomIntervalTimeConfiguration;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomQuery;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomUiMetadata;
+import static org.hamcrest.Matchers.containsString;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.Map;
+
+import org.apache.http.entity.ContentType;
+import org.apache.http.nio.entity.NStringEntity;
+import org.elasticsearch.client.Response;
+import org.elasticsearch.client.ResponseException;
+import org.elasticsearch.common.UUIDs;
+import org.elasticsearch.common.xcontent.ToXContentObject;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRestTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
@@ -26,27 +48,6 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.http.entity.ContentType;
-import org.apache.http.nio.entity.NStringEntity;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.ResponseException;
-import org.elasticsearch.common.UUIDs;
-import org.elasticsearch.common.xcontent.ToXContentObject;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.util.Map;
-
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.AD_BASE_PREVIEW_URI;
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomAnomalyDetectorWithEmptyFeature;
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomFeature;
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomIntervalTimeConfiguration;
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomQuery;
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomUiMetadata;
-import static org.hamcrest.Matchers.containsString;
 
 public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 

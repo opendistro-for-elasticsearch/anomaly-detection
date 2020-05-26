@@ -19,9 +19,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
-import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.ClusterChangedEvent;
@@ -31,6 +28,9 @@ import org.elasticsearch.cluster.node.DiscoveryNodes.Delta;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.gateway.GatewayService;
+
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 public class ADClusterEventListener implements ClusterStateListener {
     private static final Logger LOG = LogManager.getLogger(ADClusterEventListener.class);

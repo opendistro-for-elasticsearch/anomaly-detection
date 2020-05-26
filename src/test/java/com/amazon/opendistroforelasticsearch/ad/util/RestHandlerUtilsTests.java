@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.ad.util;
 
-import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.builder;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomFeature;
+
+import java.io.IOException;
+
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -30,10 +31,10 @@ import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.test.rest.FakeRestChannel;
 import org.elasticsearch.test.rest.FakeRestRequest;
 
-import java.io.IOException;
-
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.builder;
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomFeature;
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public class RestHandlerUtilsTests extends ESTestCase {
 

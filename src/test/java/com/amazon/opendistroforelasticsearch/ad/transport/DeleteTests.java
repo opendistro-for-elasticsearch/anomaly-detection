@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
-
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
@@ -35,11 +34,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 
-import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
-import com.amazon.opendistroforelasticsearch.ad.cluster.DeleteDetector;
-import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
@@ -70,6 +64,12 @@ import org.junit.Before;
 
 import test.com.amazon.opendistroforelasticsearch.ad.util.ClusterCreation;
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
+
+import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.cluster.DeleteDetector;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
 
 public class DeleteTests extends AbstractADTest {
     private DeleteModelResponse response;

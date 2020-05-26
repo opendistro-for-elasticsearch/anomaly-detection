@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -25,12 +25,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.function.Function;
 
-import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
-import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
-import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
-
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.support.ActionFilters;
@@ -49,9 +43,14 @@ import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Before;
 
-import com.google.gson.JsonElement;
-
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
+
+import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.google.gson.JsonElement;
 
 public class DeleteModelTransportActionTests extends AbstractADTest {
     private DeleteModelTransportAction action;

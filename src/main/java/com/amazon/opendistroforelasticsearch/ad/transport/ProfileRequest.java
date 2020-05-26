@@ -15,16 +15,16 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.elasticsearch.action.support.nodes.BaseNodesRequest;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
 import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
-
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * implements a request to obtain profiles about an AD detector

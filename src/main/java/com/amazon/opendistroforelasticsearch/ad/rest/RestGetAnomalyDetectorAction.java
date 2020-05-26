@@ -15,21 +15,24 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
-import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
-import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
-import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorProfileRunner;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
+import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PROFILE;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.TYPE;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.createXContentParser;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.MultiGetItemResponse;
 import org.elasticsearch.action.get.MultiGetRequest;
@@ -47,21 +50,17 @@ import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.rest.action.RestActions;
 import org.elasticsearch.rest.action.RestResponseListener;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PROFILE;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.TYPE;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.createXContentParser;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorProfileRunner;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
+import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 
 /**
  * This class consists of the REST handler to retrieve an anomaly detector.

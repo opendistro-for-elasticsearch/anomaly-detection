@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -14,6 +14,9 @@
  */
 
 package com.amazon.opendistroforelasticsearch.ad.feature;
+
+import static java.util.Arrays.copyOfRange;
+import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -34,17 +37,13 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
-
-import static java.util.Arrays.copyOfRange;
-
-import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 
 /**
  * A facade managing feature data operations and buffers.

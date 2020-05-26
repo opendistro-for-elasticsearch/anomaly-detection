@@ -15,17 +15,25 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
-import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
-import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyResultHandler;
-import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService;
+import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
+
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
@@ -53,24 +61,17 @@ import org.junit.rules.ExpectedException;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadFactory;
-
-import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyResultHandler;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService;
 
 public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 

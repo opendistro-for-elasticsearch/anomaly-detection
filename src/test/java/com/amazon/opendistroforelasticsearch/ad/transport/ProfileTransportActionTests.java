@@ -15,17 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
-import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
-
-import org.elasticsearch.action.FailedNodeException;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.test.ESIntegTestCase;
-import org.elasticsearch.transport.TransportService;
-import org.junit.Before;
-import org.junit.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,9 +27,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.elasticsearch.action.FailedNodeException;
+import org.elasticsearch.action.support.ActionFilters;
+import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.transport.TransportService;
+import org.junit.Before;
+import org.junit.Test;
+
+import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
 
 public class ProfileTransportActionTests extends ESIntegTestCase {
     private ProfileTransportAction action;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,18 +15,19 @@
 
 package com.amazon.opendistroforelasticsearch.ad.model;
 
-import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import java.io.IOException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Locale;
+
 import org.elasticsearch.common.ParsingException;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.test.ESTestCase;
 
-import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Locale;
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public class AnomalyDetectorTests extends ESTestCase {
 

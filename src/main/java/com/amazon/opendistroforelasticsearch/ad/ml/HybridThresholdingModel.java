@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.JsonAdapter;
-
 import com.yahoo.sketches.kll.KllFloatsSketch;
 
 /**

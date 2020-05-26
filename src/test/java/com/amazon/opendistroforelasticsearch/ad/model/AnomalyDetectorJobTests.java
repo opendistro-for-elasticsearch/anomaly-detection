@@ -15,12 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.ad.model;
 
-import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import java.io.IOException;
+import java.util.Locale;
+
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.test.ESTestCase;
 
-import java.io.IOException;
-import java.util.Locale;
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 
 public class AnomalyDetectorJobTests extends ESTestCase {
 

@@ -15,16 +15,18 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
-import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorRequest;
-import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorResponse;
-import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
+import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.createXContentParser;
+import static org.elasticsearch.action.DocWriteResponse.Result.CREATED;
+import static org.elasticsearch.action.DocWriteResponse.Result.UPDATED;
+import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -43,17 +45,16 @@ import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestStatus;
 
-import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
-
-import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.createXContentParser;
-import static org.elasticsearch.action.DocWriteResponse.Result.CREATED;
-import static org.elasticsearch.action.DocWriteResponse.Result.UPDATED;
-import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorResponse;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
 
 /**
  * Anomaly detector job REST action handler to process POST/PUT request.

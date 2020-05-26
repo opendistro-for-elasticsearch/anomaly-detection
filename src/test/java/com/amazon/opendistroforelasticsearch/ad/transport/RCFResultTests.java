@@ -27,14 +27,6 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.Collections;
 
-import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
-import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
-import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
-import com.amazon.opendistroforelasticsearch.ad.ml.RcfResult;
-
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.support.ActionFilters;
@@ -49,12 +41,19 @@ import org.elasticsearch.tasks.Task;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.transport.Transport;
 import org.elasticsearch.transport.TransportService;
+import org.hamcrest.Matchers;
 
+import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
+
+import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.RcfResult;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
-import org.hamcrest.Matchers;
-import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
 public class RCFResultTests extends ESTestCase {
     Gson gson = new GsonBuilder().create();

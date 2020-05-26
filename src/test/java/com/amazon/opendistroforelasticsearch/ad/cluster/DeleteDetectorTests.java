@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.client.Client;
@@ -43,6 +42,8 @@ import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.ScrollableHitSource;
 import org.junit.After;
 import org.junit.Before;
+
+import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 
 public class DeleteDetectorTests extends AbstractADTest {
     private Client client;

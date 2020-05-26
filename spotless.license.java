@@ -13,17 +13,4 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import org.elasticsearch.test.ESTestCase;
-import org.junit.Test;
-
-public class SettableSupplierTests extends ESTestCase {
-    @Test
-    public void testSetGet() {
-        Long setCount = 15L;
-        SettableSupplier settableSupplier = new SettableSupplier();
-        settableSupplier.set(setCount);
-        assertEquals("Get/Set fails", setCount, settableSupplier.get());
-    }
-}

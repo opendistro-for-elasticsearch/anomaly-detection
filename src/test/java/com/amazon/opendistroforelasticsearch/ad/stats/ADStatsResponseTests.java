@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,8 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats;
 
-import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodeResponse;
-import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesResponse;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -25,11 +29,8 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodeResponse;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesResponse;
 
 public class ADStatsResponseTests extends ESTestCase {
     @Test

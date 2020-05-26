@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,13 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
-import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.test.ESIntegTestCase;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
+
+import org.elasticsearch.plugins.Plugin;
+import org.elasticsearch.test.ESIntegTestCase;
+
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 
 @ESIntegTestCase.ClusterScope(transportClientRatio = 0.9)
 public class ADStatsIT extends ESIntegTestCase {

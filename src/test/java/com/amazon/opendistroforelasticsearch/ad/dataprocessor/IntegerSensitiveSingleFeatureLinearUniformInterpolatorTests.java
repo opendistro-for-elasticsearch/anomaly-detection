@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.dataprocessor;
 
+import static org.junit.Assert.assertTrue;
+
 import java.util.Arrays;
 
 import junitparams.JUnitParamsRunner;
@@ -23,8 +25,6 @@ import junitparams.Parameters;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static org.junit.Assert.assertTrue;
 
 @RunWith(JUnitParamsRunner.class)
 public class IntegerSensitiveSingleFeatureLinearUniformInterpolatorTests {

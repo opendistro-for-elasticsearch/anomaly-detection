@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -18,13 +18,12 @@ package com.amazon.opendistroforelasticsearch.ad.ml;
 import java.lang.reflect.Type;
 import java.util.Base64;
 
-import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSerializer;
 import com.google.gson.JsonSerializationContext;
-
+import com.google.gson.JsonSerializer;
 import com.yahoo.memory.Memory;
 import com.yahoo.sketches.kll.KllFloatsSketch;
 

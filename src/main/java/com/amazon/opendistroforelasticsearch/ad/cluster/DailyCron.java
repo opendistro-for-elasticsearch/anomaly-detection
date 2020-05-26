@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -18,10 +18,6 @@ package com.amazon.opendistroforelasticsearch.ad.cluster;
 import java.time.Clock;
 import java.time.Duration;
 
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
-import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
-import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -31,6 +27,10 @@ import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
+
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 
 public class DailyCron implements Runnable {
     private static final Logger LOG = LogManager.getLogger(DailyCron.class);

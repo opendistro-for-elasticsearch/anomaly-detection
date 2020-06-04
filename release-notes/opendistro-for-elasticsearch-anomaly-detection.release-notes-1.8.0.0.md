@@ -2,6 +2,10 @@
 
 Compatible with Elasticsearch 7.7.0 and Open Distro for Elasticsearch 1.8.0.
 
+## Breaking Changes
+
+* Artifact Name of Anomaly Detection Plugin for **_*DEB*_** and **_*RPM*_** distribution is updated from **opendistro-anomaly-detector** to **opendistro-anomaly-detection**. In order to reduce the impact of this change, we recommend removing the old **opendistro-anomaly-detector** plugin first with your package manager, before installing the upgraded **opendistro-anomaly-detection**.
+
 ## New Features
 * Add settings to disable/enable AD dynamically (#105) [PR #127](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/127)
 

@@ -33,18 +33,72 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
     private int shingleSize;
     private String coordinatingNode;
     private long totalSizeInBytes;
+    private InitProgressProfile initProgress;
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
         return toXContent(builder, ToXContent.EMPTY_PARAMS);
     }
 
-    public DetectorProfile() {
-        state = null;
-        error = null;
-        modelProfile = null;
-        shingleSize = -1;
-        coordinatingNode = null;
-        totalSizeInBytes = -1;
+    private DetectorProfile() {}
+
+    public static class Builder {
+        private DetectorState state = null;
+        private String error = null;
+        private ModelProfile[] modelProfile = null;
+        private int shingleSize = -1;
+        private String coordinatingNode = null;
+        private long totalSizeInBytes = -1;
+        private InitProgressProfile initProgress = null;
+
+        public Builder() {}
+
+        public Builder state(DetectorState state) {
+            this.state = state;
+            return this;
+        }
+
+        public Builder error(String error) {
+            this.error = error;
+            return this;
+        }
+
+        public Builder modelProfile(ModelProfile[] modelProfile) {
+            this.modelProfile = modelProfile;
+            return this;
+        }
+
+        public Builder shingleSize(int shingleSize) {
+            this.shingleSize = shingleSize;
+            return this;
+        }
+
+        public Builder coordinatingNode(String coordinatingNode) {
+            this.coordinatingNode = coordinatingNode;
+            return this;
+        }
+
+        public Builder totalSizeInBytes(long totalSizeInBytes) {
+            this.totalSizeInBytes = totalSizeInBytes;
+            return this;
+        }
+
+        public Builder initProgress(InitProgressProfile initProgress) {
+            this.initProgress = initProgress;
+            return this;
+        }
+
+        public DetectorProfile build() {
+            DetectorProfile profile = new DetectorProfile();
+            profile.state = this.state;
+            profile.error = this.error;
+            profile.modelProfile = modelProfile;
+            profile.shingleSize = shingleSize;
+            profile.coordinatingNode = coordinatingNode;
+            profile.totalSizeInBytes = totalSizeInBytes;
+            profile.initProgress = initProgress;
+
+            return profile;
+        }
     }
 
     @Override
@@ -73,7 +127,9 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
         if (totalSizeInBytes != -1) {
             xContentBuilder.field(CommonName.TOTAL_SIZE_IN_BYTES, totalSizeInBytes);
         }
-
+        if (initProgress != null) {
+            xContentBuilder.field(CommonName.INIT_PROGRESS, initProgress);
+        }
         return xContentBuilder.endObject();
     }
 
@@ -125,6 +181,14 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
         this.totalSizeInBytes = totalSizeInBytes;
     }
 
+    public InitProgressProfile getInitProgress() {
+        return initProgress;
+    }
+
+    public void setInitProgress(InitProgressProfile initProgress) {
+        this.initProgress = initProgress;
+    }
+
     @Override
     public void merge(Mergeable other) {
         if (this == other || other == null || getClass() != other.getClass()) {
@@ -149,6 +213,9 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
         if (otherProfile.getTotalSizeInBytes() != -1) {
             this.totalSizeInBytes = otherProfile.getTotalSizeInBytes();
         }
+        if (otherProfile.getInitProgress() != null) {
+            this.initProgress = otherProfile.getInitProgress();
+        }
     }
 
     @Override
@@ -162,18 +229,71 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
         if (obj instanceof DetectorProfile) {
             DetectorProfile other = (DetectorProfile) obj;
 
-            return new EqualsBuilder().append(state, other.state).append(error, other.error).isEquals();
+            EqualsBuilder equalsBuilder = new EqualsBuilder();
+            if (state != null) {
+                equalsBuilder.append(state, other.state);
+            }
+            if (error != null) {
+                equalsBuilder.append(error, other.error);
+            }
+            if (modelProfile != null && modelProfile.length > 0) {
+                equalsBuilder.append(modelProfile, other.modelProfile);
+            }
+            if (shingleSize != -1) {
+                equalsBuilder.append(shingleSize, other.shingleSize);
+            }
+            if (coordinatingNode != null) {
+                equalsBuilder.append(coordinatingNode, other.coordinatingNode);
+            }
+            if (totalSizeInBytes != -1) {
+                equalsBuilder.append(totalSizeInBytes, other.totalSizeInBytes);
+            }
+            if (initProgress != null) {
+                equalsBuilder.append(initProgress, other.initProgress);
+            }
+            return equalsBuilder.isEquals();
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(state).append(error).toHashCode();
+        return new HashCodeBuilder()
+            .append(state)
+            .append(error)
+            .append(modelProfile)
+            .append(shingleSize)
+            .append(coordinatingNode)
+            .append(totalSizeInBytes)
+            .append(initProgress)
+            .toHashCode();
     }
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this).append("state", state).append("error", error).toString();
+        ToStringBuilder toStringBuilder = new ToStringBuilder(this);
+
+        if (state != null) {
+            toStringBuilder.append(CommonName.STATE, state);
+        }
+        if (error != null) {
+            toStringBuilder.append(CommonName.ERROR, error);
+        }
+        if (modelProfile != null && modelProfile.length > 0) {
+            toStringBuilder.append(modelProfile);
+        }
+        if (shingleSize != -1) {
+            toStringBuilder.append(CommonName.SHINGLE_SIZE, shingleSize);
+        }
+        if (coordinatingNode != null) {
+            toStringBuilder.append(CommonName.COORDINATING_NODE, coordinatingNode);
+        }
+        if (totalSizeInBytes != -1) {
+            toStringBuilder.append(CommonName.TOTAL_SIZE_IN_BYTES, totalSizeInBytes);
+        }
+        if (initProgress != null) {
+            toStringBuilder.append(CommonName.INIT_PROGRESS, initProgress);
+        }
+        return toStringBuilder.toString();
     }
 }

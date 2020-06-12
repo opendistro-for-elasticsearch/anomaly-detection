@@ -54,4 +54,5 @@ public class CommonName {
     public static final String SHINGLE_SIZE = "shingle_size";
     public static final String TOTAL_SIZE_IN_BYTES = "total_size_in_bytes";
     public static final String MODELS = "models";
+    public static final String INIT_PROGRESS = "init_progress";
 }

@@ -27,7 +27,8 @@ public enum ProfileName {
     COORDINATING_NODE(CommonName.COORDINATING_NODE),
     SHINGLE_SIZE(CommonName.SHINGLE_SIZE),
     TOTAL_SIZE_IN_BYTES(CommonName.TOTAL_SIZE_IN_BYTES),
-    MODELS(CommonName.MODELS);
+    MODELS(CommonName.MODELS),
+    INIT_PROGRESS(CommonName.INIT_PROGRESS);
 
     private String name;
 
@@ -58,6 +59,8 @@ public enum ProfileName {
                 return TOTAL_SIZE_IN_BYTES;
             case CommonName.MODELS:
                 return MODELS;
+            case CommonName.INIT_PROGRESS:
+                return INIT_PROGRESS;
             default:
                 throw new IllegalArgumentException("Unsupported profile types");
         }

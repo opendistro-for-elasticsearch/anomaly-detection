@@ -42,6 +42,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -55,6 +56,8 @@ import java.util.function.Function;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequestValidationException;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.support.ActionFilters;
@@ -92,6 +95,7 @@ import org.junit.BeforeClass;
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
@@ -111,6 +115,7 @@ import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingResult;
 import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
@@ -126,7 +131,7 @@ public class AnomalyResultTests extends AbstractADTest {
     private static Settings settings = Settings.EMPTY;
     private TransportService transportService;
     private ClusterService clusterService;
-    private ADStateManager stateManager;
+    private TransportStateManager stateManager;
     private ColdStartRunner runner;
     private FeatureManager featureQuery;
     private ModelManager normalModelManager;
@@ -163,7 +168,7 @@ public class AnomalyResultTests extends AbstractADTest {
         runner = new ColdStartRunner();
         transportService = testNodes[0].transportService;
         clusterService = testNodes[0].clusterService;
-        stateManager = mock(ADStateManager.class);
+        stateManager = mock(TransportStateManager.class);
         // return 2 RCF partitions
         when(stateManager.getPartitionNumber(any(String.class), any(AnomalyDetector.class))).thenReturn(2);
         when(stateManager.isMuted(any(String.class))).thenReturn(false);
@@ -242,7 +247,7 @@ public class AnomalyResultTests extends AbstractADTest {
         Throttler throttler = new Throttler(clock);
         ThreadPool threadpool = mock(ThreadPool.class);
         ClientUtil clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, threadpool);
-        IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService);
+        IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
 
         Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
             {
@@ -252,6 +257,25 @@ public class AnomalyResultTests extends AbstractADTest {
         };
 
         adStats = new ADStats(indexUtils, normalModelManager, statsMap);
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            GetRequest request = (GetRequest) args[0];
+            ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
+
+            if (request.index().equals(DetectorInternalState.DETECTOR_STATE_INDEX)) {
+
+                DetectorInternalState.Builder result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
+
+                listener
+                    .onResponse(
+                        TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), DetectorInternalState.DETECTOR_STATE_INDEX)
+                    );
+
+            }
+
+            return null;
+        }).when(client).get(any(), any());
     }
 
     @Override
@@ -267,11 +291,6 @@ public class AnomalyResultTests extends AbstractADTest {
 
     private Throwable assertException(PlainActionFuture<AnomalyResultResponse> listener, Class<? extends Exception> exceptionType) {
         return expectThrows(exceptionType, () -> listener.actionGet());
-    }
-
-    private void assertException(PlainActionFuture<AnomalyResultResponse> listener, Class<? extends Exception> exceptionType, String msg) {
-        Exception e = expectThrows(exceptionType, () -> listener.actionGet());
-        assertThat(e.getMessage(), containsString(msg));
     }
 
     public void testNormal() throws IOException {
@@ -643,7 +662,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testMute() {
-        ADStateManager muteStateManager = mock(ADStateManager.class);
+        TransportStateManager muteStateManager = mock(TransportStateManager.class);
         when(muteStateManager.isMuted(any(String.class))).thenReturn(true);
         doAnswer(invocation -> {
             ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);

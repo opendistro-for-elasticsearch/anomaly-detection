@@ -29,13 +29,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.MultiSearchRequest;
-import org.elasticsearch.action.search.MultiSearchResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
@@ -193,36 +190,6 @@ public class SearchFeatureDao {
             }
         }
         return Optional.ofNullable(result).orElseThrow(() -> new IllegalStateException("Failed to parse aggregation " + aggregation));
-    }
-
-    /**
-     * Gets samples of features for the time ranges.
-     *
-     * Sampled features are not true features. They are intended to be approximate results produced at low costs.
-     *
-     * @param detector info about the indices, documents, feature query
-     * @param ranges list of time ranges
-     * @return approximate features for the time ranges
-     */
-    @Deprecated
-    public List<Optional<double[]>> getFeatureSamplesForPeriods(AnomalyDetector detector, List<Entry<Long, Long>> ranges) {
-        MultiSearchRequest multiSearchRequest = new MultiSearchRequest();
-        ranges
-            .stream()
-            .map(range -> createFeatureSearchRequest(detector, range.getKey(), range.getValue(), Optional.empty()))
-            .forEachOrdered(request -> multiSearchRequest.add(request));
-
-        return clientUtil
-            .<MultiSearchRequest, MultiSearchResponse>timedRequest(multiSearchRequest, logger, client::multiSearch)
-            .map(Stream::of)
-            .orElseGet(Stream::empty)
-            .flatMap(multiSearchResp -> Arrays.stream(multiSearchResp.getResponses()))
-            .map(item -> {
-                Optional.ofNullable(item.getFailure()).ifPresent(e -> logger.warn("Failed to get search response", e));
-                return item;
-            })
-            .map(item -> Optional.ofNullable(item.getResponse()).flatMap(r -> parseResponse(r, detector.getEnabledFeatureIds())))
-            .collect(Collectors.toList());
     }
 
     /**

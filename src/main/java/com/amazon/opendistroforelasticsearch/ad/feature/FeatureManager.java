@@ -357,34 +357,6 @@ public class FeatureManager {
     }
 
     /**
-     * Gets feature data points (unprocessed and processed) from the period for preview purpose.
-     *
-     * @deprecated use getPreviewFeatures with listener instead.
-     *
-     * Due to the constraints (workload, latency) from preview, a small number of data samples are from actual
-     * query results and the remaining are from interpolation. The results are approximate to the actual features.
-     *
-     * @param detector detector info containing indices, features, interval, etc
-     * @param startMilli start of the range in epoch milliseconds
-     * @param endMilli end of the range in epoch milliseconds
-     * @return time ranges, unprocessed features, and processed features of the data points from the period
-     */
-    @Deprecated
-    public Features getPreviewFeatures(AnomalyDetector detector, long startMilli, long endMilli) {
-        Entry<List<Entry<Long, Long>>, Integer> sampleRangeResults = getSampleRanges(detector, startMilli, endMilli);
-        List<Entry<Long, Long>> sampleRanges = sampleRangeResults.getKey();
-        int stride = sampleRangeResults.getValue();
-
-        Entry<List<Entry<Long, Long>>, double[][]> samples = getSamplesForRanges(detector, sampleRanges);
-        sampleRanges = samples.getKey();
-        double[][] sampleFeatures = samples.getValue();
-
-        List<Entry<Long, Long>> previewRanges = getPreviewRanges(sampleRanges, stride);
-        Entry<double[][], double[][]> previewFeatures = getPreviewFeatures(sampleFeatures, stride);
-        return new Features(previewRanges, previewFeatures.getKey(), previewFeatures.getValue());
-    }
-
-    /**
      * Returns to listener feature data points (unprocessed and processed) from the period for preview purpose.
      *
      * Due to the constraints (workload, latency) from preview, a small number of data samples are from actual
@@ -440,26 +412,6 @@ public class FeatureManager {
             .map(time -> new SimpleImmutableEntry<>(time, time + bucketSize))
             .collect(Collectors.toList());
         return new SimpleImmutableEntry<>(sampleRanges, stride);
-    }
-
-    /**
-     * Gets search results for the sampled time ranges.
-     *
-     * @return key is time ranges, value is corresponding search results
-     */
-    @Deprecated
-    private Entry<List<Entry<Long, Long>>, double[][]> getSamplesForRanges(AnomalyDetector detector, List<Entry<Long, Long>> sampleRanges) {
-        List<Optional<double[]>> featureSamples = searchFeatureDao.getFeatureSamplesForPeriods(detector, sampleRanges);
-        List<Entry<Long, Long>> ranges = new ArrayList<>(featureSamples.size());
-        List<double[]> samples = new ArrayList<>(featureSamples.size());
-        for (int i = 0; i < featureSamples.size(); i++) {
-            Entry<Long, Long> currentRange = sampleRanges.get(i);
-            featureSamples.get(i).ifPresent(sample -> {
-                ranges.add(currentRange);
-                samples.add(sample);
-            });
-        }
-        return new SimpleImmutableEntry<>(ranges, samples.toArray(new double[0][0]));
     }
 
     /**

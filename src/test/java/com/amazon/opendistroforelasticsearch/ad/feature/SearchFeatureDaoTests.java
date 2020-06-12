@@ -418,47 +418,6 @@ public class SearchFeatureDaoTests {
         verify(listener).onFailure(any(Exception.class));
     }
 
-    private Object[] getFeatureSamplesForPeriodsData() {
-        String maxName = "max";
-        double maxValue = 2;
-        Max max = mock(Max.class);
-        when(max.value()).thenReturn(maxValue);
-        when(max.getName()).thenReturn(maxName);
-
-        String missingName = "mising";
-        Max missing = mock(Max.class);
-        when(missing.value()).thenReturn(Double.NaN);
-        when(missing.getName()).thenReturn(missingName);
-
-        return new Object[] {
-            new Object[] { asList(max), asList(maxName), asList(Optional.of(new double[] { maxValue })) },
-            new Object[] { asList(missing), asList(missingName), asList(Optional.empty()) }, };
-    }
-
-    @Test
-    @Parameters(method = "getFeatureSamplesForPeriodsData")
-    public void getFeatureSamplesForPeriods_returnExpected(
-        List<Aggregation> aggs,
-        List<String> featureIds,
-        List<Optional<double[]>> expected
-    ) throws Exception {
-
-        long start = 1L;
-        long end = 2L;
-
-        // pre-conditions
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
-        when(searchResponse.getAggregations()).thenReturn(new Aggregations(aggs));
-        when(detector.getEnabledFeatureIds()).thenReturn(featureIds);
-
-        List<Optional<double[]>> results = searchFeatureDao.getFeatureSamplesForPeriods(detector, asList(pair(start, end)));
-
-        assertEquals(expected.size(), results.size());
-        for (int i = 0; i < expected.size(); i++) {
-            assertTrue(Arrays.equals(expected.get(i).orElse(null), results.get(i).orElse(null)));
-        }
-    }
-
     @Test
     public void test_getFeaturesForPeriod_returnEmpty_givenNoData() throws Exception {
         long start = 100L;

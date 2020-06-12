@@ -19,7 +19,6 @@ import static java.util.Arrays.asList;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
@@ -434,34 +433,6 @@ public class FeatureManagerTests {
         when(clock.instant()).thenThrow(new RuntimeException());
 
         featureManager.maintenance();
-    }
-
-    @Test
-    public void getPreviewFeatures_returnExpected() {
-        long start = 0L;
-        long end = 240_000L;
-        IntervalTimeConfiguration detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
-        when(detector.getDetectionInterval()).thenReturn(detectionInterval);
-
-        List<Entry<Long, Long>> sampleRanges = Arrays.asList(new SimpleEntry<>(0L, 60_000L), new SimpleEntry<>(120_000L, 180_000L));
-        List<Optional<double[]>> samplesResults = Arrays.asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 3 }));
-        when(searchFeatureDao.getFeatureSamplesForPeriods(detector, sampleRanges)).thenReturn(samplesResults);
-
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 1, 3 } })), eq(3)))
-            .thenReturn(new double[][] { { 1, 2, 3 } });
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 0, 120000 } })), eq(3)))
-            .thenReturn(new double[][] { { 0, 60000, 120000 } });
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 60000, 180000 } })), eq(3)))
-            .thenReturn(new double[][] { { 60000, 120000, 180000 } });
-
-        Features previewFeatures = featureManager.getPreviewFeatures(detector, start, end);
-
-        Features expected = new Features(
-            asList(new SimpleEntry<>(120_000L, 180_000L)),
-            new double[][] { { 3 } },
-            new double[][] { { 1, 2, 3 } }
-        );
-        assertEquals(expected, previewFeatures);
     }
 
     @SuppressWarnings("unchecked")

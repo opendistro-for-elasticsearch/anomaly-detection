@@ -16,8 +16,6 @@
 package com.amazon.opendistroforelasticsearch.ad.feature;
 
 import static java.util.Arrays.asList;
-import static java.util.Optional.empty;
-import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -62,6 +60,7 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
 import com.amazon.opendistroforelasticsearch.ad.util.ArrayEqMatcher;
 
 @RunWith(JUnitParamsRunner.class)
+@SuppressWarnings("unchecked")
 public class FeatureManagerTests {
 
     // configuration
@@ -123,113 +122,6 @@ public class FeatureManagerTests {
                 featureBufferTtl
             )
         );
-    }
-
-    private Object[] getCurrentFeaturesData() {
-
-        return new Object[] {
-
-            new Object[] {
-                new long[0][0],
-                new double[0][0],
-                new long[0][0],
-                new long[] { 120_000, 180_000 },
-                new SinglePointFeatures(empty(), empty()) },
-
-            new Object[] {
-                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, { 180_000, 240_000 }, },
-                new double[][] { { 1, 2 }, { 3, 4 }, { 5, 6 }, { 7, 8 }, },
-                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, },
-                new long[] { 180_000, 240_000 },
-                new SinglePointFeatures(of(new double[] { 7, 8 }), of(new double[] { 1, 2, 3, 4, 5, 6, 7, 8 })), },
-
-            new Object[] {
-                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, { 180_000, 240_000 }, },
-                new double[][] { { 1, 2 }, { 3, 4 }, { 5, 6 }, { 7, 8 }, },
-                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, { 180_000, 240_000 }, },
-                new long[] { 180_000, 240_000 },
-                new SinglePointFeatures(of(new double[] { 7, 8 }), of(new double[] { 1, 2, 3, 4, 5, 6, 7, 8 })), },
-
-            new Object[] {
-                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, { 180_000, 240_000 }, { 240_000, 300_000 }, },
-                new double[][] { { 1, 2 }, { 3, 4 }, { 5, 6 }, { 7, 8 }, { 9, 10 }, },
-                new long[][] { { 0, 60_000 }, { 60_000, 120_000 }, { 120_000, 180_000 }, { 180_000, 240_000 }, },
-                new long[] { 240_000, 300_000 },
-                new SinglePointFeatures(of(new double[] { 9, 10 }), of(new double[] { 3, 4, 5, 6, 7, 8, 9, 10 })), },
-
-            new Object[] {
-                new long[][] { { 1_000, 61_000 }, { 40_000, 100_000 }, { 122_000, 182_000 }, { 180_000, 240_000 }, },
-                new double[][] { { 1, 2 }, { 3, 4 }, { 5, 6 }, { 7, 8 }, },
-                new long[][] { { 1_000, 61_000 }, { 40_000, 100_000 }, { 122_000, 182_000 }, },
-                new long[] { 180_000, 240_000 },
-                new SinglePointFeatures(of(new double[] { 7, 8 }), of(new double[] { 1, 2, 3, 4, 5, 6, 7, 8 })), },
-
-            new Object[] {
-                new long[][] { { 0, 60_000 }, { 180_000, 240_000 }, },
-                new double[][] { { 1, 2 }, { 7, 8 }, },
-                new long[][] { { 0, 60_000 }, },
-                new long[] { 180_000, 240_000 },
-                new SinglePointFeatures(of(new double[] { 7, 8 }), of(new double[] { 1, 2, 1, 2, 7, 8, 7, 8 })), },
-
-            new Object[] {
-                new long[][] { { 39_000, 99_000 }, { 180_000, 240_000 }, },
-                new double[][] { { 3, 4 }, { 7, 8 }, },
-                new long[][] { { 39_000, 99_000 }, },
-                new long[] { 180_000, 240_000 },
-                new SinglePointFeatures(of(new double[] { 7, 8 }), of(new double[] { 3, 4, 3, 4, 7, 8, 7, 8 })), },
-
-            new Object[] {
-                new long[][] { { 179_000, 239_000 }, { 180_000, 240_000 }, },
-                new double[][] { { 5, 6 }, { 7, 8 }, },
-                new long[][] { { 179_000, 239_000 }, },
-                new long[] { 180_000, 240_000 },
-                new SinglePointFeatures(of(new double[] { 7, 8 }), empty()), },
-
-            new Object[] {
-                new long[][] { { 180_000, 240_000 }, },
-                new double[][] { { 7, 8 }, },
-                new long[0][0],
-                new long[] { 180_000, 240_000 },
-                new SinglePointFeatures(of(new double[] { 7, 8 }), empty()), }, };
-    }
-
-    @Test
-    @Parameters(method = "getCurrentFeaturesData")
-    public void getCurrentFeatures_returnExpected(
-        long[][] allRanges,
-        double[][] allPoints,
-        long[][] previousRanges,
-        long[] currentRange,
-        SinglePointFeatures expected
-    ) {
-
-        for (int i = 0; i < allRanges.length; i++) {
-            when(searchFeatureDao.getFeaturesForPeriod(detector, allRanges[i][0], allRanges[i][1]))
-                .thenReturn(Optional.ofNullable(allPoints[i]));
-        }
-        this.featureManager = spy(
-            new FeatureManager(
-                searchFeatureDao,
-                interpolator,
-                clock,
-                maxTrainSamples,
-                maxSampleStride,
-                4,
-                maxMissingPoints,
-                maxNeighborDistance,
-                previewSampleRate,
-                maxPreviewSamples,
-                featureBufferTtl
-            )
-        );
-        for (int i = 0; i < previousRanges.length; i++) {
-            featureManager.getCurrentFeatures(detector, previousRanges[i][0], previousRanges[i][1]);
-        }
-
-        SinglePointFeatures result = featureManager.getCurrentFeatures(detector, currentRange[0], currentRange[1]);
-
-        assertTrue(Arrays.equals(expected.getUnprocessedFeatures().orElse(null), result.getUnprocessedFeatures().orElse(null)));
-        assertTrue(Arrays.equals(expected.getProcessedFeatures().orElse(null), result.getProcessedFeatures().orElse(null)));
     }
 
     private Object[] getColdStartDataTestData() {
@@ -368,18 +260,30 @@ public class FeatureManagerTests {
             start = i * 10;
             end = (i + 1) * 10;
 
-            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
-            featureManager.getCurrentFeatures(detector, start, end);
+            doAnswer(invocation -> {
+                ActionListener<Optional<double[]>> daoListener = invocation.getArgument(3);
+                daoListener.onResponse(Optional.of(new double[] { 1 }));
+                return null;
+            }).when(searchFeatureDao).getFeaturesForPeriod(eq(detector), eq(start), eq(end), any(ActionListener.class));
+            featureManager.getCurrentFeatures(detector, start, end, mock(ActionListener.class));
         }
-        SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures beforeMaintenance = getCurrentFeatures(detector, start, end);
         assertTrue(beforeMaintenance.getUnprocessedFeatures().isPresent());
         assertTrue(beforeMaintenance.getProcessedFeatures().isPresent());
 
         featureManager.clear(detector.getDetectorId());
 
-        SinglePointFeatures afterMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures afterMaintenance = getCurrentFeatures(detector, start, end);
         assertTrue(afterMaintenance.getUnprocessedFeatures().isPresent());
         assertFalse(afterMaintenance.getProcessedFeatures().isPresent());
+    }
+
+    private SinglePointFeatures getCurrentFeatures(AnomalyDetector detector, long start, long end) {
+        ActionListener<SinglePointFeatures> listener = mock(ActionListener.class);
+        ArgumentCaptor<SinglePointFeatures> captor = ArgumentCaptor.forClass(SinglePointFeatures.class);
+        featureManager.getCurrentFeatures(detector, start, end, listener);
+        verify(listener).onResponse(captor.capture());
+        return captor.getValue();
     }
 
     @Test
@@ -390,17 +294,21 @@ public class FeatureManagerTests {
             start = i * 10;
             end = (i + 1) * 10;
 
-            when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
-            featureManager.getCurrentFeatures(detector, start, end);
+            doAnswer(invocation -> {
+                ActionListener<Optional<double[]>> daoListener = invocation.getArgument(3);
+                daoListener.onResponse(Optional.of(new double[] { 1 }));
+                return null;
+            }).when(searchFeatureDao).getFeaturesForPeriod(eq(detector), eq(start), eq(end), any(ActionListener.class));
+            featureManager.getCurrentFeatures(detector, start, end, mock(ActionListener.class));
         }
-        SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures beforeMaintenance = getCurrentFeatures(detector, start, end);
         assertTrue(beforeMaintenance.getUnprocessedFeatures().isPresent());
         assertTrue(beforeMaintenance.getProcessedFeatures().isPresent());
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(end + 1).plus(featureBufferTtl));
 
         featureManager.maintenance();
 
-        SinglePointFeatures afterMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures afterMaintenance = getCurrentFeatures(detector, start, end);
         assertTrue(afterMaintenance.getUnprocessedFeatures().isPresent());
         assertFalse(afterMaintenance.getProcessedFeatures().isPresent());
     }
@@ -413,17 +321,22 @@ public class FeatureManagerTests {
             start = i * 10;
             end = (i + 1) * 10;
 
+            doAnswer(invocation -> {
+                ActionListener<Optional<double[]>> daoListener = invocation.getArgument(3);
+                daoListener.onResponse(Optional.of(new double[] { 1 }));
+                return null;
+            }).when(searchFeatureDao).getFeaturesForPeriod(eq(detector), eq(start), eq(end), any(ActionListener.class));
             when(searchFeatureDao.getFeaturesForPeriod(detector, start, end)).thenReturn(Optional.of(new double[] { i }));
-            featureManager.getCurrentFeatures(detector, start, end);
+            featureManager.getCurrentFeatures(detector, start, end, mock(ActionListener.class));
         }
-        SinglePointFeatures beforeMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures beforeMaintenance = getCurrentFeatures(detector, start, end);
         assertTrue(beforeMaintenance.getUnprocessedFeatures().isPresent());
         assertTrue(beforeMaintenance.getProcessedFeatures().isPresent());
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(end));
 
         featureManager.maintenance();
 
-        SinglePointFeatures afterMaintenance = featureManager.getCurrentFeatures(detector, start, end);
+        SinglePointFeatures afterMaintenance = getCurrentFeatures(detector, start, end);
         assertTrue(afterMaintenance.getUnprocessedFeatures().isPresent());
         assertTrue(afterMaintenance.getProcessedFeatures().isPresent());
     }

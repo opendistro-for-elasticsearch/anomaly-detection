@@ -112,40 +112,6 @@ public class FeatureManager {
     }
 
     /**
-     * Returns unprocessed features and processed features (such as shingle) for the current data point.
-     *
-     * @deprecated use getCurrentFeatures with listener instead.
-     *
-     * @param detector anomaly detector for which the features are returned
-     * @param startTime start time of the data point in epoch milliseconds
-     * @param endTime end time of the data point in epoch milliseconds
-     * @return unprocessed features and processed features for the current data point
-     */
-    @Deprecated
-    public SinglePointFeatures getCurrentFeatures(AnomalyDetector detector, long startTime, long endTime) {
-        double[][] currentPoints = null;
-        Deque<Entry<Long, double[]>> shingle = detectorIdsToTimeShingles
-            .computeIfAbsent(detector.getDetectorId(), id -> new ArrayDeque<Entry<Long, double[]>>(shingleSize));
-        if (shingle.isEmpty() || shingle.getLast().getKey() < endTime) {
-            Optional<double[]> point = searchFeatureDao.getFeaturesForPeriod(detector, startTime, endTime);
-            if (point.isPresent()) {
-                if (shingle.size() == shingleSize) {
-                    shingle.remove();
-                }
-                shingle.add(new SimpleImmutableEntry<>(endTime, point.get()));
-            } else {
-                return new SinglePointFeatures(Optional.empty(), Optional.empty());
-            }
-        }
-        currentPoints = filterAndFill(shingle, endTime, detector);
-        Optional<double[]> currentPoint = Optional.ofNullable(shingle.peekLast().getValue());
-        return Optional
-            .ofNullable(currentPoints)
-            .map(points -> new SinglePointFeatures(currentPoint, Optional.of(batchShingle(points, shingleSize)[0])))
-            .orElse(new SinglePointFeatures(currentPoint, Optional.empty()));
-    }
-
-    /**
      * Returns to listener unprocessed features and processed features (such as shingle) for the current data point.
      *
      * @param detector anomaly detector for which the features are returned

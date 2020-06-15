@@ -286,11 +286,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             if (!featureOptional.getProcessedFeatures().isPresent()) {
-                LOG.info("No full shingle in current detection window for {}", adID);
                 if (!featureOptional.getUnprocessedFeatures().isPresent()) {
                     // Feature not available is common when we have data holes. Respond empty response
                     // so that alerting will not print stack trace to avoid bloating our logs.
-                    LOG.info("No data in current detection window for {}", adID);
+                    LOG.info("No data in current detection window between {} and {} for {}", dataStartTime, dataEndTime, adID);
                     listener
                         .onResponse(
                             new AnomalyResultResponse(
@@ -302,7 +301,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                             )
                         );
                 } else {
-                    LOG.info("Return at least current feature for {}", adID);
+                    LOG.info("Return at least current feature value between {} and {} for {}", dataStartTime, dataEndTime, adID);
                     listener
                         .onResponse(
                             new AnomalyResultResponse(

@@ -287,10 +287,22 @@ public class SearchFeatureDao {
         Map<Long, double[]> cache = new HashMap<>();
         int currentStride = maxStride;
         Optional<double[][]> features = Optional.empty();
+        logger.info(String.format("Getting features for detector %s starting %d", detector.getDetectorId(), endTime));
         while (currentStride >= 1) {
             boolean isInterpolatable = currentStride < maxStride;
             features = getFeaturesForSampledPeriods(detector, maxSamples, currentStride, endTime, cache, isInterpolatable);
+
             if (!features.isPresent() || features.get().length > maxSamples / 2 || currentStride == 1) {
+                logger
+                    .info(
+                        String
+                            .format(
+                                "Get features for detector %s finishes with features present %b, current stride %d",
+                                detector.getDetectorId(),
+                                features.isPresent(),
+                                currentStride
+                            )
+                    );
                 break;
             } else {
                 currentStride = currentStride / 2;
@@ -335,6 +347,7 @@ public class SearchFeatureDao {
                 } else {
                     break;
                 }
+
             }
         }
         Optional<double[][]> samples;
@@ -367,6 +380,7 @@ public class SearchFeatureDao {
         ActionListener<Optional<Entry<double[][], Integer>>> listener
     ) {
         Map<Long, double[]> cache = new HashMap<>();
+        logger.info(String.format("Getting features for detector %s starting %d", detector.getDetectorId(), endTime));
         getFeatureSamplesWithCache(detector, maxSamples, maxStride, endTime, cache, maxStride, listener);
     }
 
@@ -414,8 +428,27 @@ public class SearchFeatureDao {
         ActionListener<Optional<Entry<double[][], Integer>>> listener
     ) {
         if (!features.isPresent()) {
+            logger
+                .info(
+                    String
+                        .format(
+                            "Get features for detector %s finishes without any features present, current stride %d",
+                            detector.getDetectorId(),
+                            currentStride
+                        )
+                );
             listener.onResponse(Optional.empty());
         } else if (features.get().length > maxSamples / 2 || currentStride == 1) {
+            logger
+                .info(
+                    String
+                        .format(
+                            "Get features for detector %s finishes with %d samples, current stride %d",
+                            detector.getDetectorId(),
+                            features.get().length,
+                            currentStride
+                        )
+                );
             listener.onResponse(Optional.of(new SimpleEntry<>(features.get(), currentStride)));
         } else {
             getFeatureSamplesWithCache(detector, maxSamples, maxStride, endTime, cache, currentStride / 2, listener);

@@ -51,4 +51,14 @@ public class AnomalyDetectionException extends RuntimeException {
     public String getAnomalyDetectorId() {
         return this.anomalyDetectorId;
     }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Anomaly Detector ");
+        sb.append(anomalyDetectorId);
+        sb.append(' ');
+        sb.append(super.toString());
+        return sb.toString();
+    }
 }

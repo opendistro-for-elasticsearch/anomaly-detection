@@ -380,7 +380,7 @@ public class SearchFeatureDao {
         ActionListener<Optional<Entry<double[][], Integer>>> listener
     ) {
         Map<Long, double[]> cache = new HashMap<>();
-        logger.info(String.format("Getting features for detector %s starting %d", detector.getDetectorId(), endTime));
+        logger.info(String.format("Getting features for detector %s ending at %d", detector.getDetectorId(), endTime));
         getFeatureSamplesWithCache(detector, maxSamples, maxStride, endTime, cache, maxStride, listener);
     }
 

@@ -26,6 +26,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -78,6 +79,7 @@ import com.google.gson.Gson;
 @RunWith(PowerMockRunner.class)
 @PowerMockRunnerDelegate(JUnitParamsRunner.class)
 @PrepareForTest({ Gson.class })
+@SuppressWarnings("unchecked")
 public class ModelManagerTests {
 
     private ModelManager modelManager;
@@ -500,6 +502,23 @@ public class ModelManagerTests {
         modelManager.getThresholdingResult(detectorId, thresholdModelId, 0, listener);
 
         verify(listener).onFailure(any(ResourceNotFoundException.class));
+    }
+
+    @Test
+    public void getThresholdingResult_notUpdate_withZeroScore() {
+        double score = 0.0;
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<String>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(checkpoint));
+            return null;
+        }).when(checkpointDao).getModelCheckpoint(eq(thresholdModelId), any(ActionListener.class));
+        PowerMockito.doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
+
+        ActionListener<ThresholdingResult> listener = mock(ActionListener.class);
+        modelManager.getThresholdingResult(detectorId, thresholdModelId, score, listener);
+
+        verify(hybridThresholdingModel, never()).update(score);
     }
 
     @Test

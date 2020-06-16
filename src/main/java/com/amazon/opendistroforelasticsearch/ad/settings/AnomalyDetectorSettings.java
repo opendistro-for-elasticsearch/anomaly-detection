@@ -159,6 +159,8 @@ public final class AnomalyDetectorSettings {
 
     public static final double TIME_DECAY = 0.0001;
 
+    public static final int NUM_MIN_SAMPLES = 128;
+
     public static final double DESIRED_MODEL_SIZE_PERCENTAGE = 0.0002;
 
     public static final double MODEL_MAX_SIZE_PERCENTAGE = 0.1;

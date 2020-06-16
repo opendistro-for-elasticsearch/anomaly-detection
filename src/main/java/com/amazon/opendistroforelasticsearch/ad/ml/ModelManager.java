@@ -91,6 +91,7 @@ public class ModelManager {
     private final int rcfNumTrees;
     private final int rcfNumSamplesInTree;
     private final double rcfTimeDecay;
+    private final int rcfNumMinSamples;
     private final double thresholdMinPvalue;
     private final double thresholdMaxRankError;
     private final double thresholdMaxScore;
@@ -130,6 +131,7 @@ public class ModelManager {
      * @param rcfNumTrees number of trees used in RCF
      * @param rcfNumSamplesInTree number of samples in a RCF tree
      * @param rcfTimeDecay time decay for RCF
+     * @param rcfNumMinSamples minimum samples for RCF to score
      * @param thresholdMinPvalue min P-value for thresholding
      * @param thresholdMaxRankError  max rank error for thresholding
      * @param thresholdMaxScore max RCF score to thresholding
@@ -154,6 +156,7 @@ public class ModelManager {
         int rcfNumTrees,
         int rcfNumSamplesInTree,
         double rcfTimeDecay,
+        int rcfNumMinSamples,
         double thresholdMinPvalue,
         double thresholdMaxRankError,
         double thresholdMaxScore,
@@ -179,6 +182,7 @@ public class ModelManager {
         this.rcfNumTrees = rcfNumTrees;
         this.rcfNumSamplesInTree = rcfNumSamplesInTree;
         this.rcfTimeDecay = rcfTimeDecay;
+        this.rcfNumMinSamples = rcfNumMinSamples;
         this.thresholdMinPvalue = thresholdMinPvalue;
         this.thresholdMaxRankError = thresholdMaxRankError;
         this.thresholdMaxScore = thresholdMaxScore;
@@ -679,7 +683,7 @@ public class ModelManager {
                 .sampleSize(rcfNumSamplesInTree)
                 .numberOfTrees(forestSize)
                 .lambda(rcfTimeDecay)
-                .outputAfter(rcfNumSamplesInTree)
+                .outputAfter(rcfNumMinSamples)
                 .parallelExecutionEnabled(false)
                 .build();
             for (int j = 0; j < dataPoints.length; j++) {
@@ -771,7 +775,7 @@ public class ModelManager {
                 .sampleSize(rcfNumSamplesInTree)
                 .numberOfTrees(forestSize)
                 .lambda(rcfTimeDecay)
-                .outputAfter(rcfNumSamplesInTree)
+                .outputAfter(rcfNumMinSamples)
                 .parallelExecutionEnabled(false)
                 .build();
             for (int j = 0; j < dataPoints.length; j++) {

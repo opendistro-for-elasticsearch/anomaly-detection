@@ -473,7 +473,9 @@ public class ModelManager {
         ThresholdingModel threshold = modelState.getModel();
         double grade = threshold.grade(score);
         double confidence = threshold.confidence();
-        threshold.update(score);
+        if (score > 0) {
+            threshold.update(score);
+        }
         modelState.setLastUsedTime(clock.instant());
         listener.onResponse(new ThresholdingResult(grade, confidence));
     }

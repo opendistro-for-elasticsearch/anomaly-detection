@@ -307,7 +307,8 @@ public class HybridThresholdingModel implements ThresholdingModel {
     public double grade(double anomalyScore) {
         final double scale = 1.0 / (1.0 - minPvalueThreshold);
         final double pvalue = quantileSketch.getRank((float) anomalyScore);
-        final double anomalyGrade = scale * (pvalue - minPvalueThreshold);
+        double anomalyGrade = scale * (pvalue - minPvalueThreshold);
+        anomalyGrade = Double.isNaN(anomalyGrade) ? 0. : anomalyGrade;
         return Math.max(0.0, anomalyGrade);
     }
 

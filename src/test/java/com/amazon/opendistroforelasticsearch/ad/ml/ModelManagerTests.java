@@ -110,6 +110,7 @@ public class ModelManagerTests {
     private int numSamples;
     private int numFeatures;
     private double rcfTimeDecay;
+    private int numMinSamples;
     private double thresholdMinPvalue;
     private double thresholdMaxRankError;
     private double thresholdMaxScore;
@@ -143,6 +144,7 @@ public class ModelManagerTests {
         numSamples = 10;
         numFeatures = 1;
         rcfTimeDecay = 1.0 / 1024;
+        numMinSamples = 1;
         thresholdMinPvalue = 0.95;
         thresholdMaxRankError = 1e-4;
         thresholdMaxScore = 8.0;
@@ -174,6 +176,7 @@ public class ModelManagerTests {
                 numTrees,
                 numSamples,
                 rcfTimeDecay,
+                numMinSamples,
                 thresholdMinPvalue,
                 thresholdMaxRankError,
                 thresholdMaxScore,

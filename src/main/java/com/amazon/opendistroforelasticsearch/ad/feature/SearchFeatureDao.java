@@ -173,10 +173,7 @@ public class SearchFeatureDao {
     }
 
     private Optional<double[]> parseResponse(SearchResponse response, List<String> featureIds) {
-        return parseAggregations(
-            Optional.ofNullable(response).filter(resp -> response.getHits().getTotalHits().value > 0L).map(resp -> resp.getAggregations()),
-            featureIds
-        );
+        return parseAggregations(Optional.ofNullable(response).map(resp -> resp.getAggregations()), featureIds);
     }
 
     private double parseAggregation(Aggregation aggregation) {

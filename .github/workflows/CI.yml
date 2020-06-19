@@ -4,6 +4,10 @@ on:
     branches:
       - master
       - opendistro-*
+  pull_request:
+    branches:
+      - master
+      - opendistro-*
 
 jobs:
   Build-ad:
@@ -48,9 +52,13 @@ jobs:
             echo "RUN /usr/share/elasticsearch/bin/elasticsearch-plugin install --batch file:/tmp/opendistro-anomaly-detection-$plugin_version.zip" >> Dockerfile
 
             docker build -t odfe-ad:test .
+            echo "::set-env name=imagePresent::true"
+          else
+            echo "::set-env name=imagePresent::false"
           fi
 
       - name: Run Docker Image
+        if: env.imagePresent == 'true'
         run: |
           cd ..
           docker run -p 9200:9200 -d -p 9600:9600 -e "discovery.type=single-node" odfe-ad:test
@@ -58,5 +66,6 @@ jobs:
           curl -XGET http://localhost:9200/_cat/plugins
 
       - name: Run AD Test
+        if: env.imagePresent == 'true'
         run: |
           ./gradlew :integTestRunner --tests "com.amazon.opendistroforelasticsearch.ad.rest.*IT" --tests "com.amazon.opendistroforelasticsearch.ad.e2e.*IT" -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"

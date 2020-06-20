@@ -22,6 +22,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.monitor.jvm.JvmService;
 
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+
 /**
  * Class {@code ADCircuitBreakerService} provide storing, retrieving circuit breakers functions.
  *
@@ -79,6 +81,10 @@ public class ADCircuitBreakerService {
     }
 
     public Boolean isOpen() {
+        if (!EnabledSetting.isADBreakerEnabled()) {
+            return false;
+        }
+
         for (CircuitBreaker breaker : breakers.values()) {
             if (breaker.isOpen()) {
                 return true;

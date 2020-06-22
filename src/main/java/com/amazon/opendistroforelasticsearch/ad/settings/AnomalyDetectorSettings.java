@@ -133,7 +133,7 @@ public final class AnomalyDetectorSettings {
     public static final Setting<Integer> MAX_RETRY_FOR_END_RUN_EXCEPTION = Setting
         .intSetting(
             "opendistro.anomaly_detection.max_retry_for_end_run_exception",
-            3,
+            6,
             0,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic

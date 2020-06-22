@@ -86,9 +86,9 @@ public final class AnomalyDetectorSettings {
         .longSetting(
             "opendistro.anomaly_detection.ad_result_history_max_docs",
             // Suppose generally per cluster has 200 detectors and all run with 1 minute interval.
-            // We will get 288,000 AD result docs. So set it as 300k to avoid multiple roll overs
+            // We will get 288,000 AD result docs. So set it as 9000k to avoid multiple roll overs
             // per day.
-            300 * 1000L,
+            9_000_000L,
             0L,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic

@@ -27,7 +27,7 @@ import java.util.List;
 import org.elasticsearch.Version;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.ClusterState;
-import org.elasticsearch.cluster.metadata.MetaData;
+import org.elasticsearch.cluster.metadata.Metadata;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
@@ -54,7 +54,7 @@ public class ClusterCreation {
 
         ClusterState.Builder state = ClusterState.builder(name);
         state.nodes(discoBuilder);
-        state.metaData(MetaData.builder().generateClusterUuidIfNeeded());
+        state.metadata(Metadata.builder().generateClusterUuidIfNeeded());
         return state.build();
     }
 

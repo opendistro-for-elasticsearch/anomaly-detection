@@ -59,7 +59,7 @@ public class AnomalyDetectorActionHandler {
         RestChannel channel,
         AnomalyDetectorFunction function
     ) {
-        if (clusterService.state().getMetaData().indices().containsKey(ANOMALY_DETECTOR_JOB_INDEX)) {
+        if (clusterService.state().metadata().indices().containsKey(ANOMALY_DETECTOR_JOB_INDEX)) {
             GetRequest request = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
             client.get(request, ActionListener.wrap(response -> onGetAdJobResponseForWrite(response, channel, function), exception -> {
                 logger.error("Fail to get anomaly detector job: " + detectorId, exception);

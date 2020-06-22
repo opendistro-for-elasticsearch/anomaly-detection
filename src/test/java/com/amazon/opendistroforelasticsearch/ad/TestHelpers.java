@@ -57,9 +57,9 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.block.ClusterBlocks;
-import org.elasticsearch.cluster.metadata.AliasMetaData;
-import org.elasticsearch.cluster.metadata.IndexMetaData;
-import org.elasticsearch.cluster.metadata.MetaData;
+import org.elasticsearch.cluster.metadata.AliasMetadata;
+import org.elasticsearch.cluster.metadata.IndexMetadata;
+import org.elasticsearch.cluster.metadata.Metadata;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.CheckedConsumer;
@@ -405,25 +405,25 @@ public class TestHelpers {
 
     public static ClusterState createIndexBlockedState(String indexName, Settings hackedSettings, String alias) {
         ClusterState blockedClusterState = null;
-        IndexMetaData.Builder builder = IndexMetaData.builder(indexName);
+        IndexMetadata.Builder builder = IndexMetadata.builder(indexName);
         if (alias != null) {
-            builder.putAlias(AliasMetaData.builder(alias));
+            builder.putAlias(AliasMetadata.builder(alias));
         }
-        IndexMetaData indexMetaData = builder
+        IndexMetadata indexMetaData = builder
             .settings(
                 Settings
                     .builder()
-                    .put(IndexMetaData.SETTING_INDEX_UUID, UUIDs.randomBase64UUID())
-                    .put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, 1)
-                    .put(IndexMetaData.SETTING_NUMBER_OF_REPLICAS, 0)
-                    .put(IndexMetaData.SETTING_VERSION_CREATED, Version.CURRENT)
+                    .put(IndexMetadata.SETTING_INDEX_UUID, UUIDs.randomBase64UUID())
+                    .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
+                    .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 0)
+                    .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT)
                     .put(hackedSettings)
             )
             .build();
-        MetaData metaData = MetaData.builder().put(indexMetaData, false).build();
+        Metadata metaData = Metadata.builder().put(indexMetaData, false).build();
         blockedClusterState = ClusterState
             .builder(new ClusterName("test cluster"))
-            .metaData(metaData)
+            .metadata(metaData)
             .blocks(ClusterBlocks.builder().addBlocks(indexMetaData))
             .build();
         return blockedClusterState;

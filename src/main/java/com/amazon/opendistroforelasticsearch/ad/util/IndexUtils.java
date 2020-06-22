@@ -24,7 +24,7 @@ import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest;
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.health.ClusterIndexHealth;
-import org.elasticsearch.cluster.metadata.IndexMetaData;
+import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.service.ClusterService;
 
 public class IndexUtils {
@@ -71,12 +71,12 @@ public class IndexUtils {
     public String getIndexHealthStatus(String indexOrAliasName) throws IllegalArgumentException {
         if (!clusterService.state().getRoutingTable().hasIndex(indexOrAliasName)) {
             // Check if the index is actually an alias
-            if (clusterService.state().getMetaData().hasAlias(indexOrAliasName)) {
+            if (clusterService.state().metadata().hasAlias(indexOrAliasName)) {
                 // List of all indices the alias refers to
-                List<IndexMetaData> indexMetaDataList = clusterService
+                List<IndexMetadata> indexMetaDataList = clusterService
                     .state()
-                    .getMetaData()
-                    .getAliasAndIndexLookup()
+                    .metadata()
+                    .getIndicesLookup()
                     .get(indexOrAliasName)
                     .getIndices();
                 if (indexMetaDataList.size() == 0) {
@@ -92,7 +92,7 @@ public class IndexUtils {
         }
 
         ClusterIndexHealth indexHealth = new ClusterIndexHealth(
-            clusterService.state().metaData().index(indexOrAliasName),
+            clusterService.state().metadata().index(indexOrAliasName),
             clusterService.state().getRoutingTable().index(indexOrAliasName)
         );
 

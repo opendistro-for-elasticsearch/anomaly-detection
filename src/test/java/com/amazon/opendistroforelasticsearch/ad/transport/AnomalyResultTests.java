@@ -63,7 +63,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.block.ClusterBlocks;
-import org.elasticsearch.cluster.metadata.IndexMetaData;
+import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -1002,13 +1002,13 @@ public class AnomalyResultTests extends AbstractADTest {
             case GLOBAL_BLOCK_WRITE:
                 blockedClusterState = ClusterState
                     .builder(new ClusterName("test cluster"))
-                    .blocks(ClusterBlocks.builder().addGlobalBlock(IndexMetaData.INDEX_WRITE_BLOCK))
+                    .blocks(ClusterBlocks.builder().addGlobalBlock(IndexMetadata.INDEX_WRITE_BLOCK))
                     .build();
                 break;
             case GLOBAL_BLOCK_READ:
                 blockedClusterState = ClusterState
                     .builder(new ClusterName("test cluster"))
-                    .blocks(ClusterBlocks.builder().addGlobalBlock(IndexMetaData.INDEX_READ_BLOCK))
+                    .blocks(ClusterBlocks.builder().addGlobalBlock(IndexMetadata.INDEX_READ_BLOCK))
                     .build();
                 break;
             case INDEX_BLOCK:
@@ -1068,7 +1068,7 @@ public class AnomalyResultTests extends AbstractADTest {
         globalBlockTemplate(
             BlockType.INDEX_BLOCK,
             AnomalyResultTransportAction.INDEX_READ_BLOCKED,
-            Settings.builder().put(IndexMetaData.INDEX_BLOCKS_READ_SETTING.getKey(), true).build(),
+            Settings.builder().put(IndexMetadata.INDEX_BLOCKS_READ_SETTING.getKey(), true).build(),
             "test1"
         );
     }

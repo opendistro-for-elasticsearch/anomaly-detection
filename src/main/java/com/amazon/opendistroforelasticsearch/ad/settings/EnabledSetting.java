@@ -55,7 +55,7 @@ public class EnabledSetting {
             put(AD_PLUGIN_ENABLED, Setting.boolSetting(AD_PLUGIN_ENABLED, true, NodeScope, Dynamic));
 
             /**
-             * LTR breaker enable/disable setting
+             * AD breaker enable/disable setting
              */
             put(AD_BREAKER_ENABLED, Setting.boolSetting(AD_BREAKER_ENABLED, true, NodeScope, Dynamic));
         }

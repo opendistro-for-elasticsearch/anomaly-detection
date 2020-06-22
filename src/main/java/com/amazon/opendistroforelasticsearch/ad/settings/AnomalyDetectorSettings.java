@@ -74,14 +74,6 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<TimeValue> AD_RESULT_HISTORY_INDEX_MAX_AGE = Setting
-        .positiveTimeSetting(
-            "opendistro.anomaly_detection.ad_result_history_max_age",
-            TimeValue.timeValueHours(24 * 30),
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic
-        );
-
     public static final Setting<Long> AD_RESULT_HISTORY_MAX_DOCS = Setting
         .longSetting(
             "opendistro.anomaly_detection.ad_result_history_max_docs",
@@ -90,6 +82,14 @@ public final class AnomalyDetectorSettings {
             // per day.
             9_000_000L,
             0L,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<TimeValue> AD_RESULT_HISTORY_RETENTION_PERIOD = Setting
+        .positiveTimeSetting(
+            "opendistro.anomaly_detection.ad_result_history_retention_period",
+            TimeValue.timeValueDays(90),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );

@@ -396,7 +396,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.REQUEST_TIMEOUT,
                 AnomalyDetectorSettings.DETECTION_INTERVAL,
                 AnomalyDetectorSettings.DETECTION_WINDOW_DELAY,
-                AnomalyDetectorSettings.AD_RESULT_HISTORY_INDEX_MAX_AGE,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS,
                 AnomalyDetectorSettings.AD_RESULT_ROLLOVER_PERIOD,
@@ -404,7 +403,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.COOLDOWN_MINUTES,
                 AnomalyDetectorSettings.BACKOFF_MINUTES,
                 AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY,
-                AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF
+                AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD
             );
         return unmodifiableList(Stream.concat(enabledSetting.stream(), systemSetting.stream()).collect(Collectors.toList()));
     }

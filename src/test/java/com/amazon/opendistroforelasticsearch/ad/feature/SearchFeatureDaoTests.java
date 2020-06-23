@@ -68,6 +68,7 @@ import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.elasticsearch.search.aggregations.metrics.Max;
+import org.elasticsearch.search.aggregations.metrics.NumericMetricsAggregation;
 import org.elasticsearch.search.aggregations.metrics.Percentile;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Before;
@@ -97,7 +98,6 @@ import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 @PowerMockRunnerDelegate(JUnitParamsRunner.class)
 @PrepareForTest({ ParseUtils.class })
 public class SearchFeatureDaoTests {
-
     private SearchFeatureDao searchFeatureDao;
 
     @Mock
@@ -435,7 +435,7 @@ public class SearchFeatureDaoTests {
     }
 
     @Test
-    public void getFeaturesForPeriod_returnEmpty_givenNoHits() throws Exception {
+    public void getFeaturesForPeriod_returnNonEmpty_givenDefaultValue() throws Exception {
         long start = 100L;
         long end = 200L;
 
@@ -443,11 +443,22 @@ public class SearchFeatureDaoTests {
         when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
         when(searchResponse.getHits()).thenReturn(new SearchHits(new SearchHit[0], new TotalHits(0L, TotalHits.Relation.EQUAL_TO), 1f));
 
+        List<Aggregation> aggList = new ArrayList<>(1);
+
+        NumericMetricsAggregation.SingleValue agg = mock(NumericMetricsAggregation.SingleValue.class);
+        when(agg.getName()).thenReturn("deny_max");
+        when(agg.value()).thenReturn(0d);
+
+        aggList.add(agg);
+
+        Aggregations aggregations = new Aggregations(aggList);
+        when(searchResponse.getAggregations()).thenReturn(aggregations);
+
         // test
         Optional<double[]> result = searchFeatureDao.getFeaturesForPeriod(detector, start, end);
 
         // verify
-        assertFalse(result.isPresent());
+        assertTrue(result.isPresent());
     }
 
     private Object[] getFeaturesForSampledPeriodsData() {

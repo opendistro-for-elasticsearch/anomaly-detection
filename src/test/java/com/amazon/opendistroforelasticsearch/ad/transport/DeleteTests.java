@@ -44,7 +44,6 @@ import org.elasticsearch.action.support.PlainActionFuture;
 import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.Strings;
@@ -66,10 +65,10 @@ import test.com.amazon.opendistroforelasticsearch.ad.util.ClusterCreation;
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
-import com.amazon.opendistroforelasticsearch.ad.cluster.DeleteDetector;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 public class DeleteTests extends AbstractADTest {
     private DeleteModelResponse response;
@@ -80,7 +79,6 @@ public class DeleteTests extends AbstractADTest {
     private ClusterService clusterService;
     private TransportService transportService;
     private ThreadPool threadPool;
-    private IndexNameExpressionResolver indexNameResolver;
     private ActionFilters actionFilters;
     private Task task;
 
@@ -132,7 +130,6 @@ public class DeleteTests extends AbstractADTest {
 
         transportService = mock(TransportService.class);
         threadPool = mock(ThreadPool.class);
-        indexNameResolver = mock(IndexNameExpressionResolver.class);
         actionFilters = mock(ActionFilters.class);
         Settings settings = Settings.builder().put("opendistro.anomaly_detection.request_timeout", TimeValue.timeValueSeconds(10)).build();
         task = mock(Task.class);
@@ -160,13 +157,13 @@ public class DeleteTests extends AbstractADTest {
         assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
     }
 
-    public void testEmptyIDDeleteDetector() {
-        ActionRequestValidationException e = new DeleteDetectorRequest().validate();
+    public void testEmptyIDStopDetector() {
+        ActionRequestValidationException e = new StopDetectorRequest().validate();
         assertThat(e.validationErrors(), hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
     }
 
-    public void testValidIDDeleteDetector() {
-        ActionRequestValidationException e = new DeleteDetectorRequest().adID("foo").validate();
+    public void testValidIDStopDetector() {
+        ActionRequestValidationException e = new StopDetectorRequest().adID("foo").validate();
         assertThat(e, is(nullValue()));
     }
 
@@ -179,12 +176,12 @@ public class DeleteTests extends AbstractADTest {
         assertThat(request.getAdID(), equalTo(readRequest.getAdID()));
     }
 
-    public void testSerialzationRequestDeleteDetector() throws IOException {
-        DeleteDetectorRequest request = new DeleteDetectorRequest().adID("123");
+    public void testSerialzationRequestStopDetector() throws IOException {
+        StopDetectorRequest request = new StopDetectorRequest().adID("123");
         BytesStreamOutput output = new BytesStreamOutput();
         request.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        DeleteDetectorRequest readRequest = new DeleteDetectorRequest(streamInput);
+        StopDetectorRequest readRequest = new StopDetectorRequest(streamInput);
         assertThat(request.getAdID(), equalTo(readRequest.getAdID()));
     }
 
@@ -197,8 +194,8 @@ public class DeleteTests extends AbstractADTest {
         assertEquals(JsonDeserializer.getTextValue(json, CommonMessageAttributes.ID_JSON_KEY), requestSupplier.get());
     }
 
-    public void testJsonRequestDeleteDetector() throws IOException, JsonPathNotFoundException {
-        DeleteDetectorRequest request = new DeleteDetectorRequest().adID("123");
+    public void testJsonRequestStopDetector() throws IOException, JsonPathNotFoundException {
+        StopDetectorRequest request = new StopDetectorRequest().adID("123");
         testJsonRequestTemplate(request, request::getAdID);
     }
 
@@ -221,7 +218,7 @@ public class DeleteTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    public void deleteDetectorResponseTemplate(DetectorExecutionMode mode) throws Exception {
+    public void StopDetectorResponseTemplate(DetectorExecutionMode mode) throws Exception {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 3);
@@ -244,44 +241,24 @@ public class DeleteTests extends AbstractADTest {
 
         String detectorID = "123";
 
-        DeleteDetector deleteDetector = mock(DeleteDetector.class);
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
-            assertTrue(args[1] instanceof ActionListener);
+        DiscoveryNodeFilterer nodeFilter = mock(DiscoveryNodeFilterer.class);
+        StopDetectorTransportAction action = new StopDetectorTransportAction(transportService, nodeFilter, actionFilters, client);
 
-            ActionListener<Void> listener = (ActionListener<Void>) args[1];
+        StopDetectorRequest request = new StopDetectorRequest().adID(detectorID);
+        PlainActionFuture<StopDetectorResponse> listener = new PlainActionFuture<>();
+        action.doExecute(task, request, listener);
 
-            listener.onResponse(null);
-
-            return null;
-        }).when(deleteDetector).markAnomalyResultDeleted(any(String.class), any());
-
-        DeleteDetectorTransportAction action = new DeleteDetectorTransportAction(
-            transportService,
-            clusterService,
-            threadPool,
-            actionFilters,
-            indexNameResolver,
-            client,
-            deleteDetector
-        );
-
-        DeleteDetectorRequest request = new DeleteDetectorRequest().adID(detectorID);
-        PlainActionFuture<AcknowledgedResponse> listener = new PlainActionFuture<>();
-        action.masterOperation(task, request, null, listener);
-
-        AcknowledgedResponse response = listener.actionGet();
-        assertTrue(!response.isAcknowledged());
+        StopDetectorResponse response = listener.actionGet();
+        assertTrue(!response.success());
 
     }
 
     public void testNormalResponse() throws Exception {
-        deleteDetectorResponseTemplate(DetectorExecutionMode.DELETE_MODEL_NORMAL);
+        StopDetectorResponseTemplate(DetectorExecutionMode.DELETE_MODEL_NORMAL);
     }
 
     public void testFailureResponse() throws Exception {
-        deleteDetectorResponseTemplate(DetectorExecutionMode.DELETE_MODEL_FAILURE);
+        StopDetectorResponseTemplate(DetectorExecutionMode.DELETE_MODEL_FAILURE);
     }
 
 }

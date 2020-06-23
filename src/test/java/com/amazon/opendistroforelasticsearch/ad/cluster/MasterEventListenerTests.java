@@ -43,7 +43,6 @@ import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 public class MasterEventListenerTests extends AbstractADTest {
     private ClusterService clusterService;
     private ThreadPool threadPool;
-    private DeleteDetector deleteUtil;
     private Client client;
     private Clock clock;
     private Cancellable hourlyCancellable;
@@ -63,7 +62,6 @@ public class MasterEventListenerTests extends AbstractADTest {
         when(threadPool.scheduleWithFixedDelay(any(HourlyCron.class), any(TimeValue.class), any(String.class)))
             .thenReturn(hourlyCancellable);
         when(threadPool.scheduleWithFixedDelay(any(DailyCron.class), any(TimeValue.class), any(String.class))).thenReturn(dailyCancellable);
-        deleteUtil = mock(DeleteDetector.class);
         client = mock(Client.class);
         clock = mock(Clock.class);
         clientUtil = mock(ClientUtil.class);
@@ -71,7 +69,7 @@ public class MasterEventListenerTests extends AbstractADTest {
         ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
         nodeFilter = new DiscoveryNodeFilterer(clusterService);
 
-        masterService = new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, nodeFilter);
+        masterService = new MasterEventListener(clusterService, threadPool, client, clock, clientUtil, nodeFilter);
     }
 
     public void testOnOffMaster() {

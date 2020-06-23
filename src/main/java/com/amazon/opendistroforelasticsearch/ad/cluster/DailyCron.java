@@ -22,7 +22,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.IndicesOptions;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryAction;
@@ -39,16 +38,12 @@ public class DailyCron implements Runnable {
     static final String CHECKPOINT_NOT_EXIST_MSG = "Checkpoint index does not exist.";
     static final String CHECKPOINT_DELETED_MSG = "checkpoint docs get deleted";
 
-    private final DeleteDetector deleteUtil;
     private final Clock clock;
-    private final Client client;
     private final Duration checkpointTtl;
     private final ClientUtil clientUtil;
 
-    public DailyCron(DeleteDetector deleteUtil, Clock clock, Client client, Duration checkpointTtl, ClientUtil clientUtil) {
-        this.deleteUtil = deleteUtil;
+    public DailyCron(Clock clock, Duration checkpointTtl, ClientUtil clientUtil) {
         this.clock = clock;
-        this.client = client;
         this.clientUtil = clientUtil;
         this.checkpointTtl = checkpointTtl;
     }
@@ -87,7 +82,6 @@ public class DailyCron implements Runnable {
                         }
                     )
             );
-        deleteUtil.deleteDetectorResult(client);
     }
 
 }

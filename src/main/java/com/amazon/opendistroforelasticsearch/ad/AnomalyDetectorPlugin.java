@@ -35,9 +35,7 @@ import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.NamedDiff;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
-import org.elasticsearch.cluster.metadata.MetaData.Custom;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
@@ -58,6 +56,7 @@ import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.ScriptPlugin;
 import org.elasticsearch.plugins.SystemIndexPlugin;
+import org.elasticsearch.repositories.RepositoriesService;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestHandler;
 import org.elasticsearch.script.ScriptService;
@@ -68,9 +67,6 @@ import org.elasticsearch.watcher.ResourceWatcherService;
 
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.ADClusterEventListener;
-import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData;
-import com.amazon.opendistroforelasticsearch.ad.cluster.ADMetaData.ADMetaDataDiff;
-import com.amazon.opendistroforelasticsearch.ad.cluster.DeleteDetector;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.cluster.MasterEventListener;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
@@ -111,8 +107,6 @@ import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronTransportAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
@@ -253,7 +247,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         Environment environment,
         NodeEnvironment nodeEnvironment,
         NamedWriteableRegistry namedWriteableRegistry,
-        IndexNameExpressionResolver indexNameExpressionResolver
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        Supplier<RepositoriesService> repositoriesServiceSupplier
     ) {
         EnabledSetting.getInstance().init(clusterService);
         this.client = client;
@@ -330,8 +325,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
 
-        DeleteDetector deleteUtil = new DeleteDetector(clusterService, clock);
-
         Map<String, ADStat<?>> stats = ImmutableMap
             .<String, ADStat<?>>builder()
             .put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
@@ -371,10 +364,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 stateManager,
                 runner,
                 new ADClusterEventListener(clusterService, hashRing, modelManager, nodeFilter),
-                deleteUtil,
                 adCircuitBreakerService,
                 adStats,
-                new MasterEventListener(clusterService, threadPool, deleteUtil, client, clock, clientUtil, nodeFilter),
+                new MasterEventListener(clusterService, threadPool, client, clock, clientUtil, nodeFilter),
                 nodeFilter
             );
     }
@@ -386,7 +378,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new FixedExecutorBuilder(
                     settings,
                     AD_THREAD_POOL_NAME,
-                    Math.max(1, EsExecutors.numberOfProcessors(settings) / 4),
+                    Math.max(1, EsExecutors.allocatedProcessors(settings) / 4),
                     AnomalyDetectorSettings.AD_THEAD_POOL_QUEUE_SIZE,
                     "opendistro.ad." + AD_THREAD_POOL_NAME
                 )
@@ -419,16 +411,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
     @Override
     public List<NamedXContentRegistry.Entry> getNamedXContent() {
-        return ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY, ADMetaData.XCONTENT_REGISTRY, AnomalyResult.XCONTENT_REGISTRY);
-    }
-
-    @Override
-    public List<NamedWriteableRegistry.Entry> getNamedWriteables() {
-        return Arrays
-            .asList(
-                new NamedWriteableRegistry.Entry(Custom.class, ADMetaData.TYPE, ADMetaData::new),
-                new NamedWriteableRegistry.Entry(NamedDiff.class, ADMetaData.TYPE, ADMetaDataDiff::new)
-            );
+        return ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY, AnomalyResult.XCONTENT_REGISTRY);
     }
 
     /*
@@ -439,7 +422,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         return Arrays
             .asList(
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
-                new ActionHandler<>(DeleteDetectorAction.INSTANCE, DeleteDetectorTransportAction.class),
                 new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
                 new ActionHandler<>(RCFResultAction.INSTANCE, RCFResultTransportAction.class),
                 new ActionHandler<>(ThresholdResultAction.INSTANCE, ThresholdResultTransportAction.class),
@@ -474,7 +456,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     }
 
     @Override
-    public Collection<SystemIndexDescriptor> getSystemIndexDescriptors() {
+    public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
         return Collections
             .unmodifiableList(
                 Arrays

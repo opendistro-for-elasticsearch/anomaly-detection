@@ -163,7 +163,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly detector index exists
      */
     public boolean doesAnomalyResultIndexExist() {
-        return clusterService.state().metaData().hasAlias(AnomalyResult.ANOMALY_RESULT_INDEX);
+        return clusterService.state().metadata().hasAlias(AnomalyResult.ANOMALY_RESULT_INDEX);
     }
 
     /**
@@ -280,7 +280,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         request.getCreateIndexRequest().index(AD_RESULT_HISTORY_INDEX_PATTERN).mapping(MAPPING_TYPE, adResultMapping, XContentType.JSON);
         request.addMaxIndexDocsCondition(historyMaxDocs);
         request.addMaxIndexAgeCondition(historyMaxAge);
-        RolloverResponse response = adminClient.indices().rolloversIndex(request).actionGet(requestTimeout);
+        RolloverResponse response = adminClient.indices().rolloverIndex(request).actionGet(requestTimeout);
         if (!response.isRolledOver()) {
             logger.warn("{} not rolled over. Conditions were: {}", AD_RESULT_HISTORY_WRITE_INDEX_ALIAS, response.getConditionStatus());
         }

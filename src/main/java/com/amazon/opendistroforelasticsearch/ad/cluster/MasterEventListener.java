@@ -35,7 +35,6 @@ public class MasterEventListener implements LocalNodeMasterListener {
     private Cancellable hourlyCron;
     private ClusterService clusterService;
     private ThreadPool threadPool;
-    private DeleteDetector deleteUtil;
     private Client client;
     private Clock clock;
     private ClientUtil clientUtil;
@@ -44,7 +43,6 @@ public class MasterEventListener implements LocalNodeMasterListener {
     public MasterEventListener(
         ClusterService clusterService,
         ThreadPool threadPool,
-        DeleteDetector deleteUtil,
         Client client,
         Clock clock,
         ClientUtil clientUtil,
@@ -52,7 +50,6 @@ public class MasterEventListener implements LocalNodeMasterListener {
     ) {
         this.clusterService = clusterService;
         this.threadPool = threadPool;
-        this.deleteUtil = deleteUtil;
         this.client = client;
         this.clusterService.addLocalNodeMasterListener(this);
         this.clock = clock;
@@ -76,7 +73,7 @@ public class MasterEventListener implements LocalNodeMasterListener {
         if (dailyCron == null) {
             dailyCron = threadPool
                 .scheduleWithFixedDelay(
-                    new DailyCron(deleteUtil, clock, client, AnomalyDetectorSettings.CHECKPOINT_TTL, clientUtil),
+                    new DailyCron(clock, AnomalyDetectorSettings.CHECKPOINT_TTL, clientUtil),
                     TimeValue.timeValueHours(24),
                     executorName()
                 );

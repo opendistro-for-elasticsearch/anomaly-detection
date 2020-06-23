@@ -21,7 +21,6 @@ import java.util.concurrent.ExecutionException;
 
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionRequestValidationException;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.test.ESIntegTestCase;
 
@@ -40,13 +39,13 @@ public class DeleteIT extends ESIntegTestCase {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
 
-    public void testNormalDeleteDetector() throws ExecutionException, InterruptedException {
-        DeleteDetectorRequest request = new DeleteDetectorRequest().adID("123");
+    public void testNormalStopDetector() throws ExecutionException, InterruptedException {
+        StopDetectorRequest request = new StopDetectorRequest().adID("123");
 
-        ActionFuture<AcknowledgedResponse> future = client().execute(DeleteDetectorAction.INSTANCE, request);
+        ActionFuture<StopDetectorResponse> future = client().execute(StopDetectorAction.INSTANCE, request);
 
-        AcknowledgedResponse response = future.get();
-        assertTrue(response.isAcknowledged());
+        StopDetectorResponse response = future.get();
+        assertTrue(response.success());
     }
 
     public void testNormalDeleteModel() throws ExecutionException, InterruptedException {
@@ -66,10 +65,10 @@ public class DeleteIT extends ESIntegTestCase {
         expectThrows(ActionRequestValidationException.class, () -> future.actionGet());
     }
 
-    public void testEmptyIDDeleteDetector() throws ExecutionException, InterruptedException {
-        DeleteDetectorRequest request = new DeleteDetectorRequest();
+    public void testEmptyIDStopDetector() throws ExecutionException, InterruptedException {
+        StopDetectorRequest request = new StopDetectorRequest();
 
-        ActionFuture<AcknowledgedResponse> future = client().execute(DeleteDetectorAction.INSTANCE, request);
+        ActionFuture<StopDetectorResponse> future = client().execute(StopDetectorAction.INSTANCE, request);
 
         expectThrows(ActionRequestValidationException.class, () -> future.actionGet());
     }

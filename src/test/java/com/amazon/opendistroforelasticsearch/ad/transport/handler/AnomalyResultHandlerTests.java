@@ -35,7 +35,7 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterState;
-import org.elasticsearch.cluster.metadata.IndexMetaData;
+import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
@@ -84,6 +84,7 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
         settings = null;
     }
 
+    @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
@@ -208,7 +209,7 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
     private void setWriteBlockAdResultIndex(boolean blocked) {
         String indexName = randomAlphaOfLength(10);
         Settings settings = blocked
-            ? Settings.builder().put(IndexMetaData.INDEX_BLOCKS_WRITE_SETTING.getKey(), true).build()
+            ? Settings.builder().put(IndexMetadata.INDEX_BLOCKS_WRITE_SETTING.getKey(), true).build()
             : Settings.EMPTY;
         ClusterState blockedClusterState = createIndexBlockedState(indexName, settings, AnomalyResult.ANOMALY_RESULT_INDEX);
         when(clusterService.state()).thenReturn(blockedClusterState);

@@ -246,7 +246,7 @@ public final class ParseUtils {
                 );
             } else {
                 if (metaData != null) {
-                    aggBuilder.setMetaData(metaData);
+                    aggBuilder.setMetadata(metaData);
                 }
 
                 if (subFactories != null) {

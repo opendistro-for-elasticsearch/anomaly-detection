@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.ad.cluster;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -28,7 +27,6 @@ import java.util.Arrays;
 
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
 import org.elasticsearch.index.reindex.DeleteByQueryAction;
@@ -58,11 +56,9 @@ public class DailyCronTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     private void templateDailyCron(DailyCronTestExecutionMode mode) {
-        DeleteDetector deleteUtil = mock(DeleteDetector.class);
         Clock clock = mock(Clock.class);
-        Client client = mock(Client.class);
         ClientUtil clientUtil = mock(ClientUtil.class);
-        DailyCron cron = new DailyCron(deleteUtil, clock, client, Duration.ofHours(24), clientUtil);
+        DailyCron cron = new DailyCron(clock, Duration.ofHours(24), clientUtil);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -83,9 +79,6 @@ public class DailyCronTests extends AbstractADTest {
 
             return null;
         }).when(clientUtil).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
-
-        // those tests are covered by each util class
-        doNothing().when(deleteUtil).deleteDetectorResult(eq(client));
 
         cron.run();
     }

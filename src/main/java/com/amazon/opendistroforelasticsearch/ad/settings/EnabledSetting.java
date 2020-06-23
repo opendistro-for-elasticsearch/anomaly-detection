@@ -45,12 +45,19 @@ public class EnabledSetting {
      */
     public static final String AD_PLUGIN_ENABLED = "opendistro.anomaly_detection.enabled";
 
+    public static final String AD_BREAKER_ENABLED = "opendistro.anomaly_detection.breaker.enabled";
+
     private final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
             /**
              * AD plugin enable/disable setting
              */
             put(AD_PLUGIN_ENABLED, Setting.boolSetting(AD_PLUGIN_ENABLED, true, NodeScope, Dynamic));
+
+            /**
+             * AD breaker enable/disable setting
+             */
+            put(AD_BREAKER_ENABLED, Setting.boolSetting(AD_BREAKER_ENABLED, true, NodeScope, Dynamic));
         }
     });
 
@@ -96,8 +103,20 @@ public class EnabledSetting {
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
+    /**
+     * Whether AD plugin is enabled.  If disabled, AD plugin rejects RESTful requests and stop all AD jobs.
+     * @return whether AD plugin is enabled.
+     */
     public static boolean isADPluginEnabled() {
         return EnabledSetting.getInstance().getSettingValue(EnabledSetting.AD_PLUGIN_ENABLED);
+    }
+
+    /**
+     * Whether AD circuit breaker is enabled or not.  If disabled, an open circuit breaker wouldn't cause an AD job to be stopped.
+     * @return whether AD circuit breaker is enabled or not.
+     */
+    public static boolean isADBreakerEnabled() {
+        return EnabledSetting.getInstance().getSettingValue(EnabledSetting.AD_BREAKER_ENABLED);
     }
 
     public void init(ClusterService clusterService) {

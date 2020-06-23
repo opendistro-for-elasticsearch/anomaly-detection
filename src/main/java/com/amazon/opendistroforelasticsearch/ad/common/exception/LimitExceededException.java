@@ -29,4 +29,15 @@ public class LimitExceededException extends EndRunException {
     public LimitExceededException(String anomalyDetectorId, String message) {
         super(anomalyDetectorId, message, true);
     }
+
+    /**
+     * Constructor with an anomaly detector ID and an explanation, and a flag for stopping.
+     *
+     * @param anomalyDetectorId ID of the anomaly detector for which the limit is exceeded
+     * @param message explanation for the limit
+     * @param stopNow whether to stop detector immediately
+     */
+    public LimitExceededException(String anomalyDetectorId, String message, boolean stopNow) {
+        super(anomalyDetectorId, message, stopNow);
+    }
 }

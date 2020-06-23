@@ -176,6 +176,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *   + training data for cold start not available
      *   + cold start cannot succeed
      *   + unknown prediction error
+     *   + memory circuit breaker tripped
      *
      *  Known cause of EndRunException with endNow returning true:
      *   + a model's memory size reached limit
@@ -215,7 +216,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         adStats.getStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
 
         if (adCircuitBreakerService.isOpen()) {
-            listener.onFailure(new LimitExceededException(adID, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
+            listener.onFailure(new LimitExceededException(adID, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
             return;
         }
 

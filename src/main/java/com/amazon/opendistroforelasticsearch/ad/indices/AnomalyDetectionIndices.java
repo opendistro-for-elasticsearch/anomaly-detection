@@ -31,6 +31,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
@@ -296,10 +297,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 logger.info("{} rolled over. Conditions were: {}", AD_RESULT_HISTORY_WRITE_INDEX_ALIAS, response.getConditionStatus());
                 deleteOldHistoryIndices();
             }
-        }, exception -> {
-            logger.error("Fail to roll over result index");
-            logger.error(exception);
-        }));
+        }, exception -> { logger.error("Fail to roll over result index", exception); }));
     }
 
     private void deleteOldHistoryIndices() {
@@ -347,7 +345,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                     }
                 }, exception -> { deleteIndexIteration(toDelete); }));
             }
-        }, exception -> { logger.error("Fail to get creation dates of result indices"); }));
+        }, exception -> { logger.error("Fail to delete result indices", exception); }));
     }
 
     private void deleteIndexIteration(String[] toDelete) {
@@ -361,8 +359,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 if (exception instanceof IndexNotFoundException) {
                     logger.info("{} was already deleted.", index);
                 } else {
-                    logger.error("Retrying deleting {} does not succeed.", index);
-                    logger.error(exception);
+                    logger.error(new ParameterizedMessage("Retrying deleting {} does not succeed.", index), exception);
                 }
             }));
         }

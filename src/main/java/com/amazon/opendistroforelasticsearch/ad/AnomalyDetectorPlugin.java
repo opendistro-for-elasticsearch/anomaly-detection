@@ -281,7 +281,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             gson,
             clock,
             AnomalyDetectorSettings.DESIRED_MODEL_SIZE_PERCENTAGE,
-            AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
             AnomalyDetectorSettings.NUM_TREES,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
             AnomalyDetectorSettings.TIME_DECAY,
@@ -296,7 +295,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.SHINGLE_SIZE
+            AnomalyDetectorSettings.SHINGLE_SIZE,
+            settings,
+            clusterService
         );
 
         HashRing hashRing = new HashRing(nodeFilter, clock, settings);
@@ -404,7 +405,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.BACKOFF_MINUTES,
                 AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY,
                 AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF,
-                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
+                AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE
             );
         return unmodifiableList(Stream.concat(enabledSetting.stream(), systemSetting.stream()).collect(Collectors.toList()));
     }

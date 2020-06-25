@@ -1,0 +1,35 @@
+# The overall template of the release notes
+template: |
+  Compatible with Elasticsearch (**set version here**) and Open Distro for Elasticsearch (**set version here**).
+  $CHANGES
+# Setting the formatting and sorting for the release notes body
+name-template: Version (set version here)
+change-template: '- $TITLE (PR #$NUMBER)'
+sort-by: merged_at
+sort-direction: ascending
+
+# Organizing the tagged PRs into categories
+categories:
+  - title: 'Breaking Changes'
+    labels:
+      - 'breaking change'
+  - title: 'Major Changes'
+    labels:
+      - 'feature'
+  - title: 'Enhancements'
+    labels:
+      - 'enhancement'
+  - title: 'Bug Fixes'
+    labels:
+      - 'bug'
+      - 'bug fix'
+  - title: 'Infra Changes'
+    labels:
+      - 'infra'
+      - 'test'
+      - 'documentation'
+      - 'dependencies'
+  - title: 'Version Upgrades'
+    labels:
+      - 'version upgrade'
+      - 'odfe-release'

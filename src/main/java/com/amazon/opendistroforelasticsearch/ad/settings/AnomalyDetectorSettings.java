@@ -22,7 +22,6 @@ import org.elasticsearch.common.unit.TimeValue;
 
 /**
  * AD plugin settings.
- * TODO: add more settings once detail design done.
  */
 public final class AnomalyDetectorSettings {
 
@@ -164,7 +163,14 @@ public final class AnomalyDetectorSettings {
     public static final double DESIRED_MODEL_SIZE_PERCENTAGE = 0.0002;
 
     public static final Setting<Double> MODEL_MAX_SIZE_PERCENTAGE = Setting
-        .doubleSetting("opendistro.anomaly_detection.model_max_size_percent", 0.1, 0, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .doubleSetting(
+            "opendistro.anomaly_detection.model_max_size_percent",
+            0.1,
+            0,
+            0.7,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
     // Thresholding
     public static final double THRESHOLD_MIN_PVALUE = 0.995;

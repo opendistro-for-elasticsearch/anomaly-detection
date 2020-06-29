@@ -281,6 +281,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             gson,
             clock,
             AnomalyDetectorSettings.DESIRED_MODEL_SIZE_PERCENTAGE,
+            AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings),
             AnomalyDetectorSettings.NUM_TREES,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
             AnomalyDetectorSettings.TIME_DECAY,
@@ -296,7 +297,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.SHINGLE_SIZE,
-            settings,
             clusterService
         );
 

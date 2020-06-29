@@ -182,6 +182,7 @@ public class ModelManagerTests {
                 gson,
                 clock,
                 modelDesiredSizePercentage,
+                modelMaxSizePercentage,
                 numTrees,
                 numSamples,
                 rcfTimeDecay,
@@ -197,7 +198,6 @@ public class ModelManagerTests {
                 modelTtl,
                 checkpointInterval,
                 shingleSize,
-                settings,
                 clusterService
             )
         );

@@ -44,7 +44,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.monitor.jvm.JvmService;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
@@ -91,7 +90,6 @@ public class ModelManager {
 
     // configuration
     private final double modelDesiredSizePercentage;
-    // percentage of heap for the max size of a model
     private double modelMaxSizePercentage;
     private final int rcfNumTrees;
     private final int rcfNumSamplesInTree;
@@ -132,6 +130,7 @@ public class ModelManager {
      * @param gson thresholding model serialization
      * @param clock clock for system time
      * @param modelDesiredSizePercentage percentage of heap for the desired size of a model
+     * @param modelMaxSizePercentage percentage of heap for the max size of a model
      * @param rcfNumTrees number of trees used in RCF
      * @param rcfNumSamplesInTree number of samples in a RCF tree
      * @param rcfTimeDecay time decay for RCF
@@ -147,6 +146,7 @@ public class ModelManager {
      * @param modelTtl time to live for hosted models
      * @param checkpointInterval interval between checkpoints
      * @param shingleSize required shingle size before RCF emitting anomaly scores
+     * @param clusterService cluster service object
      */
     public ModelManager(
         DiscoveryNodeFilterer nodeFilter,
@@ -156,6 +156,7 @@ public class ModelManager {
         Gson gson,
         Clock clock,
         double modelDesiredSizePercentage,
+        double modelMaxSizePercentage,
         int rcfNumTrees,
         int rcfNumSamplesInTree,
         double rcfTimeDecay,
@@ -171,7 +172,6 @@ public class ModelManager {
         Duration modelTtl,
         Duration checkpointInterval,
         int shingleSize,
-        Settings settings,
         ClusterService clusterService
     ) {
 
@@ -182,6 +182,7 @@ public class ModelManager {
         this.gson = gson;
         this.clock = clock;
         this.modelDesiredSizePercentage = modelDesiredSizePercentage;
+        this.modelMaxSizePercentage = modelMaxSizePercentage;
         this.rcfNumTrees = rcfNumTrees;
         this.rcfNumSamplesInTree = rcfNumSamplesInTree;
         this.rcfTimeDecay = rcfTimeDecay;
@@ -201,8 +202,7 @@ public class ModelManager {
         this.thresholds = new ConcurrentHashMap<>();
         this.shingleSize = shingleSize;
 
-        this.modelMaxSizePercentage = MODEL_MAX_SIZE_PERCENTAGE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> modelMaxSizePercentage = it);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.modelMaxSizePercentage = it);
     }
 
     /**

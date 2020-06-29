@@ -75,7 +75,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     public static final String ALL_AD_RESULTS_INDEX_PATTERN = ".opendistro-anomaly-results*";
 
     // Elastic mapping type
-    private static final String MAPPING_TYPE = "_doc";
+    static final String MAPPING_TYPE = "_doc";
 
     private ClusterService clusterService;
     private final AdminClient adminClient;
@@ -274,7 +274,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }
     }
 
-    private void rolloverAndDeleteHistoryIndex() {
+    void rolloverAndDeleteHistoryIndex() {
         if (!doesAnomalyResultIndexExist()) {
             return;
         }
@@ -300,7 +300,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }, exception -> { logger.error("Fail to roll over result index", exception); }));
     }
 
-    private void deleteOldHistoryIndices() {
+    void deleteOldHistoryIndices() {
         Set<String> candidates = new HashSet<String>();
 
         ClusterStateRequest clusterStateRequest = new ClusterStateRequest()
@@ -341,9 +341,12 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                             );
                         deleteIndexIteration(toDelete);
                     } else {
-                        logger.error("Succeeded in deleting expired anomaly result indices: {}.", Arrays.toString(toDelete));
+                        logger.info("Succeeded in deleting expired anomaly result indices: {}.", Arrays.toString(toDelete));
                     }
-                }, exception -> { deleteIndexIteration(toDelete); }));
+                }, exception -> {
+                    logger.error("Failed to delete expired anomaly result indices: {}.", Arrays.toString(toDelete));
+                    deleteIndexIteration(toDelete);
+                }));
             }
         }, exception -> { logger.error("Fail to delete result indices", exception); }));
     }

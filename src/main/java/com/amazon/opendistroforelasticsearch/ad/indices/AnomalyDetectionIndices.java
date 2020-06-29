@@ -15,38 +15,48 @@
 
 package com.amazon.opendistroforelasticsearch.ad.indices;
 
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_INDEX_MAX_AGE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTORS_INDEX_MAPPING_FILE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTOR_JOBS_INDEX_MAPPING_FILE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.ANOMALY_RESULTS_INDEX_MAPPING_FILE;
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 
 import java.io.IOException;
 import java.net.URL;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest;
-import org.elasticsearch.action.admin.indices.rollover.RolloverResponse;
+import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.AdminClient;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.LocalNodeMasterListener;
+import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 
@@ -65,16 +75,15 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     public static final String ALL_AD_RESULTS_INDEX_PATTERN = ".opendistro-anomaly-results*";
 
     // Elastic mapping type
-    private static final String MAPPING_TYPE = "_doc";
+    static final String MAPPING_TYPE = "_doc";
 
     private ClusterService clusterService;
     private final AdminClient adminClient;
     private final ThreadPool threadPool;
 
-    private volatile TimeValue requestTimeout;
-    private volatile TimeValue historyMaxAge;
     private volatile TimeValue historyRolloverPeriod;
     private volatile Long historyMaxDocs;
+    private volatile TimeValue historyRetentionPeriod;
 
     private Scheduler.Cancellable scheduledRollover = null;
 
@@ -93,17 +102,17 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.clusterService = clusterService;
         this.threadPool = threadPool;
         this.clusterService.addLocalNodeMasterListener(this);
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        this.historyMaxAge = AD_RESULT_HISTORY_INDEX_MAX_AGE.get(settings);
         this.historyRolloverPeriod = AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings);
         this.historyMaxDocs = AD_RESULT_HISTORY_MAX_DOCS.get(settings);
+        this.historyRetentionPeriod = AD_RESULT_HISTORY_RETENTION_PERIOD.get(settings);
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS, it -> historyMaxDocs = it);
-        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_INDEX_MAX_AGE, it -> historyMaxAge = it);
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
             historyRolloverPeriod = it;
             rescheduleRollover();
         });
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+        this.clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
     }
 
     /**
@@ -233,9 +242,10 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     public void onMaster() {
         try {
             // try to rollover immediately as we might be restarting the cluster
-            rolloverHistoryIndex();
+            rolloverAndDeleteHistoryIndex();
             // schedule the next rollover for approx MAX_AGE later
-            scheduledRollover = threadPool.scheduleWithFixedDelay(() -> rolloverHistoryIndex(), historyRolloverPeriod, executorName());
+            scheduledRollover = threadPool
+                .scheduleWithFixedDelay(() -> rolloverAndDeleteHistoryIndex(), historyRolloverPeriod, executorName());
         } catch (Exception e) {
             // This should be run on cluster startup
             logger.error("Error rollover AD result indices. " + "Can't rollover AD result until master node is restarted.", e);
@@ -259,13 +269,14 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             if (scheduledRollover != null) {
                 scheduledRollover.cancel();
             }
-            scheduledRollover = threadPool.scheduleWithFixedDelay(() -> rolloverHistoryIndex(), historyRolloverPeriod, executorName());
+            scheduledRollover = threadPool
+                .scheduleWithFixedDelay(() -> rolloverAndDeleteHistoryIndex(), historyRolloverPeriod, executorName());
         }
     }
 
-    private boolean rolloverHistoryIndex() {
+    void rolloverAndDeleteHistoryIndex() {
         if (!doesAnomalyResultIndexExist()) {
-            return false;
+            return;
         }
 
         // We have to pass null for newIndexName in order to get Elastic to increment the index count.
@@ -275,15 +286,85 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             adResultMapping = getAnomalyResultMappings();
         } catch (IOException e) {
             logger.error("Fail to roll over AD result index, as can't get AD result index mapping");
-            return false;
+            return;
         }
         request.getCreateIndexRequest().index(AD_RESULT_HISTORY_INDEX_PATTERN).mapping(MAPPING_TYPE, adResultMapping, XContentType.JSON);
         request.addMaxIndexDocsCondition(historyMaxDocs);
-        request.addMaxIndexAgeCondition(historyMaxAge);
-        RolloverResponse response = adminClient.indices().rolloverIndex(request).actionGet(requestTimeout);
-        if (!response.isRolledOver()) {
-            logger.warn("{} not rolled over. Conditions were: {}", AD_RESULT_HISTORY_WRITE_INDEX_ALIAS, response.getConditionStatus());
+        adminClient.indices().rolloverIndex(request, ActionListener.wrap(response -> {
+            if (!response.isRolledOver()) {
+                logger.warn("{} not rolled over. Conditions were: {}", AD_RESULT_HISTORY_WRITE_INDEX_ALIAS, response.getConditionStatus());
+            } else {
+                logger.info("{} rolled over. Conditions were: {}", AD_RESULT_HISTORY_WRITE_INDEX_ALIAS, response.getConditionStatus());
+                deleteOldHistoryIndices();
+            }
+        }, exception -> { logger.error("Fail to roll over result index", exception); }));
+    }
+
+    void deleteOldHistoryIndices() {
+        Set<String> candidates = new HashSet<String>();
+
+        ClusterStateRequest clusterStateRequest = new ClusterStateRequest()
+            .clear()
+            .indices(AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN)
+            .metadata(true)
+            .local(true)
+            .indicesOptions(IndicesOptions.strictExpand());
+
+        adminClient.cluster().state(clusterStateRequest, ActionListener.wrap(clusterStateResponse -> {
+            String latestToDelete = null;
+            long latest = Long.MIN_VALUE;
+            for (ObjectCursor<IndexMetadata> cursor : clusterStateResponse.getState().metadata().indices().values()) {
+                IndexMetadata indexMetaData = cursor.value;
+                long creationTime = indexMetaData.getCreationDate();
+
+                if ((Instant.now().toEpochMilli() - creationTime) > historyRetentionPeriod.millis()) {
+                    String indexName = indexMetaData.getIndex().getName();
+                    candidates.add(indexName);
+                    if (latest < creationTime) {
+                        latest = creationTime;
+                        latestToDelete = indexName;
+                    }
+                }
+            }
+
+            if (candidates.size() > 1) {
+                // delete all indices except the last one because the last one may contain docs newer than the retention period
+                candidates.remove(latestToDelete);
+                String[] toDelete = candidates.toArray(Strings.EMPTY_ARRAY);
+                DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest(toDelete);
+                adminClient.indices().delete(deleteIndexRequest, ActionListener.wrap(deleteIndexResponse -> {
+                    if (!deleteIndexResponse.isAcknowledged()) {
+                        logger
+                            .error(
+                                "Could not delete one or more Anomaly result indices: {}. Retrying one by one.",
+                                Arrays.toString(toDelete)
+                            );
+                        deleteIndexIteration(toDelete);
+                    } else {
+                        logger.info("Succeeded in deleting expired anomaly result indices: {}.", Arrays.toString(toDelete));
+                    }
+                }, exception -> {
+                    logger.error("Failed to delete expired anomaly result indices: {}.", Arrays.toString(toDelete));
+                    deleteIndexIteration(toDelete);
+                }));
+            }
+        }, exception -> { logger.error("Fail to delete result indices", exception); }));
+    }
+
+    private void deleteIndexIteration(String[] toDelete) {
+        for (String index : toDelete) {
+            DeleteIndexRequest singleDeleteRequest = new DeleteIndexRequest(index);
+            adminClient.indices().delete(singleDeleteRequest, ActionListener.wrap(singleDeleteResponse -> {
+                if (!singleDeleteResponse.isAcknowledged()) {
+                    logger.error("Retrying deleting {} does not succeed.", index);
+                }
+            }, exception -> {
+                if (exception instanceof IndexNotFoundException) {
+                    logger.info("{} was already deleted.", index);
+                } else {
+                    logger.error(new ParameterizedMessage("Retrying deleting {} does not succeed.", index), exception);
+                }
+            }));
         }
-        return response.isRolledOver();
     }
 }

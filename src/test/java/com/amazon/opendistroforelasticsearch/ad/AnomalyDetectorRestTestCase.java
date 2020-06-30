@@ -41,7 +41,6 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentParserUtils;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.test.rest.ESRestTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
@@ -49,7 +48,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
+public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {

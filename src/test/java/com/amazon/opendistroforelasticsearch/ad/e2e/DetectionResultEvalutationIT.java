@@ -31,13 +31,13 @@ import java.util.Set;
 
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
-import org.elasticsearch.test.rest.ESRestTestCase;
 
+import com.amazon.opendistroforelasticsearch.ad.ODFERestTestCase;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-public class DetectionResultEvalutationIT extends ESRestTestCase {
+public class DetectionResultEvalutationIT extends ODFERestTestCase {
 
     public void testDataset() throws Exception {
         verifyAnomaly("synthetic", 1, 1500, 8, .9, .9, 10);

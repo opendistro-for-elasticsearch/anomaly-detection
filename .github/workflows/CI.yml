@@ -46,7 +46,6 @@ jobs:
 
             ## The ESRestTest Client uses http by default.
             ## Need to disable the security plugin to call the rest api over http.
-            echo "RUN if [ -d /usr/share/elasticsearch/plugins/opendistro_security ]; then /usr/share/elasticsearch/bin/elasticsearch-plugin remove opendistro_security; fi" >> Dockerfile
             echo "RUN if [ -d /usr/share/elasticsearch/plugins/opendistro-anomaly-detection ]; then /usr/share/elasticsearch/bin/elasticsearch-plugin remove opendistro-anomaly-detection; fi" >> Dockerfile
             echo "ADD anomaly-detection/build/distributions/opendistro-anomaly-detection-$plugin_version.zip /tmp/" >> Dockerfile
             echo "RUN /usr/share/elasticsearch/bin/elasticsearch-plugin install --batch file:/tmp/opendistro-anomaly-detection-$plugin_version.zip" >> Dockerfile
@@ -63,9 +62,16 @@ jobs:
           cd ..
           docker run -p 9200:9200 -d -p 9600:9600 -e "discovery.type=single-node" odfe-ad:test
           sleep 90
-          curl -XGET http://localhost:9200/_cat/plugins
 
       - name: Run AD Test
         if: env.imagePresent == 'true'
         run: |
-          ./gradlew :integTestRunner --tests "com.amazon.opendistroforelasticsearch.ad.rest.*IT" --tests "com.amazon.opendistroforelasticsearch.ad.e2e.*IT" -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
+          security=`curl -XGET https://localhost:9200/_cat/plugins?v -u admin:admin --insecure |grep opendistro_security|wc -l`
+          if [ $security -gt 0 ]
+          then
+            echo "Security plugin is available"
+            ./gradlew :integTestRunner --tests "com.amazon.opendistroforelasticsearch.ad.rest.*IT" --tests "com.amazon.opendistroforelasticsearch.ad.e2e.*IT" -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster" -Dhttps=true -Duser=admin -Dpassword=admin
+          else
+            echo "Security plugin is NOT available"
+            ./gradlew :integTestRunner --tests "com.amazon.opendistroforelasticsearch.ad.rest.*IT" --tests "com.amazon.opendistroforelasticsearch.ad.e2e.*IT" -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
+          fi

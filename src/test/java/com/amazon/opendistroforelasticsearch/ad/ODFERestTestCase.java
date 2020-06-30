@@ -55,7 +55,7 @@ public abstract class ODFERestTestCase extends ESRestTestCase {
         if (isHttps) {
             // currently only external cluster is supported for security enabled testing
             if (!Optional.ofNullable(System.getProperty("tests.rest.cluster")).isPresent()) {
-                throw new RuntimeException("external cluster url should be provided for security enabled testing");
+                throw new RuntimeException("cluster url should be provided for security enabled testing");
             }
         }
 

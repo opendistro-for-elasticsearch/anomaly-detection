@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE;
+
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
@@ -41,6 +43,7 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.monitor.jvm.JvmService;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
@@ -87,7 +90,7 @@ public class ModelManager {
 
     // configuration
     private final double modelDesiredSizePercentage;
-    private final double modelMaxSizePercentage;
+    private double modelMaxSizePercentage;
     private final int rcfNumTrees;
     private final int rcfNumSamplesInTree;
     private final double rcfTimeDecay;
@@ -143,6 +146,7 @@ public class ModelManager {
      * @param modelTtl time to live for hosted models
      * @param checkpointInterval interval between checkpoints
      * @param shingleSize required shingle size before RCF emitting anomaly scores
+     * @param clusterService cluster service object
      */
     public ModelManager(
         DiscoveryNodeFilterer nodeFilter,
@@ -167,7 +171,8 @@ public class ModelManager {
         int minPreviewSize,
         Duration modelTtl,
         Duration checkpointInterval,
-        int shingleSize
+        int shingleSize,
+        ClusterService clusterService
     ) {
 
         this.nodeFilter = nodeFilter;
@@ -176,7 +181,6 @@ public class ModelManager {
         this.checkpointDao = checkpointDao;
         this.gson = gson;
         this.clock = clock;
-
         this.modelDesiredSizePercentage = modelDesiredSizePercentage;
         this.modelMaxSizePercentage = modelMaxSizePercentage;
         this.rcfNumTrees = rcfNumTrees;
@@ -197,6 +201,8 @@ public class ModelManager {
         this.forests = new ConcurrentHashMap<>();
         this.thresholds = new ConcurrentHashMap<>();
         this.shingleSize = shingleSize;
+
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.modelMaxSizePercentage = it);
     }
 
     /**

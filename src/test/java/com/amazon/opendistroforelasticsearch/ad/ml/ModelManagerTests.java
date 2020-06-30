@@ -51,7 +51,10 @@ import junitparams.Parameters;
 
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
+import org.elasticsearch.common.settings.ClusterSettings;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.monitor.jvm.JvmService;
 import org.junit.Before;
 import org.junit.Test;
@@ -78,7 +81,7 @@ import com.google.gson.Gson;
 @PowerMockIgnore("javax.management.*")
 @RunWith(PowerMockRunner.class)
 @PowerMockRunnerDelegate(JUnitParamsRunner.class)
-@PrepareForTest({ Gson.class })
+@PrepareForTest({ Gson.class, ClusterSettings.class })
 @SuppressWarnings("unchecked")
 public class ModelManagerTests {
 
@@ -133,6 +136,8 @@ public class ModelManagerTests {
     private String thresholdModelId;
     private String checkpoint;
     private int shingleSize;
+    private Settings settings;
+    private ClusterService clusterService;
 
     @Before
     public void setup() {
@@ -163,6 +168,11 @@ public class ModelManagerTests {
 
         gson = PowerMockito.mock(Gson.class);
 
+        settings = Settings.builder().put("opendistro.anomaly_detection.model_max_size_percent", modelMaxSizePercentage).build();
+        ClusterSettings clusterSettings = PowerMockito.mock(ClusterSettings.class);
+
+        clusterService = new ClusterService(settings, clusterSettings, null);
+
         modelManager = spy(
             new ModelManager(
                 nodeFilter,
@@ -187,7 +197,8 @@ public class ModelManagerTests {
                 minPreviewSize,
                 modelTtl,
                 checkpointInterval,
-                shingleSize
+                shingleSize,
+                clusterService
             )
         );
 

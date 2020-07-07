@@ -241,8 +241,8 @@ public class AnomalyDetectorProfileRunner {
                     long lastUpdateTimeMs = detectorState.getLastUpdateTime().toEpochMilli();
 
                     // if state index hasn't been updated, we should not use the error field
-                    // For example, before enabled, error is stopped due to, we should not show
-                    // this when the detector is enabled
+                    // For example, before enabled, error is "stopped due to blah", we should not show
+                    // this when the detector is enabled.
                     if (lastUpdateTimeMs > enabledTimeMs && detectorState.getError() != null) {
                         profileBuilder.error(detectorState.getError());
                     }

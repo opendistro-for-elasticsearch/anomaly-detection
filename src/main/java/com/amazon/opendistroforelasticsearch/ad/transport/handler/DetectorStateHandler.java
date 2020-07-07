@@ -42,6 +42,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
+import com.google.common.base.Objects;
 
 public class DetectorStateHandler extends AnomalyIndexHandler<DetectorInternalState> {
     interface GetStateStrategy {
@@ -65,7 +66,7 @@ public class DetectorStateHandler extends AnomalyIndexHandler<DetectorInternalSt
             DetectorInternalState newState = null;
             if (state == null) {
                 newState = new DetectorInternalState.Builder().error(error).lastUpdateTime(Instant.now()).build();
-            } else if ((state.getError() == null && error != null) || (state.getError() != null && !state.getError().equals(error))) {
+            } else if (!Objects.equal(state.getError(), error)) {
                 newState = (DetectorInternalState) state.clone();
                 newState.setError(error);
                 newState.setLastUpdateTime(Instant.now());

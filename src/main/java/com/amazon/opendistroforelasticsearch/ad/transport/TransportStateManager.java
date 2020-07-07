@@ -97,11 +97,7 @@ public class TransportStateManager {
         }
 
         int partitionNum = modelManager.getPartitionedForestSizes(detector).getKey();
-        TransportState state = transportStates.get(adID);
-        if (state == null) {
-            state = new TransportState(adID);
-            transportStates.put(adID, state);
-        }
+        TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id));
         state.setPartitonNumber(new SimpleEntry<>(partitionNum, clock.instant()));
 
         return partitionNum;

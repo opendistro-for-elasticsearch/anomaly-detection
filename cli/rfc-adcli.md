@@ -33,7 +33,7 @@ The AD CLI is an add-on to the Anomaly Detection. Hence, it is imperative that E
 
 ### Request for Comments:
 
-We would like comments and feedback on the proposal for building AD CLI tool. Some specific questions we’re seeking feedback include
+We would like comments and feedback on the proposal for building AD CLI tool [here](https://github.com/opendistro-for-elasticsearch/anomaly-detection/issues/186). Some specific questions we’re seeking feedback include
 
 
 * Would you like to provide Detector settings for create/update detector in YAML or JSON format?

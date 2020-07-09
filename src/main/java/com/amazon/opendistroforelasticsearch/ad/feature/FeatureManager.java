@@ -54,7 +54,7 @@ public class FeatureManager {
     private static final Logger logger = LogManager.getLogger(FeatureManager.class);
 
     // Each anomaly detector has a queue of data points with timestamps (in epoch milliseconds).
-    private Map<String, ArrayDeque<Entry<Long, Optional<double[]>>>> detectorIdsToTimeShingles;
+    private final Map<String, ArrayDeque<Entry<Long, Optional<double[]>>>> detectorIdsToTimeShingles;
 
     private final SearchFeatureDao searchFeatureDao;
     private final Interpolator interpolator;
@@ -175,7 +175,11 @@ public class FeatureManager {
             .mapToObj(time -> featuresMap.get(time))
             .forEach(e -> shingle.add(e));
 
-        getProcessedFeatures(shingle, detector, endTime, listener);
+        if (featuresMap.containsKey(endTime)) {
+            getProcessedFeatures(shingle, detector, endTime, listener);
+        } else {
+            listener.onResponse(new SinglePointFeatures(Optional.empty(), Optional.empty()));
+        }
     }
 
     private void getProcessedFeatures(
@@ -184,19 +188,14 @@ public class FeatureManager {
         long endTime,
         ActionListener<SinglePointFeatures> listener
     ) {
-        if (shingle.isEmpty() || shingle.getLast().getKey() < endTime || !shingle.getLast().getValue().isPresent()) {
-            listener.onResponse(new SinglePointFeatures(Optional.empty(), Optional.empty()));
-        } else {
-            double[][] currentPoints = filterAndFill(shingle, endTime, detector);
-            Optional<double[]> currentPoint = shingle.peekLast().getValue();
-            listener
-                .onResponse(
-                    Optional
-                        .ofNullable(currentPoints)
-                        .map(points -> new SinglePointFeatures(currentPoint, Optional.of(batchShingle(points, shingleSize)[0])))
-                        .orElse(new SinglePointFeatures(currentPoint, Optional.empty()))
-                );
-        }
+        Optional<double[]> currentPoint = shingle.peekLast().getValue();
+        listener
+            .onResponse(
+                currentPoint
+                    .map(point -> filterAndFill(shingle, endTime, detector))
+                    .map(points -> new SinglePointFeatures(currentPoint, Optional.of(batchShingle(points, shingleSize)[0])))
+                    .orElse(new SinglePointFeatures(currentPoint, Optional.empty()))
+            );
     }
 
     private double[][] filterAndFill(Deque<Entry<Long, Optional<double[]>>> shingle, long endTime, AnomalyDetector detector) {

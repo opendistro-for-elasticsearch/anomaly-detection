@@ -40,6 +40,7 @@ import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
+import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.google.common.base.Objects;
@@ -78,6 +79,7 @@ public class DetectorStateHandler extends AnomalyIndexHandler<DetectorInternalSt
 
     private static final Logger LOG = LogManager.getLogger(DetectorStateHandler.class);
     private NamedXContentRegistry xContentRegistry;
+    private TransportStateManager adStateManager;
 
     public DetectorStateHandler(
         Client client,
@@ -88,7 +90,8 @@ public class DetectorStateHandler extends AnomalyIndexHandler<DetectorInternalSt
         ClientUtil clientUtil,
         IndexUtils indexUtils,
         ClusterService clusterService,
-        NamedXContentRegistry xContentRegistry
+        NamedXContentRegistry xContentRegistry,
+        TransportStateManager adStateManager
     ) {
         super(
             client,
@@ -103,10 +106,16 @@ public class DetectorStateHandler extends AnomalyIndexHandler<DetectorInternalSt
             clusterService
         );
         this.xContentRegistry = xContentRegistry;
+        this.adStateManager = adStateManager;
     }
 
-    public void saveError(String error, String detectorId, Instant jobEnabledTime) {
-        update(detectorId, new ErrorStrategy(error), jobEnabledTime);
+    public void saveError(String error, String detectorId) {
+        // trigger indexing if no error recorded (e.g., this detector got enabled just now)
+        // or the recorded error is different than this one.
+        if (!Objects.equal(adStateManager.getLastError(detectorId), error)) {
+            update(detectorId, new ErrorStrategy(error));
+            adStateManager.setLastError(detectorId, error);
+        }
     }
 
     /**
@@ -114,7 +123,7 @@ public class DetectorStateHandler extends AnomalyIndexHandler<DetectorInternalSt
      * @param detectorId detector id
      * @param handler specify how to convert from existing state object to an object we want to save
      */
-    private void update(String detectorId, GetStateStrategy handler, Instant jobEnabledTime) {
+    private void update(String detectorId, GetStateStrategy handler) {
         try {
             GetRequest getRequest = new GetRequest(this.indexName).id(detectorId);
 
@@ -128,15 +137,7 @@ public class DetectorStateHandler extends AnomalyIndexHandler<DetectorInternalSt
                     ) {
                         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
                         DetectorInternalState state = DetectorInternalState.parse(parser);
-                        long lastUpdateTimeMs = state.getLastUpdateTime().toEpochMilli();
-                        // only create new state based on existing state if this is
-                        // the not first update after job being enabled
-                        if (lastUpdateTimeMs > jobEnabledTime.toEpochMilli()) {
-                            newState = handler.createNewState(state);
-                        } else {
-                            newState = handler.createNewState(null);
-                        }
-
+                        newState = handler.createNewState(state);
                     } catch (IOException e) {
                         LOG.error("Failed to update AD state for " + detectorId, e);
                         return;

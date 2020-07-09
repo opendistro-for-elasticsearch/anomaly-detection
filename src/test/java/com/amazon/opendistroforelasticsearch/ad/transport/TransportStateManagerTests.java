@@ -173,6 +173,13 @@ public class TransportStateManagerTests extends ESTestCase {
         verify(modelManager, times(1)).getPartitionedForestSizes(any());
     }
 
+    public void testGetLastError() throws IOException, InterruptedException {
+        String error = "blah";
+        assertEquals(TransportStateManager.IMPOSSIBLE_ERROR, stateManager.getLastError(adId));
+        stateManager.setLastError(adId, error);
+        assertEquals(error, stateManager.getLastError(adId));
+    }
+
     public void testShouldMute() {
         String nodeId = "123";
         assertTrue(!stateManager.isMuted(nodeId));

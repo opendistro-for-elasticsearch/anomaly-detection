@@ -29,12 +29,16 @@ public class TransportState {
     private Entry<Integer, Instant> partitonNumber;
     // checkpoint fetch time
     private Instant checkpoint;
+    // last error. Used by DetectorStateHandler to check if the error for a
+    // detector has changed or not. If changed, trigger indexing.
+    private Entry<String, Instant> lastError;
 
     public TransportState(String detectorId) {
         this.detectorId = detectorId;
         detectorDef = null;
         partitonNumber = null;
         checkpoint = null;
+        lastError = null;
     }
 
     public String getDetectorId() {
@@ -65,6 +69,14 @@ public class TransportState {
         this.checkpoint = checkpoint;
     };
 
+    public Entry<String, Instant> getLastError() {
+        return lastError;
+    }
+
+    public void setLastError(Entry<String, Instant> lastError) {
+        this.lastError = lastError;
+    }
+
     public boolean expired(Duration stateTtl, Instant now) {
         boolean ans = true;
         if (detectorDef != null) {
@@ -75,6 +87,9 @@ public class TransportState {
         }
         if (checkpoint != null) {
             ans = ans && expired(stateTtl, now, checkpoint);
+        }
+        if (lastError != null) {
+            ans = ans && expired(stateTtl, now, lastError.getValue());
         }
         return ans;
     }

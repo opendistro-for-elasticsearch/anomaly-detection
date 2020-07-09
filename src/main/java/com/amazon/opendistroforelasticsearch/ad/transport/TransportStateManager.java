@@ -62,6 +62,8 @@ public class TransportStateManager {
     private final Settings settings;
     private final Duration stateTtl;
 
+    public static final String IMPOSSIBLE_ERROR = "impossible_error";
+
     public TransportStateManager(
         Client client,
         NamedXContentRegistry xContentRegistry,
@@ -234,5 +236,30 @@ public class TransportStateManager {
      */
     public boolean hasRunningQuery(AnomalyDetector detector) {
         return clientUtil.hasRunningQuery(detector);
+    }
+
+    /**
+     * Get last error of a detector
+     * @param adID detector id
+     * @return last error for the detector
+     */
+    public String getLastError(String adID) {
+        if (transportStates.containsKey(adID) && transportStates.get(adID).getLastError() != null) {
+            Entry<String, Instant> errorAndTime = transportStates.get(adID).getLastError();
+            errorAndTime.setValue(clock.instant());
+            return errorAndTime.getKey();
+        }
+
+        return IMPOSSIBLE_ERROR;
+    }
+
+    /**
+     * Set last error of a detector
+     * @param adID detector id
+     * @param error error, can be null
+     */
+    public void setLastError(String adID, String error) {
+        TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id));
+        state.setLastError(new SimpleEntry<>(error, clock.instant()));
     }
 }

@@ -24,6 +24,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.util.Throwables;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
@@ -241,8 +242,9 @@ public class AnomalyDetectorProfileRunner {
                     long lastUpdateTimeMs = detectorState.getLastUpdateTime().toEpochMilli();
 
                     // if state index hasn't been updated, we should not use the error field
-                    // For example, before enabled, error is "stopped due to blah", we should not show
-                    // this when the detector is enabled.
+                    // For example, before a detector is enabled, if the error message contains
+                    // the phrase "stopped due to blah", we should not show this when the detector
+                    // is enabled.
                     if (lastUpdateTimeMs > enabledTimeMs && detectorState.getError() != null) {
                         profileBuilder.error(detectorState.getError());
                     }
@@ -368,7 +370,9 @@ public class AnomalyDetectorProfileRunner {
             }
         }, exception -> {
             // we will get an AnomalyDetectionException wrapping the real exception inside
-            Throwable cause = exception.getCause();
+            Throwable cause = Throwables.getRootCause(exception);
+
+            // exception can be a RemoteTransportException
             Exception causeException = (Exception) cause;
             if (ExceptionUtil
                 .isException(causeException, ResourceNotFoundException.class, ExceptionUtil.RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)

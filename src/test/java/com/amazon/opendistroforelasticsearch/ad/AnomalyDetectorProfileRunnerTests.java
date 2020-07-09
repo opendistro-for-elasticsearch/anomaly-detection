@@ -54,6 +54,7 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.search.SearchModule;
 import org.elasticsearch.test.ESTestCase;
+import org.elasticsearch.transport.RemoteTransportException;
 import org.junit.Before;
 import org.junit.BeforeClass;
 
@@ -180,6 +181,7 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
         INIT_NOT_EXIT,
         REMOTE_INIT_NOT_EXIT,
         INDEX_NOT_FOUND,
+        REMOTE_INDEX_NOT_FOUND,
         INIT_DONE,
         EMPTY,
         EXCEPTION,
@@ -349,6 +351,10 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
 
     public void testCheckpointIndexNotExist() throws IOException, InterruptedException {
         testInitOrRunningStateTemplate(RCFPollingStatus.INDEX_NOT_FOUND, DetectorState.INIT);
+    }
+
+    public void testRemoteCheckpointIndexNotExist() throws IOException, InterruptedException {
+        testInitOrRunningStateTemplate(RCFPollingStatus.REMOTE_INDEX_NOT_FOUND, DetectorState.INIT);
     }
 
     public void testResultEmpty() throws IOException, InterruptedException {
@@ -521,22 +527,27 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
             String detectorId = "123";
             if (inittedEverResultStatus == RCFPollingStatus.INIT_NOT_EXIT
                 || inittedEverResultStatus == RCFPollingStatus.REMOTE_INIT_NOT_EXIT
-                || inittedEverResultStatus == RCFPollingStatus.INDEX_NOT_FOUND) {
+                || inittedEverResultStatus == RCFPollingStatus.INDEX_NOT_FOUND
+                || inittedEverResultStatus == RCFPollingStatus.REMOTE_INDEX_NOT_FOUND) {
                 switch (inittedEverResultStatus) {
                     case INIT_NOT_EXIT:
+                    case REMOTE_INIT_NOT_EXIT:
                         cause = new ResourceNotFoundException(detectorId, messaingExceptionError);
                         break;
-                    case REMOTE_INIT_NOT_EXIT:
-                        cause = new NotSerializableExceptionWrapper(new ResourceNotFoundException(detectorId, messaingExceptionError));
-                        break;
                     case INDEX_NOT_FOUND:
+                    case REMOTE_INDEX_NOT_FOUND:
                         cause = new IndexNotFoundException(detectorId, CommonName.CHECKPOINT_INDEX_NAME);
                         break;
                     default:
                         assertTrue("should not reach here", false);
                         break;
                 }
-                listener.onFailure(new AnomalyDetectionException(detectorId, cause));
+                cause = new AnomalyDetectionException(detectorId, cause);
+                if (inittedEverResultStatus == RCFPollingStatus.REMOTE_INIT_NOT_EXIT
+                    || inittedEverResultStatus == RCFPollingStatus.REMOTE_INDEX_NOT_FOUND) {
+                    cause = new RemoteTransportException(RCFPollingAction.NAME, new NotSerializableExceptionWrapper(cause));
+                }
+                listener.onFailure(cause);
             } else {
                 RCFPollingResponse result = null;
                 switch (inittedEverResultStatus) {

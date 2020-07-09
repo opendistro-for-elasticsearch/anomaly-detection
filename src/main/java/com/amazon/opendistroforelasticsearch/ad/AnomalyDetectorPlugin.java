@@ -368,7 +368,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             this.clientUtil,
             this.indexUtils,
             clusterService,
-            xContentRegistry
+            xContentRegistry,
+            stateManager
         );
 
         return ImmutableList

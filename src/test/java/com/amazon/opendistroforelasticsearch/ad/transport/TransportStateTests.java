@@ -35,7 +35,7 @@ public class TransportStateTests extends ESTestCase {
 
     private Duration duration = Duration.ofHours(1);
 
-    public void testMaintenanceNotRemove() throws IOException {
+    public void testMaintenanceNotRemoveSingle() throws IOException {
         state
             .setDetectorDef(
                 new SimpleImmutableEntry<>(
@@ -47,7 +47,33 @@ public class TransportStateTests extends ESTestCase {
         assertTrue(!state.expired(duration, Instant.MIN));
     }
 
-    public void testMaintenancRemove() throws IOException {
+    public void testMaintenanceNotRemove() throws IOException {
+        state
+            .setDetectorDef(
+                new SimpleImmutableEntry<>(
+                    TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null),
+                    Instant.ofEpochSecond(1000)
+                )
+            );
+        state.setLastError(new SimpleImmutableEntry<>(null, Instant.ofEpochMilli(1000)));
+
+        assertTrue(!state.expired(duration, Instant.ofEpochSecond(3700)));
+    }
+
+    public void testMaintenanceRemoveLastError() throws IOException {
+        state
+            .setDetectorDef(
+                new SimpleImmutableEntry<>(
+                    TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null),
+                    Instant.ofEpochMilli(1000)
+                )
+            );
+        state.setLastError(new SimpleImmutableEntry<>(null, Instant.ofEpochMilli(1000)));
+
+        assertTrue(state.expired(duration, Instant.ofEpochSecond(3700)));
+    }
+
+    public void testMaintenancRemoveDetector() throws IOException {
         state
             .setDetectorDef(
                 new SimpleImmutableEntry<>(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null), Instant.MIN)

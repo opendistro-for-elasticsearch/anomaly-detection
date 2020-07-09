@@ -16,11 +16,13 @@
 package com.amazon.opendistroforelasticsearch.ad.transport.handler;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -37,6 +39,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
+import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectorStateHandler.ErrorStrategy;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
@@ -49,6 +52,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
     private Client client;
     private String error = "Stopped due to blah";
     private IndexUtils indexUtils;
+    private TransportStateManager stateManager;
 
     @Override
     public void setUp() throws Exception {
@@ -63,6 +67,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
         indexUtils = mock(IndexUtils.class);
         ClusterService clusterService = mock(ClusterService.class);
         ThreadPool threadPool = mock(ThreadPool.class);
+        stateManager = mock(TransportStateManager.class);
         detectorStateHandler = new DetectorStateHandler(
             client,
             settings,
@@ -72,7 +77,8 @@ public class DetectorStateHandlerTests extends ESTestCase {
             clientUtil,
             indexUtils,
             clusterService,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            stateManager
         );
     }
 
@@ -107,6 +113,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
     }
 
     public void testNoUpdateWitoutErrorChange() {
+        when(stateManager.getLastError(anyString())).thenReturn(error);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             @SuppressWarnings("unchecked")
@@ -116,12 +123,13 @@ public class DetectorStateHandlerTests extends ESTestCase {
             return null;
         }).when(client).get(any(), any());
 
-        detectorStateHandler.saveError(error, detectorId, Instant.ofEpochMilli(1));
+        detectorStateHandler.saveError(error, detectorId);
 
         verify(indexUtils, never()).checkIndicesBlocked(any(), any(), any());
     }
 
     public void testUpdateWithErrorChange() {
+        when(stateManager.getLastError(anyString())).thenReturn("blah");
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             @SuppressWarnings("unchecked")
@@ -131,12 +139,13 @@ public class DetectorStateHandlerTests extends ESTestCase {
             return null;
         }).when(client).get(any(), any());
 
-        detectorStateHandler.saveError(error, detectorId, Instant.ofEpochMilli(1));
+        detectorStateHandler.saveError(error, detectorId);
 
         verify(indexUtils, times(1)).checkIndicesBlocked(any(), any(), any());
     }
 
     public void testUpdateWithFirstChange() {
+        when(stateManager.getLastError(anyString())).thenReturn(TransportStateManager.IMPOSSIBLE_ERROR);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             @SuppressWarnings("unchecked")
@@ -148,7 +157,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
             return null;
         }).when(client).get(any(), any());
 
-        detectorStateHandler.saveError(error, detectorId, Instant.ofEpochMilli(2));
+        detectorStateHandler.saveError(error, detectorId);
 
         verify(indexUtils, times(1)).checkIndicesBlocked(any(), any(), any());
     }

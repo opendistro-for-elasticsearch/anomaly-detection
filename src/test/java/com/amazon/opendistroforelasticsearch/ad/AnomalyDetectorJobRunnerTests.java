@@ -68,6 +68,7 @@ import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectorStateHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
@@ -151,6 +152,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         AnomalyDetectionIndices anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
         IndexNameExpressionResolver indexNameResolver = mock(IndexNameExpressionResolver.class);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
+        TransportStateManager stateManager = mock(TransportStateManager.class);
         detectorStateHandler = new DetectorStateHandler(
             client,
             settings,
@@ -160,7 +162,8 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
             this.clientUtil,
             indexUtils,
             clusterService,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            stateManager
         );
         runner.setDetectorStateHandler(detectorStateHandler);
 

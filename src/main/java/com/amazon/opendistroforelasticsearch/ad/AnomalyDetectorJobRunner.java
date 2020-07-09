@@ -443,7 +443,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 response.getError()
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            detectorStateHandler.saveError(response.getError(), detectorId, jobParameter.getEnabledTime());
+            detectorStateHandler.saveError(response.getError(), detectorId);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {
@@ -498,7 +498,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 errorMessage
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            detectorStateHandler.saveError(errorMessage, detectorId, jobParameter.getEnabledTime());
+            detectorStateHandler.saveError(errorMessage, detectorId);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {

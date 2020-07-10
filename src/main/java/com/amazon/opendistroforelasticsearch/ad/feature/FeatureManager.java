@@ -38,6 +38,7 @@ import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -171,15 +172,10 @@ public class FeatureManager {
     ) {
         shingle.clear();
         getFullShingleEndTimes(endTime, getDetectorIntervalInMilliseconds(detector))
-            .filter(time -> featuresMap.containsKey(time))
-            .mapToObj(time -> featuresMap.get(time))
+            .mapToObj(time -> featuresMap.getOrDefault(time, new SimpleImmutableEntry<>(time, Optional.empty())))
             .forEach(e -> shingle.add(e));
 
-        if (featuresMap.containsKey(endTime)) {
-            getProcessedFeatures(shingle, detector, endTime, listener);
-        } else {
-            listener.onResponse(new SinglePointFeatures(Optional.empty(), Optional.empty()));
-        }
+        getProcessedFeatures(shingle, detector, endTime, listener);
     }
 
     private void getProcessedFeatures(
@@ -191,10 +187,11 @@ public class FeatureManager {
         Optional<double[]> currentPoint = shingle.peekLast().getValue();
         listener
             .onResponse(
-                currentPoint
-                    .map(point -> filterAndFill(shingle, endTime, detector))
-                    .map(points -> new SinglePointFeatures(currentPoint, Optional.of(batchShingle(points, shingleSize)[0])))
-                    .orElse(new SinglePointFeatures(currentPoint, Optional.empty()))
+                    new SinglePointFeatures(
+                            currentPoint,
+                            Optional.ofNullable(currentPoint.isPresent() ? filterAndFill(shingle, endTime, detector) : null)
+                                .map(points -> batchShingle(points, shingleSize)[0])
+                    )
             );
     }
 

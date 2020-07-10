@@ -62,7 +62,7 @@ public class TransportStateManager {
     private final Settings settings;
     private final Duration stateTtl;
 
-    public static final String IMPOSSIBLE_ERROR = "impossible_error";
+    public static final String NO_ERROR = "no_error";
 
     public TransportStateManager(
         Client client,
@@ -131,11 +131,7 @@ public class TransportStateManager {
             ) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId());
-                TransportState state = transportStates.get(adID);
-                if (state == null) {
-                    state = new TransportState(adID);
-                    transportStates.put(adID, state);
-                }
+                TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id));
                 state.setDetectorDef(new SimpleEntry<>(detector, clock.instant()));
 
                 listener.onResponse(Optional.of(detector));
@@ -250,7 +246,7 @@ public class TransportStateManager {
             return errorAndTime.getKey();
         }
 
-        return IMPOSSIBLE_ERROR;
+        return NO_ERROR;
     }
 
     /**

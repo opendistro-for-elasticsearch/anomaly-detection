@@ -130,7 +130,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
 
                         @Override
                         public String executor() {
-                            return ThreadPool.Names.GENERIC;
+                            return ThreadPool.Names.SAME;
                         }
 
                     });

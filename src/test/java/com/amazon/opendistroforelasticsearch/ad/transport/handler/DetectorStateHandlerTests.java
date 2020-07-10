@@ -145,7 +145,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
     }
 
     public void testUpdateWithFirstChange() {
-        when(stateManager.getLastError(anyString())).thenReturn(TransportStateManager.IMPOSSIBLE_ERROR);
+        when(stateManager.getLastError(anyString())).thenReturn(TransportStateManager.NO_ERROR);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             @SuppressWarnings("unchecked")

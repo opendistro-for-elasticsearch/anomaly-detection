@@ -1,0 +1,118 @@
+package com.amazon.opendistroforelasticsearch.ad.rest;
+
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.*;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.VALIDATE;
+
+import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
+import com.amazon.opendistroforelasticsearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+import com.google.common.collect.ImmutableList;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.node.NodeClient;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.index.seqno.SequenceNumbers;
+import org.elasticsearch.rest.BaseRestHandler;
+import org.elasticsearch.rest.RestRequest;
+import org.elasticsearch.common.settings.Settings;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
+
+import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.*;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+
+/**
+ * This class consists of the REST handler to validate anomaly detector configurations.
+ */
+
+public class RestValidateAnomalyDetectorAction extends BaseRestHandler {
+
+    private static final String VALIDATE_ANOMALY_DETECTOR_ACTION = "validate_anomaly_detector_action";
+    private final AnomalyDetectionIndices anomalyDetectionIndices;
+    private final Logger logger = LogManager.getLogger(RestValidateAnomalyDetectorAction.class);
+    private final Settings settings;
+
+
+    private volatile TimeValue detectionInterval;
+    private volatile TimeValue detectionWindowDelay;
+    private volatile Integer maxAnomalyDetectors;
+    private volatile Integer maxAnomalyFeatures;
+
+    public RestValidateAnomalyDetectorAction(
+            Settings settings,
+            AnomalyDetectionIndices anomalyDetectionIndices
+    ) {
+        this.settings = settings;
+        this.anomalyDetectionIndices = anomalyDetectionIndices;
+        this.detectionInterval = DETECTION_INTERVAL.get(settings);
+        this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(settings);
+        this.maxAnomalyDetectors = MAX_ANOMALY_DETECTORS.get(settings);
+        this.maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
+    }
+
+    protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+        if (!EnabledSetting.isADPluginEnabled()) {
+            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        }
+
+        String detectorId = request.param(DETECTOR_ID, AnomalyDetector.NO_ID);
+        logger.info("AnomalyDetector {} action for detectorId {}", request.method(), detectorId);
+
+        XContentParser parser = request.contentParser();
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+        // TODO: check detection interval < modelTTL
+        AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId, null, detectionInterval, detectionWindowDelay);
+        //System.out.println("detector interval amit print:" + detector.getDetectionInterval().PERIOD_FIELD);
+
+        long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
+        long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
+        WriteRequest.RefreshPolicy refreshPolicy = request.hasParam(REFRESH)
+                ? WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
+                : WriteRequest.RefreshPolicy.IMMEDIATE;
+
+        return channel -> new ValidateAnomalyDetectorActionHandler(
+                settings,
+                client,
+                channel,
+                anomalyDetectionIndices,
+                detectorId,
+                seqNo,
+                primaryTerm,
+                refreshPolicy,
+                detector,
+                maxAnomalyDetectors,
+                maxAnomalyFeatures
+        ).start();
+    }
+
+
+
+
+
+
+    @Override
+    public String getName() { return VALIDATE_ANOMALY_DETECTOR_ACTION; }
+
+    @Override
+    public List<Route> routes() {
+        return ImmutableList
+            .of(
+                // validate configs
+                new Route(
+                        RestRequest.Method.POST,
+                        String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE)
+                )
+            );
+    }
+}

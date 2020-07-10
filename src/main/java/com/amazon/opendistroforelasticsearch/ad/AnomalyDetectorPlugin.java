@@ -31,6 +31,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.amazon.opendistroforelasticsearch.ad.rest.*;
 import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
@@ -87,14 +88,6 @@ import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
-import com.amazon.opendistroforelasticsearch.ad.rest.RestAnomalyDetectorJobAction;
-import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.rest.RestExecuteAnomalyDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.rest.RestGetAnomalyDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.rest.RestIndexAnomalyDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyResultAction;
-import com.amazon.opendistroforelasticsearch.ad.rest.RestStatsAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
@@ -206,6 +199,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             anomalyDetectionIndices
         );
         RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction();
+        RestValidateAnomalyDetectorAction restValidateAnomalyDetectorAction = new RestValidateAnomalyDetectorAction(
+                settings,
+                anomalyDetectionIndices
+        );
         RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction();
         RestDeleteAnomalyDetectorAction deleteAnomalyDetectorAction = new RestDeleteAnomalyDetectorAction(clusterService);
         RestExecuteAnomalyDetectorAction executeAnomalyDetectorAction = new RestExecuteAnomalyDetectorAction(

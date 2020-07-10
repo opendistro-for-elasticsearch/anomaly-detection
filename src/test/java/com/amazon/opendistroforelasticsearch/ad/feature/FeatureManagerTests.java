@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.feature;
 
 import static java.util.Arrays.asList;
+import static java.util.Optional.empty;
 import static java.util.Optional.ofNullable;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -24,6 +25,7 @@ import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -51,6 +53,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
@@ -66,6 +69,8 @@ public class FeatureManagerTests {
     // configuration
     private int maxTrainSamples;
     private int maxSampleStride;
+    private int trainSampleTimeRangeInHours;
+    private int minTrainSamples;
     private int shingleSize;
     private int maxMissingPoints;
     private int maxNeighborDistance;
@@ -96,6 +101,8 @@ public class FeatureManagerTests {
 
         maxTrainSamples = 24;
         maxSampleStride = 100;
+        trainSampleTimeRangeInHours = 1;
+        minTrainSamples = 4;
         shingleSize = 3;
         maxMissingPoints = 2;
         maxNeighborDistance = 2;
@@ -114,6 +121,8 @@ public class FeatureManagerTests {
                 clock,
                 maxTrainSamples,
                 maxSampleStride,
+                trainSampleTimeRangeInHours,
+                minTrainSamples,
                 shingleSize,
                 maxMissingPoints,
                 maxNeighborDistance,
@@ -151,15 +160,37 @@ public class FeatureManagerTests {
         assertTrue(Arrays.deepEquals(expected, results.orElse(null)));
     }
 
+    private Object[] getTrainDataTestData() {
+        List<Entry<Long, Long>> ranges = asList(
+            entry(0L, 900_000L),
+            entry(900_000L, 1_800_000L),
+            entry(1_800_000L, 2_700_000L),
+            entry(2_700_000L, 3_600_000L)
+        );
+        return new Object[] {
+            new Object[] { 3_600_000L, ranges, asList(ar(1), ar(2), ar(3), ar(4)), new double[][] { { 1, 2, 3, 4 } } },
+            new Object[] { 3_600_000L, ranges, asList(ar(), ar(2), ar(3), ar(4)), new double[][] { { 2, 2, 3, 4 } } },
+            new Object[] { 3_600_000L, ranges, asList(ar(1), ar(), ar(3), ar(4)), new double[][] { { 1, 3, 3, 4 } } },
+            new Object[] { 3_600_000L, ranges, asList(ar(1), ar(2), ar(), ar(4)), new double[][] { { 1, 2, 4, 4 } } },
+            new Object[] { 3_600_000L, ranges, asList(ar(1), ar(), ar(), ar(4)), new double[][] { { 1, 1, 4, 4 } } },
+            new Object[] { 3_600_000L, ranges, asList(ar(), ar(2), ar(), ar(4)), new double[][] { { 2, 2, 4, 4 } } },
+            new Object[] { 3_600_000L, ranges, asList(ar(), ar(), ar(3), ar(4)), null },
+            new Object[] { 3_600_000L, ranges, asList(ar(1), empty(), empty(), empty()), null },
+            new Object[] { 3_600_000L, ranges, asList(empty(), empty(), empty(), ar(4)), null },
+            new Object[] { 3_600_000L, ranges, asList(empty(), empty(), empty(), empty()), null },
+            new Object[] { null, null, null, null } };
+    }
+
     @Test
     @SuppressWarnings("unchecked")
-    @Parameters(method = "getColdStartDataTestData")
+    @Parameters(method = "getTrainDataTestData")
     public void getColdStartData_returnExpectedToListener(
         Long latestTime,
-        Entry<double[][], Integer> data,
-        int interpolants,
+        List<Entry<Long, Long>> sampleRanges,
+        List<Optional<double[]>> samples,
         double[][] expected
-    ) {
+    ) throws Exception {
+        when(detector.getDetectionInterval()).thenReturn(new IntervalTimeConfiguration(15, ChronoUnit.MINUTES));
         doAnswer(invocation -> {
             ActionListener<Optional<Long>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.ofNullable(latestTime));
@@ -167,25 +198,30 @@ public class FeatureManagerTests {
         }).when(searchFeatureDao).getLatestDataTime(eq(detector), any(ActionListener.class));
         if (latestTime != null) {
             doAnswer(invocation -> {
-                ActionListener<Optional<Entry<double[][], Integer>>> listener = invocation.getArgument(4);
-                listener.onResponse(ofNullable(data));
+                ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(2);
+                listener.onResponse(samples);
                 return null;
-            })
-                .when(searchFeatureDao)
-                .getFeaturesForSampledPeriods(
-                    eq(detector),
-                    eq(maxTrainSamples),
-                    eq(maxSampleStride),
-                    eq(latestTime),
-                    any(ActionListener.class)
-                );
-        }
-        if (data != null) {
-            when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(data.getKey())), eq(interpolants))).thenReturn(data.getKey());
-            doReturn(data.getKey()).when(featureManager).batchShingle(argThat(new ArrayEqMatcher<>(data.getKey())), eq(shingleSize));
+            }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), any(ActionListener.class));
         }
 
         ActionListener<Optional<double[][]>> listener = mock(ActionListener.class);
+        featureManager = spy(
+            new FeatureManager(
+                searchFeatureDao,
+                interpolator,
+                clock,
+                maxTrainSamples,
+                maxSampleStride,
+                trainSampleTimeRangeInHours,
+                minTrainSamples,
+                4, /*shingleSize*/
+                2, /*maxMissingPoints*/
+                1, /*maxNeighborDistance*/
+                previewSampleRate,
+                maxPreviewSamples,
+                featureBufferTtl
+            )
+        );
         featureManager.getColdStartData(detector, listener);
 
         ArgumentCaptor<Optional<double[][]>> captor = ArgumentCaptor.forClass(Optional.class);
@@ -207,6 +243,22 @@ public class FeatureManagerTests {
         featureManager.getColdStartData(detector, listener);
 
         verify(listener).onFailure(any(Exception.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getColdStartData_throwToListener_onQueryCreationError() throws Exception {
+        doAnswer(invocation -> {
+            ActionListener<Optional<Long>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.ofNullable(0L));
+            return null;
+        }).when(searchFeatureDao).getLatestDataTime(eq(detector), any(ActionListener.class));
+        doThrow(IOException.class).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), any(), any(ActionListener.class));
+
+        ActionListener<Optional<double[][]>> listener = mock(ActionListener.class);
+        featureManager.getColdStartData(detector, listener);
+
+        verify(listener).onFailure(any(EndRunException.class));
     }
 
     private Object[] batchShingleData() {
@@ -411,5 +463,17 @@ public class FeatureManagerTests {
     @Test
     public void getPreviewFeatures_returnExceptionToListener_whenQueryFail() throws IOException {
         getPreviewFeaturesTemplate(asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 3 })), false, false);
+    }
+
+    private <K, V> Entry<K, V> entry(K key, V value) {
+        return new SimpleEntry<>(key, value);
+    }
+
+    private Optional<double[]> ar(double... values) {
+        if (values.length == 0) {
+            return Optional.empty();
+        } else {
+            return Optional.of(values);
+        }
     }
 }

@@ -27,6 +27,7 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,6 +42,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
@@ -61,6 +64,8 @@ public class FeatureManager {
 
     private final int maxTrainSamples;
     private final int maxSampleStride;
+    private final int trainSampleTimeRangeInHours;
+    private final int minTrainSamples;
     private final int shingleSize;
     private final int maxMissingPoints;
     private final int maxNeighborDistance;
@@ -76,6 +81,8 @@ public class FeatureManager {
      * @param clock clock for system time
      * @param maxTrainSamples max number of samples from search
      * @param maxSampleStride max stride between uninterpolated train samples
+     * @param trainSampleTimeRangeInHours time range in hours for collect train samples
+     * @param minTrainSamples min number of train samples
      * @param shingleSize size of feature shingles
      * @param maxMissingPoints max number of missing points allowed to generate a shingle
      * @param maxNeighborDistance max distance (number of intervals) between a missing point and a replacement neighbor
@@ -89,6 +96,8 @@ public class FeatureManager {
         Clock clock,
         int maxTrainSamples,
         int maxSampleStride,
+        int trainSampleTimeRangeInHours,
+        int minTrainSamples,
         int shingleSize,
         int maxMissingPoints,
         int maxNeighborDistance,
@@ -101,6 +110,8 @@ public class FeatureManager {
         this.clock = clock;
         this.maxTrainSamples = maxTrainSamples;
         this.maxSampleStride = maxSampleStride;
+        this.trainSampleTimeRangeInHours = trainSampleTimeRangeInHours;
+        this.minTrainSamples = minTrainSamples;
         this.shingleSize = shingleSize;
         this.maxMissingPoints = maxMissingPoints;
         this.maxNeighborDistance = maxNeighborDistance;
@@ -225,11 +236,11 @@ public class FeatureManager {
      * Returns to listener data for cold-start training.
      *
      * Training data starts with getting samples from (costly) search.
-     * Samples are increased in size via interpolation and then
-     * in dimension via shingling.
+     * Samples are increased in dimension via shingling.
      *
      * @param detector contains data info (indices, documents, etc)
      * @param listener onResponse is called with data for cold-start training, or empty if unavailable
+     *                 onFailure is called with EndRunException on feature query creation errors
      */
     public void getColdStartData(AnomalyDetector detector, ActionListener<Optional<double[][]>> listener) {
         searchFeatureDao
@@ -241,30 +252,75 @@ public class FeatureManager {
 
     private void getColdStartSamples(Optional<Long> latest, AnomalyDetector detector, ActionListener<Optional<double[][]>> listener) {
         if (latest.isPresent()) {
-            searchFeatureDao
-                .getFeaturesForSampledPeriods(
-                    detector,
-                    maxTrainSamples,
-                    maxSampleStride,
-                    latest.get(),
-                    ActionListener.wrap(samples -> processColdStartSamples(samples, listener), listener::onFailure)
-                );
+            List<Entry<Long, Long>> sampleRanges = getColdStartSampleRanges(detector, latest.get());
+            try {
+                searchFeatureDao
+                    .getFeatureSamplesForPeriods(
+                        detector,
+                        sampleRanges,
+                        ActionListener.wrap(samples -> processColdStartSamples(samples, listener), listener::onFailure)
+                    );
+            } catch (IOException e) {
+                listener.onFailure(new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));
+            }
         } else {
             listener.onResponse(Optional.empty());
         }
     }
 
-    private void processColdStartSamples(Optional<Entry<double[][], Integer>> samples, ActionListener<Optional<double[][]>> listener) {
-        listener
-            .onResponse(
-                samples
-                    .map(
-                        results -> transpose(
-                            interpolator.interpolate(transpose(results.getKey()), results.getValue() * (results.getKey().length - 1) + 1)
-                        )
-                    )
-                    .map(points -> batchShingle(points, shingleSize))
+    private void processColdStartSamples(List<Optional<double[]>> samples, ActionListener<Optional<double[][]>> listener) {
+        List<double[]> shingles = new ArrayList<>();
+        LinkedList<Optional<double[]>> currentShingle = new LinkedList<>();
+        for (Optional<double[]> sample : samples) {
+            currentShingle.addLast(sample);
+            if (currentShingle.size() == this.shingleSize) {
+                sample.ifPresent(s -> fillAndShingle(currentShingle, this.shingleSize).ifPresent(shingles::add));
+                currentShingle.remove();
+            }
+        }
+        listener.onResponse(Optional.of(shingles.toArray(new double[0][0])).filter(results -> results.length > 0));
+    }
+
+    private Optional<double[]> fillAndShingle(LinkedList<Optional<double[]>> shingle, int shingleSize) {
+        Optional<double[]> result = null;
+        if (shingle.stream().filter(s -> s.isPresent()).count() >= shingleSize - this.maxMissingPoints) {
+            TreeMap<Integer, double[]> search = new TreeMap<>(
+                IntStream
+                    .range(0, shingleSize)
+                    .filter(i -> shingle.get(i).isPresent())
+                    .boxed()
+                    .collect(Collectors.toMap(i -> i, i -> shingle.get(i).get()))
             );
+            result = Optional.of(IntStream.range(0, shingleSize).mapToObj(i -> {
+                Optional<Entry<Integer, double[]>> after = Optional.ofNullable(search.ceilingEntry(i));
+                Optional<Entry<Integer, double[]>> before = Optional.ofNullable(search.floorEntry(i));
+                return after
+                    .filter(a -> Math.abs(i - a.getKey()) <= before.map(b -> Math.abs(i - b.getKey())).orElse(Integer.MAX_VALUE))
+                    .map(Optional::of)
+                    .orElse(before)
+                    .filter(e -> Math.abs(i - e.getKey()) <= maxNeighborDistance)
+                    .map(Entry::getValue)
+                    .orElse(null);
+            }).filter(d -> d != null).toArray(double[][]::new))
+                .filter(d -> d.length == shingleSize)
+                .map(d -> batchShingle(d, shingleSize)[0]);
+        } else {
+            result = Optional.empty();
+        }
+        return result;
+    }
+
+    private List<Entry<Long, Long>> getColdStartSampleRanges(AnomalyDetector detector, long endMillis) {
+        long interval = getDetectionIntervalInMillis(detector);
+        int numSamples = Math.max((int) (Duration.ofHours(this.trainSampleTimeRangeInHours).toMillis() / interval), this.minTrainSamples);
+        return IntStream
+            .rangeClosed(1, numSamples)
+            .mapToObj(i -> new SimpleImmutableEntry<>(endMillis - (numSamples - i + 1) * interval, endMillis - (numSamples - i) * interval))
+            .collect(Collectors.toList());
+    }
+
+    private long getDetectionIntervalInMillis(AnomalyDetector detector) {
+        return ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
     }
 
     /**

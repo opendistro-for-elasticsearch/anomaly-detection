@@ -317,6 +317,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clock,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
+            AnomalyDetectorSettings.TRAIN_SAMPLE_TIME_RANGE_IN_HOURS,
+            AnomalyDetectorSettings.MIN_TRAIN_SAMPLES,
             AnomalyDetectorSettings.SHINGLE_SIZE,
             AnomalyDetectorSettings.MAX_MISSING_POINTS,
             AnomalyDetectorSettings.MAX_NEIGHBOR_DISTANCE,

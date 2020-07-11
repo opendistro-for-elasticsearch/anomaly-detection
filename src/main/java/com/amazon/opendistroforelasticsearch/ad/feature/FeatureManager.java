@@ -39,7 +39,6 @@ import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -154,7 +153,7 @@ public class FeatureManager {
                     updateUnprocessedFeatures(detector, shingle, featuresMap, endTime, listener);
                 }, listener::onFailure));
             } catch (IOException e) {
-                listener.onFailure(e);
+                listener.onFailure(new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));
             }
         } else {
             getProcessedFeatures(shingle, detector, endTime, listener);
@@ -198,11 +197,12 @@ public class FeatureManager {
         Optional<double[]> currentPoint = shingle.peekLast().getValue();
         listener
             .onResponse(
-                    new SinglePointFeatures(
-                            currentPoint,
-                            Optional.ofNullable(currentPoint.isPresent() ? filterAndFill(shingle, endTime, detector) : null)
-                                .map(points -> batchShingle(points, shingleSize)[0])
-                    )
+                new SinglePointFeatures(
+                    currentPoint,
+                    Optional
+                        .ofNullable(currentPoint.isPresent() ? filterAndFill(shingle, endTime, detector) : null)
+                        .map(points -> batchShingle(points, shingleSize)[0])
+                )
             );
     }
 

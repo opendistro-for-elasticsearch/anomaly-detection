@@ -192,6 +192,10 @@ public final class AnomalyDetectorSettings {
 
     public static final int MAX_SAMPLE_STRIDE = 64;
 
+    public static final int TRAIN_SAMPLE_TIME_RANGE_IN_HOURS = 24;
+
+    public static final int MIN_TRAIN_SAMPLES = 512;
+
     public static final int SHINGLE_SIZE = 8;
 
     public static final int MAX_MISSING_POINTS = Math.min(2, SHINGLE_SIZE);

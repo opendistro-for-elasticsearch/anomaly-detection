@@ -125,6 +125,13 @@ public class FeatureManager {
 
     /**
      * Returns to listener unprocessed features and processed features (such as shingle) for the current data point.
+     * The listener's onFailure is called with EndRunException on feature query creation errors.
+     *
+     * This method sends a single query for historical data for data points (including the current point) that are missing
+     * from the shingle, and updates the shingle which is persisted to future calls to this method for subsequent time
+     * intervals. To allow for time variations/delays, an interval is considered missing from the shingle if no data point
+     * is found within half an interval away. See doc for updateUnprocessedFeatures for details on how the shingle is
+     * updated.
      *
      * @param detector anomaly detector for which the features are returned
      * @param startTime start time of the data point in epoch milliseconds
@@ -136,6 +143,7 @@ public class FeatureManager {
         Deque<Entry<Long, Optional<double[]>>> shingle = detectorIdsToTimeShingles
             .computeIfAbsent(detector.getDetectorId(), id -> new ArrayDeque<>(shingleSize));
 
+        // To allow for small time variations/delays in running the detector.
         long maxTimeDifference = getDetectorIntervalInMilliseconds(detector) / 2;
         Map<Long, Entry<Long, Optional<double[]>>> featuresMap = getNearbyPointsForShingle(detector, shingle, endTime, maxTimeDifference)
             .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
@@ -173,6 +181,25 @@ public class FeatureManager {
             .collect(Collectors.toList());
     }
 
+    /**
+     * Updates the shingle to contain one Optional data point for each of shingleSize consecutive time intervals, ending
+     * with the current interval. Each entry in the shingle contains the timestamp of the data point as the key, and the
+     * data point wrapped in an Optional. If the data point is missing (even after querying, since this method is invoked
+     * after querying), an entry with an empty Optional value is stored in the shingle to prevent subsequent calls to
+     * getCurrentFeatures from re-querying the missing data point again.
+     *
+     * Note that in the presence of time variations/delays up to half an interval, the shingle stores the actual original
+     * end times of the data points, not the computed end times that were calculated based on the current endTime.
+     * Ex: if data points are queried at times 100, 201, 299, then the shingle will contain [<100: x>, <201: y>, <299: z>].
+     *
+     * @param detector anomaly detector for which the features are returned.
+     * @param shingle buffer which persists the past shingleSize data points to subsequent calls of getCurrentFeature.
+     *                Each entry contains the timestamp of the data point and an optional data point value.
+     * @param featuresMap A map where the keys are the computed millisecond timestamps associated with intervals in the
+     *                    shingle, and the values are entries that contain the actual timestamp of the data point and
+     *                    an optional data point value.
+     * @param listener onResponse is called with unprocessed features and processed features for the current data point.
+     */
     private void updateUnprocessedFeatures(
         AnomalyDetector detector,
         Deque<Entry<Long, Optional<double[]>>> shingle,
@@ -213,6 +240,7 @@ public class FeatureManager {
             .collect(Collectors.toCollection(ArrayDeque::new));
         double[][] result = null;
         if (filteredShingle.size() >= shingleSize - maxMissingPoints) {
+            // Imputes missing data points with the values of neighboring data points.
             long maxMillisecondsDifference = maxNeighborDistance * getDetectorIntervalInMilliseconds(detector);
             result = getNearbyPointsForShingle(detector, filteredShingle, endTime, maxMillisecondsDifference)
                 .map(e -> e.getValue().getValue().orElse(null))
@@ -226,6 +254,16 @@ public class FeatureManager {
         return result;
     }
 
+    /**
+     * Helper method that associates data points (along with their actual timestamps) to the intervals of a full shingle.
+     *
+     * Depending on the timestamp tolerance (maxMillisecondsDifference), this can be used to allow for small time
+     * variations/delays in running the detector, or used for imputing missing points in the shingle with neighboring points.
+     *
+     * @return A stream of entries, where the key is the computed millisecond timestamp associated with an interval in
+     * the shingle, and the value is an entry that contains the actual timestamp of the data point and an optional data
+     * point value.
+     */
     private Stream<Entry<Long, Entry<Long, Optional<double[]>>>> getNearbyPointsForShingle(
         AnomalyDetector detector,
         Deque<Entry<Long, Optional<double[]>>> shingle,

@@ -39,6 +39,7 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
@@ -48,10 +49,9 @@ import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
  * and the number of partitions for a detector id.
  *
  */
-public class ADStateManager {
-    private static final Logger LOG = LogManager.getLogger(ADStateManager.class);
-    private ConcurrentHashMap<String, Entry<AnomalyDetector, Instant>> currentDetectors;
-    private ConcurrentHashMap<String, Entry<Integer, Instant>> partitionNumber;
+public class TransportStateManager {
+    private static final Logger LOG = LogManager.getLogger(TransportStateManager.class);
+    private ConcurrentHashMap<String, TransportState> transportStates;
     private Client client;
     private ModelManager modelManager;
     private NamedXContentRegistry xContentRegistry;
@@ -62,7 +62,9 @@ public class ADStateManager {
     private final Settings settings;
     private final Duration stateTtl;
 
-    public ADStateManager(
+    public static final String NO_ERROR = "no_error";
+
+    public TransportStateManager(
         Client client,
         NamedXContentRegistry xContentRegistry,
         ModelManager modelManager,
@@ -71,11 +73,10 @@ public class ADStateManager {
         Clock clock,
         Duration stateTtl
     ) {
-        this.currentDetectors = new ConcurrentHashMap<>();
+        this.transportStates = new ConcurrentHashMap<>();
         this.client = client;
         this.modelManager = modelManager;
         this.xContentRegistry = xContentRegistry;
-        this.partitionNumber = new ConcurrentHashMap<>();
         this.clientUtil = clientUtil;
         this.backpressureMuter = new ConcurrentHashMap<>();
         this.clock = clock;
@@ -91,31 +92,31 @@ public class ADStateManager {
      * @throws LimitExceededException when there is no sufficient resource available
      */
     public int getPartitionNumber(String adID, AnomalyDetector detector) {
-        Entry<Integer, Instant> partitonAndTime = partitionNumber.get(adID);
-        if (partitonAndTime != null) {
+        if (transportStates.containsKey(adID) && transportStates.get(adID).getPartitonNumber() != null) {
+            Entry<Integer, Instant> partitonAndTime = transportStates.get(adID).getPartitonNumber();
             partitonAndTime.setValue(clock.instant());
             return partitonAndTime.getKey();
         }
 
         int partitionNum = modelManager.getPartitionedForestSizes(detector).getKey();
-        partitionNumber.putIfAbsent(adID, new SimpleEntry<>(partitionNum, clock.instant()));
+        TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id));
+        state.setPartitonNumber(new SimpleEntry<>(partitionNum, clock.instant()));
+
         return partitionNum;
     }
 
     public void getAnomalyDetector(String adID, ActionListener<Optional<AnomalyDetector>> listener) {
-        Entry<AnomalyDetector, Instant> detectorAndTime = currentDetectors.get(adID);
-        if (detectorAndTime != null) {
+        if (transportStates.containsKey(adID) && transportStates.get(adID).getDetectorDef() != null) {
+            Entry<AnomalyDetector, Instant> detectorAndTime = transportStates.get(adID).getDetectorDef();
             detectorAndTime.setValue(clock.instant());
             listener.onResponse(Optional.of(detectorAndTime.getKey()));
-            return;
+        } else {
+            GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX, adID);
+            clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetDetectorResponse(adID, listener));
         }
-
-        GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX, adID);
-
-        clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetResponse(adID, listener));
     }
 
-    private ActionListener<GetResponse> onGetResponse(String adID, ActionListener<Optional<AnomalyDetector>> listener) {
+    private ActionListener<GetResponse> onGetDetectorResponse(String adID, ActionListener<Optional<AnomalyDetector>> listener) {
         return ActionListener.wrap(response -> {
             if (response == null || !response.isExists()) {
                 listener.onResponse(Optional.empty());
@@ -130,7 +131,9 @@ public class ADStateManager {
             ) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId());
-                currentDetectors.put(adID, new SimpleEntry<>(detector, clock.instant()));
+                TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id));
+                state.setDetectorDef(new SimpleEntry<>(detector, clock.instant()));
+
                 listener.onResponse(Optional.of(detector));
             } catch (Exception t) {
                 LOG.error("Fail to parse detector {}", adID);
@@ -141,34 +144,60 @@ public class ADStateManager {
     }
 
     /**
+     * Get a detector's checkpoint and save a flag if we find any so that next time we don't need to do it again
+     * @param adID  the detector's ID
+     * @param listener listener to handle get request
+     */
+    public void getDetectorCheckpoint(String adID, ActionListener<Boolean> listener) {
+        if (transportStates.containsKey(adID) && transportStates.get(adID).getCheckpoint() != null) {
+            transportStates.get(adID).setCheckpoint(clock.instant());
+            listener.onResponse(Boolean.TRUE);
+            return;
+        }
+
+        GetRequest request = new GetRequest(CommonName.CHECKPOINT_INDEX_NAME, modelManager.getRcfModelId(adID, 0));
+
+        clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetCheckpointResponse(adID, listener));
+    }
+
+    private ActionListener<GetResponse> onGetCheckpointResponse(String adID, ActionListener<Boolean> listener) {
+        return ActionListener.wrap(response -> {
+            if (response == null || !response.isExists()) {
+                listener.onResponse(Boolean.FALSE);
+            } else {
+                TransportState state = transportStates.get(adID);
+                if (state == null) {
+                    state = new TransportState(adID);
+                    transportStates.put(adID, state);
+                }
+                state.setCheckpoint(clock.instant());
+                listener.onResponse(Boolean.TRUE);
+            }
+        }, listener::onFailure);
+    }
+
+    /**
      * Used in delete workflow
      *
      * @param adID detector ID
      */
     public void clear(String adID) {
-        currentDetectors.remove(adID);
-        partitionNumber.remove(adID);
-    }
-
-    public void maintenance() {
-        maintenance(currentDetectors);
-        maintenance(partitionNumber);
+        transportStates.remove(adID);
     }
 
     /**
-     * Clean states if it is older than our stateTtl. The input has to be a
+     * Clean states if it is older than our stateTtl. transportState has to be a
      * ConcurrentHashMap otherwise we will have
      * java.util.ConcurrentModificationException.
      *
-     * @param states states to be maintained
      */
-    <T> void maintenance(ConcurrentHashMap<String, Entry<T, Instant>> states) {
-        states.entrySet().stream().forEach(entry -> {
+    public void maintenance() {
+        transportStates.entrySet().stream().forEach(entry -> {
             String detectorId = entry.getKey();
             try {
-                Entry<T, Instant> stateAndTime = entry.getValue();
-                if (stateAndTime.getValue().plus(stateTtl).isBefore(clock.instant())) {
-                    states.remove(detectorId);
+                TransportState state = entry.getValue();
+                if (state.expired(stateTtl, clock.instant())) {
+                    transportStates.remove(detectorId);
                 }
             } catch (Exception e) {
                 LOG.warn("Failed to finish maintenance for detector id " + detectorId, e);
@@ -203,5 +232,30 @@ public class ADStateManager {
      */
     public boolean hasRunningQuery(AnomalyDetector detector) {
         return clientUtil.hasRunningQuery(detector);
+    }
+
+    /**
+     * Get last error of a detector
+     * @param adID detector id
+     * @return last error for the detector
+     */
+    public String getLastError(String adID) {
+        if (transportStates.containsKey(adID) && transportStates.get(adID).getLastError() != null) {
+            Entry<String, Instant> errorAndTime = transportStates.get(adID).getLastError();
+            errorAndTime.setValue(clock.instant());
+            return errorAndTime.getKey();
+        }
+
+        return NO_ERROR;
+    }
+
+    /**
+     * Set last error of a detector
+     * @param adID detector id
+     * @param error error, can be null
+     */
+    public void setLastError(String adID, String error) {
+        TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id));
+        state.setLastError(new SimpleEntry<>(error, clock.instant()));
     }
 }

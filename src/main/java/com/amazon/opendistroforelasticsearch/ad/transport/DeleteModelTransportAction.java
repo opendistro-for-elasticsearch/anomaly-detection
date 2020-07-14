@@ -35,7 +35,7 @@ import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 public class DeleteModelTransportAction extends
     TransportNodesAction<DeleteModelRequest, DeleteModelResponse, DeleteModelNodeRequest, DeleteModelNodeResponse> {
     private static final Logger LOG = LogManager.getLogger(DeleteModelTransportAction.class);
-    private ADStateManager transportStateManager;
+    private TransportStateManager transportStateManager;
     private ModelManager modelManager;
     private FeatureManager featureManager;
 
@@ -45,7 +45,7 @@ public class DeleteModelTransportAction extends
         ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
-        ADStateManager tarnsportStatemanager,
+        TransportStateManager tarnsportStatemanager,
         ModelManager modelManager,
         FeatureManager featureManager
     ) {
@@ -85,8 +85,6 @@ public class DeleteModelTransportAction extends
     }
 
     /**
-     * Precondition:
-     * associated alerting monitors have been deleted
      *
      * Delete checkpoint document (including both RCF and thresholding model), in-memory models,
      * buffered shingle data, transport state, and anomaly result

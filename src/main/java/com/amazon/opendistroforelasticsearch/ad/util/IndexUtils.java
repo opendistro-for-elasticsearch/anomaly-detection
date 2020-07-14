@@ -22,9 +22,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest;
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse;
+import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.ClusterState;
+import org.elasticsearch.cluster.block.ClusterBlockLevel;
 import org.elasticsearch.cluster.health.ClusterIndexHealth;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
+import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 
 public class IndexUtils {
@@ -44,6 +48,7 @@ public class IndexUtils {
     private Client client;
     private ClientUtil clientUtil;
     private ClusterService clusterService;
+    private final IndexNameExpressionResolver indexNameExpressionResolver;
 
     /**
      * Constructor
@@ -51,11 +56,18 @@ public class IndexUtils {
      * @param client Client to make calls to ElasticSearch
      * @param clientUtil AD Client utility
      * @param clusterService ES ClusterService
+     * @param indexNameExpressionResolver index name resolver
      */
-    public IndexUtils(Client client, ClientUtil clientUtil, ClusterService clusterService) {
+    public IndexUtils(
+        Client client,
+        ClientUtil clientUtil,
+        ClusterService clusterService,
+        IndexNameExpressionResolver indexNameExpressionResolver
+    ) {
         this.client = client;
         this.clientUtil = clientUtil;
         this.clusterService = clusterService;
+        this.indexNameExpressionResolver = indexNameExpressionResolver;
     }
 
     /**
@@ -116,5 +128,21 @@ public class IndexUtils {
         IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest();
         Optional<IndicesStatsResponse> response = clientUtil.timedRequest(indicesStatsRequest, logger, client.admin().indices()::stats);
         return response.map(r -> r.getIndex(indexName).getPrimaries().docs.getCount()).orElse(-1L);
+    }
+
+    /**
+     * Similar to checkGlobalBlock, we check block on the indices level.
+     *
+     * @param state   Cluster state
+     * @param level   block level
+     * @param indices the indices on which to check block
+     * @return whether any of the index has block on the level.
+     */
+    public boolean checkIndicesBlocked(ClusterState state, ClusterBlockLevel level, String... indices) {
+        // the original index might be an index expression with wildcards like "log*",
+        // so we need to expand the expression to concrete index name
+        String[] concreteIndices = indexNameExpressionResolver.concreteIndexNames(state, IndicesOptions.lenientExpandOpen(), indices);
+
+        return state.blocks().indicesBlockedException(level, concreteIndices) != null;
     }
 }

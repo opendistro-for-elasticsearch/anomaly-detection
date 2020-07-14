@@ -93,6 +93,8 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
      * @param refreshPolicy           refresh policy
      * @param anomalyDetector         anomaly detector instance
      * @param requestTimeout          request time out configuration
+     * @param maxAnomalyDetectors     max anomaly detector allowed
+     * @param maxAnomalyFeatures      max features allowed per detector
      */
     public IndexAnomalyDetectorActionHandler(
         Settings settings,

@@ -90,14 +90,17 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     }
 
     public void preDataValidationSteps() {
+
+        if (anomalyDetector.getName() == null) {
+            failures.add("name missing");
+
+
         String error = RestHandlerUtils.validateAnomalyDetector(anomalyDetector, maxAnomalyFeatures);
         if (StringUtils.isNotBlank(error)) {
-            channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
+            failures.add(error);
             return;
         }
-        if (channel.request().method() == RestRequest.Method.PUT) {
-            handler.getDetectorJob(clusterService, client, detectorId, channel, () -> updateAnomalyDetector(client, detectorId));
-        } else {
+        if ()
             createAnomalyDetector();
         }
     }

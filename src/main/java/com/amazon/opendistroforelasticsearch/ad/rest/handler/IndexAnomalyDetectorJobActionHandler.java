@@ -37,7 +37,6 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
-import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -65,8 +64,6 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
     private final String detectorId;
     private final Long seqNo;
     private final Long primaryTerm;
-    private final WriteRequest.RefreshPolicy refreshPolicy;
-    private final ClusterService clusterService;
 
     private final Logger logger = LogManager.getLogger(IndexAnomalyDetectorJobActionHandler.class);
     private final TimeValue requestTimeout;
@@ -74,34 +71,28 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
     /**
      * Constructor function.
      *
-     * @param clusterService          ClusterService
      * @param client                  ES node client that executes actions on the local node
      * @param channel                 ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetectionIndices anomaly detector index manager
      * @param detectorId              detector identifier
      * @param seqNo                   sequence number of last modification
      * @param primaryTerm             primary term of last modification
-     * @param refreshPolicy           refresh policy
      * @param requestTimeout          request time out configuration
      */
     public IndexAnomalyDetectorJobActionHandler(
-        ClusterService clusterService,
         NodeClient client,
         RestChannel channel,
         AnomalyDetectionIndices anomalyDetectionIndices,
         String detectorId,
         Long seqNo,
         Long primaryTerm,
-        WriteRequest.RefreshPolicy refreshPolicy,
         TimeValue requestTimeout
     ) {
         super(client, channel);
-        this.clusterService = clusterService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.detectorId = detectorId;
         this.seqNo = seqNo;
         this.primaryTerm = primaryTerm;
-        this.refreshPolicy = refreshPolicy;
         this.requestTimeout = requestTimeout;
     }
 

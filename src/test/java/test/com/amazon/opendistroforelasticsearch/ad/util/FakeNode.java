@@ -23,7 +23,9 @@ import static org.elasticsearch.test.ClusterServiceUtils.setState;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import org.apache.lucene.util.SetOnce;
@@ -40,16 +42,19 @@ import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.network.NetworkService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.BoundTransportAddress;
+import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.util.PageCacheRecycler;
 import org.elasticsearch.indices.breaker.NoneCircuitBreakerService;
 import org.elasticsearch.tasks.TaskManager;
+import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.test.tasks.MockTaskManager;
 import org.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.transport.TransportInterceptor;
 import org.elasticsearch.transport.TransportService;
 import org.elasticsearch.transport.nio.MockNioTransport;
 
 public class FakeNode implements Releasable {
-    public FakeNode(String name, ThreadPool threadPool, Settings settings) {
+    public FakeNode(String name, ThreadPool threadPool, Settings settings, TransportInterceptor transportInterceptor) {
         final Function<BoundTransportAddress, DiscoveryNode> boundTransportAddressDiscoveryNodeFunction = address -> {
             discoveryNode.set(new DiscoveryNode(name, address.publishAddress(), emptyMap(), emptySet(), Version.CURRENT));
             return discoveryNode.get();
@@ -64,9 +69,14 @@ public class FakeNode implements Releasable {
                 PageCacheRecycler.NON_RECYCLING_INSTANCE,
                 new NamedWriteableRegistry(ClusterModule.getNamedWriteables()),
                 new NoneCircuitBreakerService()
-            ),
+            ) {
+                @Override
+                public TransportAddress[] addressesFromString(String address) {
+                    return new TransportAddress[] { dns.getOrDefault(address, ESTestCase.buildNewFakeTransportAddress()) };
+                }
+            },
             threadPool,
-            TransportService.NOOP_TRANSPORT_INTERCEPTOR,
+            transportInterceptor,
             boundTransportAddressDiscoveryNodeFunction,
             null,
             Collections.emptySet()
@@ -80,6 +90,7 @@ public class FakeNode implements Releasable {
                 }
             }
         };
+
         transportService.start();
         clusterService = createClusterService(threadPool, discoveryNode.get());
         clusterService.addStateApplier(transportService.getTaskManager());
@@ -89,11 +100,16 @@ public class FakeNode implements Releasable {
         transportService.acceptIncomingRequests();
     }
 
+    public FakeNode(String name, ThreadPool threadPool, Settings settings) {
+        this(name, threadPool, settings, TransportService.NOOP_TRANSPORT_INTERCEPTOR);
+    }
+
     public final ClusterService clusterService;
     public final TransportService transportService;
     private final SetOnce<DiscoveryNode> discoveryNode = new SetOnce<>();
     public final TransportListTasksAction transportListTasksAction;
     public final TransportCancelTasksAction transportCancelTasksAction;
+    private final Map<String, TransportAddress> dns = new ConcurrentHashMap<>();
 
     @Override
     public void close() {

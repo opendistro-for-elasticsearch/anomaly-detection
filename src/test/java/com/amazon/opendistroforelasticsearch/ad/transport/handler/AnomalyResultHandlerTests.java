@@ -41,6 +41,7 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -57,6 +58,10 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectio
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTests;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
+import com.amazon.opendistroforelasticsearch.ad.util.ThrowingConsumerWrapper;
 
 public class AnomalyResultHandlerTests extends AbstractADTest {
     private static Settings settings;
@@ -66,11 +71,22 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
     @Mock
     private Client client;
 
-    @Mock
-    private AnomalyDetectionIndices anomalyDetectionIndices;
+    private ClientUtil clientUtil;
 
     @Mock
     private IndexNameExpressionResolver indexNameResolver;
+
+    @Mock
+    private AnomalyDetectionIndices anomalyDetectionIndices;
+
+    private String detectorId = "123";
+
+    @Mock
+    private Throttler throttler;
+
+    private ThreadPool context;
+
+    private IndexUtils indexUtil;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -88,9 +104,12 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        super.setUpLog4jForJUnit(AnomalyResultHandler.class);
+        super.setUpLog4jForJUnit(AnomalyIndexHandler.class);
         MockitoAnnotations.initMocks(this);
         setWriteBlockAdResultIndex(false);
+        context = TestHelpers.createThreadPool();
+        clientUtil = new ClientUtil(settings, client, throttler, context);
+        indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
     }
 
     @Override
@@ -114,25 +133,29 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             listener.onResponse(mock(IndexResponse.class));
             return null;
         }).when(client).index(any(IndexRequest.class), ArgumentMatchers.<ActionListener<IndexResponse>>any());
-        AnomalyResultHandler handler = new AnomalyResultHandler(
+        AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
             client,
             settings,
-            clusterService,
-            indexNameResolver,
-            anomalyDetectionIndices,
-            threadPool
+            threadPool,
+            AnomalyResult.ANOMALY_RESULT_INDEX,
+            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
+            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            false,
+            clientUtil,
+            indexUtil,
+            clusterService
         );
-        handler.indexAnomalyResult(TestHelpers.randomAnomalyDetectResult());
-        assertEquals(1, testAppender.countMessage((AnomalyResultHandler.SUCCESS_SAVING_MSG)));
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
+        assertEquals(1, testAppender.countMessage(AnomalyIndexHandler.SUCCESS_SAVING_MSG, true));
     }
 
     @Test
     public void testSavingFailureNotRetry() throws InterruptedException, IOException {
         savingFailureTemplate(false, 1, true);
 
-        assertEquals(1, testAppender.countMessage((AnomalyResultHandler.FAIL_TO_SAVE_ERR_MSG)));
-        assertTrue(!testAppender.containsMessage(AnomalyResultHandler.SUCCESS_SAVING_MSG));
-        assertTrue(!testAppender.containsMessage(AnomalyResultHandler.RETRY_SAVING_ERR_MSG));
+        assertEquals(1, testAppender.countMessage(AnomalyIndexHandler.FAIL_TO_SAVE_ERR_MSG, true));
+        assertTrue(!testAppender.containsMessage(AnomalyIndexHandler.SUCCESS_SAVING_MSG, true));
+        assertTrue(!testAppender.containsMessage(AnomalyIndexHandler.RETRY_SAVING_ERR_MSG, true));
     }
 
     @Test
@@ -140,57 +163,69 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
         setWriteBlockAdResultIndex(false);
         savingFailureTemplate(true, 3, true);
 
-        assertEquals(2, testAppender.countMessage((AnomalyResultHandler.RETRY_SAVING_ERR_MSG)));
-        assertEquals(1, testAppender.countMessage((AnomalyResultHandler.FAIL_TO_SAVE_ERR_MSG)));
-        assertTrue(!testAppender.containsMessage(AnomalyResultHandler.SUCCESS_SAVING_MSG));
+        assertEquals(2, testAppender.countMessage(AnomalyIndexHandler.RETRY_SAVING_ERR_MSG, true));
+        assertEquals(1, testAppender.countMessage(AnomalyIndexHandler.FAIL_TO_SAVE_ERR_MSG, true));
+        assertTrue(!testAppender.containsMessage(AnomalyIndexHandler.SUCCESS_SAVING_MSG, true));
     }
 
     @Test
     public void testIndexWriteBlock() {
         setWriteBlockAdResultIndex(true);
-        AnomalyResultHandler handler = new AnomalyResultHandler(
+        AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
             client,
             settings,
-            clusterService,
-            indexNameResolver,
-            anomalyDetectionIndices,
-            threadPool
+            threadPool,
+            AnomalyResult.ANOMALY_RESULT_INDEX,
+            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
+            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            false,
+            clientUtil,
+            indexUtil,
+            clusterService
         );
-        handler.indexAnomalyResult(TestHelpers.randomAnomalyDetectResult());
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
 
-        assertTrue(testAppender.containsMessage(AnomalyResultHandler.CANNOT_SAVE_ERR_MSG));
+        assertTrue(testAppender.containsMessage(AnomalyIndexHandler.CANNOT_SAVE_ERR_MSG, true));
     }
 
     @Test
     public void testAdResultIndexExist() throws IOException {
         setInitAnomalyResultIndexException(true);
-        AnomalyResultHandler handler = new AnomalyResultHandler(
+        AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
             client,
             settings,
-            clusterService,
-            indexNameResolver,
-            anomalyDetectionIndices,
-            threadPool
+            threadPool,
+            AnomalyResult.ANOMALY_RESULT_INDEX,
+            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
+            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            false,
+            clientUtil,
+            indexUtil,
+            clusterService
         );
-        handler.indexAnomalyResult(TestHelpers.randomAnomalyDetectResult());
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
         verify(client, times(1)).index(any(), any());
     }
 
     @Test
     public void testAdResultIndexOtherException() throws IOException {
         expectedEx.expect(AnomalyDetectionException.class);
-        expectedEx.expectMessage("Error in saving anomaly index for ID");
+        expectedEx.expectMessage("Error in saving .opendistro-anomaly-results for detector " + detectorId);
 
         setInitAnomalyResultIndexException(false);
-        AnomalyResultHandler handler = new AnomalyResultHandler(
+        AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
             client,
             settings,
-            clusterService,
-            indexNameResolver,
-            anomalyDetectionIndices,
-            threadPool
+            threadPool,
+            AnomalyResult.ANOMALY_RESULT_INDEX,
+            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
+            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            false,
+            clientUtil,
+            indexUtil,
+            clusterService
         );
-        handler.indexAnomalyResult(TestHelpers.randomAnomalyDetectResult());
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
         verify(client, never()).index(any(), any());
     }
 
@@ -257,16 +292,20 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             .put("opendistro.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
             .build();
 
-        AnomalyResultHandler handler = new AnomalyResultHandler(
+        AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
             client,
             backoffSettings,
-            clusterService,
-            indexNameResolver,
-            anomalyDetectionIndices,
-            threadPool
+            threadPool,
+            AnomalyResult.ANOMALY_RESULT_INDEX,
+            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
+            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            false,
+            clientUtil,
+            indexUtil,
+            clusterService
         );
 
-        handler.indexAnomalyResult(TestHelpers.randomAnomalyDetectResult());
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
 
         backoffLatch.await();
     }

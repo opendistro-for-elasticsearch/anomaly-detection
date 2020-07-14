@@ -32,7 +32,7 @@ import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 
 public class CronTransportAction extends TransportNodesAction<CronRequest, CronResponse, CronNodeRequest, CronNodeResponse> {
 
-    private ADStateManager transportStateManager;
+    private TransportStateManager transportStateManager;
     private ModelManager modelManager;
     private FeatureManager featureManager;
 
@@ -42,7 +42,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
-        ADStateManager tarnsportStatemanager,
+        TransportStateManager tarnsportStatemanager,
         ModelManager modelManager,
         FeatureManager featureManager
     ) {

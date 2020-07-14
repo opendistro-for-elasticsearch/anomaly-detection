@@ -40,6 +40,7 @@ import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorActionHandler;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.google.common.collect.ImmutableList;
@@ -91,13 +92,13 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
         client.delete(deleteRequest, ActionListener.wrap(response -> {
             if (response.getResult() == DocWriteResponse.Result.DELETED || response.getResult() == DocWriteResponse.Result.NOT_FOUND) {
-                deleteAnomalyDetectorDoc(client, detectorId, channel);
+                deleteDetectorStateDoc(client, detectorId, channel);
             } else {
                 logger.error("Fail to delete anomaly detector job {}", detectorId);
             }
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {
-                deleteAnomalyDetectorDoc(client, detectorId, channel);
+                deleteDetectorStateDoc(client, detectorId, channel);
             } else {
                 logger.error("Failed to delete anomaly detector job", exception);
                 try {
@@ -107,6 +108,34 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
                 }
             }
         }));
+    }
+
+    private void deleteDetectorStateDoc(NodeClient client, String detectorId, RestChannel channel) {
+        logger.info("Delete detector info {}", detectorId);
+        DeleteRequest deleteRequest = new DeleteRequest(DetectorInternalState.DETECTOR_STATE_INDEX, detectorId);
+        client
+            .delete(
+                deleteRequest,
+                ActionListener
+                    .wrap(
+                        response -> {
+                            // whether deleted state doc or not, continue as state doc may not exist
+                            deleteAnomalyDetectorDoc(client, detectorId, channel);
+                        },
+                        exception -> {
+                            if (exception instanceof IndexNotFoundException) {
+                                deleteAnomalyDetectorDoc(client, detectorId, channel);
+                            } else {
+                                logger.error("Failed to delete detector state", exception);
+                                try {
+                                    channel.sendResponse(new BytesRestResponse(channel, exception));
+                                } catch (IOException e) {
+                                    logger.error("Failed to send response of deletedetector state", e);
+                                }
+                            }
+                        }
+                    )
+            );
     }
 
     private void deleteAnomalyDetectorDoc(NodeClient client, String detectorId, RestChannel channel) {

@@ -89,7 +89,7 @@ import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInter
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
-import com.amazon.opendistroforelasticsearch.ad.transport.ADStateManager;
+import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 
@@ -128,7 +128,7 @@ public class SearchFeatureDaoTests {
     @Mock
     private Max max;
     @Mock
-    private ADStateManager stateManager;
+    private TransportStateManager stateManager;
 
     @Mock
     private AnomalyDetector detector;

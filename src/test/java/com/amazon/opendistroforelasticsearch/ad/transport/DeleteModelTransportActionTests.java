@@ -69,7 +69,7 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
 
         TransportService transportService = mock(TransportService.class);
         ActionFilters actionFilters = mock(ActionFilters.class);
-        ADStateManager tarnsportStatemanager = mock(ADStateManager.class);
+        TransportStateManager tarnsportStatemanager = mock(TransportStateManager.class);
         ModelManager modelManager = mock(ModelManager.class);
         FeatureManager featureManager = mock(FeatureManager.class);
 

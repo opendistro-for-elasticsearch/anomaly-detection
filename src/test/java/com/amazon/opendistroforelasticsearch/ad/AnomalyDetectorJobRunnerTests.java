@@ -70,7 +70,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
-import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectorStateHandler;
+import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.ThrowingConsumerWrapper;
@@ -113,7 +113,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Mock
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
 
-    private DetectorStateHandler detectorStateHandler;
+    private DetectionStateHandler detectorStateHandler;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -153,7 +153,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         IndexNameExpressionResolver indexNameResolver = mock(IndexNameExpressionResolver.class);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
         TransportStateManager stateManager = mock(TransportStateManager.class);
-        detectorStateHandler = new DetectorStateHandler(
+        detectorStateHandler = new DetectionStateHandler(
             client,
             settings,
             threadPool,
@@ -165,7 +165,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
             NamedXContentRegistry.EMPTY,
             stateManager
         );
-        runner.setDetectorStateHandler(detectorStateHandler);
+        runner.setDetectionStateHandler(detectorStateHandler);
 
         lockService = new LockService(client, clusterService);
         doReturn(lockService).when(context).getLockService();

@@ -45,7 +45,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.google.common.base.Objects;
 
-public class DetectorStateHandler extends AnomalyIndexHandler<DetectorInternalState> {
+public class DetectionStateHandler extends AnomalyIndexHandler<DetectorInternalState> {
     interface GetStateStrategy {
         /**
          * Strategy to create new state to save.  Return null if state does not change and don't need to save.
@@ -77,11 +77,11 @@ public class DetectorStateHandler extends AnomalyIndexHandler<DetectorInternalSt
         }
     }
 
-    private static final Logger LOG = LogManager.getLogger(DetectorStateHandler.class);
+    private static final Logger LOG = LogManager.getLogger(DetectionStateHandler.class);
     private NamedXContentRegistry xContentRegistry;
     private TransportStateManager adStateManager;
 
-    public DetectorStateHandler(
+    public DetectionStateHandler(
         Client client,
         Settings settings,
         ThreadPool threadPool,

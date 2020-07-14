@@ -119,7 +119,7 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
-import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectorStateHandler;
+import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
@@ -154,7 +154,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
     private IndexUtils indexUtils;
-    private DetectorStateHandler detectorStateHandler;
+    private DetectionStateHandler detectorStateHandler;
 
     static {
         SpecialPermission.check();
@@ -195,7 +195,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setClientUtil(clientUtil);
         jobRunner.setThreadPool(threadPool);
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
-        jobRunner.setDetectorStateHandler(detectorStateHandler);
+        jobRunner.setDetectionStateHandler(detectorStateHandler);
         jobRunner.setSettings(settings);
 
         AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(
@@ -359,7 +359,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         adStats = new ADStats(indexUtils, modelManager, stats);
         ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
-        this.detectorStateHandler = new DetectorStateHandler(
+        this.detectorStateHandler = new DetectionStateHandler(
             client,
             settings,
             threadPool,

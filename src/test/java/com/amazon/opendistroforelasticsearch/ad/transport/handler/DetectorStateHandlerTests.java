@@ -40,14 +40,14 @@ import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
-import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectorStateHandler.ErrorStrategy;
+import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler.ErrorStrategy;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import com.amazon.opendistroforelasticsearch.ad.util.ThrowingConsumerWrapper;
 
 public class DetectorStateHandlerTests extends ESTestCase {
-    private DetectorStateHandler detectorStateHandler;
+    private DetectionStateHandler detectorStateHandler;
     private String detectorId = "123";
     private Client client;
     private String error = "Stopped due to blah";
@@ -68,7 +68,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
         ClusterService clusterService = mock(ClusterService.class);
         ThreadPool threadPool = mock(ThreadPool.class);
         stateManager = mock(TransportStateManager.class);
-        detectorStateHandler = new DetectorStateHandler(
+        detectorStateHandler = new DetectionStateHandler(
             client,
             settings,
             threadPool,

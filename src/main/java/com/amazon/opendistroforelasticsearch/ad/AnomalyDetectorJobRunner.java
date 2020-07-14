@@ -57,7 +57,7 @@ import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultRequest;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
-import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectorStateHandler;
+import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel;
@@ -80,7 +80,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     private ThreadPool threadPool;
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
     private ConcurrentHashMap<String, Integer> detectorEndRunExceptionCount;
-    private DetectorStateHandler detectorStateHandler;
+    private DetectionStateHandler detectionStateHandler;
 
     public static AnomalyDetectorJobRunner getJobRunnerInstance() {
         if (INSTANCE != null) {
@@ -121,8 +121,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         this.maxRetryForEndRunException = AnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings);
     }
 
-    public void setDetectorStateHandler(DetectorStateHandler detectorStateHandler) {
-        this.detectorStateHandler = detectorStateHandler;
+    public void setDetectionStateHandler(DetectionStateHandler detectionStateHandler) {
+        this.detectionStateHandler = detectionStateHandler;
     }
 
     @Override
@@ -443,7 +443,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 response.getError()
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            detectorStateHandler.saveError(response.getError(), detectorId);
+            detectionStateHandler.saveError(response.getError(), detectorId);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {
@@ -498,7 +498,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 errorMessage
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            detectorStateHandler.saveError(errorMessage, detectorId);
+            detectionStateHandler.saveError(errorMessage, detectorId);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {

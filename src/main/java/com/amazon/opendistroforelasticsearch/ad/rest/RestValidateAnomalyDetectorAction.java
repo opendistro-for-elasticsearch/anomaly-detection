@@ -66,20 +66,11 @@ public class RestValidateAnomalyDetectorAction extends BaseRestHandler {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
 
-        String detectorId = request.param(DETECTOR_ID, AnomalyDetector.NO_ID);
-        logger.info("AnomalyDetector {} action for detectorId {}", request.method(), detectorId);
+        String detectorId = AnomalyDetector.NO_ID;
 
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
-        // TODO: check detection interval < modelTTL
-        AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId, null, detectionInterval, detectionWindowDelay);
-        //System.out.println("detector interval amit print:" + detector.getDetectionInterval().PERIOD_FIELD);
-
-        long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
-        long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
-        WriteRequest.RefreshPolicy refreshPolicy = request.hasParam(REFRESH)
-                ? WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
-                : WriteRequest.RefreshPolicy.IMMEDIATE;
+        AnomalyDetector detector = AnomalyDetector.parseValidation(parser, detectorId, null);
 
         return channel -> new ValidateAnomalyDetectorActionHandler(
                 settings,
@@ -87,18 +78,11 @@ public class RestValidateAnomalyDetectorAction extends BaseRestHandler {
                 channel,
                 anomalyDetectionIndices,
                 detectorId,
-                seqNo,
-                primaryTerm,
-                refreshPolicy,
                 detector,
                 maxAnomalyDetectors,
                 maxAnomalyFeatures
-        ).start();
+        ).validate();
     }
-
-
-
-
 
 
     @Override

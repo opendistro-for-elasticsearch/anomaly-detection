@@ -84,6 +84,7 @@ public class AnomalyDetector implements ToXContentObject {
     private final Map<String, Object> uiMetadata;
     private final Integer schemaVersion;
     private final Instant lastUpdateTime;
+    private final Boolean validation;
 
     /**
      * Constructor function.
@@ -142,6 +143,42 @@ public class AnomalyDetector implements ToXContentObject {
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
+        this.validation = false;
+    }
+
+    public AnomalyDetector(
+            String detectorId,
+            Long version,
+            String name,
+            String description,
+            String timeField,
+            List<String> indices,
+            List<Feature> features,
+            QueryBuilder filterQuery,
+            TimeConfiguration detectionInterval,
+            TimeConfiguration windowDelay,
+            Map<String, Object> uiMetadata,
+            Integer schemaVersion,
+            Instant lastUpdateTime,
+            Boolean validation
+    ) {
+        if (indices == null || indices.isEmpty()) {
+            indices = null;
+        }
+        this.detectorId = detectorId;
+        this.version = version;
+        this.name = name;
+        this.description = description;
+        this.timeField = timeField;
+        this.indices = indices;
+        this.featureAttributes = features;
+        this.filterQuery = filterQuery;
+        this.detectionInterval = detectionInterval;
+        this.windowDelay = windowDelay;
+        this.uiMetadata = uiMetadata;
+        this.schemaVersion = schemaVersion;
+        this.lastUpdateTime = lastUpdateTime;
+        this.validation = validation;
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -309,6 +346,101 @@ public class AnomalyDetector implements ToXContentObject {
             lastUpdateTime
         );
     }
+
+    public static AnomalyDetector parseValidation(
+            XContentParser parser,
+            String detectorId,
+            Long version
+    ) throws IOException {
+        Boolean validation = true;
+        String name = null;
+        String description = null;
+        String timeField = null;
+        List<String> indices = new ArrayList<String>();
+        QueryBuilder filterQuery = QueryBuilders.matchAllQuery();
+        TimeConfiguration detectionInterval = null;
+        TimeConfiguration windowDelay = null;
+        List<Feature> features = new ArrayList<>();
+        int schemaVersion = 0;
+        Map<String, Object> uiMetadata = null;
+        Instant lastUpdateTime = null;
+
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            String fieldName = parser.currentName();
+            parser.nextToken();
+
+            switch (fieldName) {
+                case NAME_FIELD:
+                    name = parser.text();
+                    break;
+                case DESCRIPTION_FIELD:
+                    description = parser.text();
+                    break;
+                case TIMEFIELD_FIELD:
+                    timeField = parser.text();
+                    break;
+                case INDICES_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser::getTokenLocation);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        indices.add(parser.text());
+                    }
+                    break;
+                case UI_METADATA_FIELD:
+                    uiMetadata = parser.map();
+                    break;
+                case SCHEMA_VERSION_FIELD:
+                    schemaVersion = parser.intValue();
+                    break;
+                case FILTER_QUERY_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+                    try {
+                        filterQuery = parseInnerQueryBuilder(parser);
+                    } catch (IllegalArgumentException e) {
+                        if (!e.getMessage().contains("empty clause")) {
+                            throw e;
+                        }
+                    }
+                    break;
+                case DETECTION_INTERVAL_FIELD:
+                    detectionInterval = TimeConfiguration.parse(parser);
+                    break;
+                case FEATURE_ATTRIBUTES_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser::getTokenLocation);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        features.add(Feature.parse(parser));
+                    }
+                    break;
+                case WINDOW_DELAY_FIELD:
+                    windowDelay = TimeConfiguration.parse(parser);
+                    break;
+                case LAST_UPDATE_TIME_FIELD:
+                    lastUpdateTime = ParseUtils.toInstant(parser);
+                    break;
+                default:
+                    parser.skipChildren();
+                    break;
+            }
+        }
+        return new AnomalyDetector(
+                detectorId,
+                version,
+                name,
+                description,
+                timeField,
+                indices,
+                features,
+                filterQuery,
+                detectionInterval,
+                windowDelay,
+                uiMetadata,
+                schemaVersion,
+                lastUpdateTime,
+                validation
+        );
+    }
+
+
 
     public SearchSourceBuilder generateFeatureQuery() {
         SearchSourceBuilder generatedFeatureQuery = new SearchSourceBuilder().query(filterQuery);

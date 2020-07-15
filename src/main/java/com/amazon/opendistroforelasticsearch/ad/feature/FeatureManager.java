@@ -190,7 +190,7 @@ public class FeatureManager {
      *
      * Note that in the presence of time variations/delays up to half an interval, the shingle stores the actual original
      * end times of the data points, not the computed end times that were calculated based on the current endTime.
-     * Ex: if data points are queried at times 100, 201, 299, then the shingle will contain [<100: x>, <201: y>, <299: z>].
+     * Ex: if data points are queried at times 100, 201, 299, then the shingle will contain [100: x, 201: y, 299: z].
      *
      * @param detector anomaly detector for which the features are returned.
      * @param shingle buffer which persists the past shingleSize data points to subsequent calls of getCurrentFeature.

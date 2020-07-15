@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.ad.indices;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTION_STATE_INDEX_MAPPING_FILE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTORS_INDEX_MAPPING_FILE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTOR_JOBS_INDEX_MAPPING_FILE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.ANOMALY_RESULTS_INDEX_MAPPING_FILE;
@@ -56,12 +57,13 @@ import org.elasticsearch.threadpool.ThreadPool;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 
 /**
- * This class manages creation of anomaly detector index.
+ * This class provides utility methods for various anomaly detection indices.
  */
 public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
@@ -149,6 +151,17 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     }
 
     /**
+     * Get anomaly detector state index mapping json content.
+     *
+     * @return anomaly detector state index mapping
+     * @throws IOException IOException if mapping file can't be read correctly
+     */
+    private String getDetectorStateMappings() throws IOException {
+        URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(ANOMALY_DETECTION_STATE_INDEX_MAPPING_FILE);
+        return Resources.toString(url, Charsets.UTF_8);
+    }
+
+    /**
      * Anomaly detector index exist or not.
      *
      * @return true if anomaly detector index exists
@@ -173,6 +186,15 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public boolean doesAnomalyResultIndexExist() {
         return clusterService.state().metadata().hasAlias(AnomalyResult.ANOMALY_RESULT_INDEX);
+    }
+
+    /**
+     * Anomaly result index exist or not.
+     *
+     * @return true if anomaly detector index exists
+     */
+    public boolean doesDetectorStateIndexExist() {
+        return clusterService.state().getRoutingTable().hasIndex(DetectorInternalState.DETECTOR_STATE_INDEX);
     }
 
     /**
@@ -235,6 +257,18 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         // TODO: specify replica setting
         CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
             .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON);
+        adminClient.indices().create(request, actionListener);
+    }
+
+    /**
+     * Create an index.
+     *
+     * @param actionListener action called after create index
+     * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorJobMappings}
+     */
+    public void initDetectorStateIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
+        CreateIndexRequest request = new CreateIndexRequest(DetectorInternalState.DETECTOR_STATE_INDEX)
+            .mapping(AnomalyDetector.TYPE, getDetectorStateMappings(), XContentType.JSON);
         adminClient.indices().create(request, actionListener);
     }
 

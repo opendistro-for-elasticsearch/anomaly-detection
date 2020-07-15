@@ -32,6 +32,8 @@ import com.amazon.opendistroforelasticsearch.ad.model.Mergeable;
  */
 public class MultiResponsesDelegateActionListener<T extends Mergeable> implements ActionListener<T> {
     private static final Logger LOG = LogManager.getLogger(MultiResponsesDelegateActionListener.class);
+    static final String NO_RESPONSE = "No response collected";
+
     private final ActionListener<T> delegate;
     private final AtomicInteger collectedResponseCount;
     private final int maxResponseCount;
@@ -81,7 +83,7 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
     private void finish() {
         if (this.exceptions.size() == 0) {
             if (savedResponses.size() == 0) {
-                this.delegate.onFailure(new RuntimeException("No response collected"));
+                this.delegate.onFailure(new RuntimeException(NO_RESPONSE));
             } else {
                 T response0 = savedResponses.get(0);
                 for (int i = 1; i < savedResponses.size(); i++) {

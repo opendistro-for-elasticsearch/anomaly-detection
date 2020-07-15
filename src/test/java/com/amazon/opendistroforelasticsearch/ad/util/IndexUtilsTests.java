@@ -21,6 +21,7 @@ import java.time.Clock;
 
 import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -33,6 +34,8 @@ public class IndexUtilsTests extends ESIntegTestCase {
 
     private ClientUtil clientUtil;
 
+    private IndexNameExpressionResolver indexNameResolver;
+
     @Before
     public void setup() {
         Client client = client();
@@ -40,11 +43,12 @@ public class IndexUtilsTests extends ESIntegTestCase {
         Throttler throttler = new Throttler(clock);
         ThreadPool context = TestHelpers.createThreadPool();
         clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, context);
+        indexNameResolver = mock(IndexNameExpressionResolver.class);
     }
 
     @Test
     public void testGetIndexHealth_NoIndex() {
-        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService());
+        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService(), indexNameResolver);
         String output = indexUtils.getIndexHealthStatus("test");
         assertEquals(IndexUtils.NONEXISTENT_INDEX_STATUS, output);
     }
@@ -54,7 +58,7 @@ public class IndexUtilsTests extends ESIntegTestCase {
         String indexName = "test-2";
         createIndex(indexName);
         flush();
-        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService());
+        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService(), indexNameResolver);
         String status = indexUtils.getIndexHealthStatus(indexName);
         assertTrue(status.equals("green") || status.equals("yellow"));
     }
@@ -67,14 +71,14 @@ public class IndexUtilsTests extends ESIntegTestCase {
         flush();
         AcknowledgedResponse response = client().admin().indices().prepareAliases().addAlias(indexName, aliasName).execute().actionGet();
         assertTrue(response.isAcknowledged());
-        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService());
+        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService(), indexNameResolver);
         String status = indexUtils.getIndexHealthStatus(aliasName);
         assertTrue(status.equals("green") || status.equals("yellow"));
     }
 
     @Test
     public void testGetNumberOfDocumentsInIndex_NonExistentIndex() {
-        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService());
+        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService(), indexNameResolver);
         assertEquals((Long) 0L, indexUtils.getNumberOfDocumentsInIndex("index"));
     }
 
@@ -89,7 +93,7 @@ public class IndexUtilsTests extends ESIntegTestCase {
             index(indexName, "_doc", String.valueOf(i), "{}");
         }
         flushAndRefresh(indexName);
-        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService());
+        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService(), indexNameResolver);
         assertEquals((Long) count, indexUtils.getNumberOfDocumentsInIndex(indexName));
     }
 }

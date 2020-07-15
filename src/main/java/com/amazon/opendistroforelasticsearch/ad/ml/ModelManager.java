@@ -397,6 +397,13 @@ public class ModelManager {
         listener.onResponse(new RcfResult(score, confidence, forestSize));
     }
 
+    private Optional<ModelState<RandomCutForest>> restoreCheckpoint(Optional<String> rcfCheckpoint, String modelId, String detectorId) {
+        return rcfCheckpoint
+            .map(checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) () -> rcfSerde.fromJson(checkpoint)))
+            .filter(rcf -> isHostingAllowed(detectorId, rcf))
+            .map(rcf -> new ModelState<>(rcf, modelId, detectorId, ModelType.RCF.getName(), clock.instant()));
+    }
+
     private void processRcfCheckpoint(
         Optional<String> rcfCheckpoint,
         String modelId,
@@ -404,15 +411,30 @@ public class ModelManager {
         double[] point,
         ActionListener<RcfResult> listener
     ) {
-        Optional<ModelState<RandomCutForest>> model = rcfCheckpoint
-            .map(checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) () -> rcfSerde.fromJson(checkpoint)))
-            .filter(rcf -> isHostingAllowed(detectorId, rcf))
-            .map(rcf -> new ModelState<>(rcf, modelId, detectorId, ModelType.RCF.getName(), clock.instant()));
+        Optional<ModelState<RandomCutForest>> model = restoreCheckpoint(rcfCheckpoint, modelId, detectorId);
         if (model.isPresent()) {
             forests.put(modelId, model.get());
             getRcfResult(model.get(), point, listener);
         } else {
             throw new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId);
+        }
+    }
+
+    /**
+     * Process rcf checkpoint for total rcf updates polling
+     * @param rcfCheckpoint rcf checkpoint json string
+     * @param modelId model Id
+     * @param detectorId detector Id
+     * @param listener listener to return total updates of rcf
+     */
+    private void processRcfCheckpoint(Optional<String> rcfCheckpoint, String modelId, String detectorId, ActionListener<Long> listener) {
+        logger.info("Restoring checkpoint for {}", modelId);
+        Optional<ModelState<RandomCutForest>> model = restoreCheckpoint(rcfCheckpoint, modelId, detectorId);
+        if (model.isPresent()) {
+            forests.put(modelId, model.get());
+            listener.onResponse(model.get().getModel().getTotalUpdates());
+        } else {
+            listener.onFailure(new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId));
         }
     }
 
@@ -1044,5 +1066,25 @@ public class ModelManager {
             .filter(entry -> getDetectorIdForModelId(entry.getKey()).equals(detectorId))
             .forEach(entry -> { res.put(entry.getKey(), 0L); });
         return res;
+    }
+
+    /**
+     * Get a RCF model's total updates.
+     * @param modelId the RCF model's id
+     * @param detectorId detector Id
+     * @param listener listener to return the result
+     */
+    public void getTotalUpdates(String modelId, String detectorId, ActionListener<Long> listener) {
+        ModelState<RandomCutForest> model = forests.get(modelId);
+        if (model != null) {
+            listener.onResponse(model.getModel().getTotalUpdates());
+        } else {
+            checkpointDao
+                .getModelCheckpoint(
+                    modelId,
+                    ActionListener.wrap(checkpoint -> processRcfCheckpoint(checkpoint, modelId, detectorId, listener), listener::onFailure)
+                );
+        }
+
     }
 }

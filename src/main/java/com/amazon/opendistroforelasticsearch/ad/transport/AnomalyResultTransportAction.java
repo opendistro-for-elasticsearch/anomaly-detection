@@ -42,7 +42,6 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.node.NodeClosedException;
@@ -75,6 +74,7 @@ import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
+import com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil;
 
 public class AnomalyResultTransportAction extends HandledTransportAction<ActionRequest, AnomalyResultResponse> {
 
@@ -88,12 +88,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String INDEX_READ_BLOCKED = "Cannot read user index due to read block.";
     static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
         .getExceptionName(new LimitExceededException("", ""));
-    static final String RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
-        .getExceptionName(new ResourceNotFoundException("", ""));
     static final String NULL_RESPONSE = "Received null response from";
 
     private final TransportService transportService;
-    private final ADStateManager stateManager;
+    private final TransportStateManager stateManager;
     private final ColdStartRunner globalRunner;
     private final FeatureManager featureManager;
     private final ModelManager modelManager;
@@ -109,7 +107,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         ActionFilters actionFilters,
         TransportService transportService,
         Settings settings,
-        ADStateManager manager,
+        TransportStateManager manager,
         ColdStartRunner eventExecutor,
         FeatureManager featureManager,
         ModelManager modelManager,
@@ -287,6 +285,20 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             if (!featureOptional.getProcessedFeatures().isPresent()) {
+                stateManager.getDetectorCheckpoint(adID, ActionListener.wrap(checkpointExists -> {
+                    if (!checkpointExists) {
+                        LOG.info("Trigger cold start for {}", adID);
+                        globalRunner.compute(new ColdStartJob(detector));
+                    }
+                }, exception -> {
+                    Throwable cause = ExceptionsHelper.unwrapCause(exception);
+                    if (cause instanceof IndexNotFoundException) {
+                        LOG.info("Trigger cold start for {}", adID);
+                        globalRunner.compute(new ColdStartJob(detector));
+                    } else {
+                        LOG.error(String.format("Fail to get checkpoint state for %s", adID), exception);
+                    }
+                }));
                 if (!featureOptional.getUnprocessedFeatures().isPresent()) {
                     // Feature not available is common when we have data holes. Respond empty response
                     // so that alerting will not print stack trace to avoid bloating our logs.
@@ -403,7 +415,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         AnomalyDetectionException exp = failure.get();
         if (exp != null) {
             if (exp instanceof ResourceNotFoundException) {
-                LOG.info("Cold start for {}", detector.getDetectorId());
+                LOG.info("Trigger cold start for {}", detector.getDetectorId());
                 globalRunner.compute(new ColdStartJob(detector));
                 return true;
             } else {
@@ -421,11 +433,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
 
         Exception causeException = (Exception) cause;
-        if (isException(causeException, ResourceNotFoundException.class, RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)
+        if (ExceptionUtil
+            .isException(causeException, ResourceNotFoundException.class, ExceptionUtil.RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)
             || (causeException instanceof IndexNotFoundException
                 && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
             failure.set(new ResourceNotFoundException(adID, causeException.getMessage()));
-        } else if (isException(causeException, LimitExceededException.class, LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE)) {
+        } else if (ExceptionUtil.isException(causeException, LimitExceededException.class, LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE)) {
             failure.set(new LimitExceededException(adID, causeException.getMessage()));
         } else if (causeException instanceof ElasticsearchTimeoutException) {
             // we can have ElasticsearchTimeoutException when a node tries to load RCF or
@@ -435,38 +448,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             // some unexpected bugs occur while predicting anomaly
             failure.set(new EndRunException(adID, "We might have bugs.", causeException, false));
         }
-    }
-
-    /**
-     * Elasticsearch restricts the kind of exceptions can be thrown over the wire
-     * (See ElasticsearchException.ElasticsearchExceptionHandle). Since we cannot
-     * add our own exception like ResourceNotFoundException without modifying
-     * Elasticsearch's code, we have to unwrap the remote transport exception and
-     * check its root cause message.
-     *
-     * @param exception exception thrown locally or over the wire
-     * @param expected  expected root cause
-     * @return whether the exception wraps the expected exception as the cause
-     */
-    private boolean isException(Throwable exception, Class<? extends Exception> expected, String expectedErrorName) {
-        if (exception == null) {
-            return false;
-        }
-
-        if (expected.isAssignableFrom(exception.getClass())) {
-            return true;
-        }
-
-        // all exception that has not been registered to sent over wire can be wrapped
-        // inside NotSerializableExceptionWrapper.
-        // see StreamOutput.writeException
-        // ElasticsearchException.getExceptionName(exception) returns exception
-        // separated by underscore. For example, ResourceNotFoundException is converted
-        // to "resource_not_found_exception".
-        if (exception instanceof NotSerializableExceptionWrapper && exception.getMessage().trim().startsWith(expectedErrorName)) {
-            return true;
-        }
-        return false;
     }
 
     private CombinedRcfResult getCombinedResult(List<RCFResultResponse> rcfResults) {
@@ -799,13 +780,15 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         @Override
         public Boolean call() {
+            String detectorId = detector.getDetectorId();
             try {
                 Optional<double[][]> traingData = featureManager.getColdStartData(detector);
                 if (traingData.isPresent()) {
-                    modelManager.trainModel(detector, traingData.get());
+                    double[][] trainingPoints = traingData.get();
+                    modelManager.trainModel(detector, trainingPoints);
                     return true;
                 } else {
-                    throw new EndRunException(detector.getDetectorId(), "Cannot get training data", false);
+                    throw new EndRunException(detectorId, "Cannot get training data", false);
                 }
 
             } catch (ElasticsearchTimeoutException timeoutEx) {

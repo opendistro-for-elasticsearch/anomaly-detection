@@ -20,54 +20,42 @@ import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.TimeZone;
-import java.util.TreeMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.util.Throwables;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParseException;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.RangeQueryBuilder;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.FieldSortBuilder;
-import org.elasticsearch.search.sort.SortOrder;
 
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorState;
+import com.amazon.opendistroforelasticsearch.ad.model.InitProgressProfile;
+import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileRequest;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileResponse;
+import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingResponse;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
+import com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener;
 
 public class AnomalyDetectorProfileRunner {
@@ -75,31 +63,25 @@ public class AnomalyDetectorProfileRunner {
     private Client client;
     private NamedXContentRegistry xContentRegistry;
     private DiscoveryNodeFilterer nodeFilter;
-    private final IndexNameExpressionResolver indexNameExpressionResolver;
     static String FAIL_TO_FIND_DETECTOR_MSG = "Fail to find detector with id: ";
     static String FAIL_TO_GET_PROFILE_MSG = "Fail to get profile for detector ";
-    private final ClusterService clusterService;
-    private Calendar calendar;
+    private long requiredSamples;
 
     public AnomalyDetectorProfileRunner(
         Client client,
         NamedXContentRegistry xContentRegistry,
         DiscoveryNodeFilterer nodeFilter,
-        IndexNameExpressionResolver indexNameExpressionResolver,
-        ClusterService clusterService,
-        Calendar calendar
+        long requiredSamples
     ) {
         this.client = client;
         this.xContentRegistry = xContentRegistry;
         this.nodeFilter = nodeFilter;
-        this.indexNameExpressionResolver = indexNameExpressionResolver;
-        this.clusterService = clusterService;
-        this.calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        this.requiredSamples = requiredSamples;
     }
 
-    public void profile(String detectorId, ActionListener<DetectorProfile> listener, Set<ProfileName> profiles) {
+    public void profile(String detectorId, ActionListener<DetectorProfile> listener, Set<ProfileName> profilesToCollect) {
 
-        if (profiles.isEmpty()) {
+        if (profilesToCollect.isEmpty()) {
             listener.onFailure(new RuntimeException("Unsupported profile types."));
             return;
         }
@@ -108,18 +90,22 @@ public class AnomalyDetectorProfileRunner {
         // and return to users
         int totalListener = 0;
 
-        if (profiles.contains(ProfileName.STATE)) {
+        if (profilesToCollect.contains(ProfileName.STATE)) {
             totalListener++;
         }
 
-        if (profiles.contains(ProfileName.ERROR)) {
+        if (profilesToCollect.contains(ProfileName.ERROR)) {
             totalListener++;
         }
 
-        if (profiles.contains(ProfileName.COORDINATING_NODE)
-            || profiles.contains(ProfileName.SHINGLE_SIZE)
-            || profiles.contains(ProfileName.TOTAL_SIZE_IN_BYTES)
-            || profiles.contains(ProfileName.MODELS)) {
+        if (profilesToCollect.contains(ProfileName.INIT_PROGRESS)) {
+            totalListener++;
+        }
+
+        if (profilesToCollect.contains(ProfileName.COORDINATING_NODE)
+            || profilesToCollect.contains(ProfileName.SHINGLE_SIZE)
+            || profilesToCollect.contains(ProfileName.TOTAL_SIZE_IN_BYTES)
+            || profilesToCollect.contains(ProfileName.MODELS)) {
             totalListener++;
         }
 
@@ -129,13 +115,13 @@ public class AnomalyDetectorProfileRunner {
             "Fail to fetch profile for " + detectorId
         );
 
-        prepareProfile(detectorId, delegateListener, profiles);
+        prepareProfile(detectorId, delegateListener, profilesToCollect);
     }
 
     private void prepareProfile(
         String detectorId,
         MultiResponsesDelegateActionListener<DetectorProfile> listener,
-        Set<ProfileName> profiles
+        Set<ProfileName> profilesToCollect
     ) {
         GetRequest getRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX, detectorId);
         client.get(getRequest, ActionListener.wrap(getResponse -> {
@@ -149,18 +135,20 @@ public class AnomalyDetectorProfileRunner {
                     AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
                     long enabledTimeMs = job.getEnabledTime().toEpochMilli();
 
-                    if (profiles.contains(ProfileName.STATE)) {
-                        profileState(detectorId, enabledTimeMs, listener, job.isEnabled());
-                    }
-                    if (profiles.contains(ProfileName.ERROR)) {
-                        profileError(detectorId, enabledTimeMs, job.getDisabledTime(), listener);
+                    if (profilesToCollect.contains(ProfileName.ERROR)) {
+                        GetRequest getStateRequest = new GetRequest(DetectorInternalState.DETECTOR_STATE_INDEX, detectorId);
+                        client.get(getStateRequest, onGetDetectorState(listener, detectorId, enabledTimeMs));
                     }
 
-                    if (profiles.contains(ProfileName.COORDINATING_NODE)
-                        || profiles.contains(ProfileName.SHINGLE_SIZE)
-                        || profiles.contains(ProfileName.TOTAL_SIZE_IN_BYTES)
-                        || profiles.contains(ProfileName.MODELS)) {
-                        profileModels(detectorId, profiles, listener);
+                    if (profilesToCollect.contains(ProfileName.STATE) || profilesToCollect.contains(ProfileName.INIT_PROGRESS)) {
+                        profileStateRelated(detectorId, listener, job.isEnabled(), profilesToCollect);
+                    }
+
+                    if (profilesToCollect.contains(ProfileName.COORDINATING_NODE)
+                        || profilesToCollect.contains(ProfileName.SHINGLE_SIZE)
+                        || profilesToCollect.contains(ProfileName.TOTAL_SIZE_IN_BYTES)
+                        || profilesToCollect.contains(ProfileName.MODELS)) {
+                        profileModels(detectorId, profilesToCollect, listener);
                     }
                 } catch (IOException | XContentParseException | NullPointerException e) {
                     logger.error(e);
@@ -168,13 +156,13 @@ public class AnomalyDetectorProfileRunner {
                 }
             } else {
                 GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
-                client.get(getDetectorRequest, onGetDetectorResponse(listener, detectorId, profiles));
+                client.get(getDetectorRequest, onGetDetectorForPrepare(listener, detectorId, profilesToCollect));
             }
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {
                 logger.info(exception.getMessage());
                 GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
-                client.get(getDetectorRequest, onGetDetectorResponse(listener, detectorId, profiles));
+                client.get(getDetectorRequest, onGetDetectorForPrepare(listener, detectorId, profilesToCollect));
             } else {
                 logger.error(FAIL_TO_GET_PROFILE_MSG + detectorId);
                 listener.onFailure(exception);
@@ -182,18 +170,18 @@ public class AnomalyDetectorProfileRunner {
         }));
     }
 
-    private ActionListener<GetResponse> onGetDetectorResponse(
+    private ActionListener<GetResponse> onGetDetectorForPrepare(
         MultiResponsesDelegateActionListener<DetectorProfile> listener,
         String detectorId,
         Set<ProfileName> profiles
     ) {
         return ActionListener.wrap(getResponse -> {
             if (getResponse != null && getResponse.isExists()) {
-                DetectorProfile profile = new DetectorProfile();
+                DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
                 if (profiles.contains(ProfileName.STATE)) {
-                    profile.setState(DetectorState.DISABLED);
+                    profileBuilder.state(DetectorState.DISABLED);
                 }
-                listener.respondImmediately(profile);
+                listener.respondImmediately(profileBuilder.build());
             } else {
                 listener.failImmediately(FAIL_TO_FIND_DETECTOR_MSG + detectorId);
             }
@@ -203,242 +191,121 @@ public class AnomalyDetectorProfileRunner {
     /**
      * We expect three kinds of states:
      *  -Disabled: if get ad job api says the job is disabled;
-     *  -Init: if anomaly score after the last update time of the detector is larger than 0
+     *  -Init: if rcf model's total updates is less than required
      *  -Running: if neither of the above applies and no exceptions.
      * @param detectorId detector id
-     * @param enabledTime the time when AD job is enabled in milliseconds
      * @param listener listener to process the returned state or exception
      * @param enabled whether the detector job is enabled or not
+     * @param profilesToCollect target profiles to fetch
      */
-    private void profileState(
+    private void profileStateRelated(
         String detectorId,
-        long enabledTime,
         MultiResponsesDelegateActionListener<DetectorProfile> listener,
-        boolean enabled
+        boolean enabled,
+        Set<ProfileName> profilesToCollect
     ) {
         if (enabled) {
-            SearchRequest searchLatestResult = createInittedEverRequest(detectorId, enabledTime);
-            client.search(searchLatestResult, onInittedEver(listener, detectorId, enabledTime));
+            RCFPollingRequest request = new RCFPollingRequest(detectorId);
+            client.execute(RCFPollingAction.INSTANCE, request, onPollRCFUpdates(detectorId, profilesToCollect, listener));
         } else {
-            DetectorProfile profile = new DetectorProfile();
-            profile.setState(DetectorState.DISABLED);
-            listener.onResponse(profile);
+            if (profilesToCollect.contains(ProfileName.STATE)) {
+                listener.onResponse(new DetectorProfile.Builder().state(DetectorState.DISABLED).build());
+            }
+            if (profilesToCollect.contains(ProfileName.INIT_PROGRESS)) {
+                listener.onResponse(new DetectorProfile.Builder().build());
+            }
         }
-    }
-
-    private ActionListener<SearchResponse> onInittedEver(
-        MultiResponsesDelegateActionListener<DetectorProfile> listener,
-        String detectorId,
-        long lastUpdateTimeMs
-    ) {
-        return ActionListener.wrap(searchResponse -> {
-            SearchHits hits = searchResponse.getHits();
-            DetectorProfile profile = new DetectorProfile();
-            if (hits.getHits().length == 0L) {
-                profile.setState(DetectorState.INIT);
-            } else {
-                profile.setState(DetectorState.RUNNING);
-            }
-
-            listener.onResponse(profile);
-
-        }, exception -> {
-            if (exception instanceof IndexNotFoundException) {
-                DetectorProfile profile = new DetectorProfile();
-                // anomaly result index is not created yet
-                profile.setState(DetectorState.INIT);
-                listener.onResponse(profile);
-            } else {
-                logger
-                    .error(
-                        "Fail to find any anomaly result with anomaly score larger than 0 after AD job enabled time for detector {}",
-                        detectorId
-                    );
-                listener.onFailure(new RuntimeException("Fail to find detector state: " + detectorId, exception));
-            }
-        });
     }
 
     /**
-     * Precondition:
-     * 1. Index are rotated with name pattern ".opendistro-anomaly-results-history-{now/d}-1" and now is using UTC.
-     * 2. Latest entry with error is recorded within enabled and disabled time.  Note disabled time can be null.
-     *
-     * Error is populated if error of the latest anomaly result is not empty.
-     *
-     * Two optimization to avoid scanning all anomaly result indices to get a detector's most recent error
-     *
-     * First, when a detector is running, we only need to scan the current index, not all of the rolled over ones
-     *  since we are interested in the latest error.
-     * Second, when a detector is disabled, we only need to scan the latest anomaly result indices created before the
-     *  detector's enable time.
-     *
+     * Action listener for a detector in running or init state
+     * @param listener listener to consolidate results and return a final response
      * @param detectorId detector id
-     * @param enabledTimeMillis the time when AD job is enabled in milliseconds
-     * @param listener listener to process the returned error or exception
+     * @param enabledTimeMs AD job enabled time
+     * @return the listener for a detector in disabled state
      */
-    private void profileError(
+    private ActionListener<GetResponse> onGetDetectorState(
+        MultiResponsesDelegateActionListener<DetectorProfile> listener,
         String detectorId,
-        long enabledTimeMillis,
-        Instant disabledTime,
-        MultiResponsesDelegateActionListener<DetectorProfile> listener
+        long enabledTimeMs
     ) {
-        String[] latestIndex = null;
-
-        long disabledTimeMillis = 0;
-        if (disabledTime != null) {
-            disabledTimeMillis = disabledTime.toEpochMilli();
-        }
-        if (enabledTimeMillis > disabledTimeMillis) {
-            // detector is still running
-            latestIndex = new String[1];
-            latestIndex[0] = AnomalyResult.ANOMALY_RESULT_INDEX;
-        } else {
-            String[] concreteIndices = indexNameExpressionResolver
-                .concreteIndexNames(
-                    clusterService.state(),
-                    IndicesOptions.lenientExpandOpen(),
-                    AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN
-                );
-
-            // find the latest from result indices such as .opendistro-anomaly-results-history-2020.04.06-1 and
-            // /.opendistro-anomaly-results-history-2020.04.07-000002
-            long maxTimestamp = -1;
-            TreeMap<Long, List<String>> candidateIndices = new TreeMap<>();
-            for (String indexName : concreteIndices) {
-                Matcher m = Pattern.compile("\\.opendistro-anomaly-results-history-(\\d{4})\\.(\\d{2})\\.(\\d{2})-\\d+").matcher(indexName);
-                if (m.matches()) {
-                    int year = Integer.parseInt(m.group(1));
-                    int month = Integer.parseInt(m.group(2));
-                    int date = Integer.parseInt(m.group(3));
-                    // month starts with 0
-                    calendar.clear();
-                    calendar.set(year, month - 1, date);
-                    // 2020.05.08 is translated to 1588896000000
-                    long timestamp = calendar.getTimeInMillis();
-
-                    // a candidate index can be created before or after enabled time, but the index is definitely created before disabled
-                    // time
-                    if (timestamp <= disabledTimeMillis && maxTimestamp <= timestamp) {
-                        maxTimestamp = timestamp;
-                        // we can have two rotations on the same day and we don't know which one has our data, so we keep all
-                        List<String> indexList = candidateIndices.computeIfAbsent(timestamp, k -> new ArrayList<String>());
-                        indexList.add(indexName);
-                    }
-                }
-            }
-            List<String> candidates = new ArrayList<String>();
-            List<String> latestCandidate = candidateIndices.get(maxTimestamp);
-
-            if (latestCandidate != null) {
-                candidates.addAll(latestCandidate);
-            }
-
-            // look back one more index for an edge case:
-            // Suppose detector interval is 1 minute. Detector last run is at 2020-05-07, 11:59:50 PM,
-            // then AD result indices rolled over as .opendistro-anomaly-results-history-2020.05.07-001
-            // Detector next run will be 2020-05-08, 00:00:50 AM. If a user stop the detector at
-            // 2020-05-08 00:00:10 AM, detector will not have AD result on 2020-05-08.
-            // We check AD result indices one day earlier to make sure we can always get AD result.
-            Map.Entry<Long, List<String>> earlierCandidate = candidateIndices.lowerEntry(maxTimestamp);
-            if (earlierCandidate != null) {
-                candidates.addAll(earlierCandidate.getValue());
-            }
-            latestIndex = candidates.toArray(new String[0]);
-        }
-
-        if (latestIndex == null || latestIndex.length == 0) {
-            // no result index found: can be due to anomaly result is not created yet or result indices for the detector have been deleted.
-            listener.onResponse(new DetectorProfile());
-            return;
-        }
-        SearchRequest searchLatestResult = createLatestAnomalyResultRequest(detectorId, enabledTimeMillis, disabledTimeMillis, latestIndex);
-        client.search(searchLatestResult, onGetLatestAnomalyResult(listener, detectorId));
-    }
-
-    private ActionListener<SearchResponse> onGetLatestAnomalyResult(ActionListener<DetectorProfile> listener, String detectorId) {
-        return ActionListener.wrap(searchResponse -> {
-            SearchHits hits = searchResponse.getHits();
-            if (hits.getHits().length == 0L) {
-                listener.onResponse(new DetectorProfile());
-            } else {
-                SearchHit hit = hits.getAt(0);
-
+        return ActionListener.wrap(getResponse -> {
+            DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
+            if (getResponse != null && getResponse.isExists()) {
                 try (
                     XContentParser parser = XContentType.JSON
                         .xContent()
-                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, hit.getSourceAsString())
+                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
-                    AnomalyResult result = parser.namedObject(AnomalyResult.class, AnomalyResult.PARSE_FIELD_NAME, null);
-                    DetectorProfile profile = new DetectorProfile();
-                    if (result.getError() != null) {
-                        profile.setError(result.getError());
+                    DetectorInternalState detectorState = DetectorInternalState.parse(parser);
+                    long lastUpdateTimeMs = detectorState.getLastUpdateTime().toEpochMilli();
+
+                    // if state index hasn't been updated, we should not use the error field
+                    // For example, before a detector is enabled, if the error message contains
+                    // the phrase "stopped due to blah", we should not show this when the detector
+                    // is enabled.
+                    if (lastUpdateTimeMs > enabledTimeMs && detectorState.getError() != null) {
+                        profileBuilder.error(detectorState.getError());
                     }
-                    listener.onResponse(profile);
+
+                    listener.onResponse(profileBuilder.build());
 
                 } catch (IOException | XContentParseException | NullPointerException e) {
-                    logger.error("Fail to parse anomaly result with " + hit.toString());
-                    listener.onFailure(new RuntimeException("Fail to find detector error: " + detectorId, e));
+                    logger.error(e);
+                    listener.failImmediately(FAIL_TO_GET_PROFILE_MSG, e);
                 }
+            } else {
+                // detector state for this detector does not exist
+                listener.onResponse(profileBuilder.build());
             }
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {
-                listener.onResponse(new DetectorProfile());
+                // detector state index is not created yet
+                listener.onResponse(new DetectorProfile.Builder().build());
             } else {
-                logger.error("Fail to find any anomaly result after AD job enabled time for detector {}", detectorId);
-                listener.onFailure(new RuntimeException("Fail to find detector error: " + detectorId, exception));
+                logger.error("Fail to find any detector info for detector {}", detectorId);
+                listener.onFailure(exception);
             }
         });
     }
 
-    /**
-     * Create search request to check if we have at least 1 anomaly score larger than 0 after AD job enabled time
-     * @param detectorId detector id
-     * @param enabledTime the time when AD job is enabled in milliseconds
-     * @return the search request
-     */
-    private SearchRequest createInittedEverRequest(String detectorId, long enabledTime) {
-        BoolQueryBuilder filterQuery = new BoolQueryBuilder();
-        filterQuery.filter(QueryBuilders.termQuery(AnomalyResult.DETECTOR_ID_FIELD, detectorId));
-        filterQuery.filter(QueryBuilders.rangeQuery(AnomalyResult.EXECUTION_END_TIME_FIELD).gte(enabledTime));
-        filterQuery.filter(QueryBuilders.rangeQuery(AnomalyResult.ANOMALY_SCORE_FIELD).gt(0));
+    private ActionListener<GetResponse> onGetDetectorForInitProgress(
+        MultiResponsesDelegateActionListener<DetectorProfile> listener,
+        String detectorId,
+        Set<ProfileName> profilesToCollect,
+        long totalUpdates,
+        long requiredSamples
+    ) {
+        return ActionListener.wrap(getResponse -> {
+            if (getResponse != null && getResponse.isExists()) {
+                try (
+                    XContentParser parser = XContentType.JSON
+                        .xContent()
+                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
+                ) {
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                    AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId);
+                    long intervalMins = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMinutes();
+                    float percent = (100.0f * totalUpdates) / requiredSamples;
+                    int neededPoints = (int) (requiredSamples - totalUpdates);
+                    InitProgressProfile initProgress = new InitProgressProfile(
+                        // rounding: 93.456 => 93%, 93.556 => 94%
+                        String.format("%.0f%%", percent),
+                        intervalMins * neededPoints,
+                        neededPoints
+                    );
 
-        // I am only looking for last 1 occurrence and have no interest in the total number of documents that match the query.
-        // ES will not try to count the number of documents and will be able to terminate the query as soon as 1 document
-        // have been collected per segment.
-        SearchSourceBuilder source = new SearchSourceBuilder().query(filterQuery).size(1).trackTotalHits(false);
-
-        SearchRequest request = new SearchRequest(AnomalyResult.ANOMALY_RESULT_INDEX);
-        request.source(source);
-        return request;
-    }
-
-    /**
-     * Create search request to get the latest anomaly result after AD job enabled time
-     * @param detectorId detector id
-     * @param enabledTime the time when AD job is enabled in milliseconds
-     * @return the search request
-     */
-    private SearchRequest createLatestAnomalyResultRequest(String detectorId, long enabledTime, long disabledTime, String[] index) {
-        BoolQueryBuilder filterQuery = new BoolQueryBuilder();
-        filterQuery.filter(QueryBuilders.termQuery(AnomalyResult.DETECTOR_ID_FIELD, detectorId));
-        RangeQueryBuilder rangeBuilder = QueryBuilders.rangeQuery(AnomalyResult.EXECUTION_END_TIME_FIELD).gte(enabledTime);
-        if (disabledTime >= enabledTime) {
-            rangeBuilder.lte(disabledTime);
-        }
-        filterQuery.filter(rangeBuilder);
-
-        FieldSortBuilder sortQuery = new FieldSortBuilder(AnomalyResult.EXECUTION_END_TIME_FIELD).order(SortOrder.DESC);
-
-        // I am only looking for last 1 occurrence and have no interest in the total number of documents that match the query.
-        // ES will not try to count the number of documents and will be able to terminate the query as soon as 1 document
-        // have been collected per segment.
-        SearchSourceBuilder source = new SearchSourceBuilder().query(filterQuery).size(1).sort(sortQuery).trackTotalHits(false);
-
-        SearchRequest request = new SearchRequest(index);
-        request.source(source);
-        return request;
+                    listener.onResponse(new DetectorProfile.Builder().initProgress(initProgress).build());
+                } catch (Exception t) {
+                    logger.error("Fail to parse detector {}", detectorId);
+                    logger.error("Stack trace:", t);
+                    listener.failImmediately(FAIL_TO_FIND_DETECTOR_MSG + detectorId, t);
+                }
+            } else {
+                listener.failImmediately(FAIL_TO_FIND_DETECTOR_MSG + detectorId);
+            }
+        }, exception -> { listener.failImmediately(FAIL_TO_FIND_DETECTOR_MSG + detectorId, exception); });
     }
 
     private void profileModels(
@@ -457,21 +324,86 @@ public class AnomalyDetectorProfileRunner {
         MultiResponsesDelegateActionListener<DetectorProfile> listener
     ) {
         return ActionListener.wrap(profileResponse -> {
-            DetectorProfile profile = new DetectorProfile();
+            DetectorProfile.Builder profile = new DetectorProfile.Builder();
             if (profiles.contains(ProfileName.COORDINATING_NODE)) {
-                profile.setCoordinatingNode(profileResponse.getCoordinatingNode());
+                profile.coordinatingNode(profileResponse.getCoordinatingNode());
             }
             if (profiles.contains(ProfileName.SHINGLE_SIZE)) {
-                profile.setShingleSize(profileResponse.getShingleSize());
+                profile.shingleSize(profileResponse.getShingleSize());
             }
             if (profiles.contains(ProfileName.TOTAL_SIZE_IN_BYTES)) {
-                profile.setTotalSizeInBytes(profileResponse.getTotalSizeInBytes());
+                profile.totalSizeInBytes(profileResponse.getTotalSizeInBytes());
             }
             if (profiles.contains(ProfileName.MODELS)) {
-                profile.setModelProfile(profileResponse.getModelProfile());
+                profile.modelProfile(profileResponse.getModelProfile());
             }
 
-            listener.onResponse(profile);
+            listener.onResponse(profile.build());
         }, listener::onFailure);
+    }
+
+    /**
+     * Listener for polling rcf updates through transport messaging
+     * @param detectorId detector Id
+     * @param profilesToCollect profiles to collect like state
+     * @param listener delegate listener
+     * @return Listener for polling rcf updates through transport messaging
+     */
+    private ActionListener<RCFPollingResponse> onPollRCFUpdates(
+        String detectorId,
+        Set<ProfileName> profilesToCollect,
+        MultiResponsesDelegateActionListener<DetectorProfile> listener
+    ) {
+        return ActionListener.wrap(rcfPollResponse -> {
+            long totalUpdates = rcfPollResponse.getTotalUpdates();
+            if (totalUpdates < requiredSamples) {
+                processInitResponse(detectorId, profilesToCollect, listener, totalUpdates);
+            } else {
+                if (profilesToCollect.contains(ProfileName.STATE)) {
+                    listener.onResponse(new DetectorProfile.Builder().state(DetectorState.RUNNING).build());
+                }
+
+                if (profilesToCollect.contains(ProfileName.INIT_PROGRESS)) {
+                    InitProgressProfile initProgress = new InitProgressProfile("100%", 0, 0);
+                    listener.onResponse(new DetectorProfile.Builder().initProgress(initProgress).build());
+                }
+            }
+        }, exception -> {
+            // we will get an AnomalyDetectionException wrapping the real exception inside
+            Throwable cause = Throwables.getRootCause(exception);
+
+            // exception can be a RemoteTransportException
+            Exception causeException = (Exception) cause;
+            if (ExceptionUtil
+                .isException(causeException, ResourceNotFoundException.class, ExceptionUtil.RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)
+                || (causeException instanceof IndexNotFoundException
+                    && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
+                // cannot find checkpoint
+                processInitResponse(detectorId, profilesToCollect, listener, 0L);
+            } else {
+                logger.error(new ParameterizedMessage("Fail to get init progress through messaging for {}", detectorId), exception);
+                listener.failImmediately(FAIL_TO_GET_PROFILE_MSG + detectorId, exception);
+            }
+        });
+    }
+
+    private void processInitResponse(
+        String detectorId,
+        Set<ProfileName> profilesToCollect,
+        MultiResponsesDelegateActionListener<DetectorProfile> listener,
+        long totalUpdates
+    ) {
+        if (profilesToCollect.contains(ProfileName.STATE)) {
+            listener.onResponse(new DetectorProfile.Builder().state(DetectorState.INIT).build());
+        }
+
+        if (profilesToCollect.contains(ProfileName.INIT_PROGRESS)) {
+            GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
+            client
+                .get(
+                    getDetectorRequest,
+                    onGetDetectorForInitProgress(listener, detectorId, profilesToCollect, totalUpdates, requiredSamples)
+                );
+        }
     }
 }

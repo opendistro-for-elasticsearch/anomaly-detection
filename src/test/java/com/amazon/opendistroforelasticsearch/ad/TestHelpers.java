@@ -99,6 +99,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
@@ -223,6 +224,24 @@ public class TestHelpers {
             ImmutableList.of(),
             randomQuery(),
             randomIntervalTimeConfiguration(),
+            randomIntervalTimeConfiguration(),
+            null,
+            randomInt(),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        );
+    }
+
+    public static AnomalyDetector randomAnomalyDetectorWithInterval(TimeConfiguration interval) throws IOException {
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomFeature()),
+            randomQuery(),
+            interval,
             randomIntervalTimeConfiguration(),
             null,
             randomInt(),
@@ -455,12 +474,11 @@ public class TestHelpers {
             );
     }
 
-    public static GetResponse createGetResponse(ToXContentObject o, String id) throws IOException {
+    public static GetResponse createGetResponse(ToXContentObject o, String id, String indexName) throws IOException {
         XContentBuilder content = o.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS);
-
         return new GetResponse(
             new GetResult(
-                AnomalyDetector.ANOMALY_DETECTORS_INDEX,
+                indexName,
                 MapperService.SINGLE_MAPPING_NAME,
                 id,
                 UNASSIGNED_SEQ_NO,
@@ -519,5 +537,21 @@ public class TestHelpers {
             ShardSearchFailure.EMPTY_ARRAY,
             SearchResponse.Clusters.EMPTY
         );
+    }
+
+    public static AnomalyResult randomDetectState() {
+        return randomAnomalyDetectResult(randomDouble(), randomAlphaOfLength(5));
+    }
+
+    public static DetectorInternalState randomDetectState(String error) {
+        return randomDetectState(error, Instant.now());
+    }
+
+    public static DetectorInternalState randomDetectState(Instant lastUpdateTime) {
+        return randomDetectState(randomAlphaOfLength(5), lastUpdateTime);
+    }
+
+    public static DetectorInternalState randomDetectState(String error, Instant lastUpdateTime) {
+        return new DetectorInternalState.Builder().lastUpdateTime(lastUpdateTime).error(error).build();
     }
 }

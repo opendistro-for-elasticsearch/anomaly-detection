@@ -40,12 +40,14 @@ import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.index.Index;
 import org.elasticsearch.index.get.GetResult;
@@ -62,10 +64,16 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
+import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
-import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyResultHandler;
+import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
+import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
+import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
+import com.amazon.opendistroforelasticsearch.ad.util.ThrowingConsumerWrapper;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter;
@@ -103,7 +111,9 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     private Iterator<TimeValue> backoff;
 
     @Mock
-    private AnomalyResultHandler anomalyResultHandler;
+    private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
+
+    private DetectionStateHandler detectorStateHandler;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -129,17 +139,33 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         runner.setClientUtil(clientUtil);
         runner.setAnomalyResultHandler(anomalyResultHandler);
 
+        Settings settings = Settings
+            .builder()
+            .put("opendistro.anomaly_detection.max_retry_for_backoff", 2)
+            .put("opendistro.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
+            .put("opendistro.anomaly_detection.max_retry_for_end_run_exception", 3)
+            .build();
         setUpJobParameter();
 
-        runner
-            .setSettings(
-                Settings
-                    .builder()
-                    .put("opendistro.anomaly_detection.max_retry_for_backoff", 2)
-                    .put("opendistro.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
-                    .put("opendistro.anomaly_detection.max_retry_for_end_run_exception", 3)
-                    .build()
-            );
+        runner.setSettings(settings);
+
+        AnomalyDetectionIndices anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
+        IndexNameExpressionResolver indexNameResolver = mock(IndexNameExpressionResolver.class);
+        IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
+        TransportStateManager stateManager = mock(TransportStateManager.class);
+        detectorStateHandler = new DetectionStateHandler(
+            client,
+            settings,
+            threadPool,
+            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initDetectorStateIndex),
+            anomalyDetectionIndices::doesDetectorStateIndexExist,
+            this.clientUtil,
+            indexUtils,
+            clusterService,
+            NamedXContentRegistry.EMPTY,
+            stateManager
+        );
+        runner.setDetectionStateHandler(detectorStateHandler);
 
         lockService = new LockService(client, clusterService);
         doReturn(lockService).when(context).getLockService();
@@ -215,13 +241,13 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         LockModel lock = new LockModel("indexName", "jobId", Instant.now(), 10, false);
         Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), true);
         runner.handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), exception);
-        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(anomalyResultHandler).index(any(), any());
     }
 
     @Test
     public void testRunAdJobWithEndRunExceptionNowAndExistingAdJob() {
         testRunAdJobWithEndRunExceptionNowAndStopAdJob(true, true, true);
-        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(anomalyResultHandler).index(any(), any());
         verify(clientUtil).asyncRequest(any(IndexRequest.class), any(), any());
         assertTrue(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
     }
@@ -229,7 +255,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Test
     public void testRunAdJobWithEndRunExceptionNowAndExistingAdJobAndIndexException() {
         testRunAdJobWithEndRunExceptionNowAndStopAdJob(true, true, false);
-        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(anomalyResultHandler).index(any(), any());
         verify(clientUtil).asyncRequest(any(IndexRequest.class), any(), any());
         assertTrue(testAppender.containsMessage("Failed to disable AD job for"));
     }
@@ -237,7 +263,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Test
     public void testRunAdJobWithEndRunExceptionNowAndNotExistingEnabledAdJob() {
         testRunAdJobWithEndRunExceptionNowAndStopAdJob(false, true, true);
-        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(anomalyResultHandler).index(any(), any());
         verify(client, never()).index(any(), any());
         assertFalse(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
         assertFalse(testAppender.containsMessage("Failed to disable AD job for"));
@@ -246,7 +272,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Test
     public void testRunAdJobWithEndRunExceptionNowAndExistingDisabledAdJob() {
         testRunAdJobWithEndRunExceptionNowAndStopAdJob(true, false, true);
-        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(anomalyResultHandler).index(any(), any());
         verify(client, never()).index(any(), any());
         assertFalse(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
     }
@@ -254,7 +280,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Test
     public void testRunAdJobWithEndRunExceptionNowAndNotExistingDisabledAdJob() {
         testRunAdJobWithEndRunExceptionNowAndStopAdJob(false, false, true);
-        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(anomalyResultHandler).index(any(), any());
         verify(client, never()).index(any(), any());
         assertFalse(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
     }
@@ -323,7 +349,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any());
 
         runner.handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), exception);
-        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(anomalyResultHandler).index(any(), any());
         assertEquals(1, testAppender.countMessage("JobRunner failed to get detector job"));
     }
 
@@ -335,7 +361,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         doThrow(new RuntimeException("fail to get AD job")).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any());
 
         runner.handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), exception);
-        verify(anomalyResultHandler).indexAnomalyResult(any());
+        verify(anomalyResultHandler).index(any(), any());
         assertEquals(1, testAppender.countMessage("JobRunner failed to stop AD job"));
     }
 

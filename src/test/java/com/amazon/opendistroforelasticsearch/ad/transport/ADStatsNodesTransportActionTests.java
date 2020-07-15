@@ -26,6 +26,7 @@ import java.util.Set;
 
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -51,6 +52,7 @@ public class ADStatsNodesTransportActionTests extends ESIntegTestCase {
     private String clusterStatName1, clusterStatName2;
     private String nodeStatName1, nodeStatName2;
 
+    @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
@@ -59,7 +61,13 @@ public class ADStatsNodesTransportActionTests extends ESIntegTestCase {
         Clock clock = mock(Clock.class);
         Throttler throttler = new Throttler(clock);
         ThreadPool threadPool = mock(ThreadPool.class);
-        IndexUtils indexUtils = new IndexUtils(client, new ClientUtil(Settings.EMPTY, client, throttler, threadPool), clusterService());
+        IndexNameExpressionResolver indexNameResolver = mock(IndexNameExpressionResolver.class);
+        IndexUtils indexUtils = new IndexUtils(
+            client,
+            new ClientUtil(Settings.EMPTY, client, throttler, threadPool),
+            clusterService(),
+            indexNameResolver
+        );
         ModelManager modelManager = mock(ModelManager.class);
 
         clusterStatName1 = "clusterStat1";

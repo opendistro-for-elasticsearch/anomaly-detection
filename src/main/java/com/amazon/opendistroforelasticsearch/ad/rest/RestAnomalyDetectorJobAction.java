@@ -19,7 +19,6 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.REFRESH;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.START_JOB;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.STOP_JOB;
 
@@ -27,7 +26,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
-import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
@@ -51,12 +49,10 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
     public static final String AD_JOB_ACTION = "anomaly_detector_job_action";
     private volatile TimeValue requestTimeout;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
-    private final ClusterService clusterService;
 
     public RestAnomalyDetectorJobAction(Settings settings, ClusterService clusterService, AnomalyDetectionIndices anomalyDetectionIndices) {
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        this.clusterService = clusterService;
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
     }
 
@@ -76,19 +72,14 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
         return channel -> {
             long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
             long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
-            WriteRequest.RefreshPolicy refreshPolicy = request.hasParam(REFRESH)
-                ? WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
-                : WriteRequest.RefreshPolicy.IMMEDIATE;
 
             IndexAnomalyDetectorJobActionHandler handler = new IndexAnomalyDetectorJobActionHandler(
-                clusterService,
                 client,
                 channel,
                 anomalyDetectionIndices,
                 detectorId,
                 seqNo,
                 primaryTerm,
-                refreshPolicy,
                 requestTimeout
             );
 

@@ -32,6 +32,7 @@ package com.amazon.opendistroforelasticsearch.ad.model;
 
 import java.io.IOException;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.io.stream.Writeable;
@@ -90,5 +91,16 @@ public class ModelProfile implements Writeable, ToXContent {
         out.writeString(modelId);
         out.writeVLong(modelSizeInBytes);
         out.writeString(nodeId);
+    }
+
+    @Override
+    public String toString() {
+        ToStringBuilder builder = new ToStringBuilder(this);
+        builder.append(MODEL_ID, modelId);
+        if (modelSizeInBytes > 0) {
+            builder.append(MODEL_SIZE_IN_BYTES, modelSizeInBytes);
+        }
+        builder.append(NODE_ID, nodeId);
+        return builder.toString();
     }
 }

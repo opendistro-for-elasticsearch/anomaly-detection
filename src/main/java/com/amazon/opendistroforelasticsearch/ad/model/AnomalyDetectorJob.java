@@ -21,6 +21,8 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 import java.io.IOException;
 import java.time.Instant;
 
+import org.elasticsearch.common.ParseField;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -35,6 +37,13 @@ import com.google.common.base.Objects;
  * Anomaly detector job.
  */
 public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParameter {
+
+    public static final String PARSE_FIELD_NAME = "AnomalyDetectorJob";
+    public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
+        AnomalyDetectorJob.class,
+        new ParseField(PARSE_FIELD_NAME),
+        it -> parse(it)
+    );
 
     public static final String ANOMALY_DETECTOR_JOB_INDEX = ".opendistro-anomaly-detector-jobs";
     public static final String NAME_FIELD = "name";

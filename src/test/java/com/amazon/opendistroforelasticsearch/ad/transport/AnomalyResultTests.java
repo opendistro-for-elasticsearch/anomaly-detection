@@ -949,7 +949,7 @@ public class AnomalyResultTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    public void featureTestTemplate(FeatureTestMode mode) {
+    public void featureTestTemplate(FeatureTestMode mode) throws IOException {
         if (mode == FeatureTestMode.FEATURE_NOT_AVAILABLE) {
             doAnswer(invocation -> {
                 ActionListener<SinglePointFeatures> listener = invocation.getArgument(3);
@@ -996,15 +996,15 @@ public class AnomalyResultTests extends AbstractADTest {
         }
     }
 
-    public void testFeatureNotAvailable() {
+    public void testFeatureNotAvailable() throws IOException {
         featureTestTemplate(FeatureTestMode.FEATURE_NOT_AVAILABLE);
     }
 
-    public void testFeatureIllegalState() {
+    public void testFeatureIllegalState() throws IOException {
         featureTestTemplate(FeatureTestMode.ILLEGAL_STATE);
     }
 
-    public void testFeatureAnomalyException() {
+    public void testFeatureAnomalyException() throws IOException {
         featureTestTemplate(FeatureTestMode.AD_EXCEPTION);
     }
 
@@ -1115,8 +1115,7 @@ public class AnomalyResultTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    public void testAllFeaturesDisabled() {
-
+    public void testAllFeaturesDisabled() throws IOException {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             ActionListener<SinglePointFeatures> listener = (ActionListener<SinglePointFeatures>) args[3];

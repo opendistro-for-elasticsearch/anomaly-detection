@@ -1,35 +1,46 @@
 # The overall template of the release notes
 template: |
-  Compatible with Elasticsearch (**set version here**) and Open Distro for Elasticsearch (**set version here**).
+  Compatible with Elasticsearch (**set version here**).
   $CHANGES
+
 # Setting the formatting and sorting for the release notes body
 name-template: Version (set version here)
-change-template: '- $TITLE (PR #$NUMBER)'
+change-template: "* $TITLE (#$NUMBER)"
 sort-by: merged_at
 sort-direction: ascending
+replacers:
+  - search: "##"
+    replace: "###"
 
-# Organizing the tagged PRs into categories
+# Organizing the tagged PRs into unified ODFE categories
 categories:
-  - title: 'Breaking Changes'
+  - title: "Breaking changes"
     labels:
-      - 'breaking change'
-  - title: 'Major Changes'
+      - "breaking change"
+  - title: "Features"
     labels:
-      - 'feature'
-  - title: 'Enhancements'
+      - "feature"
+  - title: "Enhancements"
     labels:
-      - 'enhancement'
-  - title: 'Bug Fixes'
+      - "enhancement"
+  - title: "Bug Fixes"
     labels:
-      - 'bug'
-      - 'bug fix'
-  - title: 'Infra Changes'
+      - "bug"
+      - "bug fix"
+  - title: "Infrastructure"
     labels:
-      - 'infra'
-      - 'test'
-      - 'documentation'
-      - 'dependencies'
-  - title: 'Version Upgrades'
+      - "infra"
+      - "test"
+      - "dependencies"
+      - "github actions"
+  - title: "Documentation"
     labels:
-      - 'version upgrade'
-      - 'odfe-release'
+      - "documentation"
+  - title: "Maintenance"
+    labels:
+      - "version upgrade"
+      - "odfe release"
+  - title: "Refactoring"
+    labels:
+      - "refactor"
+      - "code quality"

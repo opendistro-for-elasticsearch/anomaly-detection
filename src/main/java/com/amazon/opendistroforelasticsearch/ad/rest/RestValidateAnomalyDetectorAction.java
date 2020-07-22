@@ -43,7 +43,7 @@ public class RestValidateAnomalyDetectorAction extends BaseRestHandler {
     private final Logger logger = LogManager.getLogger(RestValidateAnomalyDetectorAction.class);
     private final Settings settings;
 
-
+    private volatile TimeValue requestTimeout;
     private volatile TimeValue detectionInterval;
     private volatile TimeValue detectionWindowDelay;
     private volatile Integer maxAnomalyDetectors;
@@ -59,6 +59,8 @@ public class RestValidateAnomalyDetectorAction extends BaseRestHandler {
         this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(settings);
         this.maxAnomalyDetectors = MAX_ANOMALY_DETECTORS.get(settings);
         this.maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
+        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
+
     }
 
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
@@ -67,7 +69,6 @@ public class RestValidateAnomalyDetectorAction extends BaseRestHandler {
         }
 
         String detectorId = AnomalyDetector.NO_ID;
-
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
         AnomalyDetector detector = AnomalyDetector.parseValidation(parser, detectorId, null);
@@ -80,8 +81,10 @@ public class RestValidateAnomalyDetectorAction extends BaseRestHandler {
                 detectorId,
                 detector,
                 maxAnomalyDetectors,
-                maxAnomalyFeatures
-        ).validate();
+                maxAnomalyFeatures,
+                requestTimeout,
+                xContentRegistry
+        ).startValidation();
     }
 
 

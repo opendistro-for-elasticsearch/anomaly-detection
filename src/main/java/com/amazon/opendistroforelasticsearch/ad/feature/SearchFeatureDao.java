@@ -124,12 +124,17 @@ public class SearchFeatureDao {
     }
 
     private Optional<Long> getLatestDataTime(SearchResponse searchResponse) {
-        return Optional
+
+        Optional<Long> x = Optional
             .ofNullable(searchResponse)
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap())
             .map(map -> (Max) map.get(AGG_NAME_MAX))
             .map(agg -> (long) agg.getValue());
+
+        System.out.println("windowDelay optional: " + x.toString());
+        System.out.println("windowDelay optional without .toString(): " + x);
+        return x;
     }
 
     /**
@@ -558,11 +563,14 @@ public class SearchFeatureDao {
     }
 
     private Optional<double[]> parseBucket(InternalDateRange.Bucket bucket, List<String> featureIds) {
+
         return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds);
     }
 
     private Optional<double[]> parseAggregations(Optional<Aggregations> aggregations, List<String> featureIds) {
-        return aggregations
+        System.out.println("optional aggregation list: " + aggregations.get().asList());
+
+        Optional<double[]> aggregationsResults = aggregations
             .map(aggs -> aggs.asMap())
             .map(
                 map -> featureIds
@@ -571,5 +579,6 @@ public class SearchFeatureDao {
                     .toArray()
             )
             .filter(result -> Arrays.stream(result).noneMatch(d -> Double.isNaN(d) || Double.isInfinite(d)));
+        return aggregationsResults;
     }
 }

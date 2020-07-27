@@ -28,15 +28,14 @@ public class ValidateResponse implements ToXContentObject {
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         XContentBuilder xContentBuilder = builder.startObject();
 
-        System.out.println("inside x content");
-        if (failures != null && failures.size() > 0) {
-            xContentBuilder.array("failures", failures);
-
-        }
-        if (suggestedChanges != null && suggestedChanges.size() > 0) {
-            xContentBuilder.array("suggestedChanges", suggestedChanges);
-
-        }
+        xContentBuilder.field("failures", failures);
+        xContentBuilder.field("suggestedChanges", suggestedChanges);
+//        if (failures != null && failures.size() > 0) {
+//            xContentBuilder.array("failures", failures);
+//        }
+//        if (suggestedChanges != null && suggestedChanges.size() > 0) {
+//            xContentBuilder.array("suggestedChanges", suggestedChanges);
+//        }
         return xContentBuilder.endObject();
     }
 

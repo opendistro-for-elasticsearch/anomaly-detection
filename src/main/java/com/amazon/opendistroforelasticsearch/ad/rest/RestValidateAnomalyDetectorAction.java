@@ -18,6 +18,7 @@ import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.seqno.SequenceNumbers;
 import org.elasticsearch.rest.BaseRestHandler;
@@ -42,6 +43,7 @@ public class RestValidateAnomalyDetectorAction extends BaseRestHandler {
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final Logger logger = LogManager.getLogger(RestValidateAnomalyDetectorAction.class);
     private final Settings settings;
+    private final NamedXContentRegistry xContentRegistry;
 
     private volatile TimeValue requestTimeout;
     private volatile TimeValue detectionInterval;
@@ -51,7 +53,8 @@ public class RestValidateAnomalyDetectorAction extends BaseRestHandler {
 
     public RestValidateAnomalyDetectorAction(
             Settings settings,
-            AnomalyDetectionIndices anomalyDetectionIndices
+            AnomalyDetectionIndices anomalyDetectionIndices,
+            NamedXContentRegistry xContentRegistry
     ) {
         this.settings = settings;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
@@ -60,7 +63,7 @@ public class RestValidateAnomalyDetectorAction extends BaseRestHandler {
         this.maxAnomalyDetectors = MAX_ANOMALY_DETECTORS.get(settings);
         this.maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-
+        this.xContentRegistry = xContentRegistry;
     }
 
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {

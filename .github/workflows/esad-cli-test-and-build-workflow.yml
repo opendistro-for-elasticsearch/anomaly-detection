@@ -1,15 +1,11 @@
-name: Build and Test Anomaly detection commandline tool
-on:
-  push:
-    branches:
-      - master
-      - opendistro-*
-  pull_request:
-    branches:
-      - master
-      - opendistro-*
+name: AD CLI Test and Build
+on: [pull_request, push]
+
 jobs:
   build:
+    defaults:
+      run:
+        working-directory: cli
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
@@ -46,6 +42,11 @@ jobs:
         id: git-check
         run: |
           echo ::set-output name=modified::$(if git diff-index --quiet HEAD --; then echo "false"; else echo "true"; fi)
+      - name: Display unformated changes
+        if: steps.git-check.outputs.modified == 'true'
+        run: |
+          echo "Failed to format using go-fmt".
+          git diff
 
       - uses: actions/checkout@v2
       - name: golangci-lint

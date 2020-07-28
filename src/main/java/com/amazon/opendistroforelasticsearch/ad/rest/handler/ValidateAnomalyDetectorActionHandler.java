@@ -4,6 +4,7 @@ import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.*;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.apache.commons.lang.StringUtils;
@@ -16,9 +17,9 @@ import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsReques
 import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.*;
 import org.elasticsearch.client.AdminClient;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.settings.Settings;
@@ -53,6 +54,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -67,11 +70,11 @@ import static org.elasticsearch.search.aggregations.AggregationBuilders.dateRang
 public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler {
 
     protected static final String AGG_NAME_MAX = "max_timefield";
-    protected static final int NUM_OF_RANDOM_SAMPLES = 12;
+    protected static final int NUM_OF_RANDOM_SAMPLES = 8;
     protected static final int MAX_NUM_OF_SAMPLES_VIEWED = 128;
     protected static final int NUM_OF_INTERVALS_CHECKED = 256;
     protected static final double SAMPLE_SUCCESS_RATE = 0.75;
-    protected static final int RANDOM_SAMPLING_REPEATS = 10;
+    protected static final int RANDOM_SAMPLING_REPEATS = 12;
     private final AdminClient adminClient;
 
 
@@ -89,7 +92,11 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     private final NamedXContentRegistry xContent;
 
     private ValidateResponse responseValidate;
+    private final Map<String, MultiSearchResponse> savedResponsesToFeature;
+    private final List<MultiSearchResponse> savedMultiResponses;
 
+
+    private final Map<String, Boolean> featureIntervalValidation;
     private final List<String> failures;
     private final List<String> suggestedChanges;
 
@@ -128,6 +135,11 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         this.responseValidate = new ValidateResponse();
         this.xContent = xContentRegistry;
         this.adminClient = client.admin();
+        this.featureIntervalValidation = new HashMap<>();
+        this.savedMultiResponses = Collections.synchronizedList(new ArrayList<MultiSearchResponse>());
+
+        this.savedResponsesToFeature = new HashMap<>();
+
     }
 
     /**
@@ -242,6 +254,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                         ActionListener
                                 .wrap(
                                         searchResponse -> onSearchADNameResponse(searchResponse, detectorId, anomalyDetector.getName()),
+
                                         exception -> onFailure(exception)
                                 )
                 );
@@ -370,7 +383,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                 .map(aggs -> aggs.asMap())
                 .map(map -> map.get(feature.getId()))
                 .map(this::parseAggregation);
-        if (Double.isNaN(aggValue.get()) || Double.isInfinite(aggValue.get()) ) {
+        if (Double.isNaN(aggValue.get()) || Double.isInfinite(aggValue.get())) {
             String errorMsg = "feature query is potentially wrong as no hits were found at all for feature " + feature.getName();
             logger.warn(errorMsg);
             suggestedChanges.add(errorMsg);
@@ -396,75 +409,155 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
             timeRanges[i][1] = timeRanges[i][0] + detectorInterval;
         }
         //System.out.println("timeRanges: " + Arrays.deepToString(timeRanges));
+//        for (Feature feature : anomalyDetector.getFeatureAttributes()) {
+//            AtomicInteger validCounter = new AtomicInteger();
+//            for (int i = 0; i < RANDOM_SAMPLING_REPEATS; i++) {
+//                randomSamplingHelper(timeRanges, feature, validCounter);
+//            }
+//            System.out.println("valid counter: " + validCounter[0]);
+//            if (validCounter[0] / (double) ( RANDOM_SAMPLING_REPEATS) < SAMPLE_SUCCESS_RATE) {
+//                String errorMsg = "data is too sparse with this interval for feature " + feature.getName();
+//                logger.warn(errorMsg);
+//                suggestedChanges.add(errorMsg);
+//                validateAnomalyDetectorResponse();
+//                return;
+//            }
+//        }
+        int numOfFeatures = anomalyDetector.getFeatureAttributes().size();
+        AtomicInteger featureCounter = new AtomicInteger();
+        AtomicInteger listnerCounter = new AtomicInteger();
+        System.out.println("num of Features:" + numOfFeatures);
+        for (Feature feature : anomalyDetector.getFeatureAttributes()) {
+            featureCounter.incrementAndGet();
+            randomSamplingHelper(timeRanges, feature, listnerCounter);
+        }
+//        if (featureCounter == numOfFeatures && suggestedChanges.isEmpty() && listnerCounter.get() == featureCounter) {
+//            System.out.println("featureCounter: " + featureCounter);
+//            checkWindowDelay();
+//        }
+    }
 
+    private void randomSamplingHelper(long[][] timeRanges, Feature feature, AtomicInteger listnerCounter) throws IOException {
+        AggregatorFactories.Builder internalAgg = ParseUtils.parseAggregators(
+                feature.getAggregation().toString(),
+                xContent,
+                feature.getId()
+        );
+        Random rand = new Random();
 
+        MultiSearchRequest sr = new MultiSearchRequest();
 
-
-        if (anomalyDetector.getFeatureAttributes() != null) {
-            for (Feature feature : anomalyDetector.getFeatureAttributes()) {
-                AggregatorFactories.Builder internalAgg = ParseUtils.parseAggregators(
-                        feature.getAggregation().toString(),
-                        xContent,
-                        feature.getId()
+        for (int i = 0; i < NUM_OF_RANDOM_SAMPLES; i++) {
+            int randIndex = rand.nextInt(127);
+            long RandomRangeStart = timeRanges[randIndex][0];
+            long RandomRangeEnd = timeRanges[randIndex][1];
+            RangeQueryBuilder rangeQueryRandom = new RangeQueryBuilder(anomalyDetector.getTimeField())
+                    .from(RandomRangeStart)
+                    .to(RandomRangeEnd)
+                    .format("epoch_millis")
+                    .includeLower(true)
+                    .includeUpper(false);
+            BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQueryRandom).must(anomalyDetector.getFilterQuery());
+            SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(internalFilterQuery);
+            internalSearchSourceBuilder.aggregation(internalAgg.getAggregatorFactories().iterator().next());
+            SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().get(0)).source(internalSearchSourceBuilder);
+            //   System.out.println("search builder inside counter: " + internalSearchSourceBuilder.toString());
+            sr.add(searchRequest);
+        }
+        client
+                .multiSearch(
+                        sr,
+                        ActionListener
+                                .wrap(
+                                        searchResponse -> {
+                                            savedResponsesToFeature.put(feature.getName(), searchResponse);
+                                            listnerCounter.incrementAndGet();
+                                            if (listnerCounter.get() >= anomalyDetector.getFeatureAttributes().size()) {
+                                                onRandomGetMultiResponse(searchResponse, feature, listnerCounter);
+                                            }
+                                             },
+                                        exception -> {
+                                            System.out.println(exception.getMessage());
+                                            onFailure(exception);
+                                        }
+                                )
                 );
-                Random rand = new Random();
-                int[] hitCounter = new int[]{0};
-                int sampleCounter = 0;
-                for (int i = 0; i < NUM_OF_RANDOM_SAMPLES; i++) {
-                    sampleCounter++;
-                    int randIndex = rand.nextInt(127);
-                    long RandomRangeStart = timeRanges[randIndex][0];
-                    long RandomRangeEnd = timeRanges[randIndex][1];
-                    RangeQueryBuilder rangeQueryRandom = new RangeQueryBuilder(anomalyDetector.getTimeField())
-                            .from(RandomRangeStart)
-                            .to(RandomRangeEnd)
-                            .format("epoch_millis")
-                            .includeLower(true)
-                            .includeUpper(false);
-                    BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQueryRandom).must(anomalyDetector.getFilterQuery());
-                    SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(internalFilterQuery);
-                    internalSearchSourceBuilder.aggregation(internalAgg.getAggregatorFactories().iterator().next());
-                    SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().get(0)).source(internalSearchSourceBuilder);
-                    //System.out.println("search builder inside counter: " + internalSearchSourceBuilder.toString());
-                    client
-                            .search(
-                                    searchRequest,
-                                    ActionListener
-                                            .wrap(
-                                                    searchResponse -> onRandomSampleResponse(searchResponse, hitCounter, sampleCounter),
-                                                    exception -> {
-                                                        System.out.println(exception.getMessage());
-                                                        onFailure(exception);
-                                                    }
-                                            )
-                            );
-                }
-                System.out.println(sampleCounter);
-                if (sampleCounter >= NUM_OF_RANDOM_SAMPLES - 2) {
-                    System.out.println("hitdsad counter: " + Arrays.toString(hitCounter));
-                    double successRate = (double) hitCounter[0] / (double) NUM_OF_RANDOM_SAMPLES;
-                    System.out.println(successRate);
-                    if ((double) hitCounter[0] / (double) NUM_OF_RANDOM_SAMPLES < SAMPLE_SUCCESS_RATE) {
-                        String errorMsg = "data is too sparse with this interval for feature " + feature.getName();
-                        logger.warn(errorMsg);
-                        suggestedChanges.add(errorMsg);
-                        validateAnomalyDetectorResponse();
-                        return;
+
+
+//            MultiResponsesDelegateActionListener<SearchResponse> delegateListener = new MultiResponsesDelegateActionListener<SearchResponse>(
+//                    ActionListener
+//                            .wrap(
+//                                    searchResponse -> onRandomSampleMultiResponse(searchResponse),
+//                                    exception -> {
+//                                        System.out.println(exception.getMessage());
+//                                        onFailure(exception);
+//                                    }
+//                            )
+//            ,NUM_OF_RANDOM_SAMPLES,"Fail to sample data for detector interval validation");
+
+//        System.out.println("Hit counter: " + hitCounter);
+//        double successRate = hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES;
+//        System.out.println(successRate);
+//        if (hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES < SAMPLE_SUCCESS_RATE) {
+//            return 0;
+//        }
+//        return 1;
+    }
+
+    private void onRandomGetMultiResponse(MultiSearchResponse multiSearchResponse, Feature feature, AtomicInteger listnerCounter) {
+        //System.out.println("response from random sampling: " + multiSearchResponse.toString());
+            System.out.println("listen counter: " + listnerCounter.get());
+            //System.out.println("savedResponsesToFeature: " + savedResponsesToFeature.toString());
+            for (String f: savedResponsesToFeature.keySet()) {
+                String errorMsg = "";
+                final AtomicInteger hitCounter = new AtomicInteger();
+                for (MultiSearchResponse.Item item : savedResponsesToFeature.get(f)) {
+                    SearchResponse response = item.getResponse();
+                    System.out.println("each response for feature, " + f + ": " + response.toString());
+                    if (response.getHits().getTotalHits().value > 0) {
+                        hitCounter.incrementAndGet();
                     }
                 }
+                System.out.println("Hit counter before last validation: " + hitCounter.get());
+                if (hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES < SAMPLE_SUCCESS_RATE) {
+                    featureIntervalValidation.put(f, false);
+                    errorMsg += "data is too sparse with this interval for feature/s: " + f;
+                    logger.warn(errorMsg);
+                    suggestedChanges.add(errorMsg);
+                } else {
+                    featureIntervalValidation.put(f, true);
+                }
             }
-        }
-        checkWindowDelay();
-        //getFieldMapping();
+        System.out.println("validateIntervalMap: " + featureIntervalValidation.toString());
+        if (featureIntervalValidation.containsValue(false)) {
+                validateAnomalyDetectorResponse();
+            } else {
+                checkWindowDelay();
+            }
+    }
+
+    private void executeRandomSamplingSearch(SearchRequest searchRequest, AtomicInteger hitCounter) {
+        client
+                .search(
+                        searchRequest,
+                        ActionListener
+                                .wrap(
+                                        searchResponse -> onRandomSampleResponse(searchResponse, hitCounter),
+                                        exception -> {
+                                            System.out.println(exception.getMessage());
+                                            onFailure(exception);
+                                        }
+                                )
+                );
     }
 
 
-
-    private void onRandomSampleResponse(SearchResponse response, int[] hitCounter, int sampleCounter) {
-        //System.out.println("response from random sampling: " + response.toString());
+    private void onRandomSampleResponse(SearchResponse response, AtomicInteger hitCounter) {
+       // System.out.println("inside on sample response");
+        System.out.println("response from random sampling: " + response.toString());
         if (response.getHits().getTotalHits().value > 0) {
-            hitCounter[0]++;
-            System.out.println("hit counter inside if check: " + hitCounter[0]);
+            hitCounter.incrementAndGet();
+            //System.out.println("hit counter inside if check: " + hitCounter[0]);
         }
     }
 
@@ -477,7 +570,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     }
 
     private Optional<Long> getLatestDataTime(SearchResponse searchResponse) {
-        System.out.println(searchResponse.toString());
+        //System.out.println(searchResponse.toString());
         Optional<Long> x = Optional
                 .ofNullable(searchResponse)
                 .map(SearchResponse::getAggregations)
@@ -485,7 +578,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                 .map(map -> (Max) map.get(AGG_NAME_MAX))
                 .map(agg -> (long) agg.getValue());
 
-        System.out.println("after parsing the max timestamp to long: " + x.get());
+        //System.out.println("after parsing the max timestamp to long: " + x.get());
         return x;
     }
 
@@ -494,11 +587,14 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                 .ofNullable((IntervalTimeConfiguration) anomalyDetector.getWindowDelay())
                 .map(t -> t.toDuration().toMillis())
                 .orElse(0L);
-        System.out.println("Window delay passed in from configs: " + delayMillis);
-        System.out.println("Time now: " + Instant.now().toEpochMilli());
+        //System.out.println("Window delay passed in from configs: " + delayMillis);
+        //System.out.println("Time now: " + Instant.now().toEpochMilli());
         System.out.println("last seen time stamp: " + lastTimeStamp.get());
         if (lastTimeStamp.isPresent() && (Instant.now().toEpochMilli() - lastTimeStamp.get() > delayMillis)) {
-            String errorMsg = "window-delay too short:";
+            long minutesSinceLastStamp = TimeUnit.MILLISECONDS.toMinutes(Instant.now().toEpochMilli() - lastTimeStamp.get());
+            long windowDelayMins = TimeUnit.MILLISECONDS.toMinutes(delayMillis);
+            String errorMsg = "window-delay given is too short, and last seen timestamp is " + minutesSinceLastStamp +
+                    " minutes ago " + " and the window-delay given is only of " + windowDelayMins + " minutes";
             logger.warn(errorMsg);
             suggestedChanges.add(errorMsg);
         }
@@ -508,8 +604,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     private void validateAnomalyDetectorResponse() {
         this.responseValidate.setFailures(failures);
         this.responseValidate.setSuggestedChanges(suggestedChanges);
-        System.out.println("failure list in response: " + responseValidate.getFailures());
-        System.out.println("suggestion list in response: " + responseValidate.getSuggestedChanges());
+        //System.out.println("failure list in response: " + responseValidate.getFailures());
+        //System.out.println("suggestion list in response: " + responseValidate.getSuggestedChanges());
         System.out.println("inside response building and sending");
         try {
             BytesRestResponse restResponse = new BytesRestResponse(RestStatus.OK, responseValidate.toXContent(channel.newBuilder()));

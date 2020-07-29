@@ -34,7 +34,6 @@ const (
 	esadProfile             = "ESAD_PROFILE"
 )
 
-// profilesCmd represents the profiles command
 var profilesCmd = &cobra.Command{
 	Use:   profileBaseCmdName + " [flags] [command] [sub command]",
 	Short: "profile is a collection of settings and credentials that you can apply to an esad command",

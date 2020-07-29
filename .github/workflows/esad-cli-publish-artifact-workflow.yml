@@ -1,10 +1,9 @@
 name: Publish
-  This workflows is triggered on creating tags to master
-#on:
-#  push:
-#    tags:
-#      - 'v*'
-on: [pull_request, push]
+#  This workflows is triggered on creating tags to master
+on:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build:

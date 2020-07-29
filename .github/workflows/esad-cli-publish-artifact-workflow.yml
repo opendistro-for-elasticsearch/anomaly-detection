@@ -26,6 +26,7 @@ jobs:
         with:
           version: latest
           args: --snapshot --skip-publish
+          workdir: cli
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

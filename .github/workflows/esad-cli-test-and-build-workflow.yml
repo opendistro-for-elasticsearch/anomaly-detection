@@ -26,6 +26,9 @@ jobs:
         run: go build .
 
   code-analysis:
+    defaults:
+      run:
+        working-directory: cli
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go ubuntu-latest
@@ -53,6 +56,7 @@ jobs:
         uses: golangci/golangci-lint-action@v1
         with:
           version: v1.28
+          working-directory: cli
 
       - name: Run coverage
         env:

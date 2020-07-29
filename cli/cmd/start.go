@@ -49,12 +49,12 @@ func init() {
 func execute(f func(*ad.Handler, string) error, detectors []string) error {
 	// iterate over the arguments
 	// the first return value is index of fileNames, we can omit it using _
-	h, err := getCommandHandler()
+	commandHandler, err := getCommandHandler()
 	if err != nil {
 		return err
 	}
 	for _, detector := range detectors {
-		err := f(h, detector)
+		err := f(commandHandler, detector)
 		if err != nil {
 			return err
 		}
@@ -63,7 +63,7 @@ func execute(f func(*ad.Handler, string) error, detectors []string) error {
 }
 
 func getCommandHandler() (*ad.Handler, error) {
-	c, err := client.NewClient(nil)
+	newClient, err := client.New(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +71,5 @@ func getCommandHandler() (*ad.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	h := GetHandler(c, u)
-	return h, nil
+	return GetHandler(newClient, u), nil
 }

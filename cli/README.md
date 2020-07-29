@@ -1,9 +1,7 @@
-![Test Workflow](https://github.com/VijayanB/esad/workflows/Build%20and%20Test%20Anomaly%20detection%20commandline%20tool/badge.svg)
-
 # Open Distro for Elasticsearch AD CLI
 
 The AD CLI component in Open Distro for Elasticsearch (ODFE) is a command line interface for ODFE AD plugin.
-his CLI provides greater flexibility of use. User can use CLI to easily do things that are difficult or sometimes impossible to do with kibana UI. This doesn’t use any additional  system resources to load any of graphical part, thus making it simpler and faster than UI. 
+This CLI provides greater flexibility of use. User can use CLI to easily do things that are difficult or sometimes impossible to do with kibana UI. This doesn’t use any additional  system resources to load any of graphical part, thus making it simpler and faster than UI. 
 
 It only supports [Open Distro for Elasticsearch (ODFE) AD Plugin](https://opendistro.github.io/for-elasticsearch-docs/docs/ad/)
 You must have the ODFE AD plugin installed to your Elasticsearch instance to connect. 
@@ -68,7 +66,7 @@ You can have multiple profiles defined in the configuration file. You can then s
 
 ## Basic Commands
 
-AN ESAD CLI has following structure
+An ESAD CLI has following structure
 ```
 $ esad <command> <subcommand> [flags and parameters]
 ```

@@ -97,6 +97,22 @@ func (h *Handler) CreateAnomalyDetector(fileName string, interactive bool) error
 	return err
 }
 
+//DeleteAnomalyDetectorByID deletes detector based on detectorId
+func DeleteAnomalyDetectorByID(h *Handler, detectorID string, force bool) error {
+	return h.DeleteAnomalyDetectorByID(detectorID, force)
+}
+
+//DeleteAnomalyDetectorByID deletes detector based on detectorId
+func (h *Handler) DeleteAnomalyDetectorByID(detectorID string, force bool) error {
+
+	ctx := context.Background()
+	err := h.DeleteDetector(ctx, detectorID, true, force)
+	if err != nil {
+		return err
+	}
+	return err
+}
+
 //DeleteAnomalyDetector deletes detector based on detectorName
 func DeleteAnomalyDetector(h *Handler, detectorName string, force bool) error {
 	return h.DeleteAnomalyDetector(detectorName, force)

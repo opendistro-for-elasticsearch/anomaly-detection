@@ -24,7 +24,6 @@ const (
 	generate      = "generate-skeleton"
 )
 
-// createCmd represents the create command
 var createCmd = &cobra.Command{
 	Use:   commandCreate + " [list of file-path] [flags]",
 	Short: "Creates detectors based on configurations",
@@ -62,12 +61,12 @@ func init() {
 }
 
 func createDetectors(fileNames []string, status bool) error {
-	h, err := getCommandHandler()
+	commandHandler, err := getCommandHandler()
 	if err != nil {
 		return err
 	}
 	for _, name := range fileNames {
-		err = handler.CreateAnomalyDetector(h, name, status)
+		err = handler.CreateAnomalyDetector(commandHandler, name, status)
 		if err != nil {
 			return err
 		}

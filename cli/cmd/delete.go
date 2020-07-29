@@ -20,14 +20,18 @@ import (
 
 const commandDelete = "delete"
 
-// deleteCmd represents the delete command
 var deleteCmd = &cobra.Command{
 	Use:   commandDelete + " [flags] [list of detectors]",
 	Short: "Deletes detectors",
-	Long:  `Deletes detectors based on pattern, use "" to make sure the name is not matched with pwd lists'`,
+	Long:  `Deletes detectors based on value, use "" to make sure the name is not matched with pwd lists'`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fstatus, _ := cmd.Flags().GetBool("force")
-		err := deleteDetectors(args, fstatus)
+		force, _ := cmd.Flags().GetBool("force")
+		detectorID, _ := cmd.Flags().GetBool("id")
+		action := handler.DeleteAnomalyDetector
+		if detectorID {
+			action = handler.DeleteAnomalyDetectorByID
+		}
+		err := deleteDetectors(args, force, action)
 		if err != nil {
 			fmt.Println(commandDelete, "command failed")
 			fmt.Println("Reason:", err)
@@ -38,15 +42,16 @@ var deleteCmd = &cobra.Command{
 func init() {
 	esadCmd.AddCommand(deleteCmd)
 	deleteCmd.Flags().BoolP("force", "f", false, "Force deletion even if it is running")
+	deleteCmd.Flags().BoolP("id", "", false, "Input is id")
 }
 
-func deleteDetectors(detectors []string, fstatus bool) error {
+func deleteDetectors(detectors []string, force bool, f func(*handler.Handler, string, bool) error) error {
 	commandHandler, err := getCommandHandler()
 	if err != nil {
 		return err
 	}
 	for _, detector := range detectors {
-		err = handler.DeleteAnomalyDetector(commandHandler, detector, fstatus)
+		err = f(commandHandler, detector, force)
 		if err != nil {
 			return err
 		}

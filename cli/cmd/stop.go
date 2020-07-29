@@ -20,7 +20,6 @@ import (
 
 const commandStop = "stop"
 
-// createCmd represents the create command
 var stopCmd = &cobra.Command{
 	Use:   commandStop + " [flags] [list of detectors]",
 	Short: "Stop detectors",

@@ -31,6 +31,7 @@ const (
 	createNewProfileCmdName = "create"
 	deleteNewProfileCmdName = "delete"
 	listProfileCmdName      = "list"
+	esadProfile             = "ESAD_PROFILE"
 )
 
 // profilesCmd represents the profiles command
@@ -41,13 +42,8 @@ var profilesCmd = &cobra.Command{
            When you specify a profile to run a command, the settings and credentials are used to run that command. 
            You can specify a profile in an environment variable (ESAD_PROFILE) which essentially acts as the default profile for commands if default doesn't exists.
            The ESAD CLI supports using any of multiple named profiles that are stored in the config and credentials files.`,
-	//Run: func(cmd *cobra.Command, args []string) {
-	//	v, _ := cmd.Flags().GetBool("nameonly")
-	//	displayProfiles(!v)
-	//},
 }
 
-// createProfilesCmd represents add profiles command
 var createProfilesCmd = &cobra.Command{
 	Use:   createNewProfileCmdName,
 	Short: "Create new named profile",
@@ -57,7 +53,6 @@ var createProfilesCmd = &cobra.Command{
 	},
 }
 
-// deleteProfileCmd represents deleting profiles
 var deleteProfileCmd = &cobra.Command{
 	Use:   deleteNewProfileCmdName + " [list of profile names to be deleted]",
 	Short: "Delete named profiles",
@@ -67,7 +62,6 @@ var deleteProfileCmd = &cobra.Command{
 	},
 }
 
-// listProfilesCmd represents lists profiles
 var listProfilesCmd = &cobra.Command{
 	Use:   listProfileCmdName,
 	Short: "lists named profiles",
@@ -76,21 +70,6 @@ var listProfilesCmd = &cobra.Command{
 		displayProfiles()
 	},
 }
-
-// profilesCmd represents the profiles command
-//var updateProfileCmd = &cobra.Command{
-//	Use:   "edit",
-//	Short: "edit profile",
-//	Long: `A longer description that spans multiple lines and likely contains examples
-//and usage of using your command. For example:
-//
-//Cobra is a CLI library for Go that empowers applications.
-//This application is a tool to generate the needed files
-//to quickly create a Cobra application.`,
-//	Run: func(cmd *cobra.Command, args []string) {
-//		updateProfiles(args[0])
-//	},
-//}
 
 func displayProfiles() {
 	config := &entity.Configuration{
@@ -114,7 +93,6 @@ func displayProfiles() {
 func init() {
 	profilesCmd.AddCommand(createProfilesCmd)
 	profilesCmd.AddCommand(deleteProfileCmd)
-	//profilesCmd.AddCommand(updateProfileCmd)
 	esadCmd.AddCommand(profilesCmd)
 	profilesCmd.AddCommand(listProfilesCmd)
 
@@ -124,18 +102,18 @@ func createProfile() {
 	var name string
 	for {
 		fmt.Printf("Enter profile's name: ")
-		name = userInput("profile's name", false, false)
-		if !validProfileName(name) {
+		name = getUserInput("profile's name", false)
+		if !isProfileExists(name) {
 			break
 		}
 		fmt.Println("profile", name, "already exists.")
 	}
 	fmt.Printf("ES Anomaly Detection Endpoint: ")
-	endpoint := userInput("endpoint", false, false)
+	endpoint := getUserInput("endpoint", false)
 	fmt.Printf("ES Anomaly Detection User: ")
-	user := userInput("user", false, false)
+	user := getUserInput("user", false)
 	fmt.Printf("ES Anomaly Detection Password: ")
-	password := userInput("password", true, false)
+	password := getUserInput("password", true)
 	profile := entity.Profile{
 		Name:     name,
 		Endpoint: endpoint,
@@ -165,7 +143,7 @@ func saveProfiles(profiles []entity.Profile) {
 	}
 }
 
-func validProfileName(name string) bool {
+func isProfileExists(name string) bool {
 	profiles := getProfiles()
 	for _, profile := range profiles {
 		if profile.Name == name {
@@ -175,7 +153,7 @@ func validProfileName(name string) bool {
 	return false
 }
 
-func getText() string {
+func getUserInputAsText() string {
 	var response string
 	_, err := fmt.Scanln(&response)
 	if err != nil {
@@ -185,7 +163,7 @@ func getText() string {
 	return strings.TrimSpace(response)
 }
 
-func getMaskedText() string {
+func getUserInputAsMaskedText() string {
 	maskedValue, err := terminal.ReadPassword(0)
 	if err != nil {
 		fmt.Println(err)
@@ -195,94 +173,51 @@ func getMaskedText() string {
 	return fmt.Sprintf("%s", maskedValue)
 }
 
-func userInput(name string, mask bool, allowBlank bool) string {
+func getUserInput(name string, mask bool) string {
 
 	var response string
 	if mask {
-		response = getMaskedText()
+		response = getUserInputAsMaskedText()
 	} else {
-		response = getText()
+		response = getUserInputAsText()
 	}
-	if !allowBlank && len(response) < 1 {
+	if len(response) < 1 {
 		fmt.Printf("value cannot be empty. Please enter non-empty value for %s: ", name)
-		return userInput(name, mask, allowBlank)
+		return getUserInput(name, mask)
 	}
 	return response
 }
 
 func deleteProfiles(names []string) {
 
-	var validProfiles []string
+	var existingProfileNames []string
 	for _, name := range names {
-		if !validProfileName(name) {
+		if !isProfileExists(name) {
 			fmt.Println("profile", name, "doesn't exists.")
 			continue
 		}
-		validProfiles = append(validProfiles, name)
+		existingProfileNames = append(existingProfileNames, name)
+	}
+	if len(existingProfileNames) < 1 {
+		return
 	}
 
-	var safeProfiles []entity.Profile
+	var remainingProfiles []entity.Profile
 	profiles := getProfiles()
 	for _, p := range profiles {
-		safe := true
-		for _, name := range validProfiles {
+		toBeDeleted := false
+		for _, name := range existingProfileNames {
 			if p.Name == name {
-				safe = false
+				toBeDeleted = true
 				break
 			}
 		}
-		if safe {
-			safeProfiles = append(safeProfiles, p)
+		if !toBeDeleted {
+			remainingProfiles = append(remainingProfiles, p)
 		}
 	}
-	saveProfiles(safeProfiles)
+	saveProfiles(remainingProfiles)
 }
-
-//func updateProfiles(name string) {
-//
-//	profile, err := getProfileByName(name)
-//	if err != nil {
-//		fmt.Println(err)
-//	}
-//	fmt.Println("Press Enter if you don't want to update")
-//	fmt.Printf("ES Anomaly Detection Endpoint [%s]: ", profile.Endpoint)
-//	endpoint := userInput("endpoint", false, true)
-//	fmt.Printf("ES Anomaly Detection User [%s]: ", profile.Username)
-//	user := userInput("user", false, true)
-//	fmt.Printf("ES Anomaly Detection Password : ")
-//	password := userInput("password", true, true)
-//	if len(endpoint) > 1 {
-//		profile.Endpoint = endpoint
-//	}
-//	if len(user) > 1 {
-//		profile.Username = user
-//	}
-//	if len(password) > 1 {
-//		profile.Password = password
-//	}
-//	config := &entity.Configuration{
-//		Profiles: []entity.Profile{},
-//	}
-//	err = mapstructure.Decode(viper.AllSettings(), config)
-//	if err != nil {
-//		fmt.Println("failed to load profiles due to ", err)
-//	}
-//	index := 0
-//	for i, p := range config.Profiles {
-//		if p.Name == name {
-//			index = i
-//			break
-//		}
-//	}
-//	config.Profiles[index] = entity.Profile{
-//		Endpoint: profile.Endpoint,
-//		Username: profile.Username,
-//		Password: profile.Password,
-//		Name:     name,
-//	}
-//	saveProfiles(config.Profiles)
-//
-//}
 
 func getProfiles() []entity.Profile {
 	config := &entity.Configuration{
@@ -307,67 +242,83 @@ func getValue(flagName string) (*string, error) {
 	return nil, err
 }
 
+//isEmpty checks whether input is empty or not
+func isEmpty(value *string) bool {
+	if value == nil {
+		return true
+	}
+	if len(*value) < 1 {
+		return true
+	}
+	return false
+}
+
+//getUserProfile select's profile from the list of saved profile
+/**
+1. First priority is passed as parameters
+2. Second priority is by flag --profile [name]
+3. Third is get default profile from env or profile named "default"
+*/
 func getUserProfile() (*client.UserConfig, error) {
 
-	endpoint, err := getValue("endpoint")
+	endpoint, err := getValue(FlagEndpoint)
 	if err != nil {
 		return nil, err
 	}
-	user, err := getValue("user")
+	user, err := getValue(FlagUser)
 	if err != nil {
 		return nil, err
 	}
-	password, err := getValue("password")
+	password, err := getValue(FlagPassword)
 	if err != nil {
 		return nil, err
 	}
-	res, err := getProfileFromFlag()
+	profile, err := getProfileFromFlag()
 	if err != nil {
 		return nil, err
 	}
-	if res == nil {
-		res, err = getProfileByEnv()
+	if profile == nil {
+		profile, err = getDefaultProfile()
 		if err != nil {
 			return nil, err
 		}
 	}
-	if res == nil {
+	if profile == nil {
 		return nil, errors.New("connection details are not set. Set either by passing or set default profile")
 	}
-	if endpoint != nil && len(*endpoint) > 0 {
-		res.Endpoint = *endpoint
+	if !isEmpty(endpoint) {
+		profile.Endpoint = *endpoint
 	}
-	if user != nil && len(*user) > 0 {
-		res.Username = *user
+	if !isEmpty(user) {
+		profile.Username = *user
 	}
-	if password != nil && len(*password) > 0 {
-		res.Password = *password
+	if !isEmpty(password) {
+		profile.Password = *password
 	}
-	return res, nil
+	return profile, nil
 }
 
 func getProfileFromFlag() (*client.UserConfig, error) {
-	profileName, err := esadCmd.Flags().GetString("profile")
+	profileName, err := esadCmd.Flags().GetString(FlagProfile)
 	if err != nil {
 		return nil, err
 	}
 	if len(profileName) < 1 {
 		return nil, nil
 	}
-	p, err := getProfileByName(profileName)
+	profile, err := getProfileByName(profileName)
 	if err != nil {
 		return nil, err
 	}
-	return p, nil
+	return profile, nil
 
 }
-func getProfileByEnv() (*client.UserConfig, error) {
-	profileName := os.Getenv("ESAD_PROFILE")
+func getDefaultProfile() (*client.UserConfig, error) {
 
-	if len(profileName) < 1 {
-		return getUserConfig("default")
+	if profileName, ok := os.LookupEnv(esadProfile); ok {
+		return getProfileByName(profileName)
 	}
-	return getProfileByName(profileName)
+	return getUserConfig("default")
 }
 
 func getProfileByName(profileName string) (*client.UserConfig, error) {

@@ -32,6 +32,12 @@ const (
 	defaultFileType       = "yaml"
 	defaultConfigFileName = "config"
 	cliName               = "esad"
+	esadConfigFile        = "ESAD_CONFIG_FILE"
+	FlagConfig            = "config"
+	FlagUser              = "user"
+	FlagPassword          = "password"
+	FlagEndpoint          = "endpoint"
+	FlagProfile           = "profile"
 )
 
 var cfgFile string
@@ -58,32 +64,45 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	esadCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.esad/config.yaml)")
-	esadCmd.PersistentFlags().StringVar(&user, "user", "", "user to use. Overrides config/env settings.")
-	esadCmd.PersistentFlags().StringVar(&password, "password", "", "password to use. Overrides config/env settings.")
-	esadCmd.PersistentFlags().StringVar(&endpoint, "endpoint", "", "endpoint to use. Overrides config/env settings.")
-	esadCmd.PersistentFlags().StringVar(&profile, "profile", "", "Use a specific profile from your credential file.")
+	esadCmd.PersistentFlags().StringVar(&cfgFile, FlagConfig, "", "config file (default is $HOME/.esad/config.yaml)")
+	esadCmd.PersistentFlags().StringVar(&user, FlagUser, "", "user to use. Overrides config/env settings.")
+	esadCmd.PersistentFlags().StringVar(&password, FlagPassword, "", "password to use. Overrides config/env settings.")
+	esadCmd.PersistentFlags().StringVar(&endpoint, FlagEndpoint, "", "endpoint to use. Overrides config/env settings.")
+	esadCmd.PersistentFlags().StringVar(&profile, FlagProfile, "", "Use a specific profile from your credential file.")
 
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
+	} else if value, ok := os.LookupEnv(esadConfigFile); ok {
+		viper.SetConfigFile(value)
 	} else {
-		home, err := homedir.Dir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		viper.AddConfigPath(filepath.Join(home, fmt.Sprintf(".%s", cliName)))
-		viper.SetConfigName(defaultConfigFileName)
-		viper.SetConfigType(defaultFileType)
+		createDefaultConfigFile()
 	}
-
 	// If a config file is found, read it in.
 	viper.AutomaticEnv() // read in environment variables that match
 	_ = viper.ReadInConfig()
+}
+
+func createDefaultConfigFile() {
+	home, err := homedir.Dir()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	folderPath := filepath.Join(home, fmt.Sprintf(".%s", cliName))
+	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
+		if err = os.Mkdir(folderPath, 0755); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}
+	viper.AddConfigPath(folderPath)
+	viper.SetConfigName(defaultConfigFileName)
+	viper.SetConfigType(defaultFileType)
 }
 
 //GetHandler returns handler by wiring the dependency manually

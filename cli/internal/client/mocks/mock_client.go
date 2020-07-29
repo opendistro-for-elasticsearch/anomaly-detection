@@ -28,7 +28,7 @@ func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 
 //NewTestClient returns *http.Client with Transport replaced to avoid making real calls
 func NewTestClient(fn RoundTripFunc) *client.Client {
-	c, err := client.NewClient(fn)
+	c, err := client.New(fn)
 	if err == nil {
 		fmt.Println("Fatal: failed to get client")
 	}

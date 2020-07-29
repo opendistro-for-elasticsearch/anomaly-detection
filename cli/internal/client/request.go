@@ -34,8 +34,8 @@ func NewDefaultClient(tripper http.RoundTripper) (*Client, error) {
 	}, nil
 }
 
-//NewClient takes transport and uses accordingly
-func NewClient(tripper http.RoundTripper) (*Client, error) {
+//New takes transport and uses accordingly
+func New(tripper http.RoundTripper) (*Client, error) {
 	if tripper == nil {
 		tripper = &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},

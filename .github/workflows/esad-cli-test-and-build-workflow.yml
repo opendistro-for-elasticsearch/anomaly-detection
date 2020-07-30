@@ -64,3 +64,11 @@ jobs:
         run: |
           go test ./...  -coverprofile=coverage.out
           go tool cover -func=coverage.out
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1.0.3
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+          file: cli/coverage.out
+          flags: unittests
+          name: codecov-umbrella

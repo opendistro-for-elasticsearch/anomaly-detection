@@ -22,9 +22,9 @@ import (
 	cmapper "esad/internal/mapper"
 	mapper "esad/internal/mapper/ad"
 	"fmt"
-	"github.com/gosuri/uiprogress"
+	"github.com/cheggaaa/pb/v3"
 	"io"
-	"log"
+	"os"
 	"strings"
 )
 
@@ -72,20 +72,23 @@ func (c controller) DeleteDetectorByName(ctx context.Context, name string, force
 	if matchedDetectors == nil {
 		return nil
 	}
-	var bar *uiprogress.Bar
+	var bar *pb.ProgressBar
 	if display {
 		bar = createProgressBar(len(matchedDetectors))
 	}
 	var failedDetectors []string
 	for _, detector := range matchedDetectors {
-		if bar != nil {
-			bar.Incr()
-		}
 		err := c.DeleteDetector(ctx, detector.ID, false, force)
 		if err != nil {
 			failedDetectors = append(failedDetectors, fmt.Sprintf("%s \t Reason: %s", detector.Name, err))
 			continue
 		}
+		if bar != nil {
+			bar.Increment()
+		}
+	}
+	if bar != nil {
+		bar.Finish()
 	}
 	if len(failedDetectors) > 0 {
 		fmt.Printf("failed to delete %d following detector(s)\n", len(failedDetectors))
@@ -169,20 +172,23 @@ func (c controller) processDetectorByAction(ctx context.Context, pattern string,
 	if matchedDetectors == nil {
 		return nil
 	}
-	var bar *uiprogress.Bar
+	var bar *pb.ProgressBar
 	if display {
 		bar = createProgressBar(len(matchedDetectors))
 	}
 	var failedDetectors []string
 	for _, detector := range matchedDetectors {
-		if bar != nil {
-			bar.Incr()
-		}
 		err := f(ctx, detector.ID)
 		if err != nil {
 			failedDetectors = append(failedDetectors, fmt.Sprintf("%s \t Reason: %s", detector.Name, err))
 			continue
 		}
+		if bar != nil {
+			bar.Increment()
+		}
+	}
+	if bar != nil {
+		bar.Finish()
 	}
 	if len(failedDetectors) > 0 {
 		fmt.Printf("\nfailed to %s %d following detector(s)\n", action, len(failedDetectors))
@@ -217,7 +223,7 @@ func (c controller) DeleteDetector(ctx context.Context, id string, interactive b
 		return nil
 	}
 	if force {
-		res, err := c.gateway.StopDetector(ctx, id) // ignore error
+		res, err := c.gateway.StopDetector(ctx, id)
 		if err != nil {
 			return err
 		}
@@ -245,7 +251,9 @@ func (c controller) askForConfirmation(message *string) bool {
 	var response string
 	_, err := fmt.Fscanln(c.reader, &response)
 	if err != nil {
-		log.Fatal(err)
+		//Exit if for some reason, we are not able to accept user input
+		fmt.Printf("failed to accept value from user due to %s", err)
+		os.Exit(1)
 	}
 	switch strings.ToLower(response) {
 	case "y", "yes":
@@ -292,7 +300,7 @@ func (c controller) CreateMultiEntityAnomalyDetector(ctx context.Context, reques
 	if !proceed {
 		return nil, nil
 	}
-	var bar *uiprogress.Bar
+	var bar *pb.ProgressBar
 	if display {
 		bar = createProgressBar(len(filterValues))
 	}
@@ -301,9 +309,6 @@ func (c controller) CreateMultiEntityAnomalyDetector(ctx context.Context, reques
 	filter := request.Filter
 	var createdDetectors []entity.Detector
 	for _, value := range filterValues {
-		if bar != nil {
-			bar.Incr()
-		}
 		request.Filter = buildCompoundQuery(*request.PartitionField, value, filter)
 		request.Name = fmt.Sprintf("%s-%s", name, value)
 		result, err := c.CreateAnomalyDetector(ctx, request)
@@ -316,20 +321,22 @@ func (c controller) CreateMultiEntityAnomalyDetector(ctx context.Context, reques
 			Name: request.Name,
 		})
 		detectors = append(detectors, request.Name)
+		if bar != nil {
+			bar.Increment()
+		}
+	}
+	if bar != nil {
+		bar.Finish()
 	}
 	return detectors, nil
 }
 
-func createProgressBar(total int) *uiprogress.Bar {
-	if total < 2 {
-		return nil
-	}
-	uiprogress.Start()
-	bar := uiprogress.AddBar(total).PrependCompleted()
-	bar.Width = 50
-	bar.AppendFunc(func(b *uiprogress.Bar) string {
-		return fmt.Sprintf("(%d / %d)", b.Current(), total)
-	})
+func createProgressBar(total int) *pb.ProgressBar {
+	template := `{{string . "prefix"}}{{percent . }} {{bar . "[" "=" ">" "_" "]" }} {{counters . }}{{string . "suffix"}}`
+	bar := pb.New(total)
+	bar.SetTemplateString(template)
+	bar.SetMaxWidth(65)
+	bar.Start()
 	return bar
 }
 
@@ -437,16 +444,16 @@ func (c controller) cleanupCreatedDetectors(ctx context.Context, detectors []ent
 	if len(detectors) < 1 {
 		return
 	}
-	var deleted []entity.Detector
+	var unDeleted []entity.Detector
 	for _, d := range detectors {
 		err := c.DeleteDetector(ctx, d.ID, false, true)
 		if err != nil {
-			deleted = append(deleted, d)
+			unDeleted = append(unDeleted, d)
 		}
 	}
-	if len(deleted) > 0 {
+	if len(unDeleted) > 0 {
 		var names []string
-		for _, d := range deleted {
+		for _, d := range unDeleted {
 			names = append(names, d.Name)
 		}
 		fmt.Println("failed to clean-up created detectors. Please clean up manually following detectors: ", strings.Join(names, ", "))

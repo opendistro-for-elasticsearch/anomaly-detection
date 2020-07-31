@@ -3,10 +3,10 @@ module esad
 go 1.14
 
 require (
+	github.com/cheggaaa/pb/v3 v3.0.4
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/golang/mock v1.4.3
 	github.com/gosuri/uilive v0.0.4 // indirect
-	github.com/gosuri/uiprogress v0.0.1
 	github.com/hashicorp/go-retryablehttp v0.6.6
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.3.2

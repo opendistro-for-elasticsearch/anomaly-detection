@@ -19,7 +19,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const commandStart = "start"
+const (
+	commandStart = "start"
+	commandStop  = "stop"
+)
 
 // createCmd represents the create command
 var startCmd = &cobra.Command{
@@ -34,6 +37,24 @@ var startCmd = &cobra.Command{
 		}
 		err := execute(action, args)
 		if err != nil {
+			fmt.Println(commandStart, "command failed")
+			fmt.Println("Reason:", err)
+		}
+	},
+}
+
+var stopCmd = &cobra.Command{
+	Use:   commandStop + " [flags] [list of detectors]",
+	Short: "Stop detectors",
+	Long:  `Stops detectors based on pattern, use "" to make sure the name is not matched with pwd lists'`,
+	Run: func(cmd *cobra.Command, args []string) {
+		idStatus, _ := cmd.Flags().GetBool("id")
+		action := ad.StopAnomalyDetector
+		if idStatus {
+			action = ad.StopAnomalyDetectorByID
+		}
+		err := execute(action, args)
+		if err != nil {
 			fmt.Println(commandStop, "command failed")
 			fmt.Println("Reason:", err)
 		}
@@ -44,6 +65,9 @@ func init() {
 	esadCmd.AddCommand(startCmd)
 	startCmd.Flags().BoolP("name", "", true, "Input is name or pattern")
 	startCmd.Flags().BoolP("id", "", false, "Input is id")
+	esadCmd.AddCommand(stopCmd)
+	stopCmd.Flags().BoolP("name", "", true, "Input is name or pattern")
+	stopCmd.Flags().BoolP("id", "", false, "Input is id")
 }
 
 func execute(f func(*ad.Handler, string) error, detectors []string) error {

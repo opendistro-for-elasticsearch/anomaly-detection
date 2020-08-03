@@ -53,12 +53,9 @@ var esadCmd = &cobra.Command{
 	Version: pkg.VERSION,
 }
 
-//Execute executes commands
-func Execute() {
-	if err := esadCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+// Execute executes the root command.
+func Execute() error {
+	return esadCmd.Execute()
 }
 
 func init() {

@@ -13,8 +13,14 @@
 // ESAD is a command lint tool for AD Plugin
 package main
 
-import "esad/cmd"
+import (
+	"esad/cmd"
+	"os"
+)
 
 func main() {
-	cmd.Execute()
+	if err := cmd.Execute(); err!= nil{
+	// By default every command should handle their error message
+		os.Exit(1)
+	}
 }

@@ -6,7 +6,13 @@ This CLI provides greater flexibility of use. User can use CLI to easily do thin
 
 It only supports [Open Distro for Elasticsearch (ODFE) AD Plugin](https://opendistro.github.io/for-elasticsearch-docs/docs/ad/)
 You must have the ODFE AD plugin installed to your Elasticsearch instance to connect. 
-Users can run this CLI from MacOS and Linux, and connect to any valid Elasticsearch end-point such as Amazon Elasticsearch Service (AES).The ESAD CLI implements AD APIs.
+Users can run this CLI from MacOS, Windows, Linux and connect to any valid Elasticsearch end-point such as Amazon Elasticsearch Service (AES).The ESAD CLI implements AD APIs.
+
+## Version Compatibility Matrix
+
+| ESAD Version  | ODFE Version        |
+| ------------- |:-------------------:|
+| 0.1           | 1.7.X, 1.8.X, 1.9.X |
 
 ## Features
 

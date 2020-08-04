@@ -20,7 +20,7 @@ import (
 	"fmt"
 )
 
-//go:generate mockgen -destination=mocks/mock_ad.go -package=mocks . Controller
+//go:generate mockgen -destination=mocks/mock_es.go -package=mocks . Controller
 
 //Controller is an interface for ES Cluster to get distinct values
 type Controller interface {

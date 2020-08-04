@@ -158,7 +158,7 @@ func validateFeatureLimit(features []ad.FeatureRequest) error {
 		featureCount += len(f.AggregationType) * len(f.Field)
 	}
 	if featureCount == 0 || featureCount > featureCountLimit {
-		return fmt.Errorf("trying to create %d feautes, only upto %d features are allowed", featureCount, featureCountLimit)
+		return fmt.Errorf("trying to create %d feautres, only upto %d features are allowed", featureCount, featureCountLimit)
 	}
 	return nil
 }

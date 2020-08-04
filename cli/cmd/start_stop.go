@@ -24,7 +24,6 @@ const (
 	commandStop  = "stop"
 )
 
-// createCmd represents the create command
 var startCmd = &cobra.Command{
 	Use:   commandStart + " [flags] [list of detectors]",
 	Short: "Start detectors",

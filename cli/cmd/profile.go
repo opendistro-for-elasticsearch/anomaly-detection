@@ -152,12 +152,11 @@ func saveProfiles(profiles []entity.Profile) {
 
 func isProfileExists(name string) bool {
 	profiles := getProfiles()
-	for _, profile := range profiles {
-		if profile.Name == name {
-			return true
-		}
+	if profiles== nil || len(profiles) < 1 {
+		return false
 	}
-	return false
+	_, found :=profiles[name] //ignore value
+	return found
 }
 
 func getUserInputAsText() string {
@@ -196,46 +195,35 @@ func getUserInput(name string, mask bool) string {
 }
 
 func deleteProfiles(names []string) {
-
-	var existingProfileNames []string
+	profiles := getProfiles()
 	for _, name := range names {
-		if !isProfileExists(name) {
+		if _,ok := profiles[name]; !ok {
 			fmt.Println("profile", name, "doesn't exists.")
 			continue
 		}
-		existingProfileNames = append(existingProfileNames, name)
+		delete(profiles,name)
 	}
-	if len(existingProfileNames) < 1 {
-		return
-	}
-
 	var remainingProfiles []entity.Profile
-	profiles := getProfiles()
-	for _, p := range profiles {
-		toBeDeleted := false
-		for _, name := range existingProfileNames {
-			if p.Name == name {
-				toBeDeleted = true
-				break
-			}
-		}
-		if !toBeDeleted {
-			remainingProfiles = append(remainingProfiles, p)
-		}
+	for _, profile := range profiles {
+		remainingProfiles = append(remainingProfiles, profile)
 	}
 	saveProfiles(remainingProfiles)
 }
 
-func getProfiles() []entity.Profile {
+func getProfiles() map[string]entity.Profile {
 	config := &entity.Configuration{
 		Profiles: []entity.Profile{},
 	}
 	err := mapstructure.Decode(viper.AllSettings(), config)
+	profiles := map[string]entity.Profile{}
 	if err != nil {
 		fmt.Println("failed to load config due to ", err)
-		return []entity.Profile{}
+		return profiles
 	}
-	return config.Profiles
+	for _, profile := range config.Profiles {
+		profiles[profile.Name] = profile
+	}
+	return profiles
 }
 
 func getValue(flagName string) (*string, error) {

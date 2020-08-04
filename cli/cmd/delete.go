@@ -20,6 +20,8 @@ import (
 
 const commandDelete = "delete"
 
+//deleteCmd deletes detectors based on id and name pattern.
+//default input is name pattern, one can change this format to be id by passing --id flag
 var deleteCmd = &cobra.Command{
 	Use:   commandDelete + " [flags] [list of detectors]",
 	Short: "Deletes detectors",
@@ -34,7 +36,7 @@ var deleteCmd = &cobra.Command{
 		}
 		force, _ := cmd.Flags().GetBool("force")
 		detectorID, _ := cmd.Flags().GetBool("id")
-		action := handler.DeleteAnomalyDetector
+		action := handler.DeleteAnomalyDetectorByNamePattern
 		if detectorID {
 			action = handler.DeleteAnomalyDetectorByID
 		}

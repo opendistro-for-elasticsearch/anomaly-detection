@@ -22,7 +22,11 @@ import (
 	"strings"
 )
 
-const featureCountLimit = 5
+const (
+	featureCountLimit = 5
+	minutesKey        = "m"
+	minutes           = "Minutes"
+)
 
 func getFeatureAggregationQuery(name string, agg string, field string) ([]byte, error) {
 
@@ -72,16 +76,10 @@ func getUnit(request string) (*string, error) {
 
 	//extract last character
 	unit := strings.ToLower(request[len(request)-1:])
-	stringToUnitMap := make(map[string]string)
-	stringToUnitMap["s"] = "Seconds"
-	stringToUnitMap["m"] = "Minutes"
-	stringToUnitMap["h"] = "Hours"
-	stringToUnitMap["w"] = "Weeks"
-	stringToUnitMap["d"] = "Days"
-	if val, ok := stringToUnitMap[unit]; ok {
-		return mapper.StringToStringPtr(val), nil
+	if unit != minutesKey {
+		return nil, fmt.Errorf("invlaid unit: '%v' in %v, only %s (%s) is supported", unit, request, minutesKey, minutes)
 	}
-	return nil, fmt.Errorf("invlaid unit: '%v' in %v", unit, request)
+	return mapper.StringToStringPtr(minutes), nil
 }
 
 func getDuration(request string) (*int32, error) {

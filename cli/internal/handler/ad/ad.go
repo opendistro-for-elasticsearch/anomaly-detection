@@ -113,13 +113,13 @@ func (h *Handler) DeleteAnomalyDetectorByID(detectorID string, force bool) error
 	return err
 }
 
-//DeleteAnomalyDetector deletes detector based on detectorName
-func DeleteAnomalyDetector(h *Handler, detectorName string, force bool) error {
-	return h.DeleteAnomalyDetector(detectorName, force)
+//DeleteAnomalyDetectorByNamePattern deletes detector based on detectorName
+func DeleteAnomalyDetectorByNamePattern(h *Handler, detectorName string, force bool) error {
+	return h.DeleteAnomalyDetectorByNamePattern(detectorName, force)
 }
 
-//DeleteAnomalyDetector deletes detector based on detectorName
-func (h *Handler) DeleteAnomalyDetector(detectorName string, force bool) error {
+//DeleteAnomalyDetectorByNamePattern deletes detector based on detectorName
+func (h *Handler) DeleteAnomalyDetectorByNamePattern(detectorName string, force bool) error {
 
 	ctx := context.Background()
 	err := h.DeleteDetectorByName(ctx, detectorName, force, true)
@@ -145,13 +145,13 @@ func (h *Handler) StartAnomalyDetectorByID(detector string) error {
 	return nil
 }
 
-// StartAnomalyDetector starts detector based on detector name pattern
-func StartAnomalyDetector(h *Handler, detector string) error {
-	return h.StartAnomalyDetector(detector)
+// StartAnomalyDetectorByNamePattern starts detector based on detector name pattern
+func StartAnomalyDetectorByNamePattern(h *Handler, detector string) error {
+	return h.StartAnomalyDetectorByNamePattern(detector)
 }
 
-// StartAnomalyDetector starts detector based on detector name pattern
-func (h *Handler) StartAnomalyDetector(detector string) error {
+// StartAnomalyDetectorByNamePattern starts detector based on detector name pattern
+func (h *Handler) StartAnomalyDetectorByNamePattern(detector string) error {
 
 	ctx := context.Background()
 	err := h.StartDetectorByName(ctx, detector, true)
@@ -161,13 +161,13 @@ func (h *Handler) StartAnomalyDetector(detector string) error {
 	return nil
 }
 
-// StopAnomalyDetector stops detector based on detector name pattern
-func StopAnomalyDetector(h *Handler, detector string) error {
-	return h.StopAnomalyDetector(detector)
+// StopAnomalyDetectorByNamePattern stops detector based on detector name pattern
+func StopAnomalyDetectorByNamePattern(h *Handler, detector string) error {
+	return h.StopAnomalyDetectorByNamePattern(detector)
 }
 
-// StopAnomalyDetector stops detector based on detector name pattern
-func (h *Handler) StopAnomalyDetector(detector string) error {
+// StopAnomalyDetectorByNamePattern stops detector based on detector name pattern
+func (h *Handler) StopAnomalyDetectorByNamePattern(detector string) error {
 
 	ctx := context.Background()
 	err := h.StopDetectorByName(ctx, detector, true)

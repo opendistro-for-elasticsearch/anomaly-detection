@@ -24,6 +24,8 @@ const (
 	generate      = "generate-skeleton"
 )
 
+//createCmd creates detectors based on file configuration, if interactive mode is on,
+//this command will prompt for confirmation on number of detectors will be created on executions.
 var createCmd = &cobra.Command{
 	Use:   commandCreate + " [list of file-path] [flags]",
 	Short: "Creates detectors based on configurations",

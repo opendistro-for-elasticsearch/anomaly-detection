@@ -34,6 +34,7 @@ const (
 	esadProfile             = "ESAD_PROFILE"
 )
 
+//profilesCmd is main command for profile operations like list, create and delete
 var profilesCmd = &cobra.Command{
 	Use:   profileBaseCmdName + " [flags] [command] [sub command]",
 	Short: "profile is a collection of settings and credentials that you can apply to an esad command",
@@ -43,6 +44,7 @@ var profilesCmd = &cobra.Command{
            The ESAD CLI supports using any of multiple named profiles that are stored in the config and credentials files.`,
 }
 
+//createProfilesCmd creates profile interactively by prompting for name (distinct), user, endpoint, password.
 var createProfilesCmd = &cobra.Command{
 	Use:   createNewProfileCmdName,
 	Short: "Create new named profile",
@@ -52,6 +54,7 @@ var createProfilesCmd = &cobra.Command{
 	},
 }
 
+//deleteProfileCmd deletes list of profiles passed as an arguments, provided profiles are already exists.
 var deleteProfileCmd = &cobra.Command{
 	Use:   deleteNewProfileCmdName + " [list of profile names to be deleted]",
 	Short: "Delete named profiles",
@@ -68,6 +71,7 @@ var deleteProfileCmd = &cobra.Command{
 	},
 }
 
+//listProfilesCmd lists profiles from config profile in tabular format.
 var listProfilesCmd = &cobra.Command{
 	Use:   listProfileCmdName,
 	Short: "lists named profiles",
@@ -111,7 +115,7 @@ func createProfile() {
 	for {
 		fmt.Printf("Enter profile's name: ")
 		name = getUserInputAsText(checkInputIsNotEmpty)
-		if _,ok:=profiles[name];!ok {
+		if _, ok := profiles[name]; !ok {
 			break
 		}
 		fmt.Println("profile", name, "already exists.")
@@ -148,7 +152,7 @@ func saveProfiles(profiles []entity.Profile) {
 	}
 }
 
-func getUserInputAsText(isValid func(string)bool) string {
+func getUserInputAsText(isValid func(string) bool) string {
 	var response string
 	//Ignore return value since validation is applied below
 	_, _ = fmt.Scanln(&response)
@@ -166,7 +170,7 @@ func checkInputIsNotEmpty(input string) bool {
 	return true
 }
 
-func getUserInputAsMaskedText(isValid func(string)bool) string {
+func getUserInputAsMaskedText(isValid func(string) bool) string {
 	maskedValue, err := terminal.ReadPassword(0)
 	if err != nil {
 		fmt.Println(err)
@@ -183,11 +187,11 @@ func getUserInputAsMaskedText(isValid func(string)bool) string {
 func deleteProfiles(names []string) {
 	profiles := getProfiles()
 	for _, name := range names {
-		if _,ok := profiles[name]; !ok {
+		if _, ok := profiles[name]; !ok {
 			fmt.Println("profile", name, "doesn't exists.")
 			continue
 		}
-		delete(profiles,name)
+		delete(profiles, name)
 	}
 	var remainingProfiles []entity.Profile
 	for _, profile := range profiles {

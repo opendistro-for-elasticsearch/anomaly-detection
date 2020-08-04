@@ -23,14 +23,15 @@ const (
 	commandStart = "start"
 	commandStop  = "stop"
 )
-
+//startCmd stops detectors based on id and name pattern.
+//default input is name pattern, one can change this format to be id by passing --id flag
 var startCmd = &cobra.Command{
 	Use:   commandStart + " [flags] [list of detectors]",
-	Short: "Start detectors",
+	Short: "Start detectors based on id or name pattern",
 	Long:  `Start detectors based on pattern, use "" to make sure the name is not matched with pwd lists'`,
 	Run: func(cmd *cobra.Command, args []string) {
 		idStatus, _ := cmd.Flags().GetBool("id")
-		action := ad.StartAnomalyDetector
+		action := ad.StartAnomalyDetectorByNamePattern
 		if idStatus {
 			action = ad.StartAnomalyDetectorByID
 		}
@@ -42,9 +43,11 @@ var startCmd = &cobra.Command{
 	},
 }
 
+//stopCmd stops detectors based on id and name pattern.
+//default input is name pattern, one can change this format to be id by passing --id flag
 var stopCmd = &cobra.Command{
 	Use:   commandStop + " [flags] [list of detectors]",
-	Short: "Stop detectors",
+	Short: "Stop detectors based on id or name pattern",
 	Long:  `Stops detectors based on pattern, use "" to make sure the name is not matched with pwd lists'`,
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no args, display usage
@@ -55,7 +58,7 @@ var stopCmd = &cobra.Command{
 			return
 		}
 		idStatus, _ := cmd.Flags().GetBool("id")
-		action := ad.StopAnomalyDetector
+		action := ad.StopAnomalyDetectorByNamePattern
 		if idStatus {
 			action = ad.StopAnomalyDetectorByID
 		}

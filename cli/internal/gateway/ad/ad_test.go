@@ -288,3 +288,28 @@ func getCreateClient(t *testing.T, responseData []byte, code int) *client.Client
 		}
 	})
 }
+
+func TestGateway_GetDetector(t *testing.T) {
+	ctx := context.Background()
+	t.Run("connection failed", func(t *testing.T) {
+		testClient := getTestClient(t, `connection failed`, 400, http.MethodGet, "")
+		testGateway := New(testClient, &client.UserConfig{
+			Endpoint: "http://localhost:9200",
+			Username: "admin",
+			Password: "admin",
+		})
+		_, err := testGateway.GetDetector(ctx, "id")
+		assert.EqualError(t, err, "connection failed")
+	})
+	t.Run("get success", func(t *testing.T) {
+		testClient := getTestClient(t, string(helperLoadBytes(t, "get_result.json")), 200, http.MethodGet, "")
+		testGateway := New(testClient, &client.UserConfig{
+			Endpoint: "http://localhost:9200",
+			Username: "admin",
+			Password: "admin",
+		})
+		resp, err := testGateway.GetDetector(ctx, "id")
+		assert.NoError(t, err)
+		assert.EqualValues(t, helperLoadBytes(t, "get_result.json"), resp)
+	})
+}

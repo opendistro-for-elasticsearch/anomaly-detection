@@ -62,6 +62,21 @@ func (mr *MockGatewayMockRecorder) DeleteDetector(arg0, arg1 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDetector", reflect.TypeOf((*MockGateway)(nil).DeleteDetector), arg0, arg1)
 }
 
+// GetDetector mocks base method
+func (m *MockGateway) GetDetector(arg0 context.Context, arg1 string) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDetector", arg0, arg1)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDetector indicates an expected call of GetDetector
+func (mr *MockGatewayMockRecorder) GetDetector(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDetector", reflect.TypeOf((*MockGateway)(nil).GetDetector), arg0, arg1)
+}
+
 // SearchDetector mocks base method
 func (m *MockGateway) SearchDetector(arg0 context.Context, arg1 interface{}) ([]byte, error) {
 	m.ctrl.T.Helper()

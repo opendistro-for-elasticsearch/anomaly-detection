@@ -107,35 +107,33 @@ func init() {
 
 func createProfile() {
 	var name string
+	profiles := getProfiles()
 	for {
 		fmt.Printf("Enter profile's name: ")
-		name = getUserInput("profile's name", false)
-		if !isProfileExists(name) {
+		name = getUserInputAsText(checkInputIsNotEmpty)
+		if _,ok:=profiles[name];!ok {
 			break
 		}
 		fmt.Println("profile", name, "already exists.")
 	}
 	fmt.Printf("ES Anomaly Detection Endpoint: ")
-	endpoint := getUserInput("endpoint", false)
+	endpoint := getUserInputAsText(checkInputIsNotEmpty)
 	fmt.Printf("ES Anomaly Detection User: ")
-	user := getUserInput("user", false)
+	user := getUserInputAsText(checkInputIsNotEmpty)
 	fmt.Printf("ES Anomaly Detection Password: ")
-	password := getUserInput("password", true)
-	profile := entity.Profile{
+	password := getUserInputAsMaskedText(checkInputIsNotEmpty)
+	newProfile := entity.Profile{
 		Name:     name,
 		Endpoint: endpoint,
 		Username: user,
 		Password: password,
 	}
-	config := &entity.Configuration{
-		Profiles: []entity.Profile{},
+	var profileLists []entity.Profile
+	for _, profile := range profiles {
+		profileLists = append(profileLists, profile)
 	}
-	err := mapstructure.Decode(viper.AllSettings(), config)
-	if err != nil {
-		fmt.Println("failed to load profiles due to ", err)
-	}
-	config.Profiles = append(config.Profiles, profile)
-	saveProfiles(config.Profiles)
+	profileLists = append(profileLists, newProfile)
+	saveProfiles(profileLists)
 }
 
 func saveProfiles(profiles []entity.Profile) {
@@ -150,48 +148,36 @@ func saveProfiles(profiles []entity.Profile) {
 	}
 }
 
-func isProfileExists(name string) bool {
-	profiles := getProfiles()
-	if profiles== nil || len(profiles) < 1 {
-		return false
-	}
-	_, found :=profiles[name] //ignore value
-	return found
-}
-
-func getUserInputAsText() string {
+func getUserInputAsText(isValid func(string)bool) string {
 	var response string
-	_, err := fmt.Scanln(&response)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	//Ignore return value since validation is applied below
+	_, _ = fmt.Scanln(&response)
+	if !isValid(response) {
+		return getUserInputAsText(isValid)
 	}
 	return strings.TrimSpace(response)
 }
 
-func getUserInputAsMaskedText() string {
+func checkInputIsNotEmpty(input string) bool {
+	if len(input) < 1 {
+		fmt.Print("value cannot be empty. Please enter non-empty value")
+		return false
+	}
+	return true
+}
+
+func getUserInputAsMaskedText(isValid func(string)bool) string {
 	maskedValue, err := terminal.ReadPassword(0)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	value := fmt.Sprintf("%s", maskedValue)
+	if !isValid(value) {
+		return getUserInputAsMaskedText(isValid)
+	}
 	fmt.Println()
-	return fmt.Sprintf("%s", maskedValue)
-}
-
-func getUserInput(name string, mask bool) string {
-
-	var response string
-	if mask {
-		response = getUserInputAsMaskedText()
-	} else {
-		response = getUserInputAsText()
-	}
-	if len(response) < 1 {
-		fmt.Printf("value cannot be empty. Please enter non-empty value for %s: ", name)
-		return getUserInput(name, mask)
-	}
-	return response
+	return value
 }
 
 func deleteProfiles(names []string) {

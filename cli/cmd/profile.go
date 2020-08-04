@@ -57,6 +57,13 @@ var deleteProfileCmd = &cobra.Command{
 	Short: "Delete named profiles",
 	Long:  `Delete profile permanently from configuration files`,
 	Run: func(cmd *cobra.Command, args []string) {
+		//If no args, display usage
+		if len(args) < 1 {
+			if err := cmd.Usage(); err != nil {
+				fmt.Println(err)
+			}
+			return
+		}
 		deleteProfiles(args)
 	},
 }
@@ -82,6 +89,7 @@ func displayProfiles() {
 	const padding = 3
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(w, "Name\t\tUserName\t\tEndpoint-url\t")
+	fmt.Fprintf(w, "%s\t\t%s\t\t%s\t\n", "----", "--------", "------------")
 	for _, profile := range config.Profiles {
 		fmt.Fprintf(w, "%s\t\t%s\t\t%s\t\n", profile.Name, profile.Username, profile.Endpoint)
 	}

@@ -29,16 +29,19 @@ var createCmd = &cobra.Command{
 	Short: "Creates detectors based on configurations",
 	Long:  `Creates detectors based on configurations specified by file path`,
 	Run: func(cmd *cobra.Command, args []string) {
-		status, _ := cmd.Flags().GetBool(interactive)
 		generate, _ := cmd.Flags().GetBool(generate)
 		if generate {
-			err := generateFile()
-			if err != nil {
-				fmt.Println(commandCreate, "command failed")
-				fmt.Println("Reason:", err)
-				return
-			}
+			generateTemplate()
+			return
 		}
+		//If no args, display usage
+		if len(args) < 1 {
+			if err := cmd.Usage(); err != nil {
+				fmt.Println(err)
+			}
+			return
+		}
+		status, _ := cmd.Flags().GetBool(interactive)
 		err := createDetectors(args, status)
 		if err != nil {
 			fmt.Println(commandCreate, "command failed")
@@ -47,10 +50,9 @@ var createCmd = &cobra.Command{
 	},
 }
 
-func generateFile() error {
+func generateTemplate() {
 	detector, _ := handler.GenerateAnomalyDetector()
 	fmt.Println(string(detector))
-	return nil
 }
 
 func init() {

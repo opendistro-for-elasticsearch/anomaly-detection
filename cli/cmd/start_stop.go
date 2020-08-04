@@ -48,6 +48,13 @@ var stopCmd = &cobra.Command{
 	Short: "Stop detectors",
 	Long:  `Stops detectors based on pattern, use "" to make sure the name is not matched with pwd lists'`,
 	Run: func(cmd *cobra.Command, args []string) {
+		//If no args, display usage
+		if len(args) < 1 {
+			if err := cmd.Usage(); err != nil {
+				fmt.Println(err)
+			}
+			return
+		}
 		idStatus, _ := cmd.Flags().GetBool("id")
 		action := ad.StopAnomalyDetector
 		if idStatus {

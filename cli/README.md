@@ -29,7 +29,7 @@ To install the AD CLI:
 
 ## Configure
 
-Before using the AWS CLI, you need to configure your AWS credentials. You can do this in several ways:
+Before using the ESAD CLI, you need to configure your ESAD credentials. You can do this in several ways:
 
 * Configuration command
 * Config file
@@ -43,6 +43,7 @@ ES Anomaly Detection Endpoint: https://localhost:9200
 ES Anomaly Detection User: admin
 ES Anomaly Detection Password:
 ```
+Make sure profile name is unique within config file. `create` command will not allow user to create duplicate profile.
 
 To use a config file, create a YAML file like this
 ```
@@ -56,12 +57,14 @@ profiles:
   password: foobar
   name: dev
 ```
-and place it on ~/.esad/config.yaml. if you wish to place the shared credentials file in a different location than the one specified above, you need to tell aws-cli where to find it. Do this by setting the appropriate environment variable:
+and place it on ~/.esad/config.yaml.
+If you wish to place the shared config file in a different location than the one specified above, you need to tell esad where to find it. Do this by setting the appropriate environment variable:
 
 ```
 export ESAD_CONFIG_FILE=/path/to/config_file
 ```
-You can have multiple profiles defined in the configuration file. You can then specify which profile to use by using the --profile option. If no profile is specified the `default` profile is used.
+You can have multiple profiles defined in the configuration file.
+You can then specify which profile to use by using the --profile option. `default` profile will be used if profile parameter is skipped.
 
 
 

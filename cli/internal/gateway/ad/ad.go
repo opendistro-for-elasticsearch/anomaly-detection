@@ -28,6 +28,7 @@ const (
 	stopURLTemplate   = baseURL + "/%s/" + "_stop"
 	searchURLTemplate = baseURL + "/_search"
 	deleteURLTemplate = baseURL + "/%s"
+	getURLTemplate    = baseURL + "/%s"
 )
 
 //go:generate mockgen -destination=mocks/mock_ad.go -package=mocks . Gateway
@@ -39,6 +40,7 @@ type Gateway interface {
 	StopDetector(context.Context, string) (*string, error)
 	DeleteDetector(context.Context, string) error
 	SearchDetector(context.Context, interface{}) ([]byte, error)
+	GetDetector(context.Context, string) ([]byte, error)
 }
 
 type gateway struct {
@@ -239,4 +241,31 @@ func (g *gateway) DeleteDetector(ctx context.Context, ID string) error {
 		return err
 	}
 	return nil
+}
+
+func (g *gateway) buildGetURL(ID string) (*url.URL, error) {
+	endpoint, err := gw.GetValidEndpoint(g.UserConfig)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.Path = fmt.Sprintf(getURLTemplate, ID)
+	return endpoint, nil
+}
+
+// GetDetector Returns all information about a detector based on the detector_id.
+// It calls http request: GET _opendistro/_anomaly_detection/detectors/<detectorId>
+func (g *gateway) GetDetector(ctx context.Context, ID string) ([]byte, error) {
+	getURL, err := g.buildGetURL(ID)
+	if err != nil {
+		return nil, err
+	}
+	detectorRequest, err := g.BuildRequest(ctx, http.MethodGet, "", getURL.String(), gw.GetHeaders())
+	if err != nil {
+		return nil, err
+	}
+	response, err := g.Call(detectorRequest, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
 }

@@ -33,17 +33,17 @@ func (m *MockGateway) EXPECT() *MockGatewayMockRecorder {
 	return m.recorder
 }
 
-// Search mocks base method
-func (m *MockGateway) Search(arg0 context.Context, arg1, arg2 string) ([]byte, error) {
+// SearchDistinctValues mocks base method
+func (m *MockGateway) SearchDistinctValues(arg0 context.Context, arg1, arg2 string) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Search", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SearchDistinctValues", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Search indicates an expected call of Search
-func (mr *MockGatewayMockRecorder) Search(arg0, arg1, arg2 interface{}) *gomock.Call {
+// SearchDistinctValues indicates an expected call of SearchDistinctValues
+func (mr *MockGatewayMockRecorder) SearchDistinctValues(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Search", reflect.TypeOf((*MockGateway)(nil).Search), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchDistinctValues", reflect.TypeOf((*MockGateway)(nil).SearchDistinctValues), arg0, arg1, arg2)
 }

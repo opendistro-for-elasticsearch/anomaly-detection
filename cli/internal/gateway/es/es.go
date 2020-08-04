@@ -28,7 +28,7 @@ const search = "_search"
 
 //Gateway interface to call ES
 type Gateway interface {
-	Search(ctx context.Context, index string, field string) ([]byte, error)
+	SearchDistinctValues(ctx context.Context, index string, field string) ([]byte, error)
 }
 
 type gateway struct {
@@ -63,7 +63,8 @@ func (g *gateway) buildSearchURL(index string) (*url.URL, error) {
 	return endpoint, nil
 }
 
-func (g *gateway) Search(ctx context.Context, index string, field string) ([]byte, error) {
+//SearchDistinctValues gets distinct values on index for given field
+func (g *gateway) SearchDistinctValues(ctx context.Context, index string, field string) ([]byte, error) {
 	searchURL, err := g.buildSearchURL(index)
 	if err != nil {
 		return nil, err

@@ -67,7 +67,7 @@ func TestController_GetDistinctValues(t *testing.T) {
 
 		mockGateway := gateway.NewMockGateway(mockCtrl)
 		ctx := context.Background()
-		mockGateway.EXPECT().Search(ctx, "example", "f1").Return(nil, errors.New("search failed"))
+		mockGateway.EXPECT().SearchDistinctValues(ctx, "example", "f1").Return(nil, errors.New("search failed"))
 		ctrl := NewESController(mockGateway)
 		_, err := ctrl.GetDistinctValues(ctx, "example", "f1")
 		assert.Error(t, err)
@@ -78,7 +78,7 @@ func TestController_GetDistinctValues(t *testing.T) {
 
 		mockGateway := gateway.NewMockGateway(mockCtrl)
 		ctx := context.Background()
-		mockGateway.EXPECT().Search(ctx, "example", "f1").Return([]byte("No response"), nil)
+		mockGateway.EXPECT().SearchDistinctValues(ctx, "example", "f1").Return([]byte("No response"), nil)
 		ctrl := NewESController(mockGateway)
 		_, err := ctrl.GetDistinctValues(ctx, "example", "f1")
 		assert.Error(t, err)
@@ -89,7 +89,7 @@ func TestController_GetDistinctValues(t *testing.T) {
 		mockGateway := gateway.NewMockGateway(mockCtrl)
 		ctx := context.Background()
 		expectedResult := helperConvertToInterface([]string{"Packaged Foods", "Dairy", "Meat and Seafood"})
-		mockGateway.EXPECT().Search(ctx, "example", "f1").Return(helperLoadBytes(t, "search_result.json"), nil)
+		mockGateway.EXPECT().SearchDistinctValues(ctx, "example", "f1").Return(helperLoadBytes(t, "search_result.json"), nil)
 		ctrl := NewESController(mockGateway)
 		result, err := ctrl.GetDistinctValues(ctx, "example", "f1")
 		assert.NoError(t, err)

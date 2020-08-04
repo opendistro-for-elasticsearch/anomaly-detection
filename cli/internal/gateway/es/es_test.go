@@ -56,7 +56,7 @@ func getTestClient(t *testing.T, responseData string, code int) *client.Client {
 	})
 }
 
-func TestGateway_Search(t *testing.T) {
+func TestGateway_SearchDistinctValues(t *testing.T) {
 	responseData, _ := json.Marshal(helperLoadBytes(t, "search_result.json"))
 	ctx := context.Background()
 	t.Run("search succeeded", func(t *testing.T) {
@@ -67,7 +67,7 @@ func TestGateway_Search(t *testing.T) {
 			Username: "admin",
 			Password: "admin",
 		})
-		actual, err := testGateway.Search(ctx, "test_index", "day_of_week")
+		actual, err := testGateway.SearchDistinctValues(ctx, "test_index", "day_of_week")
 		assert.NoError(t, err)
 		assert.EqualValues(t, actual, responseData)
 	})
@@ -78,7 +78,7 @@ func TestGateway_Search(t *testing.T) {
 			Username: "admin",
 			Password: "admin",
 		})
-		_, err := testGateway.Search(ctx, "test_index", "day_of_week")
+		_, err := testGateway.SearchDistinctValues(ctx, "test_index", "day_of_week")
 		assert.EqualError(t, err, "No connection found")
 	})
 	t.Run("search failed due to bad user config", func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestGateway_Search(t *testing.T) {
 			Username: "",
 			Password: "admin",
 		})
-		_, err := testGateway.Search(ctx, "test_index", "day_of_week")
+		_, err := testGateway.SearchDistinctValues(ctx, "test_index", "day_of_week")
 		assert.EqualError(t, err, "user name and password cannot be empty")
 	})
 }

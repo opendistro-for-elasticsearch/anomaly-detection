@@ -41,7 +41,7 @@ func (c controller) GetDistinctValues(ctx context.Context, index string, field s
 	if len(index) == 0 || len(field) == 0 {
 		return nil, fmt.Errorf("index and field cannot be empty")
 	}
-	response, err := c.gateway.Search(ctx, index, field)
+	response, err := c.gateway.SearchDistinctValues(ctx, index, field)
 	if err != nil {
 		return nil, err
 	}

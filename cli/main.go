@@ -19,8 +19,8 @@ import (
 )
 
 func main() {
-	if err := cmd.Execute(); err!= nil{
-	// By default every command should handle their error message
+	if err := cmd.Execute(); err != nil {
+		// By default every command should handle their error message
 		os.Exit(1)
 	}
 }

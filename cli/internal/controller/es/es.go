@@ -31,8 +31,8 @@ type controller struct {
 	gateway es.Gateway
 }
 
-//NewESController returns new instance of Controller
-func NewESController(gateway es.Gateway) Controller {
+//New returns new instance of Controller
+func New(gateway es.Gateway) Controller {
 	return &controller{
 		gateway,
 	}

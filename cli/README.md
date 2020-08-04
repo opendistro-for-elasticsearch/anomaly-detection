@@ -30,7 +30,7 @@ To install the AD CLI:
 1. Install from source:
 
     ```
-    $ go get github.com/VijayanB/esad/
+    $ go get github.com/opendistro-for-elasticsearch/anomaly-detection/cli
     ```
 
 ## Configure

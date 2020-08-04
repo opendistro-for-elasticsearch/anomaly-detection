@@ -25,11 +25,11 @@ import (
 
 //Handler is facade for controller
 type Handler struct {
-	controller.AnomalyDetectorController
+	controller.Controller
 }
 
 // New returns new Handler instance
-func New(controller controller.AnomalyDetectorController) *Handler {
+func New(controller controller.Controller) *Handler {
 	return &Handler{
 		controller,
 	}
@@ -40,7 +40,7 @@ func CreateAnomalyDetector(h *Handler, fileName string, interactive bool) error 
 	return h.CreateAnomalyDetector(fileName, interactive)
 }
 
-//GenerateAnomalyDetector creates detector based on file configurations
+//GenerateAnomalyDetector generate sample detector to provide skeleton for users
 func GenerateAnomalyDetector() ([]byte, error) {
 	return json.MarshalIndent(entity.CreateDetectorRequest{
 		Name:        "Detector Name",

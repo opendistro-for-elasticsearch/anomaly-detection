@@ -58,33 +58,33 @@ func TestHandler_CreateAnomalyDetector(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	t.Run("test create success", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().CreateMultiEntityAnomalyDetector(ctx, getCreateDetectorRequest(), false, true).Return([]string{"test-detector-ecommerce0-one"}, nil)
 		instance := New(mockedController)
 		err := CreateAnomalyDetector(instance, "testdata/create.json", false)
 		assert.NoError(t, err)
 	})
 	t.Run("test create failure", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().CreateMultiEntityAnomalyDetector(ctx, getCreateDetectorRequest(), false, true).Return(nil, errors.New("failed to create"))
 		instance := New(mockedController)
 		err := CreateAnomalyDetector(instance, "testdata/create.json", false)
 		assert.EqualError(t, err, "failed to create")
 	})
 	t.Run("test create failure due to invalid file", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		instance := New(mockedController)
 		err := CreateAnomalyDetector(instance, "testdata/create1.json", false)
 		assert.EqualError(t, err, "failed to open file testdata/create1.json due to open testdata/create1.json: no such file or directory")
 	})
 	t.Run("test create failure due to empty file", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		instance := New(mockedController)
 		err := CreateAnomalyDetector(instance, "", false)
 		assert.EqualError(t, err, "file name cannot be empty")
 	})
 	t.Run("test create failure due to invalid file", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		instance := New(mockedController)
 		err := CreateAnomalyDetector(instance, "testdata/invalid.txt", false)
 		assert.EqualError(t, err, "file testdata/invalid.txt cannot be accepted due to invalid character 'i' looking for beginning of value")
@@ -95,14 +95,14 @@ func TestHandler_DeleteAnomalyDetector(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	t.Run("test delete success", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().DeleteDetectorByName(ctx, "detector", false, true).Return(nil)
 		instance := New(mockedController)
 		err := DeleteAnomalyDetector(instance, "detector", false)
 		assert.NoError(t, err)
 	})
 	t.Run("test delete failure", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().DeleteDetectorByName(ctx, "detector", false, true).Return(errors.New("failed to delete"))
 		instance := New(mockedController)
 		err := DeleteAnomalyDetector(instance, "detector", false)
@@ -115,14 +115,14 @@ func TestHandler_StartAnomalyDetector(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	t.Run("test start success", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().StartDetectorByName(ctx, "detector", true).Return(nil)
 		instance := New(mockedController)
 		err := StartAnomalyDetector(instance, "detector")
 		assert.NoError(t, err)
 	})
 	t.Run("test start failure", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().StartDetectorByName(ctx, "detector", true).Return(errors.New("failed to start"))
 		instance := New(mockedController)
 		err := instance.StartAnomalyDetector("detector")
@@ -135,14 +135,14 @@ func TestHandler_StopAnomalyDetector(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	t.Run("test stop success", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().StopDetectorByName(ctx, "detector", true).Return(nil)
 		instance := New(mockedController)
 		err := StopAnomalyDetector(instance, "detector")
 		assert.NoError(t, err)
 	})
 	t.Run("test stop failure", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().StopDetectorByName(ctx, "detector", true).Return(errors.New("failed to stop"))
 		instance := New(mockedController)
 		err := instance.StopAnomalyDetector("detector")
@@ -154,14 +154,14 @@ func TestHandler_StartAnomalyDetectorByID(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	t.Run("test start success", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().StartDetector(ctx, "detector").Return(nil)
 		instance := New(mockedController)
 		err := StartAnomalyDetectorByID(instance, "detector")
 		assert.NoError(t, err)
 	})
 	t.Run("test start failure", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().StartDetector(ctx, "detector").Return(errors.New("failed to start"))
 		instance := New(mockedController)
 		err := instance.StartAnomalyDetectorByID("detector")
@@ -174,14 +174,14 @@ func TestHandler_StopAnomalyDetectorByID(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	t.Run("test stop success", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().StopDetector(ctx, "detector").Return(nil)
 		instance := New(mockedController)
 		err := StopAnomalyDetectorByID(instance, "detector")
 		assert.NoError(t, err)
 	})
 	t.Run("test stop failure", func(t *testing.T) {
-		mockedController := mocks.NewMockAnomalyDetectorController(mockCtrl)
+		mockedController := mocks.NewMockController(mockCtrl)
 		mockedController.EXPECT().StopDetector(ctx, "detector").Return(errors.New("failed to stop"))
 		instance := New(mockedController)
 		err := instance.StopAnomalyDetectorByID("detector")
@@ -190,7 +190,7 @@ func TestHandler_StopAnomalyDetectorByID(t *testing.T) {
 }
 
 func TestGenerateAnomalyDetector(t *testing.T) {
-	t.Run("test stop success", func(t *testing.T) {
+	t.Run("test generate success", func(t *testing.T) {
 		expected := ad.CreateDetectorRequest{
 			Name:        "Detector Name",
 			Description: "A brief description",

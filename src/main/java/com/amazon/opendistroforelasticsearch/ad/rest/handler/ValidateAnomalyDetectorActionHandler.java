@@ -239,6 +239,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                     + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));
             logger.error(errorMsg);
             failures.add(errorMsg);
+            validateAnomalyDetectorResponse();
             return;
         }
         checkADNameExists(detectorId);
@@ -353,7 +354,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         if (startEnd[0] > startTimeWithSetTime) {
             dataStartTime = startTimeWithSetTime;
         }
-
+        AtomicInteger featureCounter = new AtomicInteger();
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
                 .from(dataStartTime)
                 .to(dataEndTime)
@@ -378,7 +379,10 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                                 searchRequest,
                                 ActionListener
                                         .wrap(
-                                                searchResponse -> onFeatureAggregationValidation(searchResponse, feature),
+                                                searchResponse -> {
+                                                    featureCounter.incrementAndGet();
+                                                    onFeatureAggregationValidation(searchResponse, feature, featureCounter);
+                                                },
                                                 exception -> {
                                                     System.out.println(exception.getMessage());
                                                     onFailure(exception);
@@ -386,12 +390,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                                         )
                         );
             }
-            if (!suggestedChanges.isEmpty()) {
-                validateAnomalyDetectorResponse();
-                return;
-            }
-            System.out.println("went into here");
-            randomSamplingIntervalValidation();
+
         }
     }
 
@@ -416,13 +415,25 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     }
 
 
-    private void onFeatureAggregationValidation(SearchResponse response, Feature feature) throws IOException {
-       // System.out.println("response for each feature agg validation " + response.toString());
+    private void onFeatureAggregationValidation(SearchResponse response, Feature feature, AtomicInteger counter) throws IOException {
+    //    System.out.println("response for each feature agg validation " + response.toString());
         if (response.getHits().getTotalHits().value <= 0) {
             String errorMsg = "feature query is potentially wrong as no hits were found at all for feature " + feature.getName();
             logger.warn(errorMsg);
             suggestedChanges.add(errorMsg);
         }
+        if (counter.get() == anomalyDetector.getFeatureAttributes().size()) {
+        //    System.out.println("went into here");
+      //      System.out.println("feature name: " + feature.getName());
+            if (!suggestedChanges.isEmpty()) {
+                validateAnomalyDetectorResponse();
+            } else {
+                randomSamplingIntervalValidation();
+            }
+
+        }
+
+
     }
 
 
@@ -488,7 +499,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                 List<String> fieldNames = parseAggregationRequest(parser, 0, feature.getAggregation().getName());
                 featureFields.add(fieldNames.get(0));
             }
-            System.out.println("featureFields: " + featureFields);
+     //       System.out.println("featureFields: " + featureFields);
         MultiSearchRequest sr = new MultiSearchRequest();
         for (int i = 0; i < NUM_OF_RANDOM_SAMPLES; i++) {
             long rangeStart = timeRanges[i][0];
@@ -535,8 +546,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                 );
     }
     private synchronized boolean doneInferring(long detectorInterval, MultiSearchResponse searchResponse){
-        System.out.println("number of responses in multiresponse: " + searchResponse.getResponses().length);
-        System.out.println("detector interval: " + detectorInterval);
+     //   System.out.println("number of responses in multiresponse: " + searchResponse.getResponses().length);
+     //   System.out.println("detector interval: " + detectorInterval);
         boolean firstCase = false;
         long originalInterval = Optional
                 .ofNullable((IntervalTimeConfiguration) anomalyDetector.getDetectionInterval())
@@ -562,8 +573,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
             }
             inferAgain.set(true);
             notify();
-            System.out.println("Hit counter before last validation: " + hitCounter.get());
-            System.out.println("successRate: " + hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES);
+            //System.out.println("Hit counter before last validation: " + hitCounter.get());
+           // System.out.println("successRate: " + hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES);
             if (hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES < SAMPLE_SUCCESS_RATE) {
                 return false;
             } else if (!firstCase){
@@ -572,6 +583,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                 inferAgain.set(false);
                 return true;
             }
+        inferAgain.set(false);
         return true;
     }
 
@@ -947,6 +959,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     }
     private void getFieldMapping() {
         GetMappingsRequest request = new GetMappingsRequest().indices(anomalyDetector.getIndices().get(0));
+
+
         adminClient
                 .indices().getMappings(
                 request,
@@ -959,7 +973,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     }
 
     private void checkFieldIndex(GetMappingsResponse response) {
-        System.out.println(response.toString());
+        System.out.println(response);
+        System.out.println("response mapping: " + response.mappings().get("feature-1"));
 //        Optional<Long> x = Optional
 //                .ofNullable(response)
 //                .map(SearchResponse::get)

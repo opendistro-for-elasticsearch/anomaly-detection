@@ -174,3 +174,83 @@ func getSearchRequest() interface{} {
 		},
 	}
 }
+
+func TestGetDetectorResponse(t *testing.T) {
+	t.Run("deserialization success", func(t *testing.T) {
+		var actual DetectorResponse
+		expected := DetectorResponse{
+			ID: "m4ccEnIBTXsGi3mvMt9p",
+			AnomalyDetector: AnomalyDetector{
+				Metadata: Metadata{
+					Name:        "test-detector",
+					Description: "Test detector",
+					TimeField:   "timestamp",
+					Index:       []string{"order*"},
+					Features: []Feature{
+						{
+							Name:             "total_order",
+							Enabled:          true,
+							AggregationQuery: []byte(`{"total_order":{"sum":{"field":"value"}}}`),
+						},
+					},
+					Filter: []byte(`{"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}}`),
+					Interval: Interval{
+						Period: Period{
+							Duration: 1,
+							Unit:     "Minutes",
+						},
+					},
+					Delay: Interval{
+						Period: Period{
+							Duration: 1,
+							Unit:     "Minutes",
+						},
+					},
+				},
+				SchemaVersion:  0,
+				LastUpdateTime: 1589441737319,
+			},
+		}
+		responseJSON := `
+		{
+		  "_id" : "m4ccEnIBTXsGi3mvMt9p",
+		  "_version" : 1,
+		  "_primary_term" : 1,
+		  "_seq_no" : 3,
+		  "anomaly_detector" : {
+			"name" : "test-detector",
+			"description" : "Test detector",
+			"time_field" : "timestamp",
+			"indices" : [
+			  "order*"
+			],
+			"filter_query" : {"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}},
+			"detection_interval" : {
+			  "period" : {
+				"interval" : 1,
+				"unit" : "Minutes"
+			  }
+			},
+			"window_delay" : {
+			  "period" : {
+				"interval" : 1,
+				"unit" : "Minutes"
+			  }
+			},
+			"schema_version" : 0,
+			"feature_attributes" : [
+			  {
+				"feature_id" : "mYccEnIBTXsGi3mvMd8_",
+				"feature_name" : "total_order",
+				"feature_enabled" : true,
+				"aggregation_query" : {"total_order":{"sum":{"field":"value"}}}
+			  }
+			],
+			"last_update_time" : 1589441737319
+		  }
+		}
+		`
+		_ = json.Unmarshal([]byte(responseJSON), &actual)
+		assert.EqualValues(t, expected, actual)
+	})
+}

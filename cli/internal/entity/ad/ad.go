@@ -143,3 +143,32 @@ type Container struct {
 type SearchResponse struct {
 	Hits Container `json:"hits"`
 }
+
+type Metadata CreateDetector
+
+type AnomalyDetector struct {
+	Metadata
+	SchemaVersion  int32  `json:"schema_version"`
+	LastUpdateTime uint64 `json:"last_update_time"`
+}
+
+//DetectorResponse represents detector's setting
+type DetectorResponse struct {
+	ID              string          `json:"_id"`
+	AnomalyDetector AnomalyDetector `json:"anomaly_detector"`
+}
+
+//DetectorOutput represents detector's setting displayed to user
+type DetectorOutput struct {
+	ID            string
+	Name          string          `json:"name"`
+	Description   string          `json:"description"`
+	TimeField     string          `json:"time_field"`
+	Index         []string        `json:"indices"`
+	Features      []Feature       `json:"features"`
+	Filter        json.RawMessage `json:"filter_query"`
+	Interval      string          `json:"detection_interval"`
+	Delay         string          `json:"window_delay"`
+	LastUpdatedAt uint64          `json:"last_update_time"`
+	SchemaVersion int32           `json:"schema_version"`
+}

@@ -1,5 +1,8 @@
-name: Publish
-on: [pull_request, push]
+name: Publish AD CLI
+on:
+  push:
+    tags:
+      - v*
 
 jobs:
   build:

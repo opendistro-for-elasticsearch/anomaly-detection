@@ -75,3 +75,8 @@ jobs:
             echo "Security plugin is NOT available"
             ./gradlew :integTestRunner --tests "com.amazon.opendistroforelasticsearch.ad.rest.*IT" --tests "com.amazon.opendistroforelasticsearch.ad.e2e.*IT" -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
           fi
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./build/reports/jacoco/test/jacocoTestReport.xml
+

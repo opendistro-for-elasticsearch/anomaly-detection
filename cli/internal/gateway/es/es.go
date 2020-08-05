@@ -35,8 +35,8 @@ type gateway struct {
 	gw.HTTPGateway
 }
 
-// NewESGateway returns new Gateway instance
-func NewESGateway(c *client.Client, u *client.UserConfig) Gateway {
+// New returns new Gateway instance
+func New(c *client.Client, u *client.UserConfig) Gateway {
 	return &gateway{
 		*gw.NewHTTPGateway(c, u),
 	}

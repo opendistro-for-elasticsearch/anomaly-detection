@@ -20,5 +20,4 @@ bin
 .container-*
 .dockerfile-*
 
-go.sum
 /coverage.out

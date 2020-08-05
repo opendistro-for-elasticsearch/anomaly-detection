@@ -23,6 +23,7 @@ const (
 	commandStart = "start"
 	commandStop  = "stop"
 )
+
 //startCmd stops detectors based on id and name pattern.
 //default input is name pattern, one can change this format to be id by passing --id flag
 var startCmd = &cobra.Command{

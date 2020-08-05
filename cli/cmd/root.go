@@ -104,8 +104,8 @@ func createDefaultConfigFile() {
 
 //GetHandler returns handler by wiring the dependency manually
 func GetHandler(c *client.Client, u *client.UserConfig) *handler.Handler {
-	g := gateway.NewDetectorGateway(c, u)
-	esg := es.NewESGateway(c, u)
+	g := gateway.New(c, u)
+	esg := es.New(c, u)
 	esc := esctrl.New(esg)
 	ctr := controller.New(os.Stdin, esc, g)
 	return handler.New(ctr)

@@ -45,8 +45,8 @@ type gateway struct {
 	gw.HTTPGateway
 }
 
-//NewDetectorGateway creates new Gateway instance
-func NewDetectorGateway(c *client.Client, u *client.UserConfig) Gateway {
+//New creates new Gateway instance
+func New(c *client.Client, u *client.UserConfig) Gateway {
 	return &gateway{*gw.NewHTTPGateway(c, u)}
 }
 

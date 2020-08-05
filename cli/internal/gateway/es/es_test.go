@@ -62,7 +62,7 @@ func TestGateway_SearchDistinctValues(t *testing.T) {
 	t.Run("search succeeded", func(t *testing.T) {
 
 		testClient := getTestClient(t, string(responseData), 200)
-		testGateway := NewESGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",
@@ -73,7 +73,7 @@ func TestGateway_SearchDistinctValues(t *testing.T) {
 	})
 	t.Run("search failed due to 404", func(t *testing.T) {
 		testClient := getTestClient(t, "No connection found", 400)
-		testGateway := NewESGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",
@@ -84,7 +84,7 @@ func TestGateway_SearchDistinctValues(t *testing.T) {
 	t.Run("search failed due to bad user config", func(t *testing.T) {
 
 		testClient := getTestClient(t, "No connection found", 400)
-		testGateway := NewESGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "",
 			Password: "admin",

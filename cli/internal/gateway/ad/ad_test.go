@@ -57,7 +57,7 @@ func TestGateway_StartDetector(t *testing.T) {
 	t.Run("connection failed", func(t *testing.T) {
 		testClient := getTestClient(t, `connection failed`, 400, http.MethodPost, "/_start")
 
-		testGateway := NewDetectorGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",
@@ -72,7 +72,7 @@ func TestGateway_StartDetector(t *testing.T) {
 		  "_seq_no" : 6,
 		  "_primary_term" : 1
 		}`, 200, http.MethodPost, "/_start")
-		testGateway := NewDetectorGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",
@@ -86,7 +86,7 @@ func TestGateway_StopDetector(t *testing.T) {
 	t.Run("connection failed", func(t *testing.T) {
 		testClient := getTestClient(t, `connection failed`, 400, http.MethodPost, "/_stop")
 
-		testGateway := NewDetectorGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",
@@ -96,7 +96,7 @@ func TestGateway_StopDetector(t *testing.T) {
 	})
 	t.Run("stop successfully", func(t *testing.T) {
 		testClient := getTestClient(t, `Stopped detector: id`, 200, http.MethodPost, "/_stop")
-		testGateway := NewDetectorGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",
@@ -111,7 +111,7 @@ func TestGateway_DeleteDetector(t *testing.T) {
 	ctx := context.Background()
 	t.Run("connection failed", func(t *testing.T) {
 		testClient := getTestClient(t, `connection failed`, 400, http.MethodDelete, "")
-		testGateway := NewDetectorGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",
@@ -136,7 +136,7 @@ func TestGateway_DeleteDetector(t *testing.T) {
 		  "_seq_no" : 6,
 		  "_primary_term" : 1
 		}`, 200, http.MethodDelete, "")
-		testGateway := NewDetectorGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",
@@ -152,7 +152,7 @@ func TestGateway_SearchDetector(t *testing.T) {
 	t.Run("search succeeded", func(t *testing.T) {
 
 		testClient := getSearchClient(t, responseData, 200)
-		testGateway := NewDetectorGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",
@@ -169,7 +169,7 @@ func TestGateway_SearchDetector(t *testing.T) {
 	t.Run("search failed due to 404", func(t *testing.T) {
 
 		testClient := getSearchClient(t, []byte("No connection found"), 400)
-		testGateway := NewDetectorGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",
@@ -190,7 +190,7 @@ func TestGateway_CreateDetector(t *testing.T) {
 	t.Run("create succeeded", func(t *testing.T) {
 
 		testClient := getCreateClient(t, responseData, 201)
-		testGateway := NewDetectorGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",
@@ -203,7 +203,7 @@ func TestGateway_CreateDetector(t *testing.T) {
 	t.Run("create failed due to 400", func(t *testing.T) {
 
 		testClient := getCreateClient(t, []byte("No connection found"), 400)
-		testGateway := NewDetectorGateway(testClient, &client.UserConfig{
+		testGateway := New(testClient, &client.UserConfig{
 			Endpoint: "http://localhost:9200",
 			Username: "admin",
 			Password: "admin",

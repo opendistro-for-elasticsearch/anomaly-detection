@@ -49,8 +49,10 @@ import java.io.ObjectInputStream;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
@@ -97,9 +99,11 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     private final Map<String, MultiSearchResponse> savedResponsesToFeature;
     private final List<MultiSearchResponse> savedMultiResponses;
     private final Map<String, Boolean> featureIntervalValidation;
-    private final Map<String, Long> featureValidTime;
+    private final Map<String, Long> featureValidTimerecommendation;
     private final List<String> failures;
     private final List<String> suggestedChanges;
+    private Boolean inferringInterval;
+    private AtomicBoolean inferAgain;
 
 
     /**
@@ -139,7 +143,9 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         this.featureIntervalValidation = new HashMap<>();
         this.savedMultiResponses = Collections.synchronizedList(new ArrayList<>());
         this.savedResponsesToFeature = new HashMap<>();
-        this.featureValidTime = new HashMap<>();
+        this.featureValidTimerecommendation = new HashMap<>();
+        this.inferringInterval = false;
+        this.inferAgain = new AtomicBoolean(true);
     }
 
     /**
@@ -218,7 +224,6 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                 .query(QueryBuilders.matchAllQuery())
                 .size(0)
                 .timeout(requestTimeout);
-
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         client
                 .search(
@@ -304,7 +309,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(anomalyDetector.getFilterQuery());
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(internalFilterQuery).size(1).terminateAfter(1).timeout(requestTimeout);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().get(0)).source(searchSourceBuilder);
-        System.out.println("Query filter request: " + searchRequest.toString());
+       // System.out.println("Query filter request: " + searchRequest.toString());
         client
                 .search(
                         searchRequest,
@@ -367,7 +372,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                         .filter(QueryBuilders.existsQuery(fieldNames.get(0)));
                 SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(boolQuery2).size(1).terminateAfter(1);
                 SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().get(0)).source(internalSearchSourceBuilder);
-                System.out.println("search builder for each feature query: " + searchRequest.toString());
+                //System.out.println("search builder for each feature query: " + searchRequest.toString());
                 client
                         .search(
                                 searchRequest,
@@ -412,7 +417,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
 
 
     private void onFeatureAggregationValidation(SearchResponse response, Feature feature) throws IOException {
-        System.out.println("response for each feature agg validation " + response.toString());
+       // System.out.println("response for each feature agg validation " + response.toString());
         if (response.getHits().getTotalHits().value <= 0) {
             String errorMsg = "feature query is potentially wrong as no hits were found at all for feature " + feature.getName();
             logger.warn(errorMsg);
@@ -436,21 +441,235 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
 //        }
 //    }
 
-    private void randomSamplingIntervalValidation() throws IOException {
+    private synchronized void randomSamplingIntervalValidation() throws IOException {
         long detectorInterval = Optional
                 .ofNullable((IntervalTimeConfiguration) anomalyDetector.getDetectionInterval())
                 .map(t -> t.toDuration().toMillis())
                 .orElse(0L);
-        long[] startEnd = startEndTimeRangeWithIntervals(MAX_NUM_OF_SAMPLES_VIEWED);
-        long dataStartTime = startEnd[0];
-        long[][] timeRanges = new long[MAX_NUM_OF_SAMPLES_VIEWED][2];
-        for (int i = 0; i < MAX_NUM_OF_SAMPLES_VIEWED; i++) {
-            timeRanges[i][0] = dataStartTime + (i * detectorInterval);
-            timeRanges[i][1] = timeRanges[i][0] + detectorInterval;
+        //CountDownLatch latch = new CountDownLatch(Math.sqrt((double) MAX_INTERVAL_LENGTH / detectorInterval));
+
+        for (long i = detectorInterval; i < MAX_INTERVAL_LENGTH; i *= 1.5) {
+            if (inferringInterval) {
+                break;
+            }
+            detectorInterval = i;
+            long timeRanges[][] = new long[MAX_NUM_OF_SAMPLES_VIEWED][2];
+            long delayMillis = Optional
+                    .ofNullable((IntervalTimeConfiguration) anomalyDetector.getWindowDelay())
+                    .map(t -> t.toDuration().toMillis())
+                    .orElse(0L);
+            long dataEndTime = Instant.now().toEpochMilli() - delayMillis;
+            long dataStartTime = dataEndTime - ((long) (MAX_NUM_OF_SAMPLES_VIEWED) * detectorInterval - delayMillis);
+            for (int j = 0; j < MAX_NUM_OF_SAMPLES_VIEWED; j++) {
+                timeRanges[j][0] = dataStartTime + (j * detectorInterval);
+                timeRanges[j][1] = timeRanges[j][0] + detectorInterval;
+            }
+            AtomicInteger listenerCounter = new AtomicInteger();
+            try {
+                if (inferAgain.get()) {
+                    randomSamplingHelper(timeRanges, listenerCounter, i);
+                }
+                wait();
+            } catch (Exception ex) {
+
+            }
+
+            System.out.println("value of i inside loop: " + i);
         }
-        AtomicInteger listenerCounter = new AtomicInteger();
-        for (Feature feature : anomalyDetector.getFeatureAttributes()) {
-            randomSamplingHelper(timeRanges, feature, listenerCounter, detectorInterval);
+    }
+
+        private synchronized void randomSamplingHelper(long[][] timeRanges, AtomicInteger listenerCounter, long detectorInterval) throws IOException {
+        inferAgain.set(false);
+        List<String> featureFields = new ArrayList<>();
+            for (Feature feature : anomalyDetector.getFeatureAttributes()) {
+                ParseUtils.parseAggregators(feature.getAggregation().toString(), xContent, feature.getId());
+                XContentParser parser = XContentType.JSON.xContent().createParser(xContent, LoggingDeprecationHandler.INSTANCE, feature.getAggregation().toString());
+                parser.nextToken();
+                List<String> fieldNames = parseAggregationRequest(parser, 0, feature.getAggregation().getName());
+                featureFields.add(fieldNames.get(0));
+            }
+            System.out.println("featureFields: " + featureFields);
+        MultiSearchRequest sr = new MultiSearchRequest();
+        for (int i = 0; i < NUM_OF_RANDOM_SAMPLES; i++) {
+            long rangeStart = timeRanges[i][0];
+            long rangeEnd = timeRanges[i][1];
+            RangeQueryBuilder rangeQueryRandom = new RangeQueryBuilder(anomalyDetector.getTimeField())
+                    .from(rangeStart)
+                    .to(rangeEnd)
+                    .format("epoch_millis")
+                    .includeLower(true)
+                    .includeUpper(false);
+            BoolQueryBuilder qb = QueryBuilders.boolQuery().filter(rangeQueryRandom).filter(anomalyDetector.getFilterQuery());
+            for (int j = 0 ; j < featureFields.size(); j++) {
+                qb.filter(QueryBuilders.existsQuery(featureFields.get(j) ) ) ;
+            }
+//            BoolQueryBuilder boolQuery2 = QueryBuilders.boolQuery().filter(rangeQueryRandom).filter(anomalyDetector.getFilterQuery())
+//                    .filter(QueryBuilders.existsQuery(fieldNames.get(0)));
+            SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(qb).size(1).terminateAfter(1);
+            SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().get(0)).source(internalSearchSourceBuilder);
+            if (i == 0) {
+                System.out.println("search request: " + searchRequest);
+            }
+            sr.add(searchRequest);
+        }
+       // System.out.println("8 requests: " + sr.requests().toString());
+
+            client
+                .multiSearch(
+                        sr,
+                        ActionListener
+                                .wrap(
+                                        searchResponse -> {
+//                                            savedMultiResponses.add(searchResponse);
+//                                            listenerCounter.incrementAndGet();
+
+                                            if (doneInferring(detectorInterval, searchResponse)) {
+                                                onRandomGetMultiResponse();
+                                            }
+                                             },
+                                        exception -> {
+                                            System.out.println(exception.getMessage());
+                                            onFailure(exception);
+                                        }
+                                )
+                );
+    }
+    private synchronized boolean doneInferring(long detectorInterval, MultiSearchResponse searchResponse){
+        System.out.println("number of responses in multiresponse: " + searchResponse.getResponses().length);
+        System.out.println("detector interval: " + detectorInterval);
+        boolean firstCase = false;
+        long originalInterval = Optional
+                .ofNullable((IntervalTimeConfiguration) anomalyDetector.getDetectionInterval())
+                .map(t -> t.toDuration().toMillis())
+                .orElse(0L);
+        if (detectorInterval == originalInterval) {
+            System.out.println("went into first case");
+            firstCase = true;
+        }
+        if (detectorInterval >= MAX_INTERVAL_LENGTH) {
+            suggestedChanges.add("detector interval: failed to infer max up too: " + MAX_INTERVAL_LENGTH);
+            System.out.println("went into max check");
+            inferAgain.set(false);
+            return true;
+        }
+            String errorMsg = "";
+            final AtomicInteger hitCounter = new AtomicInteger();
+            for (MultiSearchResponse.Item item : searchResponse) {
+                SearchResponse response = item.getResponse();
+                if (response.getHits().getTotalHits().value > 0) {
+                    hitCounter.incrementAndGet();
+                }
+            }
+            inferAgain.set(true);
+            notify();
+            System.out.println("Hit counter before last validation: " + hitCounter.get());
+            System.out.println("successRate: " + hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES);
+            if (hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES < SAMPLE_SUCCESS_RATE) {
+                return false;
+            } else if (!firstCase){
+                String suggestion = "detector interval: " + detectorInterval;
+                suggestedChanges.add(suggestion);
+                inferAgain.set(false);
+                return true;
+            }
+        return true;
+    }
+
+    private void onRandomGetMultiResponse() {
+        checkWindowDelay();
+    }
+
+
+//        private void onRandomGetMultiResponse(MultiSearchResponse multiSearchResponse, Feature feature, AtomicInteger listnerCounter, long detectorInterval) {
+//            boolean firstCase = false;
+//            long originalInterval = Optional
+//                    .ofNullable((IntervalTimeConfiguration) anomalyDetector.getDetectionInterval())
+//                    .map(t -> t.toDuration().toMillis())
+//                    .orElse(0L);
+//            if (detectorInterval == originalInterval) {
+//                System.out.println("went into first case");
+//                firstCase = true;
+//            }
+//            for (String f: savedResponsesToFeature.keySet()) {
+//                String errorMsg = "";
+//                final AtomicInteger hitCounter = new AtomicInteger();
+//                for (MultiSearchResponse.Item item : savedResponsesToFeature.get(f)) {
+//                    SearchResponse response = item.getResponse();
+//                    if (response.getHits().getTotalHits().value > 0) {
+//                        hitCounter.incrementAndGet();
+//                    }
+//                }
+//                System.out.println("Hit counter before last validation: " + hitCounter.get());
+//                System.out.println("successRate: " + hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES);
+//                if (hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES < SAMPLE_SUCCESS_RATE) {
+//                    featureIntervalValidation.put(f, false);
+////                    errorMsg += "data is too sparse with this interval for feature: " + f;
+////                    logger.warn(errorMsg);
+////                    suggestedChanges.add(errorMsg);
+//
+////
+//                } else {
+//                    if (!firstCase) {
+//                        featureValidTimerecommendation.put(f, detectorInterval);
+//                    }
+//                    featureIntervalValidation.put(f, true);
+//                }
+//            }
+//            System.out.println("1: " + featureIntervalValidation);
+//
+//            if (!featureIntervalValidation.containsValue((false)) && firstCase && !inferringInterval) {
+//                inferringInterval = true;
+//                System.out.println("BEFORE WINDOW DELAY CALL 1");
+//                System.out.println(featureIntervalValidation);
+//                checkWindowDelay();
+//            } else if (!featureIntervalValidation.containsValue((false)) && !inferringInterval) {
+//                for (String featureName : featureValidTimerecommendation.keySet()) {
+//                        String suggestion = featureName + ": " + featureValidTimerecommendation.get(featureName).toString();
+//                        suggestedChanges.add(suggestion);
+//                }
+//                inferringInterval = true;
+//                System.out.println("BEFORE WINDOW DELAY CALL 2");
+//                System.out.println(featureIntervalValidation);
+//                checkWindowDelay();
+//            } else if (detectorInterval >= MAX_INTERVAL_LENGTH && featureIntervalValidation.containsValue(false) && !inferringInterval) {
+//                for (String featureName : featureIntervalValidation.keySet()) {
+//                    if (!featureIntervalValidation.get(featureName)) {
+//                        String doneInferring = "failed to infer max up too: " + MAX_INTERVAL_LENGTH + "for feature: " + featureName;
+//                        suggestedChanges.add(doneInferring);
+//                    } else {
+//                        for (String featureNameRecc : featureValidTimerecommendation.keySet()) {
+//                            String suggestion = featureName + ": " + featureValidTimerecommendation.get(featureNameRecc).toString();
+//                            suggestedChanges.add(suggestion);
+//                        }
+//                    }
+//                }
+//                inferringInterval = true;
+//                System.out.println("BEFORE WINDOW DELAY CALL 3");
+//                checkWindowDelay();
+//            } else if (detectorInterval >= MAX_INTERVAL_LENGTH && !inferringInterval) {
+//                inferringInterval = true;
+//                System.out.println("BEFORE WINDOW DELAY CALL 34");
+//                checkWindowDelay();
+//            } else {
+//                System.out.println("hello");
+//                System.out.println(featureIntervalValidation);
+//            }
+//        }
+
+    //long detectorInterval = intervalTime * 2;
+
+////            long[][] timeRanges = new long[MAX_NUM_OF_SAMPLES_VIEWED][2];
+////            long delayMillis = Optional
+////                    .ofNullable((IntervalTimeConfiguration) anomalyDetector.getWindowDelay())
+////                    .map(t -> t.toDuration().toMillis())
+////                    .orElse(0L);
+////            long dataEndTime = Instant.now().toEpochMilli() - delayMillis;
+////            long dataStartTime = dataEndTime - ((long) (MAX_NUM_OF_SAMPLES_VIEWED) * detectorInterval - delayMillis);
+////            for (int j = 0; j < MAX_NUM_OF_SAMPLES_VIEWED; j++) {
+////                timeRanges[j][0] = dataStartTime + (j * detectorInterval);
+////                timeRanges[j][1] = timeRanges[j][0] + detectorInterval;
+////            }
+
 //            boolean valid = false;
 //            for (long i = detectorInterval; i < MAX_INTERVAL_LENGTH; i*=2) {
 //                detectorInterval = i;
@@ -470,112 +689,110 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
 //                    break;
 //                }
 //            }
-        }
-    }
 
-    private void randomSamplingHelper(long[][] timeRanges, Feature feature, AtomicInteger listenerCounter, long intervalTime) throws IOException {
-        ParseUtils.parseAggregators(feature.getAggregation().toString(), xContent, feature.getId());
-        XContentParser parser = XContentType.JSON.xContent().createParser(xContent, LoggingDeprecationHandler.INSTANCE, feature.getAggregation().toString());
-        parser.nextToken();
-        List<String> fieldNames = parseAggregationRequest(parser, 0, feature.getAggregation().getName());
-        //Random rand = new Random();
-        MultiSearchRequest sr = new MultiSearchRequest();
-        for (int i = 0; i < NUM_OF_RANDOM_SAMPLES; i++) {
-//            int randIndex = rand.nextInt(MAX_NUM_OF_SAMPLES_VIEWED - 1);
-//            long RandomRangeStart = timeRanges[randIndex][0];
-//            long RandomRangeEnd = timeRanges[randIndex][1];
-            long rangeStart = timeRanges[i][0];
-            long rangeEnd = timeRanges[i][1];
-            RangeQueryBuilder rangeQueryRandom = new RangeQueryBuilder(anomalyDetector.getTimeField())
-                    .from(rangeStart)
-                    .to(rangeEnd)
-                    .format("epoch_millis")
-                    .includeLower(true)
-                    .includeUpper(false);
-            BoolQueryBuilder boolQuery2 = QueryBuilders.boolQuery().filter(rangeQueryRandom).filter(anomalyDetector.getFilterQuery())
-                    .filter(QueryBuilders.existsQuery(fieldNames.get(0)));
-            SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(boolQuery2).size(1).terminateAfter(1);
-            SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().get(0)).source(internalSearchSourceBuilder);
-            sr.add(searchRequest);
-        }
-        // System.out.println("8 requests: " + sr.requests().toString());
-        client
-                .multiSearch(
-                        sr,
-                        ActionListener
-                                .wrap(
-                                        searchResponse -> {
-                                            savedResponsesToFeature.put(feature.getName(), searchResponse);
-                                            listenerCounter.incrementAndGet();
-                                            if (listenerCounter.get() >= anomalyDetector.getFeatureAttributes().size()) {
-                                                onRandomGetMultiResponse(searchResponse, feature, listenerCounter, intervalTime);
-                                            }
-                                        },
-                                        exception -> {
-                                            System.out.println(exception.getMessage());
-                                            onFailure(exception);
-                                        }
-                                )
-                );
-    }
+    //    private void randomSamplingHelper(long[][] timeRanges, Feature feature, AtomicInteger listenerCounter, long intervalTime) throws IOException {
+//        ParseUtils.parseAggregators(feature.getAggregation().toString(), xContent, feature.getId());
+//        XContentParser parser = XContentType.JSON.xContent().createParser(xContent, LoggingDeprecationHandler.INSTANCE, feature.getAggregation().toString());
+//        parser.nextToken();
+//        List<String> fieldNames = parseAggregationRequest(parser, 0, feature.getAggregation().getName());
+//        //Random rand = new Random();
+//        MultiSearchRequest sr = new MultiSearchRequest();
+//        for (int i = 0; i < NUM_OF_RANDOM_SAMPLES; i++) {
+////            int randIndex = rand.nextInt(MAX_NUM_OF_SAMPLES_VIEWED - 1);
+////            long RandomRangeStart = timeRanges[randIndex][0];
+////            long RandomRangeEnd = timeRanges[randIndex][1];
+//            long rangeStart = timeRanges[i][0];
+//            long rangeEnd = timeRanges[i][1];
+//            RangeQueryBuilder rangeQueryRandom = new RangeQueryBuilder(anomalyDetector.getTimeField())
+//                    .from(rangeStart)
+//                    .to(rangeEnd)
+//                    .format("epoch_millis")
+//                    .includeLower(true)
+//                    .includeUpper(false);
+//            BoolQueryBuilder boolQuery2 = QueryBuilders.boolQuery().filter(rangeQueryRandom).filter(anomalyDetector.getFilterQuery())
+//                    .filter(QueryBuilders.existsQuery(fieldNames.get(0)));
+//            SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(boolQuery2).size(1).terminateAfter(1);
+//            SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().get(0)).source(internalSearchSourceBuilder);
+//            sr.add(searchRequest);
+//        }
+//        // System.out.println("8 requests: " + sr.requests().toString());
+//        client
+//                .multiSearch(
+//                        sr,
+//                        ActionListener
+//                                .wrap(
+//                                        searchResponse -> {
+//                                            savedResponsesToFeature.put(feature.getName(), searchResponse);
+//                                            listenerCounter.incrementAndGet();
+//                                            if (listenerCounter.get() >= anomalyDetector.getFeatureAttributes().size()) {
+//                                                onRandomGetMultiResponse(searchResponse, feature, listenerCounter, intervalTime);
+//                                            }
+//                                        },
+//                                        exception -> {
+//                                            System.out.println(exception.getMessage());
+//                                            onFailure(exception);
+//                                        }
+//                                )
+//                );
+//    }
 
-    private void onRandomGetMultiResponse(MultiSearchResponse multiSearchResponse, Feature feature, AtomicInteger listnerCounter, long intervalTime)
-    throws IOException {
-        if (intervalTime >= MAX_INTERVAL_LENGTH) {
-            return;
-        }
-        for (String f: savedResponsesToFeature.keySet()) {
-            String errorMsg = "";
-            final AtomicInteger hitCounter = new AtomicInteger();
-            //System.out.println("feature name out of all feature loop: " + f);
-            for (MultiSearchResponse.Item item : savedResponsesToFeature.get(f)) {
-                SearchResponse response = item.getResponse();
-                //  System.out.println("each response for feature, " + f + ": " + response.toString());
-                if (response.getHits().getTotalHits().value > 0) {
-                    hitCounter.incrementAndGet();
-                }
-            }
-//            System.out.println("Hit counter before last validation: " + hitCounter.get());
-//            System.out.println("successRate: " + hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES);
-
-            if (hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES < SAMPLE_SUCCESS_RATE) {
-                featureIntervalValidation.put(f, false);
-                errorMsg += "data is too sparse with this interval for feature: " + f;
-                logger.warn(errorMsg);
-                suggestedChanges.add(errorMsg);
-            } else {
-                featureValidTime.put(f, intervalTime);
-                featureIntervalValidation.put(f, true);
-            }
-        }
-        if (!featureIntervalValidation.containsValue(false)) {
-            return;
-        }
-        System.out.println("valid time" + featureValidTime);
-        if (featureValidTime.keySet().size() == anomalyDetector.getFeatureAttributes().size()) {
-            featureIntervalValidation.put(feature.getName(), false);
-        }
-        if (featureIntervalValidation.containsValue(false)) {
-            long detectorInterval = intervalTime * 2;
-            long[][] timeRanges = new long[MAX_NUM_OF_SAMPLES_VIEWED][2];
-            long delayMillis = Optional
-                    .ofNullable((IntervalTimeConfiguration) anomalyDetector.getWindowDelay())
-                    .map(t -> t.toDuration().toMillis())
-                    .orElse(0L);
-            long dataEndTime = Instant.now().toEpochMilli() - delayMillis;
-            long dataStartTime = dataEndTime - ((long) (MAX_NUM_OF_SAMPLES_VIEWED) * detectorInterval - delayMillis);
-            for (int j = 0; j < MAX_NUM_OF_SAMPLES_VIEWED; j++) {
-                timeRanges[j][0] = dataStartTime + (j * detectorInterval);
-                timeRanges[j][1] = timeRanges[j][0] + detectorInterval;
-            }
-            randomSamplingHelper(timeRanges, feature, listnerCounter, detectorInterval);
-        }
-        if (featureValidTime.keySet().size() != anomalyDetector.getFeatureAttributes().size()) {
-            validateAnomalyDetectorResponse();
-        } else {
-            checkWindowDelay();
-        }
-    }
+//    private void onRandomGetMultiResponse(MultiSearchResponse multiSearchResponse, Feature feature, AtomicInteger listnerCounter, long intervalTime)
+//    throws IOException {
+//        if (intervalTime >= MAX_INTERVAL_LENGTH) {
+//            return;
+//        }
+//        for (String f: savedResponsesToFeature.keySet()) {
+//            String errorMsg = "";
+//            final AtomicInteger hitCounter = new AtomicInteger();
+//            //System.out.println("feature name out of all feature loop: " + f);
+//            for (MultiSearchResponse.Item item : savedResponsesToFeature.get(f)) {
+//                SearchResponse response = item.getResponse();
+//                //  System.out.println("each response for feature, " + f + ": " + response.toString());
+//                if (response.getHits().getTotalHits().value > 0) {
+//                    hitCounter.incrementAndGet();
+//                }
+//            }
+////            System.out.println("Hit counter before last validation: " + hitCounter.get());
+////            System.out.println("successRate: " + hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES);
+//
+//            if (hitCounter.doubleValue() / (double) NUM_OF_RANDOM_SAMPLES < SAMPLE_SUCCESS_RATE) {
+//                featureIntervalValidation.put(f, false);
+//                errorMsg += "data is too sparse with this interval for feature: " + f;
+//                logger.warn(errorMsg);
+//                suggestedChanges.add(errorMsg);
+//            } else {
+//                featureValidTime.put(f, intervalTime);
+//                featureIntervalValidation.put(f, true);
+//            }
+//        }
+//        if (!featureIntervalValidation.containsValue(false)) {
+//            return;
+//        }
+//        System.out.println("valid time" + featureValidTime);
+//        if (featureValidTime.keySet().size() == anomalyDetector.getFeatureAttributes().size()) {
+//            featureIntervalValidation.put(feature.getName(), false);
+//        }
+//        if (featureIntervalValidation.containsValue(false)) {
+//            long detectorInterval = intervalTime * 2;
+//            long[][] timeRanges = new long[MAX_NUM_OF_SAMPLES_VIEWED][2];
+//            long delayMillis = Optional
+//                    .ofNullable((IntervalTimeConfiguration) anomalyDetector.getWindowDelay())
+//                    .map(t -> t.toDuration().toMillis())
+//                    .orElse(0L);
+//            long dataEndTime = Instant.now().toEpochMilli() - delayMillis;
+//            long dataStartTime = dataEndTime - ((long) (MAX_NUM_OF_SAMPLES_VIEWED) * detectorInterval - delayMillis);
+//            for (int j = 0; j < MAX_NUM_OF_SAMPLES_VIEWED; j++) {
+//                timeRanges[j][0] = dataStartTime + (j * detectorInterval);
+//                timeRanges[j][1] = timeRanges[j][0] + detectorInterval;
+//            }
+//            randomSamplingHelper(timeRanges, feature, listnerCounter, detectorInterval);
+//        }
+//        if (featureValidTime.keySet().size() != anomalyDetector.getFeatureAttributes().size()) {
+//            validateAnomalyDetectorResponse();
+//        } else {
+//            checkWindowDelay();
+//        }
+//    }
 
 //    private void randomSamplingHelper(long[][] timeRanges, Feature feature, AtomicInteger listenerCounter) throws IOException {
 //        ParseUtils.parseAggregators(feature.getAggregation().toString(), xContent, feature.getId());

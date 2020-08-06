@@ -1,0 +1,30 @@
+coverage:
+  status:
+    project:
+      default:
+        threshold: 1
+        target: auto
+      plugin:
+        target: 70%
+        paths:
+          - "!cli/"
+        flags:
+          - plugin
+      cli:
+        target: 78%
+        paths:
+          - "cli/"
+        flags:
+          - cli
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: no
+  branches: null
+flags:
+  plugin:
+    carryforward: true
+  cli:
+    carryforward: true

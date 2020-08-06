@@ -70,5 +70,5 @@ jobs:
         with:
           token: ${{secrets.CODECOV_TOKEN}}
           file: cli/coverage.out
-          flags: unittests
+          flags: cli
           name: codecov-umbrella

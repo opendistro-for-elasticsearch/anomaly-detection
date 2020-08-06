@@ -39,6 +39,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
@@ -75,8 +76,6 @@ public class FeatureManagerTests {
     private int trainSampleTimeRangeInHours;
     private int minTrainSamples;
     private int shingleSize;
-    private int maxMissingPoints;
-    private int maxNeighborDistance;
     private double previewSampleRate;
     private int maxPreviewSamples;
     private Duration featureBufferTtl;
@@ -108,13 +107,12 @@ public class FeatureManagerTests {
         trainSampleTimeRangeInHours = 1;
         minTrainSamples = 4;
         shingleSize = 3;
-        maxMissingPoints = 2;
-        maxNeighborDistance = 2;
         previewSampleRate = 0.5;
         maxPreviewSamples = 2;
         featureBufferTtl = Duration.ofMillis(1_000L);
 
         when(detector.getDetectorId()).thenReturn("id");
+        when(detector.getWindowSize()).thenReturn(shingleSize);
         IntervalTimeConfiguration detectorIntervalTimeConfig = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         when(detector.getDetectionInterval()).thenReturn(detectorIntervalTimeConfig);
         intervalInMilliseconds = detectorIntervalTimeConfig.toDuration().toMillis();
@@ -129,9 +127,6 @@ public class FeatureManagerTests {
                 maxSampleStride,
                 trainSampleTimeRangeInHours,
                 minTrainSamples,
-                shingleSize,
-                maxMissingPoints,
-                maxNeighborDistance,
                 previewSampleRate,
                 maxPreviewSamples,
                 featureBufferTtl
@@ -180,7 +175,7 @@ public class FeatureManagerTests {
             new Object[] { 3_600_000L, ranges, asList(ar(1), ar(2), ar(), ar(4)), new double[][] { { 1, 2, 4, 4 } } },
             new Object[] { 3_600_000L, ranges, asList(ar(1), ar(), ar(), ar(4)), new double[][] { { 1, 1, 4, 4 } } },
             new Object[] { 3_600_000L, ranges, asList(ar(), ar(2), ar(), ar(4)), new double[][] { { 2, 2, 4, 4 } } },
-            new Object[] { 3_600_000L, ranges, asList(ar(), ar(), ar(3), ar(4)), null },
+            new Object[] { 3_600_000L, ranges, asList(ar(), ar(), ar(3), ar(4)), new double[][] { { 3, 3, 3, 4 } } },
             new Object[] { 3_600_000L, ranges, asList(ar(1), empty(), empty(), empty()), null },
             new Object[] { 3_600_000L, ranges, asList(empty(), empty(), empty(), ar(4)), null },
             new Object[] { 3_600_000L, ranges, asList(empty(), empty(), empty(), empty()), null },
@@ -197,6 +192,7 @@ public class FeatureManagerTests {
         double[][] expected
     ) throws Exception {
         when(detector.getDetectionInterval()).thenReturn(new IntervalTimeConfiguration(15, ChronoUnit.MINUTES));
+        when(detector.getWindowSize()).thenReturn(4);
         doAnswer(invocation -> {
             ActionListener<Optional<Long>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.ofNullable(latestTime));
@@ -220,9 +216,6 @@ public class FeatureManagerTests {
                 maxSampleStride,
                 trainSampleTimeRangeInHours,
                 minTrainSamples,
-                4, /*shingleSize*/
-                2, /*maxMissingPoints*/
-                1, /*maxNeighborDistance*/
                 previewSampleRate,
                 maxPreviewSamples,
                 featureBufferTtl
@@ -894,5 +887,33 @@ public class FeatureManagerTests {
         } else {
             return Optional.of(values);
         }
+    }
+
+    private Object[] getCurrentFeaturesTestData_setsShingleSizeToDetectorWindowSize() {
+        return new Object[] { new Object[] { 1 }, new Object[] { 4 }, new Object[] { 8 }, new Object[] { 20 } };
+    }
+
+    @Test
+    @Parameters(method = "getCurrentFeaturesTestData_setsShingleSizeToDetectorWindowSize")
+    public void getCurrentFeatures_setsShingleSizeToDetectorWindowSize(int windowSize) throws IOException {
+        when(detector.getWindowSize()).thenReturn(windowSize);
+
+        doAnswer(invocation -> {
+            List<Entry<Long, Long>> ranges = invocation.getArgument(1);
+            assertEquals(ranges.size(), windowSize);
+
+            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(2);
+            List<Optional<double[]>> response = new ArrayList<Optional<double[]>>();
+            for (int i = 0; i < ranges.size(); i++) {
+                response.add(Optional.of(new double[] { i }));
+            }
+            daoListener.onResponse(response);
+            return null;
+        }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+
+        SinglePointFeatures listenerResponse = getCurrentFeatures(detector, 0, intervalInMilliseconds);
+        assertTrue(listenerResponse.getProcessedFeatures().isPresent());
+        assertEquals(listenerResponse.getProcessedFeatures().get().length, windowSize);
+        assertEquals(featureManager.getShingleSize(detector.getDetectorId()), windowSize);
     }
 }

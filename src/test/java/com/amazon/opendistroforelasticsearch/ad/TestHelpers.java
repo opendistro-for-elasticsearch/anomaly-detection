@@ -189,6 +189,7 @@ public class TestHelpers {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
+            randomInt(),
             uiMetadata,
             randomInt(),
             lastUpdateTime
@@ -207,6 +208,7 @@ public class TestHelpers {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
+            randomInt(),
             null,
             randomInt(),
             Instant.now()
@@ -225,6 +227,7 @@ public class TestHelpers {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
+            randomInt(),
             null,
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS)
@@ -243,6 +246,7 @@ public class TestHelpers {
             randomQuery(),
             interval,
             randomIntervalTimeConfiguration(),
+            randomInt(),
             null,
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS)

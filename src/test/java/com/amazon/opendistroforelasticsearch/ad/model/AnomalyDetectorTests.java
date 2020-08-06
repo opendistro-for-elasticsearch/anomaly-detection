@@ -26,6 +26,7 @@ import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.test.ESTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -46,7 +47,7 @@ public class AnomalyDetectorTests extends ESTestCase {
             + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
             + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
             + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":973,"
-            + "\"unit\":\"Minutes\"}},\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
+            + "\"unit\":\"Minutes\"}},\"window_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
             + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
             + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
@@ -59,7 +60,7 @@ public class AnomalyDetectorTests extends ESTestCase {
             + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\":"
             + "true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"filter_query\":{},"
             + "\"detection_interval\":{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"window_delay\":"
-            + "{\"period\":{\"interval\":973,\"unit\":\"Minutes\"}},\"schema_version\":-1203962153,\"ui_metadata\":"
+            + "{\"period\":{\"interval\":973,\"unit\":\"Minutes\"}},\"window_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":"
             + "{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,"
             + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},"
             + "\"last_update_time\":1568396089028}";
@@ -73,11 +74,24 @@ public class AnomalyDetectorTests extends ESTestCase {
             + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\":"
             + "true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"filter_query\":"
             + "{\"aa\":\"bb\"},\"detection_interval\":{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},"
-            + "\"window_delay\":{\"period\":{\"interval\":973,\"unit\":\"Minutes\"}},\"schema_version\":"
+            + "\"window_delay\":{\"period\":{\"interval\":973,\"unit\":\"Minutes\"}},\"window_size\":4,\"schema_version\":"
             + "-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\","
             + "\"feature_enabled\":false,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},"
             + "\"last_update_time\":1568396089028}";
         TestHelpers.assertFailWith(ParsingException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+    }
+
+    public void testParseAnomalyDetectorWithoutOptionalParams() throws IOException {
+        String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
+            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
+            + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
+            + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"schema_version\":-1203962153,\"ui_metadata\":"
+            + "{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,"
+            + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertTrue(parsedDetector.getFilterQuery() instanceof MatchAllQueryBuilder);
+        assertEquals((long) parsedDetector.getWindowSize(), (long) AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
     }
 
     public void testParseAnomalyDetectorWithNullUiMetadata() throws IOException {
@@ -110,6 +124,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
+                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now()
@@ -132,6 +147,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
+                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now()
@@ -154,6 +170,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
+                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now()
@@ -176,6 +193,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
+                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now()
@@ -198,6 +216,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
+                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now()
@@ -220,6 +239,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     TestHelpers.randomQuery(),
                     null,
                     TestHelpers.randomIntervalTimeConfiguration(),
+                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now()
@@ -240,5 +260,25 @@ public class AnomalyDetectorTests extends ESTestCase {
         String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
         assertEquals(0, parsedDetector.getFeatureAttributes().size());
+    }
+
+    public void testGetWindowSize() throws IOException {
+        AnomalyDetector anomalyDetector = new AnomalyDetector(
+            randomAlphaOfLength(5),
+            randomLong(),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(5)),
+            ImmutableList.of(TestHelpers.randomFeature()),
+            TestHelpers.randomQuery(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            5,
+            null,
+            1,
+            Instant.now()
+        );
+        assertEquals((int) anomalyDetector.getWindowSize(), 5);
     }
 }

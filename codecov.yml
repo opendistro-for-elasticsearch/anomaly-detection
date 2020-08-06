@@ -2,9 +2,10 @@ coverage:
   status:
     project:
       default:
+        threshold: 1
         target: auto
       plugin:
-        target: auto
+        target: 70%
         paths:
           - "!cli/"
         flags:

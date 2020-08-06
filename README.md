@@ -1,5 +1,5 @@
 [![AD Test](https://github.com/opendistro-for-elasticsearch/anomaly-detection/workflows/Build%20and%20Test%20Anomaly%20detection/badge.svg)](https://github.com/opendistro-for-elasticsearch/anomaly-detection/actions?query=workflow%3A%22Build+and+Test+Anomaly+detection%22+branch%3A%22master%22)
-[![codecov](https://codecov.io/gh/opendistro-for-elasticsearch/anomaly-detection/branch/master/graph/badge.svg)](https://codecov.io/gh/opendistro-for-elasticsearch/anomaly-detection)
+[![codecov](https://codecov.io/gh/opendistro-for-elasticsearch/anomaly-detection/branch/master/graph/badge.svg?flag=plugin)](https://codecov.io/gh/opendistro-for-elasticsearch/anomaly-detection)
 [![Documentation](https://img.shields.io/badge/doc-reference-blue)](https://opendistro.github.io/for-elasticsearch-docs/docs/ad/)
 [![Forum](https://img.shields.io/badge/chat-on%20forums-blue)](https://discuss.opendistrocommunity.dev/c/Use-this-category-for-all-questions-around-machine-learning-plugins)
 ![PRs welcome!](https://img.shields.io/badge/PRs-welcome!-success)

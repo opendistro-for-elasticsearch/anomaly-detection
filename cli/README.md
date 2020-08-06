@@ -1,4 +1,5 @@
-![AD CLI Test and Build](https://github.com/opendistro-for-elasticsearch/anomaly-detection/workflows/AD%20CLI%20Test%20and%20Build/badge.svg)
+[![AD CLI Test](https://github.com/opendistro-for-elasticsearch/anomaly-detection/workflows/AD%20CLI%20Test%20and%20Build/badge.svg)](https://github.com/opendistro-for-elasticsearch/anomaly-detection/actions?query=workflow%3A%22AD+CLI+Test+and+Build%22+branch%3Amaster)
+[![codecov](https://codecov.io/gh/opendistro-for-elasticsearch/anomaly-detection/branch/master/graph/badge.svg?flag=cli)](https://codecov.io/gh/opendistro-for-elasticsearch/anomaly-detection)
 # Open Distro for Elasticsearch AD CLI
 
 The AD CLI component in Open Distro for Elasticsearch (ODFE) is a command line interface for ODFE AD plugin.

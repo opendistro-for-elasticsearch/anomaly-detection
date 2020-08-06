@@ -11,7 +11,7 @@ coverage:
         flags:
           - plugin
       cli:
-        target: 75%
+        target: 78%
         paths:
           - "cli/"
         flags:
@@ -25,6 +25,6 @@ comment:
   branches: null
 flags:
   plugin:
-    carryforward: false
+    carryforward: true
   cli:
     carryforward: true

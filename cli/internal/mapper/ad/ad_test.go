@@ -195,3 +195,74 @@ func TestMapToDetectors(t *testing.T) {
 		assert.ElementsMatch(t, []ad.Detector{}, actual)
 	})
 }
+
+func TestMapToDetectorOutput(t *testing.T) {
+	expected := ad.DetectorOutput{
+		ID:          "m4ccEnIBTXsGi3mvMt9p",
+		Name:        "test-detector",
+		Description: "Test detector",
+		TimeField:   "timestamp",
+		Index:       []string{"order*"},
+		Features: []ad.Feature{
+			{
+				Name:             "total_order",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"total_order":{"sum":{"field":"value"}}}`),
+			},
+		},
+		Filter:        []byte(`{"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}}`),
+		Interval:      "5m",
+		Delay:         "1m",
+		LastUpdatedAt: 1589441737319,
+		SchemaVersion: 0,
+	}
+	input := ad.DetectorResponse{
+		ID: "m4ccEnIBTXsGi3mvMt9p",
+		AnomalyDetector: ad.AnomalyDetector{
+			Metadata: ad.Metadata{
+				Name:        "test-detector",
+				Description: "Test detector",
+				TimeField:   "timestamp",
+				Index:       []string{"order*"},
+				Features: []ad.Feature{
+					{
+						Name:             "total_order",
+						Enabled:          true,
+						AggregationQuery: []byte(`{"total_order":{"sum":{"field":"value"}}}`),
+					},
+				},
+				Filter: []byte(`{"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}}`),
+				Interval: ad.Interval{
+					Period: ad.Period{
+						Duration: 5,
+						Unit:     "Minutes",
+					},
+				},
+				Delay: ad.Interval{
+					Period: ad.Period{
+						Duration: 1,
+						Unit:     "Minutes",
+					},
+				},
+			},
+			SchemaVersion:  0,
+			LastUpdateTime: 1589441737319,
+		},
+	}
+	t.Run("maps output success", func(t *testing.T) {
+		actual, err := MapToDetectorOutput(input)
+		assert.NoError(t, err)
+		assert.EqualValues(t, *actual, expected)
+	})
+	t.Run("maps output failed", func(t *testing.T) {
+		corruptIntervalInput := input
+		corruptIntervalInput.AnomalyDetector.Delay = ad.Interval{
+			Period: ad.Period{
+				Duration: 5,
+				Unit:     "Hour",
+			},
+		}
+		_, err := MapToDetectorOutput(corruptIntervalInput)
+		assert.EqualError(t, err, "invalid request: 'Hour', only Minutes is supported")
+	})
+}

@@ -45,7 +45,7 @@ type gateway struct {
 	gw.HTTPGateway
 }
 
-//New creates new Gateway instance
+// New creates new Gateway instance
 func New(c *client.Client, u *client.UserConfig) Gateway {
 	return &gateway{*gw.NewHTTPGateway(c, u)}
 }
@@ -59,6 +59,56 @@ func (g *gateway) buildCreateURL() (*url.URL, error) {
 	return endpoint, nil
 }
 
+/*CreateDetector Creates an anomaly detector job.
+It calls http request: POST _opendistro/_anomaly_detection/detectors
+Sample Input:
+{
+ "name": "test-detector",
+ "description": "Test detector",
+ "time_field": "timestamp",
+ "indices": [
+   "order*"
+ ],
+ "feature_attributes": [
+   {
+     "feature_name": "total_order",
+     "feature_enabled": true,
+     "aggregation_query": {
+       "total_order": {
+         "sum": {
+           "field": "value"
+         }
+       }
+     }
+   }
+ ],
+ "filter_query": {
+   "bool": {
+     "filter": [
+       {
+         "exists": {
+           "field": "value",
+           "boost": 1
+         }
+       }
+     ],
+     "adjust_pure_negative": true,
+     "boost": 1
+   }
+ },
+ "detection_interval": {
+   "period": {
+     "interval": 1,
+     "unit": "Minutes"
+   }
+ },
+ "window_delay": {
+   "period": {
+     "interval": 1,
+     "unit": "Minutes"
+   }
+ }
+}*/
 func (g *gateway) CreateDetector(ctx context.Context, payload interface{}) ([]byte, error) {
 	createURL, err := g.buildCreateURL()
 	if err != nil {
@@ -84,6 +134,8 @@ func (g *gateway) buildStartURL(ID string) (*url.URL, error) {
 	return endpoint, nil
 }
 
+// StartDetector Starts an anomaly detector job.
+// It calls http request: POST _opendistro/_anomaly_detection/detectors/<detectorId>/_start
 func (g *gateway) StartDetector(ctx context.Context, ID string) error {
 	startURL, err := g.buildStartURL(ID)
 	if err != nil {
@@ -109,6 +161,8 @@ func (g *gateway) buildStopURL(ID string) (*url.URL, error) {
 	return endpoint, nil
 }
 
+// StopDetector Stops an anomaly detector job.
+// It calls http request: POST _opendistro/_anomaly_detection/detectors/<detectorId>/_stop
 func (g *gateway) StopDetector(ctx context.Context, ID string) (*string, error) {
 	stopURL, err := g.buildStopURL(ID)
 	if err != nil {
@@ -134,6 +188,16 @@ func (g *gateway) buildSearchURL() (*url.URL, error) {
 	return endpoint, nil
 }
 
+/*SearchDetector Returns all anomaly detectors for a search query.
+It calls http request: POST _opendistro/_anomaly_detection/detectors/_search
+sample input
+Sample Input:
+{
+ "query": {
+   "match": {
+     "name": "test-detector"
+   }
+ }*/
 func (g *gateway) SearchDetector(ctx context.Context, payload interface{}) ([]byte, error) {
 	searchURL, err := g.buildSearchURL()
 	if err != nil {
@@ -159,6 +223,8 @@ func (g *gateway) buildDeleteURL(ID string) (*url.URL, error) {
 	return endpoint, nil
 }
 
+// DeleteDetector Deletes a detector based on the detector_id.
+// It calls http request: DELETE _opendistro/_anomaly_detection/detectors/<detectorId>
 func (g *gateway) DeleteDetector(ctx context.Context, ID string) error {
 	deleteURL, err := g.buildDeleteURL(ID)
 	if err != nil {

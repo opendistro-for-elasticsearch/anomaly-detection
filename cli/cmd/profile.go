@@ -32,6 +32,8 @@ const (
 	deleteNewProfileCmdName = "delete"
 	listProfileCmdName      = "list"
 	esadProfile             = "ESAD_PROFILE"
+	padding                 = 3
+	alignLeft               = 0
 )
 
 //profilesCmd is main command for profile operations like list, create and delete
@@ -90,8 +92,8 @@ func displayProfiles() {
 		fmt.Println("failed to load config due to ", err)
 		return
 	}
-	const padding = 3
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight)
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', alignLeft)
 	fmt.Fprintln(w, "Name\t\tUserName\t\tEndpoint-url\t")
 	fmt.Fprintf(w, "%s\t\t%s\t\t%s\t\n", "----", "--------", "------------")
 	for _, profile := range config.Profiles {

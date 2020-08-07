@@ -42,7 +42,7 @@ func getFeatureAggregationQuery(name string, agg string, field string) ([]byte, 
 		for key := range userTypeToESType {
 			allowedTypes = append(allowedTypes, key)
 		}
-		return nil, fmt.Errorf("invlaid aggeration type: '%s', only allowed types are: %s ", agg, strings.Join(allowedTypes, ","))
+		return nil, fmt.Errorf("invalid aggeration type: '%s', only allowed types are: %s ", agg, strings.Join(allowedTypes, ","))
 	}
 	agg = val
 	return []byte(fmt.Sprintf(`{
@@ -77,16 +77,24 @@ func getUnit(request string) (*string, error) {
 	//extract last character
 	unit := strings.ToLower(request[len(request)-1:])
 	if unit != minutesKey {
-		return nil, fmt.Errorf("invlaid unit: '%v' in %v, only %s (%s) is supported", unit, request, minutesKey, minutes)
+		return nil, fmt.Errorf("invalid unit: '%v' in %v, only %s (%s) is supported", unit, request, minutesKey, minutes)
 	}
 	return mapper.StringToStringPtr(minutes), nil
+}
+
+func getUnitKey(request string) (*string, error) {
+
+	if request != minutes {
+		return nil, fmt.Errorf("invalid request: '%v', only %s is supported", request, minutes)
+	}
+	return mapper.StringToStringPtr(minutesKey), nil
 }
 
 func getDuration(request string) (*int32, error) {
 	//extract last but one character
 	duration, err := strconv.Atoi(request[:len(request)-1])
 	if err != nil {
-		return nil, fmt.Errorf("invlaid duration: %v, due to {%v}", request, err)
+		return nil, fmt.Errorf("invalid duration: %v, due to {%v}", request, err)
 	}
 	if duration < 0 {
 		return nil, fmt.Errorf("duration must be positive integer")
@@ -112,6 +120,15 @@ func mapToInterval(request string) (*ad.Interval, error) {
 			Unit:     mapper.StringPtrToString(unit),
 		},
 	}, nil
+}
+
+func mapIntervalToStringPtr(request ad.Interval) (*string, error) {
+	duration := request.Period.Duration
+	unit, err := getUnitKey(request.Period.Unit)
+	if err != nil {
+		return nil, err
+	}
+	return mapper.StringToStringPtr(fmt.Sprintf("%d%s", duration, *unit)), nil
 }
 
 //MapToCreateDetector maps to CreateDetector
@@ -183,4 +200,28 @@ func MapToDetectors(searchResponse []byte, name string) ([]ad.Detector, error) {
 		})
 	}
 	return result, nil
+}
+
+func MapToDetectorOutput(response ad.DetectorResponse) (*ad.DetectorOutput, error) {
+	delay, err := mapIntervalToStringPtr(response.AnomalyDetector.Delay)
+	if err != nil {
+		return nil, err
+	}
+	interval, err := mapIntervalToStringPtr(response.AnomalyDetector.Interval)
+	if err != nil {
+		return nil, err
+	}
+	return &ad.DetectorOutput{
+		ID:            response.ID,
+		Name:          response.AnomalyDetector.Name,
+		Description:   response.AnomalyDetector.Description,
+		TimeField:     response.AnomalyDetector.TimeField,
+		Index:         response.AnomalyDetector.Index,
+		Features:      response.AnomalyDetector.Features,
+		Filter:        response.AnomalyDetector.Filter,
+		Interval:      mapper.StringPtrToString(interval),
+		Delay:         mapper.StringPtrToString(delay),
+		LastUpdatedAt: response.AnomalyDetector.LastUpdateTime,
+		SchemaVersion: response.AnomalyDetector.SchemaVersion,
+	}, nil
 }

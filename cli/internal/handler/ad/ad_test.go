@@ -216,3 +216,85 @@ func TestGenerateAnomalyDetector(t *testing.T) {
 		assert.EqualValues(t, expected, actual)
 	})
 }
+
+func TestHandler_GetAnomalyDetectorByNamePattern(t *testing.T) {
+	ctx := context.Background()
+	mockCtrl := gomock.NewController(t)
+	detectorOutput := []*ad.DetectorOutput{
+		{
+			ID:          "detectorID",
+			Name:        "detector",
+			Description: "Test detector",
+			TimeField:   "timestamp",
+			Index:       []string{"order*"},
+			Features: []ad.Feature{
+				{
+					Name:             "total_order",
+					Enabled:          true,
+					AggregationQuery: []byte(`{"total_order":{"sum":{"field":"value"}}}`),
+				},
+			},
+			Filter:        []byte(`{"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}}`),
+			Interval:      "5m",
+			Delay:         "1m",
+			LastUpdatedAt: 1589441737319,
+			SchemaVersion: 0,
+		},
+	}
+	defer mockCtrl.Finish()
+	t.Run("test get success", func(t *testing.T) {
+		mockedController := mocks.NewMockController(mockCtrl)
+		mockedController.EXPECT().GetDetectorsByName(ctx, "detector", true).Return(detectorOutput, nil)
+		instance := New(mockedController)
+		result, err := GetAnomalyDetectorsByNamePattern(instance, "detector")
+		assert.NoError(t, err)
+		assert.EqualValues(t, detectorOutput, result)
+	})
+	t.Run("test get failure", func(t *testing.T) {
+		mockedController := mocks.NewMockController(mockCtrl)
+		mockedController.EXPECT().GetDetectorsByName(ctx, "detector", true).Return(nil, errors.New("failed to stop"))
+		instance := New(mockedController)
+		_, err := instance.GetAnomalyDetectorsByNamePattern("detector")
+		assert.EqualError(t, err, "failed to stop")
+	})
+}
+
+func TestHandler_GetAnomalyDetectorByID(t *testing.T) {
+	ctx := context.Background()
+	mockCtrl := gomock.NewController(t)
+	detectorOutput := &ad.DetectorOutput{
+		ID:          "detectorID",
+		Name:        "detector",
+		Description: "Test detector",
+		TimeField:   "timestamp",
+		Index:       []string{"order*"},
+		Features: []ad.Feature{
+			{
+				Name:             "total_order",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"total_order":{"sum":{"field":"value"}}}`),
+			},
+		},
+		Filter:        []byte(`{"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}}`),
+		Interval:      "5m",
+		Delay:         "1m",
+		LastUpdatedAt: 1589441737319,
+		SchemaVersion: 0,
+	}
+	defer mockCtrl.Finish()
+	t.Run("test get by id success", func(t *testing.T) {
+		mockedController := mocks.NewMockController(mockCtrl)
+		mockedController.EXPECT().GetDetector(ctx, "detectorID").Return(detectorOutput, nil)
+		instance := New(mockedController)
+		result, err := GetAnomalyDetectorByID(instance, "detectorID")
+		assert.NoError(t, err)
+		assert.EqualValues(t, detectorOutput, result)
+	})
+	t.Run("test get by id failure", func(t *testing.T) {
+		mockedController := mocks.NewMockController(mockCtrl)
+		mockedController.EXPECT().GetDetector(ctx, "detectorID").Return(nil, errors.New("failed to stop"))
+		instance := New(mockedController)
+		_, err := instance.GetAnomalyDetectorByID("detectorID")
+		assert.EqualError(t, err, "failed to stop")
+	})
+}

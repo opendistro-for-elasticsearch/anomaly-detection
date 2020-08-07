@@ -35,12 +35,14 @@ type Controller interface {
 	StartDetector(context.Context, string) error
 	StopDetector(context.Context, string) error
 	DeleteDetector(context.Context, string, bool, bool) error
+	GetDetector(context.Context, string) (*entity.DetectorOutput, error)
 	CreateAnomalyDetector(context.Context, entity.CreateDetectorRequest) (*string, error)
 	CreateMultiEntityAnomalyDetector(ctx context.Context, request entity.CreateDetectorRequest, interactive bool, display bool) ([]string, error)
 	SearchDetectorByName(context.Context, string) ([]entity.Detector, error)
 	StartDetectorByName(context.Context, string, bool) error
 	StopDetectorByName(context.Context, string, bool) error
 	DeleteDetectorByName(context.Context, string, bool, bool) error
+	GetDetectorsByName(context.Context, string, bool) ([]*entity.DetectorOutput, error)
 }
 
 type controller struct {
@@ -160,6 +162,24 @@ func (c controller) DeleteDetector(ctx context.Context, id string, interactive b
 	}
 	return nil
 }
+
+//GetDetector fetch detector based on DetectorID
+func (c controller) GetDetector(ctx context.Context, ID string) (*entity.DetectorOutput, error) {
+	if len(ID) < 1 {
+		return nil, fmt.Errorf("detector Id: %s cannot be empty", ID)
+	}
+	response, err := c.gateway.GetDetector(ctx, ID)
+	if err != nil {
+		return nil, err
+	}
+	var data entity.DetectorResponse
+	err = json.Unmarshal(response, &data)
+	if err != nil {
+		return nil, err
+	}
+	return mapper.MapToDetectorOutput(data)
+}
+
 func processEntityError(err error) error {
 	var c entity.CreateError
 	data := fmt.Sprintf("%v", err)
@@ -467,5 +487,35 @@ func (c controller) DeleteDetectorByName(ctx context.Context, name string, force
 		}
 	}
 	return nil
+}
 
+//GetDetectorsByName get detector based on name pattern. It first calls SearchDetectorByName and then
+// gets lists of detectorId and call GetDetector to get individual detector configuration
+func (c controller) GetDetectorsByName(ctx context.Context, pattern string, display bool) ([]*entity.DetectorOutput, error) {
+	matchedDetectors, err := c.getDetectorsToProcess(ctx, "fetch", pattern)
+	if err != nil {
+		return nil, err
+	}
+	if matchedDetectors == nil {
+		return nil, nil
+	}
+	var bar *pb.ProgressBar
+	if display {
+		bar = createProgressBar(len(matchedDetectors))
+	}
+	var output []*entity.DetectorOutput
+	for _, detector := range matchedDetectors {
+		data, err := c.GetDetector(ctx, detector.ID)
+		if err != nil {
+			return nil, err
+		}
+		output = append(output, data)
+		if bar != nil {
+			bar.Increment()
+		}
+	}
+	if bar != nil {
+		bar.Finish()
+	}
+	return output, nil
 }

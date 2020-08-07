@@ -92,6 +92,36 @@ func (mr *MockControllerMockRecorder) DeleteDetectorByName(arg0, arg1, arg2, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDetectorByName", reflect.TypeOf((*MockController)(nil).DeleteDetectorByName), arg0, arg1, arg2, arg3)
 }
 
+// GetDetector mocks base method
+func (m *MockController) GetDetector(arg0 context.Context, arg1 string) (*ad.DetectorOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDetector", arg0, arg1)
+	ret0, _ := ret[0].(*ad.DetectorOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDetector indicates an expected call of GetDetector
+func (mr *MockControllerMockRecorder) GetDetector(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDetector", reflect.TypeOf((*MockController)(nil).GetDetector), arg0, arg1)
+}
+
+// GetDetectorsByName mocks base method
+func (m *MockController) GetDetectorsByName(arg0 context.Context, arg1 string, arg2 bool) ([]*ad.DetectorOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDetectorsByName", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*ad.DetectorOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDetectorsByName indicates an expected call of GetDetectorsByName
+func (mr *MockControllerMockRecorder) GetDetectorsByName(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDetectorsByName", reflect.TypeOf((*MockController)(nil).GetDetectorsByName), arg0, arg1, arg2)
+}
+
 // SearchDetectorByName mocks base method
 func (m *MockController) SearchDetectorByName(arg0 context.Context, arg1 string) ([]ad.Detector, error) {
 	m.ctrl.T.Helper()

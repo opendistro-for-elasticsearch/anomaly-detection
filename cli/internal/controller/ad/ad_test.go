@@ -724,3 +724,89 @@ func TestController_DeleteDetectorByName(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestController_GetDetectorByName(t *testing.T) {
+	detectorOutput := &entity.DetectorOutput{
+		ID:          "detectorID",
+		Name:        "detector",
+		Description: "Test detector",
+		TimeField:   "timestamp",
+		Index:       []string{"order*"},
+		Features: []entity.Feature{
+			{
+				Name:             "total_order",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"total_order":{"sum":{"field":"value"}}}`),
+			},
+		},
+		Filter:        []byte(`{"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}}`),
+		Interval:      "5m",
+		Delay:         "1m",
+		LastUpdatedAt: 1589441737319,
+		SchemaVersion: 0,
+	}
+	t.Run("get empty detector", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		ctx := context.Background()
+		ctrl := New(os.Stdin, mockESController, mockADGateway)
+		_, err := ctrl.GetDetectorsByName(ctx, "", false)
+		assert.Error(t, err)
+	})
+	t.Run("search detector gateway failed", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockADGateway.EXPECT().SearchDetector(ctx, getSearchPayload("detector")).Return(nil, errors.New("gateway failed"))
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		ctrl := New(os.Stdin, mockESController, mockADGateway)
+		_, err := ctrl.GetDetectorsByName(ctx, "detector", false)
+		assert.EqualError(t, err, "gateway failed")
+	})
+	t.Run("search detector gateway returned empty", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockADGateway.EXPECT().SearchDetector(ctx, getSearchPayload("detector")).Return([]byte(`{}`), nil)
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		ctrl := New(os.Stdin, mockESController, mockADGateway)
+		actual, err := ctrl.GetDetectorsByName(ctx, "detector", false)
+		assert.NoError(t, err)
+		assert.Nil(t, actual)
+	})
+	t.Run("get detector gateway failed", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockADGateway.EXPECT().SearchDetector(ctx, getSearchPayload("detector")).Return(
+			helperLoadBytes(t, "search_response.json"), nil)
+		mockADGateway.EXPECT().GetDetector(ctx, "detectorID").Return(nil, errors.New("gateway failed"))
+		var stdin bytes.Buffer
+		stdin.Write([]byte("yes\n"))
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		ctrl := New(&stdin, mockESController, mockADGateway)
+		_, err := ctrl.GetDetectorsByName(ctx, "detector", false)
+		assert.EqualError(t, err, "gateway failed")
+	})
+	t.Run("get detector", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockADGateway.EXPECT().SearchDetector(ctx, getSearchPayload("detector")).Return(
+			helperLoadBytes(t, "search_response.json"), nil)
+		mockADGateway.EXPECT().GetDetector(ctx, "detectorID").Return(helperLoadBytes(t, "get_response.json"), nil)
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		var stdin bytes.Buffer
+		stdin.Write([]byte("yes\n"))
+		ctrl := New(&stdin, mockESController, mockADGateway)
+		res, err := ctrl.GetDetectorsByName(ctx, "detector", false)
+		assert.NoError(t, err)
+		assert.EqualValues(t, *res[0], *detectorOutput)
+	})
+}

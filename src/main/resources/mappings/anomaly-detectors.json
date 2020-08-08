@@ -93,7 +93,7 @@
         }
       }
     },
-    "window_size": {
+    "shingle_size": {
       "type": "integer"
     },
     "last_update_time": {

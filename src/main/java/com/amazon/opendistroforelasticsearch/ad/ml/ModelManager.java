@@ -298,7 +298,7 @@ public class ModelManager {
      * @throws LimitExceededException when there is no sufficient resouce available
      */
     public Entry<Integer, Integer> getPartitionedForestSizes(AnomalyDetector detector) {
-        int shingleSize = detector.getWindowSize();
+        int shingleSize = detector.getShingleSize();
         String detectorId = detector.getDetectorId();
         int rcfNumFeatures = detector.getEnabledFeatureIds().size() * shingleSize;
         return getPartitionedForestSizes(
@@ -678,7 +678,7 @@ public class ModelManager {
      */
     @Deprecated
     public void trainModel(AnomalyDetector anomalyDetector, double[][] dataPoints) {
-        int shingleSize = anomalyDetector.getWindowSize();
+        int shingleSize = anomalyDetector.getShingleSize();
         if (dataPoints.length == 0 || dataPoints[0].length == 0) {
             throw new IllegalArgumentException("Data points must not be empty.");
         }

@@ -166,7 +166,7 @@ public class ModelManagerTests {
 
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(10_000_000_000L);
 
-        when(anomalyDetector.getWindowSize()).thenReturn(shingleSize);
+        when(anomalyDetector.getShingleSize()).thenReturn(shingleSize);
 
         gson = PowerMockito.mock(Gson.class);
 

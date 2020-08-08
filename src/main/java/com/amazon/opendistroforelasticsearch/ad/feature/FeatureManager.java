@@ -67,6 +67,8 @@ public class FeatureManager {
     private final int maxSampleStride;
     private final int trainSampleTimeRangeInHours;
     private final int minTrainSamples;
+    private final double maxMissingPointsRate;
+    private final int maxNeighborDistance;
     private final double previewSampleRate;
     private final int maxPreviewSamples;
     private final Duration featureBufferTtl;
@@ -81,6 +83,8 @@ public class FeatureManager {
      * @param maxSampleStride max stride between uninterpolated train samples
      * @param trainSampleTimeRangeInHours time range in hours for collect train samples
      * @param minTrainSamples min number of train samples
+     * @param maxMissingPointsRate max proportion of shingle with missing points allowed to generate a shingle
+     * @param maxNeighborDistance max distance (number of intervals) between a missing point and a replacement neighbor
      * @param previewSampleRate number of samples to number of all the data points in the preview time range
      * @param maxPreviewSamples max number of samples from search for preview features
      * @param featureBufferTtl time to live for stale feature buffers
@@ -93,6 +97,8 @@ public class FeatureManager {
         int maxSampleStride,
         int trainSampleTimeRangeInHours,
         int minTrainSamples,
+        double maxMissingPointsRate,
+        int maxNeighborDistance,
         double previewSampleRate,
         int maxPreviewSamples,
         Duration featureBufferTtl
@@ -104,6 +110,8 @@ public class FeatureManager {
         this.maxSampleStride = maxSampleStride;
         this.trainSampleTimeRangeInHours = trainSampleTimeRangeInHours;
         this.minTrainSamples = minTrainSamples;
+        this.maxMissingPointsRate = maxMissingPointsRate;
+        this.maxNeighborDistance = maxNeighborDistance;
         this.previewSampleRate = previewSampleRate;
         this.maxPreviewSamples = maxPreviewSamples;
         this.featureBufferTtl = featureBufferTtl;
@@ -128,7 +136,7 @@ public class FeatureManager {
      */
     public void getCurrentFeatures(AnomalyDetector detector, long startTime, long endTime, ActionListener<SinglePointFeatures> listener) {
 
-        int shingleSize = detector.getWindowSize();
+        int shingleSize = detector.getShingleSize();
         Deque<Entry<Long, Optional<double[]>>> shingle = detectorIdsToTimeShingles
             .computeIfAbsent(detector.getDetectorId(), id -> new ArrayDeque<>(shingleSize));
 
@@ -163,7 +171,7 @@ public class FeatureManager {
         long endTime
     ) {
         long intervalMilli = getDetectorIntervalInMilliseconds(detector);
-        int shingleSize = detector.getWindowSize();
+        int shingleSize = detector.getShingleSize();
         return getFullShingleEndTimes(endTime, intervalMilli, shingleSize)
             .filter(time -> !featuresMap.containsKey(time))
             .mapToObj(time -> new SimpleImmutableEntry<>(time - intervalMilli, time))
@@ -197,7 +205,7 @@ public class FeatureManager {
         ActionListener<SinglePointFeatures> listener
     ) {
         shingle.clear();
-        getFullShingleEndTimes(endTime, getDetectorIntervalInMilliseconds(detector), detector.getWindowSize())
+        getFullShingleEndTimes(endTime, getDetectorIntervalInMilliseconds(detector), detector.getShingleSize())
             .mapToObj(time -> featuresMap.getOrDefault(time, new SimpleImmutableEntry<>(time, Optional.empty())))
             .forEach(e -> shingle.add(e));
 
@@ -210,7 +218,7 @@ public class FeatureManager {
         long endTime,
         ActionListener<SinglePointFeatures> listener
     ) {
-        int shingleSize = detector.getWindowSize();
+        int shingleSize = detector.getShingleSize();
         Optional<double[]> currentPoint = shingle.peekLast().getValue();
         listener
             .onResponse(
@@ -224,7 +232,7 @@ public class FeatureManager {
     }
 
     private double[][] filterAndFill(Deque<Entry<Long, Optional<double[]>>> shingle, long endTime, AnomalyDetector detector) {
-        int shingleSize = detector.getWindowSize();
+        int shingleSize = detector.getShingleSize();
         Deque<Entry<Long, Optional<double[]>>> filteredShingle = shingle
             .stream()
             .filter(e -> e.getValue().isPresent())
@@ -232,7 +240,6 @@ public class FeatureManager {
         double[][] result = null;
         if (filteredShingle.size() >= shingleSize - getMaxMissingPoints(shingleSize)) {
             // Imputes missing data points with the values of neighboring data points.
-            int maxNeighborDistance = getMaxNeighborDistance(shingleSize);
             long maxMillisecondsDifference = maxNeighborDistance * getDetectorIntervalInMilliseconds(detector);
             result = getNearbyPointsForShingle(detector, filteredShingle, endTime, maxMillisecondsDifference)
                 .map(e -> e.getValue().getValue().orElse(null))
@@ -263,7 +270,7 @@ public class FeatureManager {
         long maxMillisecondsDifference
     ) {
         long intervalMilli = getDetectorIntervalInMilliseconds(detector);
-        int shingleSize = detector.getWindowSize();
+        int shingleSize = detector.getShingleSize();
         TreeMap<Long, Optional<double[]>> search = new TreeMap<>(
             shingle.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue))
         );
@@ -301,7 +308,7 @@ public class FeatureManager {
      */
     @Deprecated
     public Optional<double[][]> getColdStartData(AnomalyDetector detector) {
-        int shingleSize = detector.getWindowSize();
+        int shingleSize = detector.getShingleSize();
         return searchFeatureDao
             .getLatestDataTime(detector)
             .flatMap(latest -> searchFeatureDao.getFeaturesForSampledPeriods(detector, maxTrainSamples, maxSampleStride, latest))
@@ -332,7 +339,7 @@ public class FeatureManager {
     }
 
     private void getColdStartSamples(Optional<Long> latest, AnomalyDetector detector, ActionListener<Optional<double[][]>> listener) {
-        int shingleSize = detector.getWindowSize();
+        int shingleSize = detector.getShingleSize();
         if (latest.isPresent()) {
             List<Entry<Long, Long>> sampleRanges = getColdStartSampleRanges(detector, latest.get());
             try {
@@ -380,7 +387,7 @@ public class FeatureManager {
                     .filter(a -> Math.abs(i - a.getKey()) <= before.map(b -> Math.abs(i - b.getKey())).orElse(Integer.MAX_VALUE))
                     .map(Optional::of)
                     .orElse(before)
-                    .filter(e -> Math.abs(i - e.getKey()) <= getMaxNeighborDistance(shingleSize))
+                    .filter(e -> Math.abs(i - e.getKey()) <= maxNeighborDistance)
                     .map(Entry::getValue)
                     .orElse(null);
             }).filter(d -> d != null).toArray(double[][]::new))
@@ -479,7 +486,7 @@ public class FeatureManager {
         Entry<List<Entry<Long, Long>>, Integer> sampleRangeResults = getSampleRanges(detector, startMilli, endMilli);
         List<Entry<Long, Long>> sampleRanges = sampleRangeResults.getKey();
         int stride = sampleRangeResults.getValue();
-        int shingleSize = detector.getWindowSize();
+        int shingleSize = detector.getShingleSize();
 
         getSamplesForRanges(detector, sampleRanges, ActionListener.wrap(samples -> {
             List<Entry<Long, Long>> searchTimeRange = samples.getKey();
@@ -598,14 +605,7 @@ public class FeatureManager {
      * @return max number of missing points allowed to generate a shingle
      */
     private int getMaxMissingPoints(int shingleSize) {
-        return Math.max(Math.min(2, shingleSize), (int) Math.floor(shingleSize * 0.25));
-    }
-
-    /**
-     * @return max distance (number of intervals) between a missing point and a replacement neighbor
-     */
-    private int getMaxNeighborDistance(int shingleSize) {
-        return Math.min(2, shingleSize);
+        return (int) Math.floor(shingleSize * maxMissingPointsRate);
     }
 
     public int getShingleSize(String detectorId) {

@@ -47,7 +47,7 @@ public class AnomalyDetectorTests extends ESTestCase {
             + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
             + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
             + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":973,"
-            + "\"unit\":\"Minutes\"}},\"window_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
+            + "\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
             + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
             + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
@@ -60,7 +60,7 @@ public class AnomalyDetectorTests extends ESTestCase {
             + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\":"
             + "true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"filter_query\":{},"
             + "\"detection_interval\":{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"window_delay\":"
-            + "{\"period\":{\"interval\":973,\"unit\":\"Minutes\"}},\"window_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":"
+            + "{\"period\":{\"interval\":973,\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":"
             + "{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,"
             + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},"
             + "\"last_update_time\":1568396089028}";
@@ -74,7 +74,7 @@ public class AnomalyDetectorTests extends ESTestCase {
             + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\":"
             + "true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"filter_query\":"
             + "{\"aa\":\"bb\"},\"detection_interval\":{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},"
-            + "\"window_delay\":{\"period\":{\"interval\":973,\"unit\":\"Minutes\"}},\"window_size\":4,\"schema_version\":"
+            + "\"window_delay\":{\"period\":{\"interval\":973,\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":"
             + "-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\","
             + "\"feature_enabled\":false,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},"
             + "\"last_update_time\":1568396089028}";
@@ -89,9 +89,21 @@ public class AnomalyDetectorTests extends ESTestCase {
             + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"schema_version\":-1203962153,\"ui_metadata\":"
             + "{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,"
             + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
-        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        AnomalyDetector parsedDetector = AnomalyDetector
+            .parse(TestHelpers.parser(detectorString), "id", 1L, null, null, AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
         assertTrue(parsedDetector.getFilterQuery() instanceof MatchAllQueryBuilder);
-        assertEquals((long) parsedDetector.getWindowSize(), (long) AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+        assertEquals((long) parsedDetector.getShingleSize(), (long) AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+    }
+
+    public void testParseAnomalyDetectorWithInvalidShingleSize() throws Exception {
+        String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
+            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
+            + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
+            + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"shingle_size\":-1,\"schema_version\":-1203962153,\"ui_metadata\":"
+            + "{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,"
+            + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
+        TestHelpers.assertFailWith(IllegalArgumentException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
     }
 
     public void testParseAnomalyDetectorWithNullUiMetadata() throws IOException {
@@ -107,6 +119,29 @@ public class AnomalyDetectorTests extends ESTestCase {
         String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+    }
+
+    public void testInvalidShingleSize() throws Exception {
+        TestHelpers
+            .assertFailWith(
+                IllegalArgumentException.class,
+                () -> new AnomalyDetector(
+                    randomAlphaOfLength(5),
+                    randomLong(),
+                    randomAlphaOfLength(5),
+                    randomAlphaOfLength(5),
+                    randomAlphaOfLength(5),
+                    ImmutableList.of(randomAlphaOfLength(5)),
+                    ImmutableList.of(TestHelpers.randomFeature()),
+                    TestHelpers.randomQuery(),
+                    TestHelpers.randomIntervalTimeConfiguration(),
+                    TestHelpers.randomIntervalTimeConfiguration(),
+                    0,
+                    null,
+                    1,
+                    Instant.now()
+                )
+            );
     }
 
     public void testNullDetectorName() throws Exception {
@@ -262,7 +297,7 @@ public class AnomalyDetectorTests extends ESTestCase {
         assertEquals(0, parsedDetector.getFeatureAttributes().size());
     }
 
-    public void testGetWindowSize() throws IOException {
+    public void testGetShingleSize() throws IOException {
         AnomalyDetector anomalyDetector = new AnomalyDetector(
             randomAlphaOfLength(5),
             randomLong(),
@@ -279,6 +314,6 @@ public class AnomalyDetectorTests extends ESTestCase {
             1,
             Instant.now()
         );
-        assertEquals((int) anomalyDetector.getWindowSize(), 5);
+        assertEquals((int) anomalyDetector.getShingleSize(), 5);
     }
 }

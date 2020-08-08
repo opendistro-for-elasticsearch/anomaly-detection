@@ -279,7 +279,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
             anomalyDetector.getFilterQuery(),
             anomalyDetector.getDetectionInterval(),
             anomalyDetector.getWindowDelay(),
-            anomalyDetector.getWindowSize(),
+            anomalyDetector.getShingleSize(),
             anomalyDetector.getUiMetadata(),
             anomalyDetector.getSchemaVersion(),
             Instant.now()

@@ -176,7 +176,7 @@ public class TransportStateManagerTests extends ESTestCase {
     public void testGetLastError() throws IOException, InterruptedException {
         String error = "blah";
         assertEquals(TransportStateManager.NO_ERROR, stateManager.getLastError(adId));
-        stateManager.setLastError(adId, error);
+        stateManager.setLastDetectionError(adId, error);
         assertEquals(error, stateManager.getLastError(adId));
     }
 

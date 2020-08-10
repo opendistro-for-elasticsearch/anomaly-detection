@@ -107,7 +107,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
                 );
         } else {
             // redirect
-            LOG.info("Sending RCF polling request to {} for model {}", rcfNodeId, rcfModelID);
+            LOG.debug("Sending RCF polling request to {} for model {}", rcfNodeId, rcfModelID);
 
             try {
                 transportService

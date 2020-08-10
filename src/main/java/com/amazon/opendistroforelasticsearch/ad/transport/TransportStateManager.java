@@ -240,8 +240,8 @@ public class TransportStateManager {
      * @return last error for the detector
      */
     public String getLastError(String adID) {
-        if (transportStates.containsKey(adID) && transportStates.get(adID).getLastError() != null) {
-            Entry<String, Instant> errorAndTime = transportStates.get(adID).getLastError();
+        if (transportStates.containsKey(adID) && transportStates.get(adID).getLastDetectionError() != null) {
+            Entry<String, Instant> errorAndTime = transportStates.get(adID).getLastDetectionError();
             errorAndTime.setValue(clock.instant());
             return errorAndTime.getKey();
         }
@@ -250,12 +250,37 @@ public class TransportStateManager {
     }
 
     /**
-     * Set last error of a detector
+     * Set last detection error of a detector
      * @param adID detector id
      * @param error error, can be null
      */
-    public void setLastError(String adID, String error) {
+    public void setLastDetectionError(String adID, String error) {
         TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id));
-        state.setLastError(new SimpleEntry<>(error, clock.instant()));
+        state.setLastDetectionError(new SimpleEntry<>(error, clock.instant()));
+    }
+
+    /**
+     * Set last cold start error of a detector
+     * @param adID detector id
+     * @param exception exception, can be null
+     */
+    public void setLastColdStartException(String adID, Exception exception) {
+        TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id));
+        state.setLastColdStartException(new SimpleEntry<>(exception, clock.instant()));
+    }
+
+    /**
+     * Get last cold start exception of a detector
+     * @param adID detector id
+     * @return last cold start exception for the detector
+     */
+    public Exception fetchColdStartException(String adID) {
+        if (transportStates.containsKey(adID) && transportStates.get(adID).getLastColdStartException() != null) {
+            Entry<Exception, Instant> errorAndTime = transportStates.get(adID).getLastColdStartException();
+            errorAndTime.setValue(clock.instant());
+            return errorAndTime.getKey();
+        }
+
+        return null;
     }
 }

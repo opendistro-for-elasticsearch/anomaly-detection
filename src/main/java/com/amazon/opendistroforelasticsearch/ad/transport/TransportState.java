@@ -29,16 +29,19 @@ public class TransportState {
     private Entry<Integer, Instant> partitonNumber;
     // checkpoint fetch time
     private Instant checkpoint;
-    // last error. Used by DetectorStateHandler to check if the error for a
+    // last detection error. Used by DetectorStateHandler to check if the error for a
     // detector has changed or not. If changed, trigger indexing.
-    private Entry<String, Instant> lastError;
+    private Entry<String, Instant> lastDetectionError;
+    // last training error. Used to save cold error by a concurrent cold start thread.
+    private Entry<Exception, Instant> lastColdStartException;
 
     public TransportState(String detectorId) {
         this.detectorId = detectorId;
         detectorDef = null;
         partitonNumber = null;
         checkpoint = null;
-        lastError = null;
+        lastDetectionError = null;
+        lastColdStartException = null;
     }
 
     public String getDetectorId() {
@@ -69,12 +72,20 @@ public class TransportState {
         this.checkpoint = checkpoint;
     };
 
-    public Entry<String, Instant> getLastError() {
-        return lastError;
+    public Entry<String, Instant> getLastDetectionError() {
+        return lastDetectionError;
     }
 
-    public void setLastError(Entry<String, Instant> lastError) {
-        this.lastError = lastError;
+    public void setLastDetectionError(Entry<String, Instant> lastError) {
+        this.lastDetectionError = lastError;
+    }
+
+    public Entry<Exception, Instant> getLastColdStartException() {
+        return lastColdStartException;
+    }
+
+    public void setLastColdStartException(Entry<Exception, Instant> lastColdStartError) {
+        this.lastColdStartException = lastColdStartError;
     }
 
     public boolean expired(Duration stateTtl, Instant now) {
@@ -88,8 +99,11 @@ public class TransportState {
         if (checkpoint != null) {
             ans = ans && expired(stateTtl, now, checkpoint);
         }
-        if (lastError != null) {
-            ans = ans && expired(stateTtl, now, lastError.getValue());
+        if (lastDetectionError != null) {
+            ans = ans && expired(stateTtl, now, lastDetectionError.getValue());
+        }
+        if (lastColdStartException != null) {
+            ans = ans && expired(stateTtl, now, lastColdStartException.getValue());
         }
         return ans;
     }

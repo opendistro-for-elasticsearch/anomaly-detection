@@ -255,7 +255,7 @@ public class ModelManager {
      * @param forest RCF configuration, including forest size
      * @param detectorId ID of the detector with no effects on partitioning
      * @return a pair of number of partitions and size of a parition (number of trees)
-     * @throws LimitExceededException when there is no sufficient resouce available
+     * @throws LimitExceededException when there is no sufficient resource available
      */
     public Entry<Integer, Integer> getPartitionedForestSizes(RandomCutForest forest, String detectorId) {
         long totalSize = estimateModelSize(forest);
@@ -295,7 +295,7 @@ public class ModelManager {
      *
      * @param detector detector object
      * @return a pair of number of partitions and size of a parition (number of trees)
-     * @throws LimitExceededException when there is no sufficient resouce available
+     * @throws LimitExceededException when there is no sufficient resource available
      */
     public Entry<Integer, Integer> getPartitionedForestSizes(AnomalyDetector detector) {
         int shingleSize = detector.getShingleSize();

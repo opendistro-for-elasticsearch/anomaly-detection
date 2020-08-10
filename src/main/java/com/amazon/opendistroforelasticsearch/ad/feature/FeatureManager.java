@@ -42,7 +42,10 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.support.ThreadedActionListener;
+import org.elasticsearch.threadpool.ThreadPool;
 
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
@@ -72,6 +75,7 @@ public class FeatureManager {
     private final double previewSampleRate;
     private final int maxPreviewSamples;
     private final Duration featureBufferTtl;
+    private final ThreadPool threadPool;
 
     /**
      * Constructor with dependencies and configuration.
@@ -88,6 +92,7 @@ public class FeatureManager {
      * @param previewSampleRate number of samples to number of all the data points in the preview time range
      * @param maxPreviewSamples max number of samples from search for preview features
      * @param featureBufferTtl time to live for stale feature buffers
+     * @param threadPool object through which we can invoke different threadpool using different names
      */
     public FeatureManager(
         SearchFeatureDao searchFeatureDao,
@@ -101,7 +106,8 @@ public class FeatureManager {
         int maxNeighborDistance,
         double previewSampleRate,
         int maxPreviewSamples,
-        Duration featureBufferTtl
+        Duration featureBufferTtl,
+        ThreadPool threadPool
     ) {
         this.searchFeatureDao = searchFeatureDao;
         this.interpolator = interpolator;
@@ -117,6 +123,7 @@ public class FeatureManager {
         this.featureBufferTtl = featureBufferTtl;
 
         this.detectorIdsToTimeShingles = new ConcurrentHashMap<>();
+        this.threadPool = threadPool;
     }
 
     /**
@@ -331,10 +338,12 @@ public class FeatureManager {
      *                 onFailure is called with EndRunException on feature query creation errors
      */
     public void getColdStartData(AnomalyDetector detector, ActionListener<Optional<double[][]>> listener) {
+        ActionListener<Optional<Long>> latestTimeListener = ActionListener
+            .wrap(latest -> getColdStartSamples(latest, detector, listener), listener::onFailure);
         searchFeatureDao
             .getLatestDataTime(
                 detector,
-                ActionListener.wrap(latest -> getColdStartSamples(latest, detector, listener), listener::onFailure)
+                new ThreadedActionListener<>(logger, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, latestTimeListener, false)
             );
     }
 
@@ -343,11 +352,19 @@ public class FeatureManager {
         if (latest.isPresent()) {
             List<Entry<Long, Long>> sampleRanges = getColdStartSampleRanges(detector, latest.get());
             try {
+                ActionListener<List<Optional<double[]>>> getFeaturesListener = ActionListener
+                    .wrap(samples -> processColdStartSamples(samples, shingleSize, listener), listener::onFailure);
                 searchFeatureDao
                     .getFeatureSamplesForPeriods(
                         detector,
                         sampleRanges,
-                        ActionListener.wrap(samples -> processColdStartSamples(samples, shingleSize, listener), listener::onFailure)
+                        new ThreadedActionListener<>(
+                            logger,
+                            threadPool,
+                            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+                            getFeaturesListener,
+                            false
+                        )
                     );
             } catch (IOException e) {
                 listener.onFailure(new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));

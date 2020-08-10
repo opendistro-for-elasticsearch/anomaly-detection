@@ -114,7 +114,7 @@ public class DetectionStateHandler extends AnomalyIndexHandler<DetectorInternalS
         // or the recorded error is different than this one.
         if (!Objects.equal(adStateManager.getLastError(detectorId), error)) {
             update(detectorId, new ErrorStrategy(error));
-            adStateManager.setLastError(detectorId, error);
+            adStateManager.setLastDetectionError(detectorId, error);
         }
     }
 

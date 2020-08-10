@@ -55,7 +55,7 @@ public class TransportStateTests extends ESTestCase {
                     Instant.ofEpochSecond(1000)
                 )
             );
-        state.setLastError(new SimpleImmutableEntry<>(null, Instant.ofEpochMilli(1000)));
+        state.setLastDetectionError(new SimpleImmutableEntry<>(null, Instant.ofEpochMilli(1000)));
 
         assertTrue(!state.expired(duration, Instant.ofEpochSecond(3700)));
     }
@@ -68,7 +68,7 @@ public class TransportStateTests extends ESTestCase {
                     Instant.ofEpochMilli(1000)
                 )
             );
-        state.setLastError(new SimpleImmutableEntry<>(null, Instant.ofEpochMilli(1000)));
+        state.setLastDetectionError(new SimpleImmutableEntry<>(null, Instant.ofEpochMilli(1000)));
 
         assertTrue(state.expired(duration, Instant.ofEpochSecond(3700)));
     }
@@ -85,12 +85,20 @@ public class TransportStateTests extends ESTestCase {
     public void testMaintenanceFlagNotRemove() throws IOException {
         state.setCheckpoint(Instant.ofEpochMilli(1000));
         assertTrue(!state.expired(duration, Instant.MIN));
-
     }
 
     public void testMaintenancFlagRemove() throws IOException {
         state.setCheckpoint(Instant.MIN);
         assertTrue(!state.expired(duration, Instant.MIN));
+    }
 
+    public void testMaintenanceLastColdStartRemoved() {
+        state.setLastColdStartException(new SimpleImmutableEntry<>(new RuntimeException(""), Instant.ofEpochMilli(1000)));
+        assertTrue(state.expired(duration, Instant.ofEpochSecond(3700)));
+    }
+
+    public void testMaintenanceLastColdStartNotRemoved() {
+        state.setLastColdStartException(new SimpleImmutableEntry<>(new RuntimeException(""), Instant.ofEpochMilli(1_000_000L)));
+        assertTrue(!state.expired(duration, Instant.ofEpochSecond(3700)));
     }
 }

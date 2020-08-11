@@ -27,13 +27,13 @@ import (
 )
 
 const (
-	profileBaseCmdName      = "profile"
+	alignLeft               = 0
 	createNewProfileCmdName = "create"
 	deleteNewProfileCmdName = "delete"
-	listProfileCmdName      = "list"
 	esadProfile             = "ESAD_PROFILE"
+	listProfileCmdName      = "list"
 	padding                 = 3
-	alignLeft               = 0
+	profileBaseCmdName      = "profile"
 )
 
 //profilesCmd is main command for profile operations like list, create and delete

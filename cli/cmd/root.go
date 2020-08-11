@@ -29,15 +29,15 @@ import (
 )
 
 const (
-	defaultFileType       = "yaml"
-	defaultConfigFileName = "config"
 	cliName               = "esad"
+	defaultConfigFileName = "config"
+	defaultFileType       = "yaml"
 	esadConfigFile        = "ESAD_CONFIG_FILE"
 	FlagConfig            = "config"
-	FlagUser              = "user"
-	FlagPassword          = "password"
 	FlagEndpoint          = "endpoint"
+	FlagPassword          = "password"
 	FlagProfile           = "profile"
+	FlagUser              = "user"
 )
 
 var cfgFile string

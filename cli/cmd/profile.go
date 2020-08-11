@@ -92,6 +92,10 @@ func displayProfiles() {
 		fmt.Println("failed to load config due to ", err)
 		return
 	}
+	if len(config.Profiles) < 1 {
+		fmt.Println("No profiles yet (use 'esad profile create' to create profile)")
+		return
+	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', alignLeft)
 	fmt.Fprintln(w, "Name\t\tUserName\t\tEndpoint-url\t")

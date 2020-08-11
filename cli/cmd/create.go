@@ -20,8 +20,8 @@ import (
 
 const (
 	commandCreate = "create"
-	interactive   = "interactive"
 	generate      = "generate-skeleton"
+	interactive   = "interactive"
 )
 
 //createCmd creates detectors based on file configuration, if interactive mode is on,

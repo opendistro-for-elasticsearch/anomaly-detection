@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.model;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 
@@ -427,7 +428,7 @@ public class AnomalyDetector implements ToXContentObject {
     }
 
     public Integer getShingleSize() {
-        return shingleSize;
+        return shingleSize == null ? DEFAULT_SHINGLE_SIZE : shingleSize;
     }
 
     public Map<String, Object> getUiMetadata() {

@@ -316,4 +316,24 @@ public class AnomalyDetectorTests extends ESTestCase {
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
     }
+
+    public void testGetShingleSizeReturnsDefaultValue() throws IOException {
+        AnomalyDetector anomalyDetector = new AnomalyDetector(
+            randomAlphaOfLength(5),
+            randomLong(),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(5)),
+            ImmutableList.of(TestHelpers.randomFeature()),
+            TestHelpers.randomQuery(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            null,
+            null,
+            1,
+            Instant.now()
+        );
+        assertEquals((int) anomalyDetector.getShingleSize(), AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+    }
 }

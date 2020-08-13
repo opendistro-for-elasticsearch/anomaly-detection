@@ -113,7 +113,6 @@ public class ModelManager {
     private final CheckpointDao checkpointDao;
     private final Gson gson;
     private final Clock clock;
-    private final int shingleSize;
 
     // A tree of N samples has 2N nodes, with one bounding box for each node.
     private static final long BOUNDING_BOXES = 2L;
@@ -145,7 +144,6 @@ public class ModelManager {
      * @param minPreviewSize minimum number of data points for preview
      * @param modelTtl time to live for hosted models
      * @param checkpointInterval interval between checkpoints
-     * @param shingleSize required shingle size before RCF emitting anomaly scores
      * @param clusterService cluster service object
      */
     public ModelManager(
@@ -171,7 +169,6 @@ public class ModelManager {
         int minPreviewSize,
         Duration modelTtl,
         Duration checkpointInterval,
-        int shingleSize,
         ClusterService clusterService
     ) {
 
@@ -200,7 +197,6 @@ public class ModelManager {
 
         this.forests = new ConcurrentHashMap<>();
         this.thresholds = new ConcurrentHashMap<>();
-        this.shingleSize = shingleSize;
 
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.modelMaxSizePercentage = it);
     }
@@ -302,6 +298,7 @@ public class ModelManager {
      * @throws LimitExceededException when there is no sufficient resouce available
      */
     public Entry<Integer, Integer> getPartitionedForestSizes(AnomalyDetector detector) {
+        int shingleSize = detector.getShingleSize();
         String detectorId = detector.getDetectorId();
         int rcfNumFeatures = detector.getEnabledFeatureIds().size() * shingleSize;
         return getPartitionedForestSizes(
@@ -681,6 +678,7 @@ public class ModelManager {
      */
     @Deprecated
     public void trainModel(AnomalyDetector anomalyDetector, double[][] dataPoints) {
+        int shingleSize = anomalyDetector.getShingleSize();
         if (dataPoints.length == 0 || dataPoints[0].length == 0) {
             throw new IllegalArgumentException("Data points must not be empty.");
         }

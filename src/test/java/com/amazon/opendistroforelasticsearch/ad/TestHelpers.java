@@ -21,6 +21,7 @@ import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import static org.elasticsearch.test.ESTestCase.randomAlphaOfLength;
 import static org.elasticsearch.test.ESTestCase.randomDouble;
 import static org.elasticsearch.test.ESTestCase.randomInt;
+import static org.elasticsearch.test.ESTestCase.randomIntBetween;
 import static org.elasticsearch.test.ESTestCase.randomLong;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
@@ -189,6 +190,7 @@ public class TestHelpers {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
+            randomIntBetween(1, 2000),
             uiMetadata,
             randomInt(),
             lastUpdateTime
@@ -207,6 +209,7 @@ public class TestHelpers {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
+            randomIntBetween(1, 2000),
             null,
             randomInt(),
             Instant.now()
@@ -225,6 +228,7 @@ public class TestHelpers {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
+            randomIntBetween(1, 2000),
             null,
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS)
@@ -243,6 +247,7 @@ public class TestHelpers {
             randomQuery(),
             interval,
             randomIntervalTimeConfiguration(),
+            randomIntBetween(1, 2000),
             null,
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS)

@@ -307,7 +307,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.SHINGLE_SIZE,
             clusterService
         );
 
@@ -330,9 +329,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.TRAIN_SAMPLE_TIME_RANGE_IN_HOURS,
             AnomalyDetectorSettings.MIN_TRAIN_SAMPLES,
-            AnomalyDetectorSettings.SHINGLE_SIZE,
-            AnomalyDetectorSettings.MAX_MISSING_POINTS,
-            AnomalyDetectorSettings.MAX_NEIGHBOR_DISTANCE,
+            AnomalyDetectorSettings.MAX_SHINGLE_PROPORTION_MISSING,
+            AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
             AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE

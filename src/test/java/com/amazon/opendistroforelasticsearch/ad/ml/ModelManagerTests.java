@@ -166,6 +166,8 @@ public class ModelManagerTests {
 
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(10_000_000_000L);
 
+        when(anomalyDetector.getShingleSize()).thenReturn(shingleSize);
+
         gson = PowerMockito.mock(Gson.class);
 
         settings = Settings.builder().put("opendistro.anomaly_detection.model_max_size_percent", modelMaxSizePercentage).build();
@@ -197,7 +199,6 @@ public class ModelManagerTests {
                 minPreviewSize,
                 modelTtl,
                 checkpointInterval,
-                shingleSize,
                 clusterService
             )
         );

@@ -93,6 +93,9 @@
         }
       }
     },
+    "shingle_size": {
+      "type": "integer"
+    },
     "last_update_time": {
       "type": "date",
       "format": "strict_date_time||epoch_millis"

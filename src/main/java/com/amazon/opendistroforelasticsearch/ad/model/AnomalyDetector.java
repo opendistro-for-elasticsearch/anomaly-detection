@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.model;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 
@@ -68,6 +69,7 @@ public class AnomalyDetector implements ToXContentObject {
     private static final String FEATURE_ATTRIBUTES_FIELD = "feature_attributes";
     private static final String DETECTION_INTERVAL_FIELD = "detection_interval";
     private static final String WINDOW_DELAY_FIELD = "window_delay";
+    private static final String SHINGLE_SIZE_FIELD = "shingle_size";
     private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String UI_METADATA_FIELD = "ui_metadata";
 
@@ -81,6 +83,7 @@ public class AnomalyDetector implements ToXContentObject {
     private final QueryBuilder filterQuery;
     private final TimeConfiguration detectionInterval;
     private final TimeConfiguration windowDelay;
+    private final Integer shingleSize;
     private final Map<String, Object> uiMetadata;
     private final Integer schemaVersion;
     private final Instant lastUpdateTime;
@@ -98,6 +101,7 @@ public class AnomalyDetector implements ToXContentObject {
      * @param filterQuery       detector filter query
      * @param detectionInterval detecting interval
      * @param windowDelay       max delay window for realtime data
+     * @param shingleSize       number of the most recent time intervals to form a shingled data point
      * @param uiMetadata        metadata used by Kibana
      * @param schemaVersion     anomaly detector index mapping version
      * @param lastUpdateTime    detector's last update time
@@ -113,6 +117,7 @@ public class AnomalyDetector implements ToXContentObject {
         QueryBuilder filterQuery,
         TimeConfiguration detectionInterval,
         TimeConfiguration windowDelay,
+        Integer shingleSize,
         Map<String, Object> uiMetadata,
         Integer schemaVersion,
         Instant lastUpdateTime
@@ -129,6 +134,9 @@ public class AnomalyDetector implements ToXContentObject {
         if (detectionInterval == null) {
             throw new IllegalArgumentException("Detection interval should be set");
         }
+        if (shingleSize != null && shingleSize < 1) {
+            throw new IllegalArgumentException("Shingle size must be a positive integer");
+        }
         this.detectorId = detectorId;
         this.version = version;
         this.name = name;
@@ -139,6 +147,7 @@ public class AnomalyDetector implements ToXContentObject {
         this.filterQuery = filterQuery;
         this.detectionInterval = detectionInterval;
         this.windowDelay = windowDelay;
+        this.shingleSize = shingleSize;
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
@@ -159,6 +168,7 @@ public class AnomalyDetector implements ToXContentObject {
             .field(FILTER_QUERY_FIELD, filterQuery)
             .field(DETECTION_INTERVAL_FIELD, detectionInterval)
             .field(WINDOW_DELAY_FIELD, windowDelay)
+            .field(SHINGLE_SIZE_FIELD, shingleSize)
             .field(SCHEMA_VERSION_FIELD, schemaVersion);
 
         if (featureAttributes != null) {
@@ -199,7 +209,7 @@ public class AnomalyDetector implements ToXContentObject {
      * @throws IOException IOException if content can't be parsed correctly
      */
     public static AnomalyDetector parse(XContentParser parser, String detectorId, Long version) throws IOException {
-        return parse(parser, detectorId, version, null, null);
+        return parse(parser, detectorId, version, null, null, null);
     }
 
     /**
@@ -210,6 +220,7 @@ public class AnomalyDetector implements ToXContentObject {
      * @param version                     detector document version
      * @param defaultDetectionInterval    default detection interval
      * @param defaultDetectionWindowDelay default detection window delay
+     * @param defaultShingleSize           default number of intervals in shingle
      * @return anomaly detector instance
      * @throws IOException IOException if content can't be parsed correctly
      */
@@ -218,7 +229,8 @@ public class AnomalyDetector implements ToXContentObject {
         String detectorId,
         Long version,
         TimeValue defaultDetectionInterval,
-        TimeValue defaultDetectionWindowDelay
+        TimeValue defaultDetectionWindowDelay,
+        Integer defaultShingleSize
     ) throws IOException {
         String name = null;
         String description = null;
@@ -231,6 +243,7 @@ public class AnomalyDetector implements ToXContentObject {
         TimeConfiguration windowDelay = defaultDetectionWindowDelay == null
             ? null
             : new IntervalTimeConfiguration(defaultDetectionWindowDelay.getSeconds(), ChronoUnit.SECONDS);
+        Integer shingleSize = defaultShingleSize;
         List<Feature> features = new ArrayList<>();
         int schemaVersion = 0;
         Map<String, Object> uiMetadata = null;
@@ -285,6 +298,9 @@ public class AnomalyDetector implements ToXContentObject {
                 case WINDOW_DELAY_FIELD:
                     windowDelay = TimeConfiguration.parse(parser);
                     break;
+                case SHINGLE_SIZE_FIELD:
+                    shingleSize = parser.intValue();
+                    break;
                 case LAST_UPDATE_TIME_FIELD:
                     lastUpdateTime = ParseUtils.toInstant(parser);
                     break;
@@ -304,6 +320,7 @@ public class AnomalyDetector implements ToXContentObject {
             filterQuery,
             detectionInterval,
             windowDelay,
+            shingleSize,
             uiMetadata,
             schemaVersion,
             lastUpdateTime
@@ -350,6 +367,7 @@ public class AnomalyDetector implements ToXContentObject {
                 featureAttributes,
                 detectionInterval,
                 windowDelay,
+                shingleSize,
                 uiMetadata,
                 schemaVersion,
                 lastUpdateTime
@@ -407,6 +425,10 @@ public class AnomalyDetector implements ToXContentObject {
 
     public TimeConfiguration getWindowDelay() {
         return windowDelay;
+    }
+
+    public Integer getShingleSize() {
+        return shingleSize == null ? DEFAULT_SHINGLE_SIZE : shingleSize;
     }
 
     public Map<String, Object> getUiMetadata() {

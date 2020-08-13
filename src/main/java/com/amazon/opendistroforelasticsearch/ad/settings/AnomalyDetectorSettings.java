@@ -197,11 +197,11 @@ public final class AnomalyDetectorSettings {
 
     public static final int MIN_TRAIN_SAMPLES = 512;
 
-    public static final int SHINGLE_SIZE = 8;
+    public static final int DEFAULT_SHINGLE_SIZE = 8;
 
-    public static final int MAX_MISSING_POINTS = Math.min(2, SHINGLE_SIZE);
+    public static final int MAX_IMPUTATION_NEIGHBOR_DISTANCE = 2;
 
-    public static final int MAX_NEIGHBOR_DISTANCE = Math.min(2, SHINGLE_SIZE);
+    public static final double MAX_SHINGLE_PROPORTION_MISSING = 0.25;
 
     public static final double PREVIEW_SAMPLE_RATE = 0.25; // ok to adjust, higher for more data, lower for lower latency
 

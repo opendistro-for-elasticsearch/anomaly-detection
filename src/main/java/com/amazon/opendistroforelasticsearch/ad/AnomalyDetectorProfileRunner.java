@@ -76,6 +76,9 @@ public class AnomalyDetectorProfileRunner {
         this.client = client;
         this.xContentRegistry = xContentRegistry;
         this.nodeFilter = nodeFilter;
+        if (requiredSamples <= 0) {
+            throw new IllegalArgumentException("required samples should be a positive number, but was " + requiredSamples);
+        }
         this.requiredSamples = requiredSamples;
     }
 

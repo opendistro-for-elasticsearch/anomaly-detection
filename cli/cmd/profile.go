@@ -39,18 +39,18 @@ const (
 //profilesCmd is main command for profile operations like list, create and delete
 var profilesCmd = &cobra.Command{
 	Use:   profileBaseCmdName + " [flags] [command] [sub command]",
-	Short: "profile is a collection of settings and credentials that you can apply to an esad command",
-	Long: `	   A named profile is a collection of settings and credentials that you can apply to an ESAD command. 
-           When you specify a profile to run a command, the settings and credentials are used to run that command. 
-           You can specify a profile in an environment variable (ESAD_PROFILE) which essentially acts as the default profile for commands if default doesn't exists.
-           The ESAD CLI supports using any of multiple named profiles that are stored in the config and credentials files.`,
+	Short: "A profile is a collection of settings and credentials that you can apply to an ESAD command",
+	Long: `A named profile is a collection of settings and credentials that you can apply to an ESAD command.
+           When you specify a profile for a command, its settings and credentials are used to run that command.
+           To configure a default profile for commands, specify the default profile in an environment variable (ESAD_PROFILE).
+           The ESAD CLI supports using any of the multiple named profiles that are stored in the configuration and credential files.`,
 }
 
 //createProfilesCmd creates profile interactively by prompting for name (distinct), user, endpoint, password.
 var createProfilesCmd = &cobra.Command{
 	Use:   createNewProfileCmdName,
-	Short: "Create new named profile",
-	Long:  `A named profile is a collection of settings and credentials that you can apply to an ESAD command.`,
+	Short: "Creates a new named profile",
+	Long:  `A named profile is a collection of settings and credentials that you can apply to an ESAD command`,
 	Run: func(cmd *cobra.Command, args []string) {
 		createProfile()
 	},
@@ -59,8 +59,8 @@ var createProfilesCmd = &cobra.Command{
 //deleteProfileCmd deletes list of profiles passed as an arguments, provided profiles are already exists.
 var deleteProfileCmd = &cobra.Command{
 	Use:   deleteNewProfileCmdName + " [list of profile names to be deleted]",
-	Short: "Delete named profiles",
-	Long:  `Delete profile permanently from configuration files`,
+	Short: "Deletes named profiles",
+	Long:  `Delete a profile permanently from the configuration files`,
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no args, display usage
 		if len(args) < 1 {

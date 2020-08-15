@@ -28,8 +28,8 @@ const (
 //default input is name pattern, one can change this format to be id by passing --id flag
 var startCmd = &cobra.Command{
 	Use:   commandStart + " [flags] [list of detectors]",
-	Short: "Start detectors based on id or name pattern",
-	Long:  `Start detectors based on pattern, use "" to make sure the name is not matched with pwd lists'`,
+	Short: "Start detectors based on an ID or name pattern",
+	Long:  `Start detectors based on a pattern. Use "" to make sure the name does not match with pwd lists'`,
 	Run: func(cmd *cobra.Command, args []string) {
 		idStatus, _ := cmd.Flags().GetBool("id")
 		action := ad.StartAnomalyDetectorByNamePattern

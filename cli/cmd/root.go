@@ -48,8 +48,8 @@ var endpoint string
 
 var esadCmd = &cobra.Command{
 	Use:     cliName,
-	Short:   "CLI to interact with Anomaly Detection plugin in your ES cluster",
-	Long:    `The ESAD Command Line Interface is a tool to manage your Anomaly Detection Plugin`,
+	Short:   "Use the CLI to interact with the Anomaly Detection plugin in your ES cluster",
+	Long:    `The ESAD CLI is a tool to manage your Anomaly Detection plugin`,
 	Version: pkg.VERSION,
 }
 

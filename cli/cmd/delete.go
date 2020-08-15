@@ -25,7 +25,7 @@ const commandDelete = "delete"
 var deleteCmd = &cobra.Command{
 	Use:   commandDelete + " [flags] [list of detectors]",
 	Short: "Deletes detectors",
-	Long:  `Deletes detectors based on value, use "" to make sure the name is not matched with pwd lists'`,
+	Long:  `Deletes detectors based on a specified value. Use "" to make sure the name does not match with pwd lists'`,
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no args, display usage
 		if len(args) < 1 {

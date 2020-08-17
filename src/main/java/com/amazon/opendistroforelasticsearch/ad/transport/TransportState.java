@@ -15,100 +15,101 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map.Entry;
+import java.util.Optional;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 
 public class TransportState {
     private String detectorId;
-    // detector definition and the definition fetch time
-    private Entry<AnomalyDetector, Instant> detectorDef;
-    // number of partitions and the number's fetch time
-    private Entry<Integer, Instant> partitonNumber;
+    // detector definition
+    private AnomalyDetector detectorDef;
+    // number of partitions
+    private int partitonNumber;
     // checkpoint fetch time
-    private Instant checkpoint;
+    private Instant lastAccessTime;
     // last detection error. Used by DetectorStateHandler to check if the error for a
     // detector has changed or not. If changed, trigger indexing.
-    private Entry<String, Instant> lastDetectionError;
-    // last training error. Used to save cold error by a concurrent cold start thread.
-    private Entry<Exception, Instant> lastColdStartException;
+    private Optional<String> lastDetectionError;
+    // last training error. Used to save cold start error by a concurrent cold start thread.
+    private Optional<Exception> lastColdStartException;
+    // flag indicating whether checkpoint for the detector exists
+    private boolean checkPointExists;
+    // clock to get current time
+    private final Clock clock;
 
-    public TransportState(String detectorId) {
+    public TransportState(String detectorId, Clock clock) {
         this.detectorId = detectorId;
-        detectorDef = null;
-        partitonNumber = null;
-        checkpoint = null;
-        lastDetectionError = null;
-        lastColdStartException = null;
+        this.detectorDef = null;
+        this.partitonNumber = -1;
+        this.lastAccessTime = clock.instant();
+        this.lastDetectionError = Optional.empty();
+        this.lastColdStartException = Optional.empty();
+        this.checkPointExists = false;
+        this.clock = clock;
     }
 
     public String getDetectorId() {
         return detectorId;
     }
 
-    public Entry<AnomalyDetector, Instant> getDetectorDef() {
+    public AnomalyDetector getDetectorDef() {
+        refreshLastUpdateTime();
         return detectorDef;
     }
 
-    public void setDetectorDef(Entry<AnomalyDetector, Instant> detectorDef) {
+    public void setDetectorDef(AnomalyDetector detectorDef) {
         this.detectorDef = detectorDef;
+        refreshLastUpdateTime();
     }
 
-    public Entry<Integer, Instant> getPartitonNumber() {
+    public int getPartitonNumber() {
+        refreshLastUpdateTime();
         return partitonNumber;
     }
 
-    public void setPartitonNumber(Entry<Integer, Instant> partitonNumber) {
+    public void setPartitonNumber(int partitonNumber) {
         this.partitonNumber = partitonNumber;
+        refreshLastUpdateTime();
     }
 
-    public Instant getCheckpoint() {
-        return checkpoint;
+    public boolean doesCheckpointExists() {
+        refreshLastUpdateTime();
+        return checkPointExists;
     }
 
-    public void setCheckpoint(Instant checkpoint) {
-        this.checkpoint = checkpoint;
+    public void setCheckpointExists(boolean checkpointExists) {
+        refreshLastUpdateTime();
+        this.checkPointExists = checkpointExists;
     };
 
-    public Entry<String, Instant> getLastDetectionError() {
+    public Optional<String> getLastDetectionError() {
+        refreshLastUpdateTime();
         return lastDetectionError;
     }
 
-    public void setLastDetectionError(Entry<String, Instant> lastError) {
-        this.lastDetectionError = lastError;
+    public void setLastDetectionError(String lastError) {
+        this.lastDetectionError = Optional.ofNullable(lastError);
+        refreshLastUpdateTime();
     }
 
-    public Entry<Exception, Instant> getLastColdStartException() {
+    public Optional<Exception> getLastColdStartException() {
+        refreshLastUpdateTime();
         return lastColdStartException;
     }
 
-    public void setLastColdStartException(Entry<Exception, Instant> lastColdStartError) {
-        this.lastColdStartException = lastColdStartError;
+    public void setLastColdStartException(Exception lastColdStartError) {
+        this.lastColdStartException = Optional.ofNullable(lastColdStartError);
+        refreshLastUpdateTime();
+    }
+
+    private void refreshLastUpdateTime() {
+        lastAccessTime = clock.instant();
     }
 
     public boolean expired(Duration stateTtl, Instant now) {
-        boolean ans = true;
-        if (detectorDef != null) {
-            ans = ans && expired(stateTtl, now, detectorDef.getValue());
-        }
-        if (partitonNumber != null) {
-            ans = ans && expired(stateTtl, now, partitonNumber.getValue());
-        }
-        if (checkpoint != null) {
-            ans = ans && expired(stateTtl, now, checkpoint);
-        }
-        if (lastDetectionError != null) {
-            ans = ans && expired(stateTtl, now, lastDetectionError.getValue());
-        }
-        if (lastColdStartException != null) {
-            ans = ans && expired(stateTtl, now, lastColdStartException.getValue());
-        }
-        return ans;
-    }
-
-    private boolean expired(Duration stateTtl, Instant now, Instant toCheck) {
-        return toCheck.plus(stateTtl).isBefore(now);
+        return lastAccessTime.plus(stateTtl).isBefore(now);
     }
 }

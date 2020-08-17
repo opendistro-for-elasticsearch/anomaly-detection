@@ -396,8 +396,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
     @Override
     public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
-        return Arrays
-            .asList(
+        return Collections
+            .singletonList(
                 new FixedExecutorBuilder(
                     settings,
                     AD_THREAD_POOL_NAME,

@@ -289,9 +289,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             if (!featureOptional.getProcessedFeatures().isPresent()) {
-                Exception exception = coldStartIfNoCheckPoint(detector);
-                if (exception != null) {
-                    listener.onFailure(exception);
+                Optional<Exception> exception = coldStartIfNoCheckPoint(detector);
+                if (exception.isPresent()) {
+                    listener.onFailure(exception.get());
                     return;
                 }
 
@@ -425,16 +425,17 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         // fetch previous cold start exception
         String adID = detector.getDetectorId();
-        Exception previousException = stateManager.fetchColdStartException(adID);
-        if (previousException != null) {
-            LOG.error("Previous exception of {}: {}", () -> adID, () -> previousException);
-            if (previousException instanceof EndRunException && ((EndRunException) previousException).isEndNow()) {
-                return previousException;
+        final Optional<Exception> previousException = stateManager.fetchColdStartException(adID);
+        if (previousException.isPresent()) {
+            Exception exception = previousException.get();
+            LOG.error("Previous exception of {}: {}", () -> adID, () -> exception);
+            if (exception instanceof EndRunException && ((EndRunException) exception).isEndNow()) {
+                return exception;
             }
         }
         LOG.info("Trigger cold start for {}", detector.getDetectorId());
         coldStart(detector);
-        return previousException == null ? new InternalFailure(adID, NO_MODEL_ERR_MSG) : previousException;
+        return previousException.orElse(new InternalFailure(adID, NO_MODEL_ERR_MSG));
     }
 
     private void findException(Throwable cause, String adID, AtomicReference<AnomalyDetectionException> failure) {
@@ -852,14 +853,15 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      * @param detector detector object
      * @return previous cold start exception
      */
-    private Exception coldStartIfNoCheckPoint(AnomalyDetector detector) {
+    private Optional<Exception> coldStartIfNoCheckPoint(AnomalyDetector detector) {
         String detectorId = detector.getDetectorId();
 
-        Exception previousException = stateManager.fetchColdStartException(detectorId);
+        Optional<Exception> previousException = stateManager.fetchColdStartException(detectorId);
 
-        if (previousException != null) {
-            LOG.error("Previous exception of {}: {}", () -> detectorId, () -> previousException);
-            if (previousException instanceof EndRunException && ((EndRunException) previousException).isEndNow()) {
+        if (previousException.isPresent()) {
+            Exception exception = previousException.get();
+            LOG.error("Previous exception of {}: {}", () -> detectorId, () -> exception);
+            if (exception instanceof EndRunException && ((EndRunException) exception).isEndNow()) {
                 return previousException;
             }
         }

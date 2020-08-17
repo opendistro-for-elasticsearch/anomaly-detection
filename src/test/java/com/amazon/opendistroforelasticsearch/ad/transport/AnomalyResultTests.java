@@ -475,7 +475,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
     public void testADExceptionWhenColdStart() {
         String error = "blah";
-        when(stateManager.fetchColdStartException(any(String.class))).thenReturn(new AnomalyDetectionException(adID, error));
+        when(stateManager.fetchColdStartException(any(String.class))).thenReturn(Optional.of(new AnomalyDetectionException(adID, error)));
 
         noModelExceptionTemplate(new ResourceNotFoundException(adID, ""), adID, AnomalyDetectionException.class, error);
     }
@@ -490,7 +490,7 @@ public class AnomalyResultTests extends AbstractADTest {
         when(rcfManager.getRcfModelId(any(String.class), anyInt())).thenReturn(rcfModelID);
 
         when(stateManager.fetchColdStartException(any(String.class)))
-            .thenReturn(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG));
+            .thenReturn(Optional.of(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)));
 
         // These constructors register handler in transport service
         new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, rcfManager, adCircuitBreakerService);
@@ -1353,7 +1353,7 @@ public class AnomalyResultTests extends AbstractADTest {
         when(rcfManager.getRcfModelId(any(String.class), anyInt())).thenReturn(rcfModelID);
 
         when(stateManager.fetchColdStartException(any(String.class)))
-            .thenReturn(new EndRunException(adID, "Cannot get training data", false));
+            .thenReturn(Optional.of(new EndRunException(adID, "Cannot get training data", false)));
 
         // These constructors register handler in transport service
         new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, rcfManager, adCircuitBreakerService);

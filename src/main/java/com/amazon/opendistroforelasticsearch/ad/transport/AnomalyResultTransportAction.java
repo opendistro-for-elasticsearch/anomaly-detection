@@ -860,7 +860,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         if (previousException.isPresent()) {
             Exception exception = previousException.get();
-            LOG.error("Previous exception of {}: {}", () -> detectorId, () -> exception);
+            LOG.error("Previous exception of {}: {}", detectorId, exception);
             if (exception instanceof EndRunException && ((EndRunException) exception).isEndNow()) {
                 return previousException;
             }

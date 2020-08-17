@@ -255,7 +255,8 @@ public class TransportStateManager {
     }
 
     /**
-     * Get last cold start exception of a detector
+     * Get last cold start exception of a detector.  The method has side effect.
+     * We reset error after calling the method since cold start exception can stop job running.
      * @param adID detector id
      * @return last cold start exception for the detector
      */

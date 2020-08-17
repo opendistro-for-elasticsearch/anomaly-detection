@@ -685,4 +685,8 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
         }), stateInitProgress);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
+
+    public void testInvalidRequiredSamples() {
+        expectThrows(IllegalArgumentException.class, () -> new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, 0));
+    }
 }

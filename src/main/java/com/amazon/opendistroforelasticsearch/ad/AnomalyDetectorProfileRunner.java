@@ -76,6 +76,9 @@ public class AnomalyDetectorProfileRunner {
         this.client = client;
         this.xContentRegistry = xContentRegistry;
         this.nodeFilter = nodeFilter;
+        if (requiredSamples <= 0) {
+            throw new IllegalArgumentException("required samples should be a positive number, but was " + requiredSamples);
+        }
         this.requiredSamples = requiredSamples;
     }
 
@@ -287,14 +290,7 @@ public class AnomalyDetectorProfileRunner {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
                     AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId);
                     long intervalMins = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMinutes();
-                    float percent = (100.0f * totalUpdates) / requiredSamples;
-                    int neededPoints = (int) (requiredSamples - totalUpdates);
-                    InitProgressProfile initProgress = new InitProgressProfile(
-                        // rounding: 93.456 => 93%, 93.556 => 94%
-                        String.format("%.0f%%", percent),
-                        intervalMins * neededPoints,
-                        neededPoints
-                    );
+                    InitProgressProfile initProgress = computeInitProgressProfile(totalUpdates, intervalMins);
 
                     listener.onResponse(new DetectorProfile.Builder().initProgress(initProgress).build());
                 } catch (Exception t) {
@@ -306,6 +302,17 @@ public class AnomalyDetectorProfileRunner {
                 listener.failImmediately(FAIL_TO_FIND_DETECTOR_MSG + detectorId);
             }
         }, exception -> { listener.failImmediately(FAIL_TO_FIND_DETECTOR_MSG + detectorId, exception); });
+    }
+
+    private InitProgressProfile computeInitProgressProfile(long totalUpdates, long intervalMins) {
+        float percent = (100.0f * totalUpdates) / requiredSamples;
+        int neededPoints = (int) (requiredSamples - totalUpdates);
+        return new InitProgressProfile(
+            // rounding: 93.456 => 93%, 93.556 => 94%
+            String.format("%.0f%%", percent),
+            intervalMins * neededPoints,
+            neededPoints
+        );
     }
 
     private void profileModels(
@@ -357,7 +364,7 @@ public class AnomalyDetectorProfileRunner {
         return ActionListener.wrap(rcfPollResponse -> {
             long totalUpdates = rcfPollResponse.getTotalUpdates();
             if (totalUpdates < requiredSamples) {
-                processInitResponse(detectorId, profilesToCollect, listener, totalUpdates);
+                processInitResponse(detectorId, profilesToCollect, listener, totalUpdates, false);
             } else {
                 if (profilesToCollect.contains(ProfileName.STATE)) {
                     listener.onResponse(new DetectorProfile.Builder().state(DetectorState.RUNNING).build());
@@ -379,7 +386,11 @@ public class AnomalyDetectorProfileRunner {
                 || (causeException instanceof IndexNotFoundException
                     && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
                 // cannot find checkpoint
-                processInitResponse(detectorId, profilesToCollect, listener, 0L);
+                // We don't want to show the estimated time remaining to initialize
+                // a detector before cold start finishes, where the actual
+                // initialization time may be much shorter if sufficient historical
+                // data exists.
+                processInitResponse(detectorId, profilesToCollect, listener, 0L, true);
             } else {
                 logger.error(new ParameterizedMessage("Fail to get init progress through messaging for {}", detectorId), exception);
                 listener.failImmediately(FAIL_TO_GET_PROFILE_MSG + detectorId, exception);
@@ -391,19 +402,26 @@ public class AnomalyDetectorProfileRunner {
         String detectorId,
         Set<ProfileName> profilesToCollect,
         MultiResponsesDelegateActionListener<DetectorProfile> listener,
-        long totalUpdates
+        long totalUpdates,
+        boolean hideMinutesLeft
     ) {
         if (profilesToCollect.contains(ProfileName.STATE)) {
             listener.onResponse(new DetectorProfile.Builder().state(DetectorState.INIT).build());
         }
 
         if (profilesToCollect.contains(ProfileName.INIT_PROGRESS)) {
-            GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
-            client
-                .get(
-                    getDetectorRequest,
-                    onGetDetectorForInitProgress(listener, detectorId, profilesToCollect, totalUpdates, requiredSamples)
-                );
+            if (hideMinutesLeft) {
+                InitProgressProfile initProgress = computeInitProgressProfile(totalUpdates, 0);
+                listener.onResponse(new DetectorProfile.Builder().initProgress(initProgress).build());
+            } else {
+                GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
+                client
+                    .get(
+                        getDetectorRequest,
+                        onGetDetectorForInitProgress(listener, detectorId, profilesToCollect, totalUpdates, requiredSamples)
+                    );
+            }
+
         }
     }
 }

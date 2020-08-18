@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyDouble;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
@@ -96,6 +97,7 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.mockito.ArgumentCaptor;
 
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
@@ -996,7 +998,7 @@ public class AnomalyResultTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    private void setUpColdStart(ThreadPool mockThreadPool) {
+    private void setUpColdStart(ThreadPool mockThreadPool, boolean coldStartRunning) {
         SinglePointFeatures mockSinglePoint = mock(SinglePointFeatures.class);
 
         when(mockSinglePoint.getProcessedFeatures()).thenReturn(Optional.empty());
@@ -1013,6 +1015,8 @@ public class AnomalyResultTests extends AbstractADTest {
             return null;
         }).when(stateManager).getDetectorCheckpoint(any(String.class), any(ActionListener.class));
 
+        when(stateManager.isColdStartRunning(any(String.class))).thenReturn(coldStartRunning);
+
         ExecutorService executorService = mock(ExecutorService.class);
 
         when(mockThreadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
@@ -1026,7 +1030,7 @@ public class AnomalyResultTests extends AbstractADTest {
     @SuppressWarnings("unchecked")
     public void testColdStartNoTrainingData() throws Exception {
         ThreadPool mockThreadPool = mock(ThreadPool.class);
-        setUpColdStart(mockThreadPool);
+        setUpColdStart(mockThreadPool, false);
 
         doAnswer(invocation -> {
             ActionListener<Optional<double[][]>> listener = invocation.getArgument(1);
@@ -1054,12 +1058,47 @@ public class AnomalyResultTests extends AbstractADTest {
         action.doExecute(null, request, listener);
 
         verify(stateManager, times(1)).setLastColdStartException(eq(adID), any(EndRunException.class));
+        verify(stateManager, times(2)).setColdStartRunning(eq(adID), anyBoolean());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testConcurrentColdStart() throws Exception {
+        ThreadPool mockThreadPool = mock(ThreadPool.class);
+        setUpColdStart(mockThreadPool, true);
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<double[][]>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.empty());
+            return null;
+        }).when(featureQuery).getColdStartData(any(AnomalyDetector.class), any(ActionListener.class));
+
+        AnomalyResultTransportAction action = new AnomalyResultTransportAction(
+            new ActionFilters(Collections.emptySet()),
+            transportService,
+            settings,
+            stateManager,
+            featureQuery,
+            normalModelManager,
+            hashRing,
+            clusterService,
+            indexNameResolver,
+            adCircuitBreakerService,
+            adStats,
+            mockThreadPool
+        );
+
+        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+        action.doExecute(null, request, listener);
+
+        verify(stateManager, never()).setLastColdStartException(eq(adID), any(EndRunException.class));
+        verify(stateManager, never()).setColdStartRunning(eq(adID), anyBoolean());
     }
 
     @SuppressWarnings("unchecked")
     public void testColdStartTimeoutPutCheckpoint() throws Exception {
         ThreadPool mockThreadPool = mock(ThreadPool.class);
-        setUpColdStart(mockThreadPool);
+        setUpColdStart(mockThreadPool, false);
 
         doAnswer(invocation -> {
             ActionListener<Optional<double[][]>> listener = invocation.getArgument(1);
@@ -1093,12 +1132,13 @@ public class AnomalyResultTests extends AbstractADTest {
         action.doExecute(null, request, listener);
 
         verify(stateManager, times(1)).setLastColdStartException(eq(adID), any(InternalFailure.class));
+        verify(stateManager, times(2)).setColdStartRunning(eq(adID), anyBoolean());
     }
 
     @SuppressWarnings("unchecked")
     public void testColdStartIllegalArgumentException() throws Exception {
         ThreadPool mockThreadPool = mock(ThreadPool.class);
-        setUpColdStart(mockThreadPool);
+        setUpColdStart(mockThreadPool, false);
 
         doAnswer(invocation -> {
             ActionListener<Optional<double[][]>> listener = invocation.getArgument(1);
@@ -1132,6 +1172,7 @@ public class AnomalyResultTests extends AbstractADTest {
         action.doExecute(null, request, listener);
 
         verify(stateManager, times(1)).setLastColdStartException(eq(adID), any(EndRunException.class));
+        verify(stateManager, times(2)).setColdStartRunning(eq(adID), anyBoolean());
     }
 
     enum FeatureTestMode {
@@ -1341,7 +1382,7 @@ public class AnomalyResultTests extends AbstractADTest {
     @SuppressWarnings("unchecked")
     public void testEndRunDueToNoTrainingData() {
         ThreadPool mockThreadPool = mock(ThreadPool.class);
-        setUpColdStart(mockThreadPool);
+        setUpColdStart(mockThreadPool, false);
 
         ModelManager rcfManager = mock(ModelManager.class);
         doAnswer(invocation -> {
@@ -1354,6 +1395,18 @@ public class AnomalyResultTests extends AbstractADTest {
 
         when(stateManager.fetchColdStartException(any(String.class)))
             .thenReturn(Optional.of(new EndRunException(adID, "Cannot get training data", false)));
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<double[][]>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(new double[][] { { 1.0 } }));
+            return null;
+        }).when(featureQuery).getColdStartData(any(AnomalyDetector.class), any(ActionListener.class));
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<Void>> listener = invocation.getArgument(2);
+            listener.onResponse(null);
+            return null;
+        }).when(normalModelManager).trainModel(any(AnomalyDetector.class), any(double[][].class), any(ActionListener.class));
 
         // These constructors register handler in transport service
         new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, rcfManager, adCircuitBreakerService);
@@ -1379,5 +1432,11 @@ public class AnomalyResultTests extends AbstractADTest {
         action.doExecute(null, request, listener);
 
         assertException(listener, EndRunException.class);
+        ArgumentCaptor<Boolean> booleanCaptor = ArgumentCaptor.forClass(Boolean.class);
+        verify(stateManager, times(2)).setColdStartRunning(eq(adID), booleanCaptor.capture());
+        List<Boolean> capturedBoolean = booleanCaptor.getAllValues();
+        // first, we set cold start running to true; then false
+        assertTrue(capturedBoolean.get(0));
+        assertTrue(!capturedBoolean.get(1));
     }
 }

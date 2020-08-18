@@ -45,7 +45,6 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ThreadedActionListener;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
@@ -76,6 +75,7 @@ public class FeatureManager {
     private final int maxPreviewSamples;
     private final Duration featureBufferTtl;
     private final ThreadPool threadPool;
+    private final String adThreadPoolName;
 
     /**
      * Constructor with dependencies and configuration.
@@ -107,7 +107,8 @@ public class FeatureManager {
         double previewSampleRate,
         int maxPreviewSamples,
         Duration featureBufferTtl,
-        ThreadPool threadPool
+        ThreadPool threadPool,
+        String adThreadPoolName
     ) {
         this.searchFeatureDao = searchFeatureDao;
         this.interpolator = interpolator;
@@ -124,6 +125,7 @@ public class FeatureManager {
 
         this.detectorIdsToTimeShingles = new ConcurrentHashMap<>();
         this.threadPool = threadPool;
+        this.adThreadPoolName = adThreadPoolName;
     }
 
     /**
@@ -341,10 +343,7 @@ public class FeatureManager {
         ActionListener<Optional<Long>> latestTimeListener = ActionListener
             .wrap(latest -> getColdStartSamples(latest, detector, listener), listener::onFailure);
         searchFeatureDao
-            .getLatestDataTime(
-                detector,
-                new ThreadedActionListener<>(logger, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, latestTimeListener, false)
-            );
+            .getLatestDataTime(detector, new ThreadedActionListener<>(logger, threadPool, adThreadPoolName, latestTimeListener, false));
     }
 
     private void getColdStartSamples(Optional<Long> latest, AnomalyDetector detector, ActionListener<Optional<double[][]>> listener) {
@@ -358,13 +357,7 @@ public class FeatureManager {
                     .getFeatureSamplesForPeriods(
                         detector,
                         sampleRanges,
-                        new ThreadedActionListener<>(
-                            logger,
-                            threadPool,
-                            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
-                            getFeaturesListener,
-                            false
-                        )
+                        new ThreadedActionListener<>(logger, threadPool, adThreadPoolName, getFeaturesListener, false)
                     );
             } catch (IOException e) {
                 listener.onFailure(new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));

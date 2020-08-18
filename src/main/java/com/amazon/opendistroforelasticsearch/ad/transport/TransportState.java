@@ -20,8 +20,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 
+/**
+ * Storing intermediate state during the execution of transport action
+ *
+ */
 public class TransportState {
     private String detectorId;
     // detector definition
@@ -34,11 +39,13 @@ public class TransportState {
     // detector has changed or not. If changed, trigger indexing.
     private Optional<String> lastDetectionError;
     // last training error. Used to save cold start error by a concurrent cold start thread.
-    private Optional<Exception> lastColdStartException;
+    private Optional<AnomalyDetectionException> lastColdStartException;
     // flag indicating whether checkpoint for the detector exists
     private boolean checkPointExists;
     // clock to get current time
     private final Clock clock;
+    // cold start running flag to prevent concurrent cold start
+    private boolean coldStartRunning;
 
     public TransportState(String detectorId, Clock clock) {
         this.detectorId = detectorId;
@@ -49,6 +56,7 @@ public class TransportState {
         this.lastColdStartException = Optional.empty();
         this.checkPointExists = false;
         this.clock = clock;
+        this.coldStartRunning = false;
     }
 
     public String getDetectorId() {
@@ -95,13 +103,23 @@ public class TransportState {
         refreshLastUpdateTime();
     }
 
-    public Optional<Exception> getLastColdStartException() {
+    public Optional<AnomalyDetectionException> getLastColdStartException() {
         refreshLastUpdateTime();
         return lastColdStartException;
     }
 
-    public void setLastColdStartException(Exception lastColdStartError) {
+    public void setLastColdStartException(AnomalyDetectionException lastColdStartError) {
         this.lastColdStartException = Optional.ofNullable(lastColdStartError);
+        refreshLastUpdateTime();
+    }
+
+    public boolean isColdStartRunning() {
+        refreshLastUpdateTime();
+        return coldStartRunning;
+    }
+
+    public void setColdStartRunning(boolean coldStartRunning) {
+        this.coldStartRunning = coldStartRunning;
         refreshLastUpdateTime();
     }
 
@@ -109,7 +127,7 @@ public class TransportState {
         lastAccessTime = clock.instant();
     }
 
-    public boolean expired(Duration stateTtl, Instant now) {
-        return lastAccessTime.plus(stateTtl).isBefore(now);
+    public boolean expired(Duration stateTtl) {
+        return lastAccessTime.plus(stateTtl).isBefore(clock.instant());
     }
 }

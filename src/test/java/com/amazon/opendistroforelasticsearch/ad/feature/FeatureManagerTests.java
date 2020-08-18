@@ -153,7 +153,8 @@ public class FeatureManagerTests {
                 previewSampleRate,
                 maxPreviewSamples,
                 featureBufferTtl,
-                threadPool
+                threadPool,
+                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
             )
         );
     }
@@ -245,7 +246,8 @@ public class FeatureManagerTests {
                 previewSampleRate,
                 maxPreviewSamples,
                 featureBufferTtl,
-                threadPool
+                threadPool,
+                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
             )
         );
         featureManager.getColdStartData(detector, listener);

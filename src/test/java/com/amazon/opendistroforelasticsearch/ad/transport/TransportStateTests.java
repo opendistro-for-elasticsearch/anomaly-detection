@@ -26,6 +26,7 @@ import java.time.Instant;
 import org.elasticsearch.test.ESTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 
 public class TransportStateTests extends ESTestCase {
     private TransportState state;
@@ -44,7 +45,8 @@ public class TransportStateTests extends ESTestCase {
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(1000));
         state.setDetectorDef(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null));
 
-        assertTrue(!state.expired(duration, Instant.MIN));
+        when(clock.instant()).thenReturn(Instant.MIN);
+        assertTrue(!state.expired(duration));
     }
 
     public void testMaintenanceNotRemove() throws IOException {
@@ -52,7 +54,8 @@ public class TransportStateTests extends ESTestCase {
         state.setDetectorDef(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null));
         state.setLastDetectionError(null);
 
-        assertTrue(!state.expired(duration, Instant.ofEpochSecond(3700)));
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(3700));
+        assertTrue(!state.expired(duration));
     }
 
     public void testMaintenanceRemoveLastError() throws IOException {
@@ -64,37 +67,43 @@ public class TransportStateTests extends ESTestCase {
             );
         state.setLastDetectionError(null);
 
-        assertTrue(state.expired(duration, Instant.ofEpochSecond(3700)));
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(3700));
+        assertTrue(state.expired(duration));
     }
 
     public void testMaintenancRemoveDetector() throws IOException {
         when(clock.instant()).thenReturn(Instant.MIN);
         state.setDetectorDef(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null));
-        assertTrue(state.expired(duration, Instant.MAX));
+        when(clock.instant()).thenReturn(Instant.MAX);
+        assertTrue(state.expired(duration));
 
     }
 
     public void testMaintenanceFlagNotRemove() throws IOException {
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(1000));
         state.setCheckpointExists(true);
-        assertTrue(!state.expired(duration, Instant.MIN));
+        when(clock.instant()).thenReturn(Instant.MIN);
+        assertTrue(!state.expired(duration));
     }
 
     public void testMaintenancFlagRemove() throws IOException {
         when(clock.instant()).thenReturn(Instant.MIN);
         state.setCheckpointExists(true);
-        assertTrue(!state.expired(duration, Instant.MIN));
+        when(clock.instant()).thenReturn(Instant.MIN);
+        assertTrue(!state.expired(duration));
     }
 
     public void testMaintenanceLastColdStartRemoved() {
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(1000));
-        state.setLastColdStartException(new RuntimeException(""));
-        assertTrue(state.expired(duration, Instant.ofEpochSecond(3700)));
+        state.setLastColdStartException(new AnomalyDetectionException("123", ""));
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(3700));
+        assertTrue(state.expired(duration));
     }
 
     public void testMaintenanceLastColdStartNotRemoved() {
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(1_000_000L));
-        state.setLastColdStartException(new RuntimeException(""));
-        assertTrue(!state.expired(duration, Instant.ofEpochSecond(3700)));
+        state.setLastColdStartException(new AnomalyDetectionException("123", ""));
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(3700));
+        assertTrue(!state.expired(duration));
     }
 }

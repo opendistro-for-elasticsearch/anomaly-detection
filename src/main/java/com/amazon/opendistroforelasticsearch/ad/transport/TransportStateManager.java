@@ -35,6 +35,7 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
@@ -187,7 +188,7 @@ public class TransportStateManager {
             String detectorId = entry.getKey();
             try {
                 TransportState state = entry.getValue();
-                if (state.expired(stateTtl, clock.instant())) {
+                if (state.expired(stateTtl)) {
                     transportStates.remove(detectorId);
                 }
             } catch (Exception e) {
@@ -249,7 +250,7 @@ public class TransportStateManager {
      * @param adID detector id
      * @param exception exception, can be null
      */
-    public void setLastColdStartException(String adID, Exception exception) {
+    public void setLastColdStartException(String adID, AnomalyDetectionException exception) {
         TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id, clock));
         state.setLastColdStartException(exception);
     }
@@ -260,15 +261,40 @@ public class TransportStateManager {
      * @param adID detector id
      * @return last cold start exception for the detector
      */
-    public Optional<Exception> fetchColdStartException(String adID) {
+    public Optional<AnomalyDetectionException> fetchColdStartException(String adID) {
         TransportState state = transportStates.get(adID);
         if (state == null) {
             return Optional.empty();
         }
 
-        Optional<Exception> exception = state.getLastColdStartException();
+        Optional<AnomalyDetectionException> exception = state.getLastColdStartException();
         // since cold start exception can stop job running, we set it to null after using it once.
         exception.ifPresent(e -> setLastColdStartException(adID, null));
         return exception;
+    }
+
+    /**
+     * Whether last cold start for the detector is running
+     * @param adID detector ID
+     * @return running or not
+     */
+    public boolean isColdStartRunning(String adID) {
+        TransportState state = transportStates.get(adID);
+        if (state != null) {
+            return state.isColdStartRunning();
+        }
+
+        return false;
+    }
+
+    /**
+     * Mark the cold start status of the detector
+     * @param adID detector ID
+     * @param running whether it is running
+     */
+    public void setColdStartRunning(String adID, boolean running) {
+        LOG.info("cold start running {} {}", adID, running);
+        TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id, clock));
+        state.setColdStartRunning(running);
     }
 }

@@ -285,4 +285,10 @@ public class TransportStateManagerTests extends ESTestCase {
             );
         verify(client, times(2)).get(any(), any());
     }
+
+    public void testColdStartRunning() {
+        assertTrue(!stateManager.isColdStartRunning(adId));
+        stateManager.setColdStartRunning(adId, true);
+        assertTrue(stateManager.isColdStartRunning(adId));
+    }
 }

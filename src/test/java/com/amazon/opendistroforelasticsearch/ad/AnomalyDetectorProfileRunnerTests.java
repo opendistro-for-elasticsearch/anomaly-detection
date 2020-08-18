@@ -663,4 +663,30 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
         }), stateInitProgress);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
+
+    public void testInitNoIndex() throws IOException, InterruptedException {
+        setUpClientGet(DetectorStatus.EXIST, JobStatus.ENABLED, RCFPollingStatus.INDEX_NOT_FOUND, ErrorResultStatus.NO_ERROR);
+        DetectorProfile expectedProfile = new DetectorProfile.Builder()
+            .state(DetectorState.INIT)
+            .initProgress(new InitProgressProfile("0%", 0, requiredSamples))
+            .build();
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+            assertEquals(expectedProfile, response);
+            inProgressLatch.countDown();
+        }, exception -> {
+            logger.error(exception);
+            for (StackTraceElement ste : exception.getStackTrace()) {
+                logger.info(ste);
+            }
+            assertTrue("Should not reach here ", false);
+            inProgressLatch.countDown();
+        }), stateInitProgress);
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    public void testInvalidRequiredSamples() {
+        expectThrows(IllegalArgumentException.class, () -> new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, 0));
+    }
 }

@@ -179,9 +179,11 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
                 "{\"name\":\"test\",\"description\":\"Test\",\"time_field\":\"timestamp\","
                     + "\"indices\":[\"validation\"],\"feature_attributes\":[{\"feature_name\":\"feature 1\""
                     + ",\"feature_enabled\":true,\"aggregation_query\":{\"Feature1\":{\"sum\":{\"field\":\"Feature1\"}}}},"
-                    + "{\"feature_name\":\"feature 2\",\"feature_enabled\":true,\"aggregation_query\":{\"Feature2\":{\"sum\":{\"field\":\"Feature2\"}}}}],"
-                    + "\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"value\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},"
-                    + "\"detection_interval\":{\"period\":{\"interval\": %d,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}",
+                    + "{\"feature_name\":\"feature 2\",\"feature_enabled\":true,\"aggregation_query\":{\"Feature2\":"
+                    + "{\"sum\":{\"field\":\"Feature2\"}}}}],\"filter_query\":{\"bool\":"
+                    + "{\"filter\":[{\"exists\":{\"field\":\"value\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},"
+                    + "\"detection_interval\":{\"period\":{\"interval\": %d,\"unit\":\"Minutes\"}}"
+                    + ",\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}",
                 1
             );
         Response resp = TestHelpers
@@ -216,9 +218,12 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
                 "{\"name\":\"test\",\"description\":\"Test\",\"time_field\":\"timestamp\","
                     + "\"indices\":[\"validation\"],\"feature_attributes\":[{\"feature_name\":\"feature 1\""
                     + ",\"feature_enabled\":true,\"aggregation_query\":{\"Feature1\":{\"sum\":{\"field\":\"Feature1\"}}}},"
-                    + "{\"feature_name\":\"feature 2\",\"feature_enabled\":true,\"aggregation_query\":{\"Feature2\":{\"sum\":{\"field\":\"Feature5\"}}}}],"
-                    + "\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"Feature1\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},"
-                    + "\"detection_interval\":{\"period\":{\"interval\": %d,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}",
+                    + "{\"feature_name\":\"feature 2\",\"feature_enabled\":true,\"aggregation_query\":"
+                    + "{\"Feature2\":{\"sum\":{\"field\":\"Feature5\"}}}}],"
+                    + "\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"Feature1\",\"boost\":1}}],"
+                    + "\"adjust_pure_negative\":true,\"boost\":1}},"
+                    + "\"detection_interval\":{\"period\":{\"interval\": %d,\"unit\":\"Minutes\"}},"
+                    + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}",
                 1
             );
         Response resp = TestHelpers

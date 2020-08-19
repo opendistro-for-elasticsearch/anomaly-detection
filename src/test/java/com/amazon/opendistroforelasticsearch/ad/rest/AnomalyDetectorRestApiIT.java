@@ -131,7 +131,13 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
                 ImmutableMap.of(),
                 toHttpEntity(
-                    "{\"description\":\"Test detector\",\"indices\":[\"test-index-sparse\"],\"feature_attributes\":[{\"feature_name\":\"total_order\",\"feature_enabled\":true,\"aggregation_query\":{\"total_order\":{\"max\":{\"field\":\"feature-1\"}}}},{\"feature_name\":\"second_feature\",\"feature_enabled\":true,\"aggregation_query\":{\"total\":{\"max\":{\"field\":\"feature-2\"}}}}],\"detection_interval\":{\"period\":{\"interval\":70,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":70,\"unit\":\"Minutes\"}}}"
+                    "{\"description\":\"Test detector\",\"indices\":[\"test-index-sparse\"],"
+                        + "\"feature_attributes\":[{\"feature_name\":\"total_order\",\"feature_enabled\":true,"
+                        + "\"aggregation_query\":{\"total_order\":{\"max\":{\"field\":\"feature-1\"}}}},"
+                        + "{\"feature_name\":\"second_feature\",\"feature_enabled\":true,\"aggregation_query\":"
+                        + "{\"total\":{\"max\":{\"field\":\"feature-2\"}}}}],\"detection_interval\":{\"period\":"
+                        + "{\"interval\":70,\"unit\":\"Minutes\"}},\"window_delay\":"
+                        + "{\"period\":{\"interval\":70,\"unit\":\"Minutes\"}}}"
                 ),
                 null
             );
@@ -167,7 +173,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         + "{\"max\":{\"field\":\"feature-1\"}}}}],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
                         + "{\"field\":"
                         + "\"feature-4\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"detection_interval\":"
-                        + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}}}"
+                        + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+                        + "\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}}}"
                 ),
                 null
             );

@@ -293,7 +293,6 @@ public class TransportStateManager {
      * @param running whether it is running
      */
     public void setColdStartRunning(String adID, boolean running) {
-        LOG.info("cold start running {} {}", adID, running);
         TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id, clock));
         state.setColdStartRunning(running);
     }

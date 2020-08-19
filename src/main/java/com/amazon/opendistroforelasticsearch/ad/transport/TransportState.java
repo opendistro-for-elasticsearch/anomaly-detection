@@ -63,70 +63,125 @@ public class TransportState {
         return detectorId;
     }
 
+    /**
+     *
+     * @return Detector configuration object
+     */
     public AnomalyDetector getDetectorDef() {
         refreshLastUpdateTime();
         return detectorDef;
     }
 
+    /**
+     *
+     * @param detectorDef Detector configuration object
+     */
     public void setDetectorDef(AnomalyDetector detectorDef) {
         this.detectorDef = detectorDef;
         refreshLastUpdateTime();
     }
 
+    /**
+     *
+     * @return RCF partition number of the detector
+     */
     public int getPartitonNumber() {
         refreshLastUpdateTime();
         return partitonNumber;
     }
 
+    /**
+     *
+     * @param partitonNumber RCF partition number
+     */
     public void setPartitonNumber(int partitonNumber) {
         this.partitonNumber = partitonNumber;
         refreshLastUpdateTime();
     }
 
+    /**
+     * Used to indicate whether cold start succeeds or not
+     * @return whether checkpoint of models exists or not.
+     */
     public boolean doesCheckpointExists() {
         refreshLastUpdateTime();
         return checkPointExists;
     }
 
+    /**
+     *
+     * @param checkpointExists mark whether checkpoint of models exists or not.
+     */
     public void setCheckpointExists(boolean checkpointExists) {
         refreshLastUpdateTime();
         this.checkPointExists = checkpointExists;
     };
 
+    /**
+     *
+     * @return last model inference error
+     */
     public Optional<String> getLastDetectionError() {
         refreshLastUpdateTime();
         return lastDetectionError;
     }
 
+    /**
+     *
+     * @param lastError last model inference error
+     */
     public void setLastDetectionError(String lastError) {
         this.lastDetectionError = Optional.ofNullable(lastError);
         refreshLastUpdateTime();
     }
 
+    /**
+     *
+     * @return last cold start exception if any
+     */
     public Optional<AnomalyDetectionException> getLastColdStartException() {
         refreshLastUpdateTime();
         return lastColdStartException;
     }
 
+    /**
+     *
+     * @param lastColdStartError last cold start exception if any
+     */
     public void setLastColdStartException(AnomalyDetectionException lastColdStartError) {
         this.lastColdStartException = Optional.ofNullable(lastColdStartError);
         refreshLastUpdateTime();
     }
 
+    /**
+     * Used to prevent concurrent cold start
+     * @return whether cold start is running or not
+     */
     public boolean isColdStartRunning() {
         refreshLastUpdateTime();
         return coldStartRunning;
     }
 
+    /**
+     *
+     * @param coldStartRunning  whether cold start is running or not
+     */
     public void setColdStartRunning(boolean coldStartRunning) {
         this.coldStartRunning = coldStartRunning;
         refreshLastUpdateTime();
     }
 
+    /**
+     * refresh last access time.
+     */
     private void refreshLastUpdateTime() {
         lastAccessTime = clock.instant();
     }
 
+    /**
+     * @param stateTtl time to leave for the state
+     * @return whether the transport state is expired
+     */
     public boolean expired(Duration stateTtl) {
         return lastAccessTime.plus(stateTtl).isBefore(clock.instant());
     }

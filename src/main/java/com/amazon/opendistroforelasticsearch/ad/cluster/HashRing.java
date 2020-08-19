@@ -78,7 +78,7 @@ public class HashRing {
 
         // Check cooldown period
         if (clock.millis() - lastUpdate <= coolDownPeriod.getMillis()) {
-            LOG.info(COOLDOWN_MSG);
+            LOG.debug(COOLDOWN_MSG);
             return false;
         }
 

@@ -21,6 +21,7 @@ import static java.util.Optional.ofNullable;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
@@ -44,12 +45,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,6 +60,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInterpolator;
@@ -98,6 +102,9 @@ public class FeatureManagerTests {
     @Mock
     private TransportStateManager stateManager;
 
+    @Mock
+    private ThreadPool threadPool;
+
     private FeatureManager featureManager;
 
     @Before
@@ -122,6 +129,16 @@ public class FeatureManagerTests {
         intervalInMilliseconds = detectorIntervalTimeConfig.toDuration().toMillis();
 
         Interpolator interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
+
+        ExecutorService executorService = mock(ExecutorService.class);
+
+        when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(executorService).execute(any(Runnable.class));
+
         this.featureManager = spy(
             new FeatureManager(
                 searchFeatureDao,
@@ -135,7 +152,9 @@ public class FeatureManagerTests {
                 maxNeighborDistance,
                 previewSampleRate,
                 maxPreviewSamples,
-                featureBufferTtl
+                featureBufferTtl,
+                threadPool,
+                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
             )
         );
     }
@@ -226,7 +245,9 @@ public class FeatureManagerTests {
                 1, /*maxNeighborDistance*/
                 previewSampleRate,
                 maxPreviewSamples,
-                featureBufferTtl
+                featureBufferTtl,
+                threadPool,
+                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
             )
         );
         featureManager.getColdStartData(detector, listener);

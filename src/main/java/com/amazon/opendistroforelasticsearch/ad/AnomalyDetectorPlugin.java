@@ -121,7 +121,6 @@ import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
-import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
@@ -320,7 +319,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
         );
-        ColdStartRunner runner = new ColdStartRunner();
         FeatureManager featureManager = new FeatureManager(
             searchFeatureDao,
             interpolator,
@@ -333,7 +331,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
             AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            threadPool,
+            AD_THREAD_POOL_NAME
         );
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
 
@@ -386,7 +386,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 modelManager,
                 clock,
                 stateManager,
-                runner,
                 new ADClusterEventListener(clusterService, hashRing, modelManager, nodeFilter),
                 adCircuitBreakerService,
                 adStats,

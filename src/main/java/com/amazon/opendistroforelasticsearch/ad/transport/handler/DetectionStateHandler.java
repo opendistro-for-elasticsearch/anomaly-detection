@@ -112,9 +112,9 @@ public class DetectionStateHandler extends AnomalyIndexHandler<DetectorInternalS
     public void saveError(String error, String detectorId) {
         // trigger indexing if no error recorded (e.g., this detector got enabled just now)
         // or the recorded error is different than this one.
-        if (!Objects.equal(adStateManager.getLastError(detectorId), error)) {
+        if (!Objects.equal(adStateManager.getLastDetectionError(detectorId), error)) {
             update(detectorId, new ErrorStrategy(error));
-            adStateManager.setLastError(detectorId, error);
+            adStateManager.setLastDetectionError(detectorId, error);
         }
     }
 

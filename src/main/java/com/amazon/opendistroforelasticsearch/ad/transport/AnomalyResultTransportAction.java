@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -35,6 +34,7 @@ import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.IndicesOptions;
+import org.elasticsearch.action.support.ThreadedActionListener;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.block.ClusterBlockLevel;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
@@ -46,11 +46,13 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.node.NodeClosedException;
 import org.elasticsearch.tasks.Task;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.ConnectTransportException;
 import org.elasticsearch.transport.ReceiveTimeoutTransportException;
 import org.elasticsearch.transport.TransportRequestOptions;
 import org.elasticsearch.transport.TransportService;
 
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
@@ -73,7 +75,6 @@ import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
-import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
 import com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil;
 
 public class AnomalyResultTransportAction extends HandledTransportAction<ActionRequest, AnomalyResultResponse> {
@@ -89,10 +90,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
         .getExceptionName(new LimitExceededException("", ""));
     static final String NULL_RESPONSE = "Received null response from";
+    static final String BUG_RESPONSE = "We might have bugs.";
 
     private final TransportService transportService;
     private final TransportStateManager stateManager;
-    private final ColdStartRunner globalRunner;
     private final FeatureManager featureManager;
     private final ModelManager modelManager;
     private final HashRing hashRing;
@@ -101,6 +102,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final IndexNameExpressionResolver indexNameExpressionResolver;
     private final ADStats adStats;
     private final ADCircuitBreakerService adCircuitBreakerService;
+    private final ThreadPool threadPool;
 
     @Inject
     public AnomalyResultTransportAction(
@@ -108,19 +110,18 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         TransportService transportService,
         Settings settings,
         TransportStateManager manager,
-        ColdStartRunner eventExecutor,
         FeatureManager featureManager,
         ModelManager modelManager,
         HashRing hashRing,
         ClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
         ADCircuitBreakerService adCircuitBreakerService,
-        ADStats adStats
+        ADStats adStats,
+        ThreadPool threadPool
     ) {
         super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);
         this.transportService = transportService;
         this.stateManager = manager;
-        this.globalRunner = eventExecutor;
         this.featureManager = featureManager;
         this.modelManager = modelManager;
         this.hashRing = hashRing;
@@ -133,6 +134,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.adStats = adStats;
+        this.threadPool = threadPool;
     }
 
     private List<FeatureData> getFeatureData(double[] currentFeature, AnomalyDetector detector) {
@@ -170,22 +172,24 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *  Also, AD is responsible for logging the stack trace.  To avoid bloating our logs, alerting
      *   should always just log the message of an AnomalyDetectionException exception by default.
      *
-     *  Known cause of EndRunException with endNow returning false:
+     *  Known causes of EndRunException with endNow returning false:
      *   + training data for cold start not available
      *   + cold start cannot succeed
      *   + unknown prediction error
      *   + memory circuit breaker tripped
      *
-     *  Known cause of EndRunException with endNow returning true:
-     *   + a model's memory size reached limit
+     *  Known causes of EndRunException with endNow returning true:
+     *   + a model partition's memory size reached limit
      *   + models' total memory size reached limit
      *   + Having trouble querying feature data due to
      *    * index does not exist
      *    * all features have been disabled
+     *    * invalid search query
      *   + anomaly detector is not available
      *   + AD plugin is disabled
+     *   + training data is invalid due to serious internal bug(s)
      *
-     *  Known cause of InternalFailure:
+     *  Known causes of InternalFailure:
      *   + threshold model node is not available
      *   + cluster read/write is blocked
      *   + cold start hasn't been finished
@@ -285,20 +289,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             if (!featureOptional.getProcessedFeatures().isPresent()) {
-                stateManager.getDetectorCheckpoint(adID, ActionListener.wrap(checkpointExists -> {
-                    if (!checkpointExists) {
-                        LOG.info("Trigger cold start for {}", adID);
-                        globalRunner.compute(new ColdStartJob(detector));
-                    }
-                }, exception -> {
-                    Throwable cause = ExceptionsHelper.unwrapCause(exception);
-                    if (cause instanceof IndexNotFoundException) {
-                        LOG.info("Trigger cold start for {}", adID);
-                        globalRunner.compute(new ColdStartJob(detector));
-                    } else {
-                        LOG.error(String.format("Fail to get checkpoint state for %s", adID), exception);
-                    }
-                }));
+                Optional<AnomalyDetectionException> exception = coldStartIfNoCheckPoint(detector);
+                if (exception.isPresent()) {
+                    listener.onFailure(exception.get());
+                    return;
+                }
+
                 if (!featureOptional.getUnprocessedFeatures().isPresent()) {
                     // Feature not available is common when we have data holes. Respond empty response
                     // so that alerting will not print stack trace to avoid bloating our logs.
@@ -384,6 +380,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 listener.onFailure(new EndRunException(adID, "Having trouble querying data: " + exception.getMessage(), true));
             } else if (exception instanceof IllegalArgumentException && detector.getEnabledFeatureIds().isEmpty()) {
                 listener.onFailure(new EndRunException(adID, ALL_FEATURES_DISABLED_ERR_MSG, true));
+            } else if (exception instanceof EndRunException) {
+                // invalid feature query
+                listener.onFailure(exception);
             } else {
                 handleExecuteException(exception, listener, adID);
             }
@@ -397,7 +396,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *
      * @param failure  object that may contain exceptions thrown
      * @param detector detector object
-     * @return whether cold start runs
+     * @return exception if AD job execution gets resource not found exception
      * @throws AnomalyDetectionException List of exceptions we can throw
      *     1. Exception from cold start:
      *       1). InternalFailure due to
@@ -405,24 +404,38 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *       2). EndRunException with endNow equal to false
      *         a. training data not available
      *         b. cold start cannot succeed
+     *         c. invalid training data
+     *       3) EndRunException with endNow equal to true
+     *         a. invalid search query
      *     2. LimitExceededException from one of RCF model node when the total size of the models
      *      is more than X% of heap memory.
      *     3. InternalFailure wrapping ElasticsearchTimeoutException inside caused by
      *      RCF/Threshold model node failing to get checkpoint to restore model before timeout.
      */
-    private boolean coldStartIfNoModel(AtomicReference<AnomalyDetectionException> failure, AnomalyDetector detector)
+    private AnomalyDetectionException coldStartIfNoModel(AtomicReference<AnomalyDetectionException> failure, AnomalyDetector detector)
         throws AnomalyDetectionException {
         AnomalyDetectionException exp = failure.get();
-        if (exp != null) {
-            if (exp instanceof ResourceNotFoundException) {
-                LOG.info("Trigger cold start for {}", detector.getDetectorId());
-                globalRunner.compute(new ColdStartJob(detector));
-                return true;
-            } else {
-                throw exp;
+        if (exp == null) {
+            return null;
+        }
+
+        if (!(exp instanceof ResourceNotFoundException)) {
+            throw exp;
+        }
+
+        // fetch previous cold start exception
+        String adID = detector.getDetectorId();
+        final Optional<AnomalyDetectionException> previousException = stateManager.fetchColdStartException(adID);
+        if (previousException.isPresent()) {
+            Exception exception = previousException.get();
+            LOG.error("Previous exception of {}: {}", () -> adID, () -> exception);
+            if (exception instanceof EndRunException && ((EndRunException) exception).isEndNow()) {
+                return (EndRunException) exception;
             }
         }
-        return false;
+        LOG.info("Trigger cold start for {}", detector.getDetectorId());
+        coldStart(detector);
+        return previousException.orElse(new InternalFailure(adID, NO_MODEL_ERR_MSG));
     }
 
     private void findException(Throwable cause, String adID, AtomicReference<AnomalyDetectionException> failure) {
@@ -446,7 +459,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             failure.set(new InternalFailure(adID, causeException));
         } else {
             // some unexpected bugs occur while predicting anomaly
-            failure.set(new EndRunException(adID, "We might have bugs.", causeException, false));
+            failure.set(new EndRunException(adID, BUG_RESPONSE, causeException, false));
         }
     }
 
@@ -544,16 +557,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         private void handleRCFResults() {
             try {
-                if (coldStartIfNoModel(failure, detector)) {
-                    // fetch previous cold start exception
-                    Optional<? extends AnomalyDetectionException> previousException = globalRunner.fetchException(adID);
-
-                    if (previousException.isPresent()) {
-                        LOG.error("Previous exception of {}: {}", () -> adID, () -> previousException.get());
-                        listener.onFailure(previousException.get());
-                    } else {
-                        listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
-                    }
+                AnomalyDetectionException exception = coldStartIfNoModel(failure, detector);
+                if (exception != null) {
+                    listener.onFailure(exception);
                     return;
                 }
 
@@ -647,8 +653,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         private void handleThresholdResult() {
             try {
-                if (coldStartIfNoModel(failure, detector)) {
-                    listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
+                AnomalyDetectionException exception = coldStartIfNoModel(failure, detector);
+                if (exception != null) {
+                    listener.onFailure(exception);
                     return;
                 }
 
@@ -770,39 +777,124 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         return true;
     }
 
-    class ColdStartJob implements Callable<Boolean> {
+    private void coldStart(AnomalyDetector detector) {
+        String detectorId = detector.getDetectorId();
 
-        private AnomalyDetector detector;
-
-        ColdStartJob(AnomalyDetector detector) {
-            this.detector = detector;
+        // If last cold start is not finished, we don't trigger another one
+        if (stateManager.isColdStartRunning(detectorId)) {
+            return;
         }
 
-        @Override
-        public Boolean call() {
-            String detectorId = detector.getDetectorId();
-            try {
-                Optional<double[][]> traingData = featureManager.getColdStartData(detector);
-                if (traingData.isPresent()) {
-                    double[][] trainingPoints = traingData.get();
-                    modelManager.trainModel(detector, trainingPoints);
-                    return true;
-                } else {
-                    throw new EndRunException(detectorId, "Cannot get training data", false);
-                }
+        stateManager.setColdStartRunning(detectorId, true);
 
-            } catch (ElasticsearchTimeoutException timeoutEx) {
-                throw new InternalFailure(
-                    detector.getDetectorId(),
-                    "Time out while indexing cold start checkpoint or get training data",
-                    timeoutEx
-                );
-            } catch (EndRunException endRunEx) {
-                throw endRunEx;
-            } catch (Exception ex) {
-                throw new EndRunException(detector.getDetectorId(), "Error while cold start", ex, false);
+        ActionListener<Optional<double[][]>> listener = ActionListener.wrap(trainingData -> {
+            if (trainingData.isPresent()) {
+                double[][] dataPoints = trainingData.get();
+
+                ActionListener<Void> trainModelListener = ActionListener.wrap(res -> {
+                    stateManager.setColdStartRunning(detectorId, false);
+                    LOG.info("Succeeded in training {}", detectorId);
+                }, exception -> {
+                    if (exception instanceof AnomalyDetectionException) {
+                        // e.g., partitioned model exceeds memory limit
+                        stateManager.setLastColdStartException(detectorId, (AnomalyDetectionException) exception);
+                    } else if (exception instanceof IllegalArgumentException) {
+                        // IllegalArgumentException due to invalid training data
+                        stateManager
+                            .setLastColdStartException(
+                                detectorId,
+                                new EndRunException(detectorId, "Invalid training data", exception, false)
+                            );
+                    } else if (exception instanceof ElasticsearchTimeoutException) {
+                        stateManager
+                            .setLastColdStartException(
+                                detectorId,
+                                new InternalFailure(detectorId, "Time out while indexing cold start checkpoint", exception)
+                            );
+                    } else {
+                        stateManager
+                            .setLastColdStartException(
+                                detectorId,
+                                new EndRunException(detectorId, "Error while training model", exception, false)
+                            );
+                    }
+                    stateManager.setColdStartRunning(detectorId, false);
+                });
+
+                modelManager
+                    .trainModel(
+                        detector,
+                        dataPoints,
+                        new ThreadedActionListener<>(LOG, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, trainModelListener, false)
+                    );
+            } else {
+                stateManager.setLastColdStartException(detectorId, new EndRunException(detectorId, "Cannot get training data", false));
+                stateManager.setColdStartRunning(detectorId, false);
+            }
+        }, exception -> {
+            if (exception instanceof ElasticsearchTimeoutException) {
+                stateManager
+                    .setLastColdStartException(
+                        detectorId,
+                        new InternalFailure(detectorId, "Time out while getting training data", exception)
+                    );
+            } else if (exception instanceof AnomalyDetectionException) {
+                // e.g., Invalid search query
+                stateManager.setLastColdStartException(detectorId, (AnomalyDetectionException) exception);
+            } else {
+                stateManager
+                    .setLastColdStartException(detectorId, new EndRunException(detectorId, "Error while cold start", exception, false));
+            }
+            stateManager.setColdStartRunning(detectorId, false);
+        });
+
+        threadPool
+            .executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)
+            .execute(
+                () -> featureManager
+                    .getColdStartData(
+                        detector,
+                        new ThreadedActionListener<>(LOG, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, listener, false)
+                    )
+            );
+    }
+
+    /**
+     * Check if checkpoint for an detector exists or not.  If not and previous
+     *  run is not EndRunException whose endNow is true, trigger cold start.
+     * @param detector detector object
+     * @return previous cold start exception
+     */
+    private Optional<AnomalyDetectionException> coldStartIfNoCheckPoint(AnomalyDetector detector) {
+        String detectorId = detector.getDetectorId();
+
+        Optional<AnomalyDetectionException> previousException = stateManager.fetchColdStartException(detectorId);
+
+        if (previousException.isPresent()) {
+            Exception exception = previousException.get();
+            LOG.error("Previous exception of {}: {}", detectorId, exception);
+            if (exception instanceof EndRunException && ((EndRunException) exception).isEndNow()) {
+                return previousException;
             }
         }
 
+        stateManager.getDetectorCheckpoint(detectorId, ActionListener.wrap(checkpointExists -> {
+            if (!checkpointExists) {
+                LOG.info("Trigger cold start for {}", detectorId);
+                coldStart(detector);
+            }
+        }, exception -> {
+            Throwable cause = ExceptionsHelper.unwrapCause(exception);
+            if (cause instanceof IndexNotFoundException) {
+                LOG.info("Trigger cold start for {}", detectorId);
+                coldStart(detector);
+            } else {
+                String errorMsg = String.format("Fail to get checkpoint state for %s", detectorId);
+                LOG.error(errorMsg, exception);
+                stateManager.setLastColdStartException(detectorId, new AnomalyDetectionException(errorMsg, exception));
+            }
+        }));
+
+        return previousException;
     }
 }

@@ -83,7 +83,6 @@ public class RCFPollingTests extends AbstractADTest {
     @BeforeClass
     public static void setUpBeforeClass() {
         setUpThreadPool(RCFPollingTests.class.getSimpleName());
-
     }
 
     @AfterClass

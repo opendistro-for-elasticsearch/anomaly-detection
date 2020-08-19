@@ -15,86 +15,174 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map.Entry;
+import java.util.Optional;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 
+/**
+ * Storing intermediate state during the execution of transport action
+ *
+ */
 public class TransportState {
     private String detectorId;
-    // detector definition and the definition fetch time
-    private Entry<AnomalyDetector, Instant> detectorDef;
-    // number of partitions and the number's fetch time
-    private Entry<Integer, Instant> partitonNumber;
+    // detector definition
+    private AnomalyDetector detectorDef;
+    // number of partitions
+    private int partitonNumber;
     // checkpoint fetch time
-    private Instant checkpoint;
-    // last error. Used by DetectorStateHandler to check if the error for a
+    private Instant lastAccessTime;
+    // last detection error. Used by DetectorStateHandler to check if the error for a
     // detector has changed or not. If changed, trigger indexing.
-    private Entry<String, Instant> lastError;
+    private Optional<String> lastDetectionError;
+    // last training error. Used to save cold start error by a concurrent cold start thread.
+    private Optional<AnomalyDetectionException> lastColdStartException;
+    // flag indicating whether checkpoint for the detector exists
+    private boolean checkPointExists;
+    // clock to get current time
+    private final Clock clock;
+    // cold start running flag to prevent concurrent cold start
+    private boolean coldStartRunning;
 
-    public TransportState(String detectorId) {
+    public TransportState(String detectorId, Clock clock) {
         this.detectorId = detectorId;
-        detectorDef = null;
-        partitonNumber = null;
-        checkpoint = null;
-        lastError = null;
+        this.detectorDef = null;
+        this.partitonNumber = -1;
+        this.lastAccessTime = clock.instant();
+        this.lastDetectionError = Optional.empty();
+        this.lastColdStartException = Optional.empty();
+        this.checkPointExists = false;
+        this.clock = clock;
+        this.coldStartRunning = false;
     }
 
     public String getDetectorId() {
         return detectorId;
     }
 
-    public Entry<AnomalyDetector, Instant> getDetectorDef() {
+    /**
+     *
+     * @return Detector configuration object
+     */
+    public AnomalyDetector getDetectorDef() {
+        refreshLastUpdateTime();
         return detectorDef;
     }
 
-    public void setDetectorDef(Entry<AnomalyDetector, Instant> detectorDef) {
+    /**
+     *
+     * @param detectorDef Detector configuration object
+     */
+    public void setDetectorDef(AnomalyDetector detectorDef) {
         this.detectorDef = detectorDef;
+        refreshLastUpdateTime();
     }
 
-    public Entry<Integer, Instant> getPartitonNumber() {
+    /**
+     *
+     * @return RCF partition number of the detector
+     */
+    public int getPartitonNumber() {
+        refreshLastUpdateTime();
         return partitonNumber;
     }
 
-    public void setPartitonNumber(Entry<Integer, Instant> partitonNumber) {
+    /**
+     *
+     * @param partitonNumber RCF partition number
+     */
+    public void setPartitonNumber(int partitonNumber) {
         this.partitonNumber = partitonNumber;
+        refreshLastUpdateTime();
     }
 
-    public Instant getCheckpoint() {
-        return checkpoint;
+    /**
+     * Used to indicate whether cold start succeeds or not
+     * @return whether checkpoint of models exists or not.
+     */
+    public boolean doesCheckpointExists() {
+        refreshLastUpdateTime();
+        return checkPointExists;
     }
 
-    public void setCheckpoint(Instant checkpoint) {
-        this.checkpoint = checkpoint;
+    /**
+     *
+     * @param checkpointExists mark whether checkpoint of models exists or not.
+     */
+    public void setCheckpointExists(boolean checkpointExists) {
+        refreshLastUpdateTime();
+        this.checkPointExists = checkpointExists;
     };
 
-    public Entry<String, Instant> getLastError() {
-        return lastError;
+    /**
+     *
+     * @return last model inference error
+     */
+    public Optional<String> getLastDetectionError() {
+        refreshLastUpdateTime();
+        return lastDetectionError;
     }
 
-    public void setLastError(Entry<String, Instant> lastError) {
-        this.lastError = lastError;
+    /**
+     *
+     * @param lastError last model inference error
+     */
+    public void setLastDetectionError(String lastError) {
+        this.lastDetectionError = Optional.ofNullable(lastError);
+        refreshLastUpdateTime();
     }
 
-    public boolean expired(Duration stateTtl, Instant now) {
-        boolean ans = true;
-        if (detectorDef != null) {
-            ans = ans && expired(stateTtl, now, detectorDef.getValue());
-        }
-        if (partitonNumber != null) {
-            ans = ans && expired(stateTtl, now, partitonNumber.getValue());
-        }
-        if (checkpoint != null) {
-            ans = ans && expired(stateTtl, now, checkpoint);
-        }
-        if (lastError != null) {
-            ans = ans && expired(stateTtl, now, lastError.getValue());
-        }
-        return ans;
+    /**
+     *
+     * @return last cold start exception if any
+     */
+    public Optional<AnomalyDetectionException> getLastColdStartException() {
+        refreshLastUpdateTime();
+        return lastColdStartException;
     }
 
-    private boolean expired(Duration stateTtl, Instant now, Instant toCheck) {
-        return toCheck.plus(stateTtl).isBefore(now);
+    /**
+     *
+     * @param lastColdStartError last cold start exception if any
+     */
+    public void setLastColdStartException(AnomalyDetectionException lastColdStartError) {
+        this.lastColdStartException = Optional.ofNullable(lastColdStartError);
+        refreshLastUpdateTime();
+    }
+
+    /**
+     * Used to prevent concurrent cold start
+     * @return whether cold start is running or not
+     */
+    public boolean isColdStartRunning() {
+        refreshLastUpdateTime();
+        return coldStartRunning;
+    }
+
+    /**
+     *
+     * @param coldStartRunning  whether cold start is running or not
+     */
+    public void setColdStartRunning(boolean coldStartRunning) {
+        this.coldStartRunning = coldStartRunning;
+        refreshLastUpdateTime();
+    }
+
+    /**
+     * refresh last access time.
+     */
+    private void refreshLastUpdateTime() {
+        lastAccessTime = clock.instant();
+    }
+
+    /**
+     * @param stateTtl time to leave for the state
+     * @return whether the transport state is expired
+     */
+    public boolean expired(Duration stateTtl) {
+        return lastAccessTime.plus(stateTtl).isBefore(clock.instant());
     }
 }

@@ -175,9 +175,9 @@ public class TransportStateManagerTests extends ESTestCase {
 
     public void testGetLastError() throws IOException, InterruptedException {
         String error = "blah";
-        assertEquals(TransportStateManager.NO_ERROR, stateManager.getLastError(adId));
-        stateManager.setLastError(adId, error);
-        assertEquals(error, stateManager.getLastError(adId));
+        assertEquals(TransportStateManager.NO_ERROR, stateManager.getLastDetectionError(adId));
+        stateManager.setLastDetectionError(adId, error);
+        assertEquals(error, stateManager.getLastDetectionError(adId));
     }
 
     public void testShouldMute() {
@@ -284,5 +284,11 @@ public class TransportStateManagerTests extends ESTestCase {
                 ActionListener.wrap(gotCheckpoint -> { assertTrue(gotCheckpoint); }, exception -> assertTrue(false))
             );
         verify(client, times(2)).get(any(), any());
+    }
+
+    public void testColdStartRunning() {
+        assertTrue(!stateManager.isColdStartRunning(adId));
+        stateManager.setColdStartRunning(adId, true);
+        assertTrue(stateManager.isColdStartRunning(adId));
     }
 }

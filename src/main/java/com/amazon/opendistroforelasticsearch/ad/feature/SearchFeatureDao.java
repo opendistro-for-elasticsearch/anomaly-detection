@@ -565,9 +565,7 @@ public class SearchFeatureDao {
     }
 
     private Optional<double[]> parseAggregations(Optional<Aggregations> aggregations, List<String> featureIds) {
-        System.out.println("optional aggregation list: " + aggregations.get().asList());
-
-        Optional<double[]> aggregationsResults = aggregations
+        return aggregations
             .map(aggs -> aggs.asMap())
             .map(
                 map -> featureIds
@@ -576,6 +574,5 @@ public class SearchFeatureDao {
                     .toArray()
             )
             .filter(result -> Arrays.stream(result).noneMatch(d -> Double.isNaN(d) || Double.isInfinite(d)));
-        return aggregationsResults;
     }
 }

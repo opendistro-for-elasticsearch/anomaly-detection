@@ -147,20 +147,20 @@ public class AnomalyDetector implements ToXContentObject {
     }
 
     public AnomalyDetector(
-            String detectorId,
-            Long version,
-            String name,
-            String description,
-            String timeField,
-            List<String> indices,
-            List<Feature> features,
-            QueryBuilder filterQuery,
-            TimeConfiguration detectionInterval,
-            TimeConfiguration windowDelay,
-            Map<String, Object> uiMetadata,
-            Integer schemaVersion,
-            Instant lastUpdateTime,
-            Boolean validation
+        String detectorId,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration detectionInterval,
+        TimeConfiguration windowDelay,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime,
+        Boolean validation
     ) {
         if (indices == null || indices.isEmpty()) {
             indices = null;
@@ -347,11 +347,7 @@ public class AnomalyDetector implements ToXContentObject {
         );
     }
 
-    public static AnomalyDetector parseValidation(
-            XContentParser parser,
-            String detectorId,
-            Long version
-    ) throws IOException {
+    public static AnomalyDetector parseValidation(XContentParser parser, String detectorId, Long version) throws IOException {
         Boolean validation = true;
         String name = null;
         String description = null;
@@ -423,24 +419,22 @@ public class AnomalyDetector implements ToXContentObject {
             }
         }
         return new AnomalyDetector(
-                detectorId,
-                version,
-                name,
-                description,
-                timeField,
-                indices,
-                features,
-                filterQuery,
-                detectionInterval,
-                windowDelay,
-                uiMetadata,
-                schemaVersion,
-                lastUpdateTime,
-                validation
+            detectorId,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            detectionInterval,
+            windowDelay,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime,
+            validation
         );
     }
-
-
 
     public SearchSourceBuilder generateFeatureQuery() {
         SearchSourceBuilder generatedFeatureQuery = new SearchSourceBuilder().query(filterQuery);

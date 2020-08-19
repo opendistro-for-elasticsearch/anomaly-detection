@@ -29,7 +29,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.amazon.opendistroforelasticsearch.ad.rest.*;
 import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
@@ -91,6 +90,7 @@ import com.amazon.opendistroforelasticsearch.ad.rest.RestIndexAnomalyDetectorAct
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestStatsAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.rest.RestValidateAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
@@ -213,9 +213,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
         RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction();
         RestValidateAnomalyDetectorAction restValidateAnomalyDetectorAction = new RestValidateAnomalyDetectorAction(
-                settings,
-                anomalyDetectionIndices,
-                xContentRegistry
+            settings,
+            anomalyDetectionIndices,
+            xContentRegistry
         );
         RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction();
         RestDeleteAnomalyDetectorAction deleteAnomalyDetectorAction = new RestDeleteAnomalyDetectorAction(clusterService);

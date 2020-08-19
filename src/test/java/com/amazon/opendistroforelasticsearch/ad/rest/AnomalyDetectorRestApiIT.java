@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.containsString;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.http.entity.ContentType;
@@ -33,6 +34,7 @@ import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.xcontent.ToXContentObject;
+import org.elasticsearch.common.xcontent.support.XContentMapValues;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -81,6 +83,101 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 () -> TestHelpers
                     .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null)
             );
+    }
+
+    public void testValidateAnomalyDetectorWithEmptyIndices() throws Exception {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
+        TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/" + detector.getIndices().get(0),
+                ImmutableMap.of(),
+                toHttpEntity(
+                    "{\"settings\":{\"number_of_shards\":1},\"mappings\":{\"properties\":{\"field1\":"
+                        + "{\"type\":\"text\"},\""
+                        + detector.getTimeField()
+                        + "\":{\"type\":\"date\",\"format\":\"yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis\"}}}}"
+                ),
+                null
+            );
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                toHttpEntity(detector),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        System.out.println(responseMap);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> failuresMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("failures", responseMap);
+        assertTrue(failuresMap.containsKey("others"));
+        System.out.println(failuresMap.get("others").get(0));
+        assertEquals(
+            "Can't create anomaly detector as no document found in indices: [" + detector.getIndices().get(0) + "]",
+            failuresMap.get("others").get(0)
+        );
+    }
+
+    public void testValidateMissingNameAndTimeFieldFailure() throws Exception {
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                toHttpEntity(
+                    "{\"description\":\"Test detector\",\"indices\":[\"test-index-sparse\"],\"feature_attributes\":[{\"feature_name\":\"total_order\",\"feature_enabled\":true,\"aggregation_query\":{\"total_order\":{\"max\":{\"field\":\"feature-1\"}}}},{\"feature_name\":\"second_feature\",\"feature_enabled\":true,\"aggregation_query\":{\"total\":{\"max\":{\"field\":\"feature-2\"}}}}],\"detection_interval\":{\"period\":{\"interval\":70,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":70,\"unit\":\"Minutes\"}}}"
+                ),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        System.out.println(responseMap);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> failuresMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("failures", responseMap);
+        assertTrue(failuresMap.containsKey("missing"));
+        assertTrue(failuresMap.keySet().size() == 1);
+        assertTrue(failuresMap.get("missing").size() == 2);
+        assertEquals("name", failuresMap.get("missing").get(0));
+        assertEquals("time_field", failuresMap.get("missing").get(1));
+    }
+
+    public void testValidateAnomalyDetectorWithDuplicateName() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        TestHelpers.createIndex(client(), "test-index", toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                toHttpEntity(
+                    "{\"name\":\""
+                        + detector.getName()
+                        + "\",\"description\":\"Test detector\",\"time_field\":\"timestamp\","
+                        + "\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"totssal\",\""
+                        + "feature_enabled\":true,\"aggregation_query\":{\"totalquery\":{\"max\":{\"field\":\"feature-3\"}}}},"
+                        + "{\"feature_name\":\"totaly\",\"feature_enabled\":true,\"aggregation_query\":"
+                        + "{\"totalqusery\":"
+                        + "{\"max\":{\"field\":\"feature-1\"}}}}],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+                        + "{\"field\":"
+                        + "\"feature-4\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"detection_interval\":"
+                        + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}}}"
+                ),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> failuresMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("failures", responseMap);
+        assertTrue(failuresMap.containsKey("duplicates"));
+        assertTrue(failuresMap.keySet().size() == 1);
+        assertEquals(detector.getName(), failuresMap.get("duplicates").get(0));
     }
 
     public void testCreateAnomalyDetectorWithDuplicateName() throws Exception {

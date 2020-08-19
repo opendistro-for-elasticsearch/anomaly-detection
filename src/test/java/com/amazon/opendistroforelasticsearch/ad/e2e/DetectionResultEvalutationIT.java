@@ -15,8 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.ad.e2e;
 
+import static org.apache.http.entity.ContentType.APPLICATION_JSON;
+
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -29,18 +32,250 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.entity.StringEntity;
 import org.elasticsearch.client.Request;
+import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.common.xcontent.support.XContentMapValues;
 
 import com.amazon.opendistroforelasticsearch.ad.ODFERestTestCase;
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 
 public class DetectionResultEvalutationIT extends ODFERestTestCase {
 
     public void testDataset() throws Exception {
         verifyAnomaly("synthetic", 1, 1500, 8, .9, .9, 10);
+    }
+
+    protected HttpEntity toHttpEntity(String jsonString) throws IOException {
+        return new StringEntity(jsonString, APPLICATION_JSON);
+    }
+
+    public void testNoHistoricalData() throws Exception {
+        RestClient client = client();
+        List<JsonObject> data = createData(10, 7776001000L);
+        indexTrainData("validation", data, 1500, client);
+        indexTestData(data, "validation", 1500, client);
+        String requestBody = String
+            .format(
+                Locale.ROOT,
+                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                    + ", \"indices\": [\"validation\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                    + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                    + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }"
+                    + ",\"window_delay\":{\"period\":{\"interval\":35,\"unit\":\"Minutes\"}}}",
+                1
+            );
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                toHttpEntity(requestBody),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> failuresMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("failures", responseMap);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> suggestionsMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("suggestedChanges", responseMap);
+        assertTrue(failuresMap.keySet().size() == 1);
+        assertTrue(failuresMap.containsKey("others"));
+    }
+
+    public void testValidationIntervalRecommendation() throws Exception {
+        RestClient client = client();
+        List<JsonObject> data = createData(300, 1800000);
+        indexTrainData("validation", data, 1500, client);
+        indexTestData(data, "validation", 1500, client);
+        String requestBody = String
+            .format(
+                Locale.ROOT,
+                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                    + ", \"indices\": [\"validation\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                    + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                    + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }"
+                    + ",\"window_delay\":{\"period\":{\"interval\":35,\"unit\":\"Minutes\"}}}",
+                1
+            );
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                toHttpEntity(requestBody),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> failuresMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("failures", responseMap);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> suggestionsMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("suggestedChanges", responseMap);
+        assertTrue(failuresMap.keySet().size() == 0);
+        assertTrue(suggestionsMap.keySet().size() == 1);
+        assertTrue(suggestionsMap.containsKey("detection_interval"));
+    }
+
+    public void testValidationWindowDelayRecommendation() throws Exception {
+        RestClient client = client();
+        List<JsonObject> data = createData(1000, 120000);
+        indexTrainData("validation", data, 1000, client);
+        indexTestData(data, "validation", 1000, client);
+        String requestBody = String
+            .format(
+                Locale.ROOT,
+                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                    + ", \"indices\": [\"validation\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                    + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                    + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }"
+                    + ",\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}",
+                10
+            );
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                toHttpEntity(requestBody),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> failuresMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("failures", responseMap);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> suggestionsMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("suggestedChanges", responseMap);
+        assertTrue(failuresMap.keySet().size() == 0);
+        assertTrue(suggestionsMap.keySet().size() == 1);
+        assertTrue(suggestionsMap.containsKey("window_delay"));
+    }
+
+    public void testValidationFilterQuery() throws Exception {
+        RestClient client = client();
+        List<JsonObject> data = createData(1000, 6000);
+        indexTrainData("validation", data, 1000, client);
+        indexTestData(data, "validation", 1000, client);
+        String requestBody = String
+            .format(
+                Locale.ROOT,
+                "{\"name\":\"test\",\"description\":\"Test\",\"time_field\":\"timestamp\","
+                    + "\"indices\":[\"validation\"],\"feature_attributes\":[{\"feature_name\":\"feature 1\""
+                    + ",\"feature_enabled\":true,\"aggregation_query\":{\"Feature1\":{\"sum\":{\"field\":\"Feature1\"}}}},"
+                    + "{\"feature_name\":\"feature 2\",\"feature_enabled\":true,\"aggregation_query\":{\"Feature2\":{\"sum\":{\"field\":\"Feature2\"}}}}],"
+                    + "\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"value\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},"
+                    + "\"detection_interval\":{\"period\":{\"interval\": %d,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}",
+                1
+            );
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                toHttpEntity(requestBody),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> failuresMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("failures", responseMap);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> suggestionsMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("suggestedChanges", responseMap);
+        assertTrue(failuresMap.keySet().size() == 0);
+        assertTrue(suggestionsMap.keySet().size() == 1);
+        assertTrue(suggestionsMap.containsKey("filter_query"));
+    }
+
+    public void testValidationFeatureQuery() throws Exception {
+        RestClient client = client();
+        List<JsonObject> data = createData(1000, 6000);
+        indexTrainData("validation", data, 1000, client);
+        indexTestData(data, "validation", 1000, client);
+        String requestBody = String
+            .format(
+                Locale.ROOT,
+                "{\"name\":\"test\",\"description\":\"Test\",\"time_field\":\"timestamp\","
+                    + "\"indices\":[\"validation\"],\"feature_attributes\":[{\"feature_name\":\"feature 1\""
+                    + ",\"feature_enabled\":true,\"aggregation_query\":{\"Feature1\":{\"sum\":{\"field\":\"Feature1\"}}}},"
+                    + "{\"feature_name\":\"feature 2\",\"feature_enabled\":true,\"aggregation_query\":{\"Feature2\":{\"sum\":{\"field\":\"Feature5\"}}}}],"
+                    + "\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"Feature1\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},"
+                    + "\"detection_interval\":{\"period\":{\"interval\": %d,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}",
+                1
+            );
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                toHttpEntity(requestBody),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> failuresMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("failures", responseMap);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> suggestionsMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("suggestedChanges", responseMap);
+        assertTrue(failuresMap.keySet().size() == 0);
+        assertTrue(suggestionsMap.keySet().size() == 1);
+        assertTrue(suggestionsMap.containsKey("feature_attributes"));
+    }
+
+    public void testValidationWithDataSetSuccess() throws Exception {
+        RestClient client = client();
+        List<JsonObject> data = createData(300, 60000);
+        indexTrainData("validation", data, 1500, client);
+        indexTestData(data, "validation", 1500, client);
+        String requestBody = String
+            .format(
+                Locale.ROOT,
+                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                    + ", \"indices\": [\"validation\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                    + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                    + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }"
+                    + ",\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}}}",
+                1
+            );
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                toHttpEntity(requestBody),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> failuresMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("failures", responseMap);
+        @SuppressWarnings("unchecked")
+        Map<String, List<Map<String, ?>>> suggestionsMap = (Map<String, List<Map<String, ?>>>) XContentMapValues
+            .extractValue("suggestedChanges", responseMap);
+        assertTrue(failuresMap.keySet().size() == 0);
+        assertTrue(suggestionsMap.keySet().size() == 0);
     }
 
     private void verifyAnomaly(
@@ -227,7 +462,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     private void indexTrainData(String datasetName, List<JsonObject> data, int trainTestSplit, RestClient client) throws Exception {
         Request request = new Request("PUT", datasetName);
         String requestBody = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
-            + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" } } } }";
+            + " \"Feature1\": { \"type\": \"long\" }, \"Feature2\": { \"type\": \"long\" } } } }";
         request.setJsonEntity(requestBody);
         client.performRequest(request);
         Thread.sleep(1_000);
@@ -250,6 +485,21 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             .getAsJsonArray();
         List<JsonObject> list = new ArrayList<>(jsonArray.size());
         jsonArray.iterator().forEachRemaining(i -> list.add(i.getAsJsonObject()));
+        return list;
+    }
+
+    private List<JsonObject> createData(int numOfDataPoints, long detectorIntervalMS) {
+        List<JsonObject> list = new ArrayList<>();
+        for (int i = 1; i < numOfDataPoints; i++) {
+            long valueFeature1 = randomLongBetween(1, 10000000);
+            long valueFeature2 = randomLongBetween(1, 10000000);
+            JsonObject obj = new JsonObject();
+            JsonElement element = new JsonPrimitive(Instant.now().toEpochMilli() - (detectorIntervalMS * i));
+            obj.add("timestamp", element);
+            obj.add("Feature1", new JsonPrimitive(valueFeature1));
+            obj.add("Feature2", new JsonPrimitive(valueFeature2));
+            list.add(obj);
+        }
         return list;
     }
 

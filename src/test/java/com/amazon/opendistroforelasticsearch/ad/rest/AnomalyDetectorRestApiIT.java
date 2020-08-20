@@ -201,6 +201,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
+            randomIntBetween(1, 2000),
             randomUiMetadata(),
             randomInt(),
             null
@@ -282,6 +283,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getFilterQuery(),
             detector.getDetectionInterval(),
             detector.getWindowDelay(),
+            detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
             detector.getLastUpdateTime()
@@ -341,6 +343,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector1.getFilterQuery(),
             detector1.getDetectionInterval(),
             detector1.getWindowDelay(),
+            detector1.getShingleSize(),
             detector1.getUiMetadata(),
             detector1.getSchemaVersion(),
             detector1.getLastUpdateTime()
@@ -376,6 +379,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getFilterQuery(),
             detector.getDetectionInterval(),
             detector.getWindowDelay(),
+            detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
             Instant.now()
@@ -417,6 +421,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getFilterQuery(),
             detector.getDetectionInterval(),
             detector.getWindowDelay(),
+            detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
             detector.getLastUpdateTime()
@@ -798,6 +803,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getFilterQuery(),
             detector.getDetectionInterval(),
             detector.getWindowDelay(),
+            detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
             detector.getLastUpdateTime()

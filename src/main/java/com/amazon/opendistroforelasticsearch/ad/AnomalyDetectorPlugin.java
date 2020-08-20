@@ -122,7 +122,6 @@ import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
-import com.amazon.opendistroforelasticsearch.ad.util.ColdStartRunner;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
@@ -314,7 +313,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.SHINGLE_SIZE,
             clusterService
         );
 
@@ -328,7 +326,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
         );
-        ColdStartRunner runner = new ColdStartRunner();
         FeatureManager featureManager = new FeatureManager(
             searchFeatureDao,
             interpolator,
@@ -337,12 +334,13 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.TRAIN_SAMPLE_TIME_RANGE_IN_HOURS,
             AnomalyDetectorSettings.MIN_TRAIN_SAMPLES,
-            AnomalyDetectorSettings.SHINGLE_SIZE,
-            AnomalyDetectorSettings.MAX_MISSING_POINTS,
-            AnomalyDetectorSettings.MAX_NEIGHBOR_DISTANCE,
+            AnomalyDetectorSettings.MAX_SHINGLE_PROPORTION_MISSING,
+            AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
             AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            threadPool,
+            AD_THREAD_POOL_NAME
         );
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
 
@@ -395,7 +393,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 modelManager,
                 clock,
                 stateManager,
-                runner,
                 new ADClusterEventListener(clusterService, hashRing, modelManager, nodeFilter),
                 adCircuitBreakerService,
                 adStats,

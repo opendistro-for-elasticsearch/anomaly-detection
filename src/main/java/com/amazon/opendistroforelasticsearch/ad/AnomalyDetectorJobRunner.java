@@ -326,8 +326,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         } else {
             detectorEndRunExceptionCount.remove(detectorId);
             if (exception instanceof InternalFailure) {
-                // AnomalyResultTransportAction already prints exception stack trace
-                log.error("InternalFailure happened when executing anomaly result action for " + detectorId);
+                log.error("InternalFailure happened when executing anomaly result action for " + detectorId, exception);
             } else {
                 log.error("Failed to execute anomaly result action for " + detectorId, exception);
             }

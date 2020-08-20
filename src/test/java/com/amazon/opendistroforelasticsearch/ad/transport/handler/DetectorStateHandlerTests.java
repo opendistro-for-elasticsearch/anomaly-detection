@@ -113,7 +113,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
     }
 
     public void testNoUpdateWitoutErrorChange() {
-        when(stateManager.getLastError(anyString())).thenReturn(error);
+        when(stateManager.getLastDetectionError(anyString())).thenReturn(error);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             @SuppressWarnings("unchecked")
@@ -129,7 +129,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
     }
 
     public void testUpdateWithErrorChange() {
-        when(stateManager.getLastError(anyString())).thenReturn("blah");
+        when(stateManager.getLastDetectionError(anyString())).thenReturn("blah");
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             @SuppressWarnings("unchecked")
@@ -145,7 +145,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
     }
 
     public void testUpdateWithFirstChange() {
-        when(stateManager.getLastError(anyString())).thenReturn(TransportStateManager.NO_ERROR);
+        when(stateManager.getLastDetectionError(anyString())).thenReturn(TransportStateManager.NO_ERROR);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             @SuppressWarnings("unchecked")

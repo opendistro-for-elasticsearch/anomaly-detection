@@ -103,6 +103,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             detector.getFilterQuery(),
             detector.getDetectionInterval(),
             detector.getWindowDelay(),
+            detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
             detector.getLastUpdateTime()
@@ -172,6 +173,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getFilterQuery(),
                 detector.getDetectionInterval(),
                 detector.getWindowDelay(),
+                detector.getShingleSize(),
                 detector.getUiMetadata(),
                 detector.getSchemaVersion(),
                 detector.getLastUpdateTime()

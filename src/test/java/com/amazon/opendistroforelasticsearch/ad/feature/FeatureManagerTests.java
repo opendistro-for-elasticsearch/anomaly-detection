@@ -21,6 +21,7 @@ import static java.util.Optional.ofNullable;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
@@ -39,16 +40,19 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,6 +60,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInterpolator;
@@ -75,7 +80,7 @@ public class FeatureManagerTests {
     private int trainSampleTimeRangeInHours;
     private int minTrainSamples;
     private int shingleSize;
-    private int maxMissingPoints;
+    private double maxMissingPointsRate;
     private int maxNeighborDistance;
     private double previewSampleRate;
     private int maxPreviewSamples;
@@ -97,6 +102,9 @@ public class FeatureManagerTests {
     @Mock
     private TransportStateManager stateManager;
 
+    @Mock
+    private ThreadPool threadPool;
+
     private FeatureManager featureManager;
 
     @Before
@@ -108,18 +116,29 @@ public class FeatureManagerTests {
         trainSampleTimeRangeInHours = 1;
         minTrainSamples = 4;
         shingleSize = 3;
-        maxMissingPoints = 2;
+        maxMissingPointsRate = 0.67;
         maxNeighborDistance = 2;
         previewSampleRate = 0.5;
         maxPreviewSamples = 2;
         featureBufferTtl = Duration.ofMillis(1_000L);
 
         when(detector.getDetectorId()).thenReturn("id");
+        when(detector.getShingleSize()).thenReturn(shingleSize);
         IntervalTimeConfiguration detectorIntervalTimeConfig = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         when(detector.getDetectionInterval()).thenReturn(detectorIntervalTimeConfig);
         intervalInMilliseconds = detectorIntervalTimeConfig.toDuration().toMillis();
 
         Interpolator interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
+
+        ExecutorService executorService = mock(ExecutorService.class);
+
+        when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(executorService).execute(any(Runnable.class));
+
         this.featureManager = spy(
             new FeatureManager(
                 searchFeatureDao,
@@ -129,12 +148,13 @@ public class FeatureManagerTests {
                 maxSampleStride,
                 trainSampleTimeRangeInHours,
                 minTrainSamples,
-                shingleSize,
-                maxMissingPoints,
+                maxMissingPointsRate,
                 maxNeighborDistance,
                 previewSampleRate,
                 maxPreviewSamples,
-                featureBufferTtl
+                featureBufferTtl,
+                threadPool,
+                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
             )
         );
     }
@@ -197,6 +217,7 @@ public class FeatureManagerTests {
         double[][] expected
     ) throws Exception {
         when(detector.getDetectionInterval()).thenReturn(new IntervalTimeConfiguration(15, ChronoUnit.MINUTES));
+        when(detector.getShingleSize()).thenReturn(4);
         doAnswer(invocation -> {
             ActionListener<Optional<Long>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.ofNullable(latestTime));
@@ -220,12 +241,13 @@ public class FeatureManagerTests {
                 maxSampleStride,
                 trainSampleTimeRangeInHours,
                 minTrainSamples,
-                4, /*shingleSize*/
-                2, /*maxMissingPoints*/
+                0.5, /*maxMissingPointsRate*/
                 1, /*maxNeighborDistance*/
                 previewSampleRate,
                 maxPreviewSamples,
-                featureBufferTtl
+                featureBufferTtl,
+                threadPool,
+                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
             )
         );
         featureManager.getColdStartData(detector, listener);
@@ -894,5 +916,33 @@ public class FeatureManagerTests {
         } else {
             return Optional.of(values);
         }
+    }
+
+    private Object[] getCurrentFeaturesTestData_setsShingleSizeFromDetectorConfig() {
+        return new Object[] { new Object[] { 1 }, new Object[] { 4 }, new Object[] { 8 }, new Object[] { 20 } };
+    }
+
+    @Test
+    @Parameters(method = "getCurrentFeaturesTestData_setsShingleSizeFromDetectorConfig")
+    public void getCurrentFeatures_setsShingleSizeFromDetectorConfig(int shingleSize) throws IOException {
+        when(detector.getShingleSize()).thenReturn(shingleSize);
+
+        doAnswer(invocation -> {
+            List<Entry<Long, Long>> ranges = invocation.getArgument(1);
+            assertEquals(ranges.size(), shingleSize);
+
+            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(2);
+            List<Optional<double[]>> response = new ArrayList<Optional<double[]>>();
+            for (int i = 0; i < ranges.size(); i++) {
+                response.add(Optional.of(new double[] { i }));
+            }
+            daoListener.onResponse(response);
+            return null;
+        }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+
+        SinglePointFeatures listenerResponse = getCurrentFeatures(detector, 0, intervalInMilliseconds);
+        assertTrue(listenerResponse.getProcessedFeatures().isPresent());
+        assertEquals(listenerResponse.getProcessedFeatures().get().length, shingleSize);
+        assertEquals(featureManager.getShingleSize(detector.getDetectorId()), shingleSize);
     }
 }

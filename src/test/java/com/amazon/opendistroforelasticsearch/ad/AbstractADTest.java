@@ -34,6 +34,7 @@ import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.support.PlainActionFuture;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.test.ESTestCase;
+import org.elasticsearch.threadpool.FixedExecutorBuilder;
 import org.elasticsearch.threadpool.TestThreadPool;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportInterceptor;
@@ -169,11 +170,21 @@ public class AbstractADTest extends ESTestCase {
     }
 
     protected static void setUpThreadPool(String name) {
-        threadPool = new TestThreadPool(name);
+        threadPool = new TestThreadPool(
+            name,
+            new FixedExecutorBuilder(
+                Settings.EMPTY,
+                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+                1,
+                1000,
+                "opendistro.ad." + AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+            )
+        );
     }
 
     protected static void tearDownThreadPool() {
-        ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
+        LOG.info("tear down threadPool");
+        assertTrue(ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS));
         threadPool = null;
     }
 

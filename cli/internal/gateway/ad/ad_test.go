@@ -19,11 +19,12 @@ import (
 	"esad/internal/client"
 	"esad/internal/client/mocks"
 	"esad/internal/entity/ad"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func helperLoadBytes(t *testing.T, name string) []byte {

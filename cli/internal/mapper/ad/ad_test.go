@@ -15,10 +15,11 @@ package ad
 import (
 	"esad/internal/entity/ad"
 	"esad/internal/mapper"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func helperLoadBytes(t *testing.T, name string) []byte {

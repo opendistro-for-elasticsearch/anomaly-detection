@@ -18,9 +18,10 @@ import (
 	"encoding/json"
 	"esad/internal/client"
 	"fmt"
-	"github.com/hashicorp/go-retryablehttp"
 	"io/ioutil"
 	"net/url"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 //HTTPGateway type for gateway client

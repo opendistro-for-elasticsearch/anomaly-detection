@@ -21,11 +21,12 @@ import (
 	handler "esad/internal/handler/ad"
 	"esad/pkg"
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
-	"path/filepath"
 )
 
 const (

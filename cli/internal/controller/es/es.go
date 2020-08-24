@@ -15,7 +15,7 @@ package es
 import (
 	"context"
 	"encoding/json"
-	"esad/internal/entity/es"
+	elasticsearch "esad/internal/entity/es"
 	"esad/internal/gateway/es"
 	"fmt"
 )

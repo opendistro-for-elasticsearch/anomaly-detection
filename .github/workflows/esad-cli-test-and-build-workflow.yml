@@ -39,8 +39,10 @@ jobs:
       - name: Check out AD CLI
         uses: actions/checkout@v2
 
-      - name: gofmt
-        run: gofmt -s -w .
+      - name: Format
+        run: |
+          go get golang.org/x/tools/cmd/goimports
+          goimports -w .
       - name: Check for modified files
         id: git-check
         run: |
@@ -48,9 +50,9 @@ jobs:
       - name: Display unformated changes
         if: steps.git-check.outputs.modified == 'true'
         run: |
-          echo "Failed to format using go-fmt".
+          echo "Failed to format using goimports".
           git diff
-
+          exit 1
       - uses: actions/checkout@v2
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v1

@@ -10,7 +10,7 @@
  * permissions and limitations under the License.
  */
 
-package elasticsearch
+package es
 
 //Terms contains fields
 type Terms struct {

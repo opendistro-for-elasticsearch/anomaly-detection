@@ -506,7 +506,7 @@ public class TestHelpers {
         return new SearchResponse(
             new InternalSearchResponse(
                 new SearchHits(hits, new TotalHits(1, TotalHits.Relation.EQUAL_TO), 1.0f),
-                new InternalAggregations(Collections.emptyList()),
+                InternalAggregations.EMPTY,
                 new Suggest(Collections.emptyList()),
                 new SearchProfileShardResults(Collections.emptyMap()),
                 false,
@@ -527,7 +527,7 @@ public class TestHelpers {
         return new SearchResponse(
             new InternalSearchResponse(
                 new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 1.0f),
-                new InternalAggregations(Collections.emptyList()),
+                InternalAggregations.EMPTY,
                 new Suggest(Collections.emptyList()),
                 new SearchProfileShardResults(Collections.emptyMap()),
                 false,

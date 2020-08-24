@@ -248,7 +248,7 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             : Settings.EMPTY;
         ClusterState blockedClusterState = createIndexBlockedState(indexName, settings, AnomalyResult.ANOMALY_RESULT_INDEX);
         when(clusterService.state()).thenReturn(blockedClusterState);
-        when(indexNameResolver.concreteIndexNames(any(), any(), any())).thenReturn(new String[] { indexName });
+        when(indexNameResolver.concreteIndexNames(any(), any(), any(String.class))).thenReturn(new String[] { indexName });
     }
 
     /**

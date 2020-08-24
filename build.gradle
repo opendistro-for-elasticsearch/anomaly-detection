@@ -16,7 +16,7 @@
 buildscript {
     ext {
         es_group = "org.elasticsearch"
-        es_version = '7.8.0'
+        es_version = '7.9.0'
     }
 
     repositories {
@@ -44,7 +44,7 @@ repositories {
 }
 
 ext {
-    opendistroVersion = '1.9.0'
+    opendistroVersion = '1.10.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
@@ -290,7 +290,7 @@ checkstyle {
 dependencies {
     compile "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.9.0.0"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.10.0.0"
     compile group: 'com.google.guava', name: 'guava', version:'15.0'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     compile group: 'com.google.code.gson', name: 'gson', version: '2.8.5'
@@ -301,14 +301,22 @@ dependencies {
     compile 'software.amazon.randomcutforest:randomcutforest-serialization-json:1.0-alpha'
 
     compile "org.jacoco:org.jacoco.agent:0.8.5"
-    compile "org.jacoco:org.jacoco.ant:0.8.5"
-    compile "org.jacoco:org.jacoco.core:0.8.5"
-    compile "org.jacoco:org.jacoco.report:0.8.5"
+    compile ("org.jacoco:org.jacoco.ant:0.8.5") {
+        exclude group: 'org.ow2.asm', module: 'asm-commons'
+        exclude group: 'org.ow2.asm', module: 'asm'
+        exclude group: 'org.ow2.asm', module: 'asm-tree'
+    }
 
     testCompile group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
     testImplementation group: 'org.mockito', name: 'mockito-core', version: '3.0.0'
     testImplementation group: 'org.powermock', name: 'powermock-api-mockito2', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-module-junit4', version: '2.0.2'
+    testImplementation group: 'org.powermock', name: 'powermock-module-junit4-common', version: '2.0.2'
+    testImplementation group: 'org.powermock', name: 'powermock-core', version: '2.0.2'
+    testImplementation group: 'org.powermock', name: 'powermock-api-support', version: '2.0.2'
+    testImplementation group: 'org.powermock', name: 'powermock-reflect', version: '2.0.7'
+    testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.0.1'
+    testImplementation group: 'org.javassist', name: 'javassist', version: '3.27.0-GA'
     testCompile group: 'net.bytebuddy', name: 'byte-buddy', version: '1.9.15'
     testCompile group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
 

@@ -16,11 +16,12 @@ import (
 	"context"
 	"errors"
 	gateway "esad/internal/gateway/es/mocks"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func helperLoadBytes(t *testing.T, name string) []byte {

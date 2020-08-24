@@ -17,13 +17,14 @@ import (
 	"esad/internal/client"
 	entity "esad/internal/entity/ad"
 	"fmt"
+	"os"
+	"strings"
+	"text/tabwriter"
+
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/ssh/terminal"
-	"os"
-	"strings"
-	"text/tabwriter"
 )
 
 const (

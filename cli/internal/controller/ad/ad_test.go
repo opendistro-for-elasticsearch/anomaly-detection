@@ -22,12 +22,13 @@ import (
 	adgateway "esad/internal/gateway/ad/mocks"
 	mapper2 "esad/internal/mapper"
 	"fmt"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 const mockDetectorID = "m4ccEnIBTXsGi3mvMt9p"

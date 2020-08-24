@@ -19,9 +19,10 @@ import (
 	"esad/internal/controller/ad/mocks"
 	"esad/internal/entity/ad"
 	"esad/internal/mapper"
+	"testing"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func getRawFilter() []byte {

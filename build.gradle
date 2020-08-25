@@ -303,9 +303,11 @@ dependencies {
     compile 'software.amazon.randomcutforest:randomcutforest-serialization-json:1.0-alpha'
 
     compile "org.jacoco:org.jacoco.agent:0.8.5"
-    compile "org.jacoco:org.jacoco.ant:0.8.5"
-    compile "org.jacoco:org.jacoco.core:0.8.5"
-    compile "org.jacoco:org.jacoco.report:0.8.5"
+    compile ("org.jacoco:org.jacoco.ant:0.8.5") {
+        exclude group: 'org.ow2.asm', module: 'asm-commons'
+        exclude group: 'org.ow2.asm', module: 'asm'
+        exclude group: 'org.ow2.asm', module: 'asm-tree'
+    }
 
     testCompile group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
     testImplementation group: 'org.mockito', name: 'mockito-core', version: '3.0.0'

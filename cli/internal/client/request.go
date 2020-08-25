@@ -14,8 +14,9 @@ package client
 
 import (
 	"crypto/tls"
-	"github.com/hashicorp/go-retryablehttp"
 	"net/http"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 //Client is an Abstraction for actual client

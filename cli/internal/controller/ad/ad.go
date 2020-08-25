@@ -22,10 +22,11 @@ import (
 	cmapper "esad/internal/mapper"
 	mapper "esad/internal/mapper/ad"
 	"fmt"
-	"github.com/cheggaaa/pb/v3"
 	"io"
 	"os"
 	"strings"
+
+	"github.com/cheggaaa/pb/v3"
 )
 
 //go:generate mockgen -destination=mocks/mock_ad.go -package=mocks . Controller

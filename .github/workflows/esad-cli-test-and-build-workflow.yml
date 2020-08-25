@@ -41,7 +41,9 @@ jobs:
 
       - name: Format
         run: |
+          cd ..
           go get golang.org/x/tools/cmd/goimports
+          cd cli
           goimports -w .
       - name: Check for modified files
         id: git-check

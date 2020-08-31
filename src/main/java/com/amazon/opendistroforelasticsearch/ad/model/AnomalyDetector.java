@@ -188,6 +188,7 @@ public class AnomalyDetector implements ToXContentObject {
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
         this.validation = validation;
+        this.shingleSize = 8;
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {

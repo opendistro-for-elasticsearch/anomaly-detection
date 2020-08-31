@@ -121,17 +121,12 @@ public class SearchFeatureDao {
     }
 
     private Optional<Long> getLatestDataTime(SearchResponse searchResponse) {
-
-        Optional<Long> x = Optional
+        return Optional
             .ofNullable(searchResponse)
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap())
             .map(map -> (Max) map.get(AGG_NAME_MAX))
             .map(agg -> (long) agg.getValue());
-
-        System.out.println("windowDelay optional: " + x.toString());
-        System.out.println("windowDelay optional without .toString(): " + x);
-        return x;
     }
 
     /**
@@ -560,7 +555,6 @@ public class SearchFeatureDao {
     }
 
     private Optional<double[]> parseBucket(InternalDateRange.Bucket bucket, List<String> featureIds) {
-
         return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds);
     }
 

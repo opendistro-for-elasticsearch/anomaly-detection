@@ -211,7 +211,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             anomalyDetectionIndices
         );
         RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction();
-        RestValidateAnomalyDetectorAction restValidateAnomalyDetectorAction = new RestValidateAnomalyDetectorAction(
+        RestValidateAnomalyDetectorAction validateAnomalyDetectorAction = new RestValidateAnomalyDetectorAction(
             settings,
             anomalyDetectionIndices,
             xContentRegistry
@@ -238,7 +238,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             .of(
                 restGetAnomalyDetectorAction,
                 restIndexAnomalyDetectorAction,
-                restValidateAnomalyDetectorAction,
+                validateAnomalyDetectorAction,
                 searchAnomalyDetectorAction,
                 searchAnomalyResultAction,
                 deleteAnomalyDetectorAction,

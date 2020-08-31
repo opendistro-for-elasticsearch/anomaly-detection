@@ -32,9 +32,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.amazon.opendistroforelasticsearch.ad.model.ValidationSuggestedChanges;
-import com.amazon.opendistroforelasticsearch.ad.model.TimeConfiguration;
-import com.amazon.opendistroforelasticsearch.ad.model.ValidationFailures;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -69,7 +66,10 @@ import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.model.TimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.model.ValidateResponse;
+import com.amazon.opendistroforelasticsearch.ad.model.ValidationFailures;
+import com.amazon.opendistroforelasticsearch.ad.model.ValidationSuggestedChanges;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 
@@ -90,7 +90,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     protected static final long HISTORICAL_CHECK_IN_MS = 7776000000L;
     protected static final String NAME_REGEX = "[a-zA-Z0-9._-]+";
     protected static final double INTERVAL_RECOMMENDATION_MULTIPLIER = 1.2;
-    protected static final String[] numericType = {"long", "integer", "short", "double", "float"};
+    protected static final String[] numericType = { "long", "integer", "short", "double", "float" };
 
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final AnomalyDetector anomalyDetector;
@@ -116,14 +116,14 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
      * @param anomalyDetector         anomaly detector instance
      */
     public ValidateAnomalyDetectorActionHandler(
-            NodeClient client,
-            RestChannel channel,
-            AnomalyDetectionIndices anomalyDetectionIndices,
-            AnomalyDetector anomalyDetector,
-            Integer maxAnomalyDetectors,
-            Integer maxAnomalyFeatures,
-            TimeValue requestTimeout,
-            NamedXContentRegistry xContentRegistry
+        NodeClient client,
+        RestChannel channel,
+        AnomalyDetectionIndices anomalyDetectionIndices,
+        AnomalyDetector anomalyDetector,
+        Integer maxAnomalyDetectors,
+        Integer maxAnomalyFeatures,
+        TimeValue requestTimeout,
+        NamedXContentRegistry xContentRegistry
     ) {
         super(client, channel);
         this.anomalyDetectionIndices = anomalyDetectionIndices;
@@ -188,7 +188,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         }
         if (!failuresMap.isEmpty()) {
             sendAnomalyDetectorValidationResponse();
-        } else if (indexExists){
+        } else if (indexExists) {
             validateNumberOfDetectors();
         } else {
             searchAdInputIndices(false);
@@ -210,8 +210,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     private void onSearchAdResponse(SearchResponse response) {
         if (response.getHits().getTotalHits().value >= maxAnomalyDetectors) {
             suggestedChangesMap
-                    .computeIfAbsent(ValidationSuggestedChanges.OTHERS.getName(), k -> new ArrayList<>())
-                    .add("Can't create anomaly detector more than " + maxAnomalyDetectors + " ,please delete unused detectors");
+                .computeIfAbsent(ValidationSuggestedChanges.OTHERS.getName(), k -> new ArrayList<>())
+                .add("Can't create anomaly detector more than " + maxAnomalyDetectors + " ,please delete unused detectors");
         } else {
             searchAdInputIndices(true);
         }
@@ -219,27 +219,27 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
 
     private void searchAdInputIndices(boolean indexExists) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-                .query(QueryBuilders.matchAllQuery())
-                .size(0)
-                .timeout(requestTimeout);
+            .query(QueryBuilders.matchAllQuery())
+            .size(0)
+            .timeout(requestTimeout);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         client
-                .search(
-                        searchRequest,
-                        ActionListener
-                                .wrap(searchResponse -> onSearchAdInputIndicesResponse(searchResponse, indexExists), exception -> {
-                                    onFailure(exception);
-                                    logger.warn("Failed to create search request for validation", exception);
-                                }));
+            .search(
+                searchRequest,
+                ActionListener.wrap(searchResponse -> onSearchAdInputIndicesResponse(searchResponse, indexExists), exception -> {
+                    onFailure(exception);
+                    logger.warn("Failed to create search request for validation", exception);
+                })
+            );
     }
 
     private void onSearchAdInputIndicesResponse(SearchResponse response, boolean indexExists) throws IOException {
         if (response.getHits().getTotalHits().value == 0) {
-            String errorMsg = String.format
-                    ("Can't create anomaly detector as no document found in indices: %s", anomalyDetector.getIndices());
+            String errorMsg = String
+                .format("Can't create anomaly detector as no document found in indices: %s", anomalyDetector.getIndices());
             failuresMap.computeIfAbsent(ValidationFailures.OTHERS.getName(), k -> new ArrayList<>()).add(errorMsg);
             sendAnomalyDetectorValidationResponse();
-        } else if (indexExists){
+        } else if (indexExists) {
             checkADNameExists();
         } else {
             checkForHistoricalData();
@@ -252,17 +252,13 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(boolQueryBuilder).timeout(requestTimeout);
         SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
         client
-                .search(
-                        searchRequest,
-                        ActionListener
-                                .wrap(
-                                        searchResponse -> onSearchADNameResponse(searchResponse, anomalyDetector.getName()),
-                                        exception -> {
-                                            onFailure(exception);
-                                            logger.warn("Failed to create search request for validation", exception);
-                                        }
-                                )
-                );
+            .search(
+                searchRequest,
+                ActionListener.wrap(searchResponse -> onSearchADNameResponse(searchResponse, anomalyDetector.getName()), exception -> {
+                    onFailure(exception);
+                    logger.warn("Failed to create search request for validation", exception);
+                })
+            );
     }
 
     private void onSearchADNameResponse(SearchResponse response, String name) {
@@ -276,34 +272,29 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
 
     public void checkForHistoricalData() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-                .aggregation(AggregationBuilders.max(AGG_NAME_MAX).field(anomalyDetector.getTimeField()))
-                .size(1)
-                .sort(new FieldSortBuilder(anomalyDetector.getTimeField()).order(SortOrder.DESC));
+            .aggregation(AggregationBuilders.max(AGG_NAME_MAX).field(anomalyDetector.getTimeField()))
+            .size(1)
+            .sort(new FieldSortBuilder(anomalyDetector.getTimeField()).order(SortOrder.DESC));
         SearchRequest searchRequest = new SearchRequest().indices(anomalyDetector.getIndices().get(0)).source(searchSourceBuilder);
-        client
-                .search(
-                        searchRequest,
-                        ActionListener
-                                .wrap(response -> checkIfAnyHistoricalData(getLatestDataTime(response)), exception -> {
-                                    onFailure(exception);
-                                    logger.warn("Failed to create search request for validation", exception);
-                                })
-                );
+        client.search(searchRequest, ActionListener.wrap(response -> checkIfAnyHistoricalData(getLatestDataTime(response)), exception -> {
+            onFailure(exception);
+            logger.warn("Failed to create search request for validation", exception);
+        }));
     }
 
     private void checkIfAnyHistoricalData(Optional<Long> lastTimeStamp) {
         if (lastTimeStamp.isPresent() && (Instant.now().toEpochMilli() - HISTORICAL_CHECK_IN_MS > lastTimeStamp.get())) {
-            failuresMap.computeIfAbsent(ValidationFailures.OTHERS.getName(), k -> new ArrayList<>()).add("No historical data for past 3 months");
+            failuresMap
+                .computeIfAbsent(ValidationFailures.OTHERS.getName(), k -> new ArrayList<>())
+                .add("No historical data for past 3 months");
             sendAnomalyDetectorValidationResponse();
         } else {
             queryFilterValidation();
         }
     }
+
     private Long timeConfigToMilliSec(TimeConfiguration config) {
-        return Optional
-                .ofNullable((IntervalTimeConfiguration) config)
-                .map(t -> t.toDuration().toMillis())
-                .orElse(0L);
+        return Optional.ofNullable((IntervalTimeConfiguration) config).map(t -> t.toDuration().toMillis()).orElse(0L);
     }
 
     private long[] startEndTimeRangeWithIntervals(int numOfIntervals) {
@@ -311,7 +302,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         long dataEndTime = Instant.now().toEpochMilli() - delayMillis;
         long detectorInterval = timeConfigToMilliSec(anomalyDetector.getDetectionInterval());
         long dataStartTime = dataEndTime - ((long) (numOfIntervals) * detectorInterval);
-        return new long[]{dataStartTime, dataEndTime};
+        return new long[] { dataStartTime, dataEndTime };
     }
 
     private void queryFilterValidation() {
@@ -319,35 +310,31 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         long dataEndTime = startEnd[1];
         long dataStartTime = startEnd[0];
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
-                .from(dataStartTime)
-                .to(dataEndTime)
-                .format("epoch_millis");
+            .from(dataStartTime)
+            .to(dataEndTime)
+            .format("epoch_millis");
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(anomalyDetector.getFilterQuery());
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-                .query(internalFilterQuery)
-                .size(1)
-                .terminateAfter(1)
-                .timeout(requestTimeout);
+            .query(internalFilterQuery)
+            .size(1)
+            .terminateAfter(1)
+            .timeout(requestTimeout);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().get(0)).source(searchSourceBuilder);
-        client
-                .search(
-                        searchRequest,
-                        ActionListener.wrap(searchResponse -> onQueryFilterSearch(searchResponse), exception -> {
-                            onFailure(exception);
-                            logger.warn("Failed to create data query search request for validation", exception);
-                        })
-                );
+        client.search(searchRequest, ActionListener.wrap(searchResponse -> onQueryFilterSearch(searchResponse), exception -> {
+            onFailure(exception);
+            logger.warn("Failed to create data query search request for validation", exception);
+        }));
     }
 
     private void onQueryFilterSearch(SearchResponse response) throws IOException, ParseException {
         if (response.getHits().getTotalHits().value <= 0) {
             List<String> filterError = new ArrayList<>();
             filterError
-                    .add(
-                            "query filter is potentially wrong as no hits were found at all or no historical data in last "
-                                    + NUM_OF_INTERVALS_CHECKED_FILTER
-                                    + " intervals"
-                    );
+                .add(
+                    "query filter is potentially wrong as no hits were found at all or no historical data in last "
+                        + NUM_OF_INTERVALS_CHECKED_FILTER
+                        + " intervals"
+                );
             suggestedChangesMap.put(ValidationSuggestedChanges.FILTER_QUERY.getName(), filterError);
             sendAnomalyDetectorValidationResponse();
         } else {
@@ -406,19 +393,18 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         return fieldNameAggType;
     }
 
-
     private void checkFeatureAggregationType() throws IOException {
         Map<String, String> featureToField = new TreeMap<>();
         if (anomalyDetector.getFeatureAttributes() != null) {
             for (Feature feature : anomalyDetector.getFeatureAttributes()) {
                 ParseUtils.parseAggregators(feature.getAggregation().toString(), xContent, feature.getId());
                 XContentParser parser = XContentType.JSON
-                        .xContent()
-                        .createParser(xContent, LoggingDeprecationHandler.INSTANCE, feature.getAggregation().toString());
+                    .xContent()
+                    .createParser(xContent, LoggingDeprecationHandler.INSTANCE, feature.getAggregation().toString());
                 parser.nextToken();
                 List<String> aggTypeFieldName = ForFieldMapping(parser);
                 featureToField.put(feature.getName(), aggTypeFieldName.get(1));
-             }
+            }
         }
         getFieldMapping(featureToField);
     }
@@ -427,36 +413,37 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         GetFieldMappingsRequest request = new GetFieldMappingsRequest().indices(anomalyDetector.getIndices().get(0));
         request.fields(featureToAgg.values().toArray(new String[0]));
         adminClient
-                .indices().getFieldMappings(
+            .indices()
+            .getFieldMappings(
                 request,
                 ActionListener
-                        .wrap(
-                                response -> checkFieldIndex(response, featureToAgg.values().toArray(new String[0]), featureToAgg),
-                                exception -> {
-                                    onFailure(exception);
-                                    logger.warn("Failed to get field mapping for validation", exception);
-                                }
-                        )
-        );
+                    .wrap(response -> checkFieldIndex(response, featureToAgg.values().toArray(new String[0]), featureToAgg), exception -> {
+                        onFailure(exception);
+                        logger.warn("Failed to get field mapping for validation", exception);
+                    })
+            );
     }
 
     private void checkFieldIndex(GetFieldMappingsResponse response, String[] fields, Map<String, String> featuresToAgg) throws IOException {
         List<String> numericTypes = Arrays.asList(numericType);
         for (int i = 0; i < fields.length; i++) {
-            Map<String, Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>>> mappings =
-                    response.mappings();
-            final Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> fieldMappings =
-                    mappings.get(anomalyDetector.getIndices().get(0));
-            final GetFieldMappingsResponse.FieldMappingMetadata metadata =
-                    fieldMappings.get("_doc").get(fields[i]);
+            Map<String, Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>>> mappings = response.mappings();
+            final Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> fieldMappings = mappings
+                .get(anomalyDetector.getIndices().get(0));
+            final GetFieldMappingsResponse.FieldMappingMetadata metadata = fieldMappings.get("_doc").get(fields[i]);
             final Map<String, Object> source = metadata.sourceAsMap();
             String fieldTypeJSON = source.get(fields[i]).toString();
             String fieldType = fieldTypeJSON.substring(fieldTypeJSON.lastIndexOf('=') + 1, fieldTypeJSON.length() - 1).trim();
             if (!numericTypes.contains(fieldType)) {
                 failuresMap
-                        .computeIfAbsent(ValidationFailures.FIELD_TYPE.getName(), k -> new ArrayList<>())
-                        .add("Field named: "+ fields[i] + " can't be aggregated due to it being of type " + fieldType +
-                                " which isn't numeric, please use a different aggregation type");
+                    .computeIfAbsent(ValidationFailures.FIELD_TYPE.getName(), k -> new ArrayList<>())
+                    .add(
+                        "Field named: "
+                            + fields[i]
+                            + " can't be aggregated due to it being of type "
+                            + fieldType
+                            + " which isn't numeric, please use a different aggregation type"
+                    );
             }
         }
         if (!failuresMap.isEmpty()) {
@@ -477,33 +464,31 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         if (startEnd[0] > startTimeWithSetTime) {
             dataStartTime = startTimeWithSetTime;
         }
-        return new long[]{dataStartTime, dataEndTime};
+        return new long[] { dataStartTime, dataEndTime };
     }
-
-
 
     private void featureQueryValidation() throws IOException {
         long[] startEnd = getFeatureQueryValidationDateRange();
         AtomicInteger featureCounter = new AtomicInteger();
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
-                .from(startEnd[0])
-                .to(startEnd[1])
-                .format("epoch_millis")
-                .includeLower(true)
-                .includeUpper(false);
+            .from(startEnd[0])
+            .to(startEnd[1])
+            .format("epoch_millis")
+            .includeLower(true)
+            .includeUpper(false);
         if (anomalyDetector.getFeatureAttributes() != null) {
             for (Feature feature : anomalyDetector.getFeatureAttributes()) {
                 ParseUtils.parseAggregators(feature.getAggregation().toString(), xContent, feature.getId());
                 XContentParser parser = XContentType.JSON
-                        .xContent()
-                        .createParser(xContent, LoggingDeprecationHandler.INSTANCE, feature.getAggregation().toString());
+                    .xContent()
+                    .createParser(xContent, LoggingDeprecationHandler.INSTANCE, feature.getAggregation().toString());
                 parser.nextToken();
                 List<String> fieldNames = parseAggregationRequest(parser);
                 BoolQueryBuilder boolQuery = QueryBuilders
-                        .boolQuery()
-                        .filter(rangeQuery)
-                        .filter(anomalyDetector.getFilterQuery())
-                        .filter(QueryBuilders.existsQuery(fieldNames.get(0)));
+                    .boolQuery()
+                    .filter(rangeQuery)
+                    .filter(anomalyDetector.getFilterQuery())
+                    .filter(QueryBuilders.existsQuery(fieldNames.get(0)));
                 SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(boolQuery).size(1).terminateAfter(1);
                 SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().get(0)).source(internalSearchSourceBuilder);
                 client.search(searchRequest, ActionListener.wrap(searchResponse -> {
@@ -520,7 +505,9 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     private void onFeatureAggregationValidation(SearchResponse response, Feature feature, AtomicInteger counter) throws IOException {
         if (response.getHits().getTotalHits().value <= 0) {
             String errorMsg = feature.getName() + ": feature query is potentially wrong as no hits were found";
-            suggestedChangesMap.computeIfAbsent(ValidationSuggestedChanges.FEATURE_ATTRIBUTES.getName(), k -> new ArrayList<>()).add(errorMsg);
+            suggestedChangesMap
+                .computeIfAbsent(ValidationSuggestedChanges.FEATURE_ATTRIBUTES.getName(), k -> new ArrayList<>())
+                .add(errorMsg);
         }
         if (counter.get() == anomalyDetector.getFeatureAttributes().size()) {
             if (!suggestedChangesMap.isEmpty()) {
@@ -531,7 +518,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         }
     }
 
-    //creates a new 2D array of time ranges based of a different detector interval inorder to validate
+    // creates a new 2D array of time ranges based of a different detector interval inorder to validate
     // detector interval with a new range every time. Creates 128 new interval time ranges
     private long[][] createNewTimeRange(long detectorInterval) {
         long timeRanges[][] = new long[MAX_NUM_OF_SAMPLES_VIEWED][2];
@@ -547,8 +534,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
 
     private synchronized void intervalValidation() {
         long detectorInterval = timeConfigToMilliSec(anomalyDetector.getDetectionInterval());
-        for (long inferredDetectorInterval = detectorInterval;
-             inferredDetectorInterval <= MAX_INTERVAL_LENGTH; inferredDetectorInterval *= INTERVAL_RECOMMENDATION_MULTIPLIER) {
+        for (long inferredDetectorInterval = detectorInterval; inferredDetectorInterval <= MAX_INTERVAL_LENGTH; inferredDetectorInterval *=
+            INTERVAL_RECOMMENDATION_MULTIPLIER) {
             long timeRanges[][] = createNewTimeRange(inferredDetectorInterval);
             try {
                 if (inferAgain.get()) {
@@ -562,16 +549,15 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         }
     }
 
-    private List<String> getFieldNamesForFeature(Feature feature) throws IOException{
+    private List<String> getFieldNamesForFeature(Feature feature) throws IOException {
         ParseUtils.parseAggregators(feature.getAggregation().toString(), xContent, feature.getId());
         XContentParser parser = XContentType.JSON
-                .xContent()
-                .createParser(xContent, LoggingDeprecationHandler.INSTANCE, feature.getAggregation().toString());
+            .xContent()
+            .createParser(xContent, LoggingDeprecationHandler.INSTANCE, feature.getAggregation().toString());
         parser.nextToken();
         List<String> fieldNames = parseAggregationRequest(parser);
         return fieldNames;
     }
-
 
     private List<String> getFeatureFieldNames() throws IOException {
         List<String> featureFields = new ArrayList<>();
@@ -589,11 +575,11 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
             long rangeStart = timeRanges[i][0];
             long rangeEnd = timeRanges[i][1];
             RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
-                    .from(rangeStart)
-                    .to(rangeEnd)
-                    .format("epoch_millis")
-                    .includeLower(true)
-                    .includeUpper(false);
+                .from(rangeStart)
+                .to(rangeEnd)
+                .format("epoch_millis")
+                .includeLower(true)
+                .includeUpper(false);
             BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().filter(rangeQuery).filter(anomalyDetector.getFilterQuery());
             for (int j = 0; j < featureFields.size(); j++) {
                 boolQuery.filter(QueryBuilders.existsQuery(featureFields.get(j)));
@@ -613,9 +599,9 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
 
     private synchronized boolean doneInferring(long detectorInterval, MultiSearchResponse searchResponse) {
         long originalInterval = Optional
-                .ofNullable((IntervalTimeConfiguration) anomalyDetector.getDetectionInterval())
-                .map(t -> t.toDuration().toMillis())
-                .orElse(0L);
+            .ofNullable((IntervalTimeConfiguration) anomalyDetector.getDetectionInterval())
+            .map(t -> t.toDuration().toMillis())
+            .orElse(0L);
         final AtomicInteger hitCounter = new AtomicInteger();
         for (MultiSearchResponse.Item item : searchResponse) {
             SearchResponse response = item.getResponse();
@@ -628,13 +614,15 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         if (hitCounter.doubleValue() / (double) NUM_OF_INTERVAL_SAMPLES < SAMPLE_SUCCESS_RATE) {
             if ((detectorInterval * INTERVAL_RECOMMENDATION_MULTIPLIER) >= MAX_INTERVAL_LENGTH) {
                 suggestedChangesMap
-                        .computeIfAbsent(ValidationSuggestedChanges.DETECTION_INTERVAL.getName(), k -> new ArrayList<>())
-                        .add("detector interval: failed to infer max up too: " + MAX_INTERVAL_LENGTH);
+                    .computeIfAbsent(ValidationSuggestedChanges.DETECTION_INTERVAL.getName(), k -> new ArrayList<>())
+                    .add("detector interval: failed to infer max up too: " + MAX_INTERVAL_LENGTH);
             } else {
                 return false;
             }
         } else if (detectorInterval != originalInterval) {
-            suggestedChangesMap.computeIfAbsent(ValidationSuggestedChanges.DETECTION_INTERVAL.getName(), k -> new ArrayList<>()).add(Long.toString(detectorInterval));
+            suggestedChangesMap
+                .computeIfAbsent(ValidationSuggestedChanges.DETECTION_INTERVAL.getName(), k -> new ArrayList<>())
+                .add(Long.toString(detectorInterval));
             inferAgain.set(false);
             return true;
         }
@@ -644,34 +632,32 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
 
     private void checkWindowDelay() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-                .aggregation(AggregationBuilders.max(AGG_NAME_MAX).field(anomalyDetector.getTimeField()))
-                .size(1)
-                .sort(new FieldSortBuilder(anomalyDetector.getTimeField()).order(SortOrder.DESC));
+            .aggregation(AggregationBuilders.max(AGG_NAME_MAX).field(anomalyDetector.getTimeField()))
+            .size(1)
+            .sort(new FieldSortBuilder(anomalyDetector.getTimeField()).order(SortOrder.DESC));
         SearchRequest searchRequest = new SearchRequest().indices(anomalyDetector.getIndices().get(0)).source(searchSourceBuilder);
-        client
-                .search(
-                        searchRequest,
-                        ActionListener.wrap(response -> checkDelayResponse(getLatestDataTime(response)), exception -> {
-                                onFailure(exception);
-                                logger.warn("Failed to create search request for last data point", exception);
-                        })
-                );
+        client.search(searchRequest, ActionListener.wrap(response -> checkDelayResponse(getLatestDataTime(response)), exception -> {
+            onFailure(exception);
+            logger.warn("Failed to create search request for last data point", exception);
+        }));
     }
 
     private Optional<Long> getLatestDataTime(SearchResponse searchResponse) {
         return Optional
-                .ofNullable(searchResponse)
-                .map(SearchResponse::getAggregations)
-                .map(aggs -> aggs.asMap())
-                .map(map -> (Max) map.get(AGG_NAME_MAX))
-                .map(agg -> (long) agg.getValue());
+            .ofNullable(searchResponse)
+            .map(SearchResponse::getAggregations)
+            .map(aggs -> aggs.asMap())
+            .map(map -> (Max) map.get(AGG_NAME_MAX))
+            .map(agg -> (long) agg.getValue());
     }
 
     private void checkDelayResponse(Optional<Long> lastTimeStamp) {
         long delayMillis = timeConfigToMilliSec(anomalyDetector.getWindowDelay());
         if (lastTimeStamp.isPresent() && (Instant.now().toEpochMilli() - lastTimeStamp.get() > delayMillis)) {
             long minutesSinceLastStamp = TimeUnit.MILLISECONDS.toMinutes(Instant.now().toEpochMilli() - lastTimeStamp.get());
-            suggestedChangesMap.computeIfAbsent(ValidationSuggestedChanges.WINDOW_DELAY.getName(), k -> new ArrayList<>()).add(Long.toString(minutesSinceLastStamp));
+            suggestedChangesMap
+                .computeIfAbsent(ValidationSuggestedChanges.WINDOW_DELAY.getName(), k -> new ArrayList<>())
+                .add(Long.toString(minutesSinceLastStamp));
         }
         sendAnomalyDetectorValidationResponse();
     }

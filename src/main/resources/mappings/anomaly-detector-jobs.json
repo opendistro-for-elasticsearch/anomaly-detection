@@ -7,11 +7,18 @@
     "schema_version": {
       "type": "integer"
     },
+    "name": {
+      "type": "keyword"
+    },
     "schedule": {
       "properties": {
-        "period": {
+        "interval": {
           "properties": {
-            "interval": {
+            "start_time": {
+              "type": "date",
+              "format": "strict_date_time||epoch_millis"
+            },
+            "period": {
               "type": "integer"
             },
             "unit": {
@@ -39,6 +46,10 @@
       "type": "boolean"
     },
     "enabled_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "disabled_time": {
       "type": "date",
       "format": "strict_date_time||epoch_millis"
     },

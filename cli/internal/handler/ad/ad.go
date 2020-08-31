@@ -192,3 +192,35 @@ func (h *Handler) StopAnomalyDetectorByID(detector string) error {
 	}
 	return nil
 }
+
+// GetAnomalyDetectorsByNamePattern gets detector based on detector name pattern
+func GetAnomalyDetectorsByNamePattern(h *Handler, detector string) ([]*entity.DetectorOutput, error) {
+	return h.GetAnomalyDetectorsByNamePattern(detector)
+}
+
+// GetAnomalyDetectorsByNamePattern gets detector based on detector name pattern
+func (h *Handler) GetAnomalyDetectorsByNamePattern(name string) ([]*entity.DetectorOutput, error) {
+
+	ctx := context.Background()
+	detectors, err := h.GetDetectorsByName(ctx, name, true)
+	if err != nil {
+		return nil, err
+	}
+	return detectors, nil
+}
+
+// GetAnomalyDetectorByID gets detector based on detector id
+func GetAnomalyDetectorByID(h *Handler, detector string) (*entity.DetectorOutput, error) {
+	return h.GetAnomalyDetectorByID(detector)
+}
+
+// GetAnomalyDetectorByID gets detector based on detector id
+func (h *Handler) GetAnomalyDetectorByID(name string) (*entity.DetectorOutput, error) {
+
+	ctx := context.Background()
+	detector, err := h.GetDetector(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return detector, nil
+}

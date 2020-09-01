@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DETECTION_INTERVAL;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DETECTION_WINDOW_DELAY;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_DETECTORS;
@@ -84,7 +85,7 @@ public class RestValidateAnomalyDetectorAction extends BaseRestHandler {
         String detectorId = AnomalyDetector.NO_ID;
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
-        AnomalyDetector detector = AnomalyDetector.parseValidation(parser, detectorId, null);
+        AnomalyDetector detector = AnomalyDetector.parseValidation(parser, detectorId, null, DEFAULT_SHINGLE_SIZE);
 
         return channel -> new ValidateAnomalyDetectorActionHandler(
             client,

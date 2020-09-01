@@ -123,20 +123,62 @@ public class AnomalyDetector implements ToXContentObject {
         Integer schemaVersion,
         Instant lastUpdateTime
     ) {
-        if (Strings.isBlank(name)) {
-            throw new IllegalArgumentException("Detector name should be set");
-        }
-        if (timeField == null) {
-            throw new IllegalArgumentException("Time field should be set");
-        }
-        if (indices == null || indices.isEmpty()) {
-            throw new IllegalArgumentException("Indices should be set");
-        }
-        if (detectionInterval == null) {
-            throw new IllegalArgumentException("Detection interval should be set");
-        }
-        if (shingleSize != null && shingleSize < 1) {
-            throw new IllegalArgumentException("Shingle size must be a positive integer");
+        this(
+            detectorId,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            detectionInterval,
+            windowDelay,
+            shingleSize,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime,
+            false
+        );
+    }
+
+    public AnomalyDetector(
+        String detectorId,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration detectionInterval,
+        TimeConfiguration windowDelay,
+        Integer shingleSize,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime,
+        Boolean validation
+    ) {
+        if (validation) {
+            if (indices == null || indices.isEmpty()) {
+                indices = null;
+            }
+        } else {
+            if (Strings.isBlank(name)) {
+                throw new IllegalArgumentException("Detector name should be set");
+            }
+            if (timeField == null) {
+                throw new IllegalArgumentException("Time field should be set");
+            }
+            if (indices == null || indices.isEmpty()) {
+                throw new IllegalArgumentException("Indices should be set");
+            }
+            if (detectionInterval == null) {
+                throw new IllegalArgumentException("Detection interval should be set");
+            }
+            if (shingleSize != null && shingleSize < 1) {
+                throw new IllegalArgumentException("Shingle size must be a positive integer");
+            }
         }
         this.detectorId = detectorId;
         this.version = version;
@@ -152,43 +194,7 @@ public class AnomalyDetector implements ToXContentObject {
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
-        this.validation = false;
-    }
-
-    public AnomalyDetector(
-        String detectorId,
-        Long version,
-        String name,
-        String description,
-        String timeField,
-        List<String> indices,
-        List<Feature> features,
-        QueryBuilder filterQuery,
-        TimeConfiguration detectionInterval,
-        TimeConfiguration windowDelay,
-        Map<String, Object> uiMetadata,
-        Integer schemaVersion,
-        Instant lastUpdateTime,
-        Boolean validation
-    ) {
-        if (indices == null || indices.isEmpty()) {
-            indices = null;
-        }
-        this.detectorId = detectorId;
-        this.version = version;
-        this.name = name;
-        this.description = description;
-        this.timeField = timeField;
-        this.indices = indices;
-        this.featureAttributes = features;
-        this.filterQuery = filterQuery;
-        this.detectionInterval = detectionInterval;
-        this.windowDelay = windowDelay;
-        this.uiMetadata = uiMetadata;
-        this.schemaVersion = schemaVersion;
-        this.lastUpdateTime = lastUpdateTime;
         this.validation = validation;
-        this.shingleSize = 8;
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -291,7 +297,6 @@ public class AnomalyDetector implements ToXContentObject {
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();
-
             switch (fieldName) {
                 case NAME_FIELD:
                     name = parser.text();
@@ -365,8 +370,8 @@ public class AnomalyDetector implements ToXContentObject {
         );
     }
 
-    public static AnomalyDetector parseValidation(XContentParser parser, String detectorId, Long version) throws IOException {
-        Boolean validation = true;
+    public static AnomalyDetector parseValidation(XContentParser parser, String detectorId, Long version, Integer defaultShingleSize)
+        throws IOException {
         String name = null;
         String description = null;
         String timeField = null;
@@ -378,6 +383,7 @@ public class AnomalyDetector implements ToXContentObject {
         int schemaVersion = 0;
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = null;
+        Integer shingleSize = defaultShingleSize;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -428,6 +434,9 @@ public class AnomalyDetector implements ToXContentObject {
                 case WINDOW_DELAY_FIELD:
                     windowDelay = TimeConfiguration.parse(parser);
                     break;
+                case SHINGLE_SIZE_FIELD:
+                    shingleSize = parser.intValue();
+                    break;
                 case LAST_UPDATE_TIME_FIELD:
                     lastUpdateTime = ParseUtils.toInstant(parser);
                     break;
@@ -447,10 +456,11 @@ public class AnomalyDetector implements ToXContentObject {
             filterQuery,
             detectionInterval,
             windowDelay,
+            shingleSize,
             uiMetadata,
             schemaVersion,
             lastUpdateTime,
-            validation
+            true
         );
     }
 

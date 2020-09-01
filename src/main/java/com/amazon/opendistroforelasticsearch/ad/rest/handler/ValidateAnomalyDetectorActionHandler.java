@@ -64,6 +64,7 @@ import org.elasticsearch.search.sort.SortOrder;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.DateTimeRange;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.model.TimeConfiguration;
@@ -86,8 +87,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
     protected static final double SAMPLE_SUCCESS_RATE = 0.75;
     protected static final int FEATURE_VALIDATION_TIME_BACK_MINUTES = 10080;
     protected static final int NUM_OF_INTERVALS_CHECKED_FILTER = 384;
-    protected static final long MAX_INTERVAL_LENGTH = 2592000000L;
-    protected static final long HISTORICAL_CHECK_IN_MS = 7776000000L;
+    protected static final long MAX_INTERVAL_LENGTH = (30L * 24 * 60 * 60 * 1000);
+    protected static final long HISTORICAL_CHECK_IN_MS = (90L * 24 * 60 * 60 * 1000);
     protected static final String NAME_REGEX = "[a-zA-Z0-9._-]+";
     protected static final double INTERVAL_RECOMMENDATION_MULTIPLIER = 1.2;
     protected static final String[] numericType = { "long", "integer", "short", "double", "float" };
@@ -146,11 +147,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
      * @throws IOException IOException from {@link AnomalyDetectionIndices#initAnomalyDetectorIndexIfAbsent(ActionListener)}
      */
     public void startValidation() throws IOException {
-        if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist()) {
-            preDataValidationSteps(false);
-        } else {
-            preDataValidationSteps(true);
-        }
+        boolean indexExists = anomalyDetectionIndices.doesAnomalyDetectorIndexExist();
+        preDataValidationSteps(indexExists);
     }
 
     private void preDataValidationSteps(boolean indexExists) {
@@ -202,7 +200,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
             SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
             client.search(searchRequest, ActionListener.wrap(response -> onSearchAdResponse(response), exception -> onFailure(exception)));
         } catch (Exception e) {
-            logger.warn("Failed to create search request for validation", e);
+            logger.error("Failed to create search request for validation", e);
             onFailure(e);
         }
     }
@@ -228,7 +226,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                 searchRequest,
                 ActionListener.wrap(searchResponse -> onSearchAdInputIndicesResponse(searchResponse, indexExists), exception -> {
                     onFailure(exception);
-                    logger.warn("Failed to create search request for validation", exception);
+                    logger.error("Failed to create search request for validation", exception);
                 })
             );
     }
@@ -256,7 +254,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                 searchRequest,
                 ActionListener.wrap(searchResponse -> onSearchADNameResponse(searchResponse, anomalyDetector.getName()), exception -> {
                     onFailure(exception);
-                    logger.warn("Failed to create search request for validation", exception);
+                    logger.error("Failed to create search request for validation", exception);
                 })
             );
     }
@@ -278,7 +276,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         SearchRequest searchRequest = new SearchRequest().indices(anomalyDetector.getIndices().get(0)).source(searchSourceBuilder);
         client.search(searchRequest, ActionListener.wrap(response -> checkIfAnyHistoricalData(getLatestDataTime(response)), exception -> {
             onFailure(exception);
-            logger.warn("Failed to create search request for validation", exception);
+            logger.error("Failed to create search request for validation", exception);
         }));
     }
 
@@ -297,18 +295,16 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         return Optional.ofNullable((IntervalTimeConfiguration) config).map(t -> t.toDuration().toMillis()).orElse(0L);
     }
 
-    private long[] startEndTimeRangeWithIntervals(int numOfIntervals) {
+    private DateTimeRange startEndTimeRangeWithIntervals(int numOfIntervals) {
         long delayMillis = timeConfigToMilliSec(anomalyDetector.getWindowDelay());
-        long dataEndTime = Instant.now().toEpochMilli() - delayMillis;
         long detectorInterval = timeConfigToMilliSec(anomalyDetector.getDetectionInterval());
-        long dataStartTime = dataEndTime - ((long) (numOfIntervals) * detectorInterval);
-        return new long[] { dataStartTime, dataEndTime };
+        return DateTimeRange.rangeBasedOfInterval(delayMillis, detectorInterval, numOfIntervals);
     }
 
     private void queryFilterValidation() {
-        long[] startEnd = startEndTimeRangeWithIntervals(NUM_OF_INTERVALS_CHECKED_FILTER);
-        long dataEndTime = startEnd[1];
-        long dataStartTime = startEnd[0];
+        DateTimeRange timeRange = startEndTimeRangeWithIntervals(NUM_OF_INTERVALS_CHECKED_FILTER);
+        long dataStartTime = timeRange.getStart();
+        long dataEndTime = timeRange.getEnd();
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
             .from(dataStartTime)
             .to(dataEndTime)
@@ -322,7 +318,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().get(0)).source(searchSourceBuilder);
         client.search(searchRequest, ActionListener.wrap(searchResponse -> onQueryFilterSearch(searchResponse), exception -> {
             onFailure(exception);
-            logger.warn("Failed to create data query search request for validation", exception);
+            logger.error("Failed to create data query search request for validation", exception);
         }));
     }
 
@@ -419,7 +415,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                 ActionListener
                     .wrap(response -> checkFieldIndex(response, featureToAgg.values().toArray(new String[0]), featureToAgg), exception -> {
                         onFailure(exception);
-                        logger.warn("Failed to get field mapping for validation", exception);
+                        logger.error("Failed to get field mapping for validation", exception);
                     })
             );
     }
@@ -453,26 +449,24 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         }
     }
 
-    private long[] getFeatureQueryValidationDateRange() {
+    private DateTimeRange getFeatureQueryValidationDateRange() {
         long delayMillis = timeConfigToMilliSec(anomalyDetector.getWindowDelay());
-        long[] startEnd = startEndTimeRangeWithIntervals(NUM_OF_INTERVALS_CHECKED);
-        long dataEndTime = startEnd[1];
-        long dataStartTime = startEnd[0];
+        DateTimeRange timeRange = startEndTimeRangeWithIntervals(NUM_OF_INTERVALS_CHECKED_FILTER);
         IntervalTimeConfiguration searchRange = new IntervalTimeConfiguration(FEATURE_VALIDATION_TIME_BACK_MINUTES, ChronoUnit.MINUTES);
         long searchRangeTime = Optional.ofNullable(searchRange).map(t -> t.toDuration().toMillis()).orElse(0L);
-        long startTimeWithSetTime = startEnd[1] - (searchRangeTime - delayMillis);
-        if (startEnd[0] > startTimeWithSetTime) {
-            dataStartTime = startTimeWithSetTime;
+        long startTimeWithSetTime = timeRange.getEnd() - (searchRangeTime - delayMillis);
+        if (timeRange.getStart() > startTimeWithSetTime) {
+            timeRange.setStart(startTimeWithSetTime);
         }
-        return new long[] { dataStartTime, dataEndTime };
+        return timeRange;
     }
 
     private void featureQueryValidation() throws IOException {
-        long[] startEnd = getFeatureQueryValidationDateRange();
+        DateTimeRange timeRange = getFeatureQueryValidationDateRange();
         AtomicInteger featureCounter = new AtomicInteger();
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
-            .from(startEnd[0])
-            .to(startEnd[1])
+            .from(timeRange.getStart())
+            .to(timeRange.getEnd())
             .format("epoch_millis")
             .includeLower(true)
             .includeUpper(false);
@@ -496,7 +490,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                     onFeatureAggregationValidation(searchResponse, feature, featureCounter);
                 }, exception -> {
                     onFailure(exception);
-                    logger.warn("Failed to create feature search request for validation", exception);
+                    logger.error("Failed to create feature search request for validation", exception);
                 }));
             }
         }
@@ -544,7 +538,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
                 wait();
             } catch (Exception ex) {
                 onFailure(ex);
-                logger.warn(ex);
+                logger.error(ex);
             }
         }
     }
@@ -593,7 +587,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
             }
         }, exception -> {
             onFailure(exception);
-            logger.warn("Failed to create multi search request for validation", exception);
+            logger.error("Failed to create multi search request for validation", exception);
         }));
     }
 
@@ -623,8 +617,6 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
             suggestedChangesMap
                 .computeIfAbsent(ValidationSuggestedChanges.DETECTION_INTERVAL.getName(), k -> new ArrayList<>())
                 .add(Long.toString(detectorInterval));
-            inferAgain.set(false);
-            return true;
         }
         inferAgain.set(false);
         return true;
@@ -638,7 +630,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         SearchRequest searchRequest = new SearchRequest().indices(anomalyDetector.getIndices().get(0)).source(searchSourceBuilder);
         client.search(searchRequest, ActionListener.wrap(response -> checkDelayResponse(getLatestDataTime(response)), exception -> {
             onFailure(exception);
-            logger.warn("Failed to create search request for last data point", exception);
+            logger.error("Failed to create search request for last data point", exception);
         }));
     }
 

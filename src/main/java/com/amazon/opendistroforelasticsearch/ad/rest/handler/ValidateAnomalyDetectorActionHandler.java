@@ -515,21 +515,6 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
 
     // creates a new 2D array of time ranges based of a different detector interval inorder to validate
     // detector interval with a new range every time. Creates 128 new interval time ranges
-    private long[][] createNewTimeRangeObject(long detectorInterval) {
-        createNewTimeRangeObject(detectorInterval);
-        long timeRanges[][] = new long[MAX_NUM_OF_SAMPLES_VIEWED][2];
-        long delayMillis = timeConfigToMilliSec(anomalyDetector.getWindowDelay());
-        long dataEndTime = Instant.now().toEpochMilli() - delayMillis;
-        long dataStartTime = dataEndTime - ((long) (MAX_NUM_OF_SAMPLES_VIEWED) * detectorInterval);
-        for (int j = 0; j < MAX_NUM_OF_SAMPLES_VIEWED; j++) {
-            timeRanges[j][0] = dataStartTime + (j * detectorInterval);
-            timeRanges[j][1] = timeRanges[j][0] + detectorInterval;
-        }
-        return timeRanges;
-    }
-
-    // creates a new 2D array of time ranges based of a different detector interval inorder to validate
-    // detector interval with a new range every time. Creates 128 new interval time ranges
     private DateTimeRange[] createNewTimeRange(long detectorInterval) {
         DateTimeRange timeRanges[] = new DateTimeRange[MAX_NUM_OF_SAMPLES_VIEWED];
         long delayMillis = timeConfigToMilliSec(anomalyDetector.getWindowDelay());

@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -514,7 +515,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
 
     // creates a new 2D array of time ranges based of a different detector interval inorder to validate
     // detector interval with a new range every time. Creates 128 new interval time ranges
-    private long[][] createNewTimeRange(long detectorInterval) {
+    private long[][] createNewTimeRangeObject(long detectorInterval) {
+        createNewTimeRangeObject(detectorInterval);
         long timeRanges[][] = new long[MAX_NUM_OF_SAMPLES_VIEWED][2];
         long delayMillis = timeConfigToMilliSec(anomalyDetector.getWindowDelay());
         long dataEndTime = Instant.now().toEpochMilli() - delayMillis;
@@ -526,11 +528,26 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         return timeRanges;
     }
 
+    // creates a new 2D array of time ranges based of a different detector interval inorder to validate
+    // detector interval with a new range every time. Creates 128 new interval time ranges
+    private DateTimeRange[] createNewTimeRange(long detectorInterval) {
+        DateTimeRange timeRanges[] = new DateTimeRange[MAX_NUM_OF_SAMPLES_VIEWED];
+        long delayMillis = timeConfigToMilliSec(anomalyDetector.getWindowDelay());
+        long dataEndTime = Instant.now().toEpochMilli() - delayMillis;
+        long dataStartTime = dataEndTime - ((long) (MAX_NUM_OF_SAMPLES_VIEWED) * detectorInterval);
+        for (int i = 0; i < MAX_NUM_OF_SAMPLES_VIEWED; i++) {
+            long newStartTime = dataStartTime + (i * detectorInterval);
+            long newEndTime = newStartTime + detectorInterval;
+            timeRanges[i] = new DateTimeRange(newStartTime, newEndTime);
+        }
+        return timeRanges;
+    }
+
     private synchronized void intervalValidation() {
         long detectorInterval = timeConfigToMilliSec(anomalyDetector.getDetectionInterval());
         for (long inferredDetectorInterval = detectorInterval; inferredDetectorInterval <= MAX_INTERVAL_LENGTH; inferredDetectorInterval *=
             INTERVAL_RECOMMENDATION_MULTIPLIER) {
-            long timeRanges[][] = createNewTimeRange(inferredDetectorInterval);
+            DateTimeRange timeRanges[] = createNewTimeRange(inferredDetectorInterval);
             try {
                 if (inferAgain.get()) {
                     verifyWithInterval(timeRanges, inferredDetectorInterval);
@@ -561,13 +578,13 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractActionHandler 
         return featureFields;
     }
 
-    private void verifyWithInterval(long[][] timeRanges, long detectorInterval) throws IOException {
+    private void verifyWithInterval(DateTimeRange[] timeRanges, long detectorInterval) throws IOException {
         inferAgain.set(false);
         List<String> featureFields = getFeatureFieldNames();
         MultiSearchRequest sr = new MultiSearchRequest();
         for (int i = 0; i < NUM_OF_INTERVAL_SAMPLES; i++) {
-            long rangeStart = timeRanges[i][0];
-            long rangeEnd = timeRanges[i][1];
+            long rangeStart = timeRanges[i].getStart();
+            long rangeEnd = timeRanges[i].getEnd();
             RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
                 .from(rangeStart)
                 .to(rangeEnd)

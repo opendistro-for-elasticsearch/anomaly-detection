@@ -260,7 +260,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 .orElse(0L);
             long dataStartTime = request.getStart() - delayMillis;
             long dataEndTime = request.getEnd() - delayMillis;
-
             featureManager
                 .getCurrentFeatures(
                     anomalyDetector,

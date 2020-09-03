@@ -47,7 +47,7 @@ To install and set-up AD CLI:
     ```
 4. Test to ensure the version you installed is up-to-date:
     ```
-    esad --help
+    esad --version
     ```
 
 ## Configure

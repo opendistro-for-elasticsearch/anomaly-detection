@@ -25,13 +25,29 @@ Users can run this CLI from MacOS, Windows, Linux and connect to any valid Elast
 
 Launch your local Elasticsearch instance and make sure you have the Open Distro for Elasticsearch AD plugin installed.
 
-To install the AD CLI:
+To install and set-up AD CLI:
 
 
-1. Install from source:
+1. Download and extract esad Binaries
 
     ```
-    $ go get github.com/opendistro-for-elasticsearch/anomaly-detection/cli
+    Download esad binaries suitable for your system from https://github.com/opendistro-for-elasticsearch/anomaly-detection/actions/runs/224422434
+    ```
+    
+2. Make esad executable
+
+    ```
+    chmod +x ./esad
+    
+    ```
+3. Move the binary in to your PATH.
+    ```
+    sudo mv ./esad /usr/local/bin/esad
+    
+    ```
+4. Test to ensure the version you installed is up-to-date:
+    ```
+    esad --help
     ```
 
 ## Configure

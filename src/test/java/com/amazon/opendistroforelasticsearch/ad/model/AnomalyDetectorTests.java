@@ -68,6 +68,21 @@ public class AnomalyDetectorTests extends ESTestCase {
         assertTrue(parsedDetector.getFilterQuery() instanceof MatchAllQueryBuilder);
     }
 
+    public void testParseValidationAnomalyDetectorWithEmptyFilterQuery() throws IOException {
+        String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
+            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\":"
+            + "true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"filter_query\":{},"
+            + "\"detection_interval\":{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"window_delay\":"
+            + "{\"period\":{\"interval\":973,\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":"
+            + "{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,"
+            + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},"
+            + "\"last_update_time\":1568396089028}";
+        AnomalyDetector parsedDetector = AnomalyDetector
+            .parse(TestHelpers.parser(detectorString), "id", 1L, null, null, AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+        assertTrue(parsedDetector.getFilterQuery() instanceof MatchAllQueryBuilder);
+    }
+
     public void testParseAnomalyDetectorWithWrongFilterQuery() throws Exception {
         String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
             + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
@@ -95,6 +110,38 @@ public class AnomalyDetectorTests extends ESTestCase {
         assertEquals((long) parsedDetector.getShingleSize(), (long) AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
     }
 
+    public void testParseValidationAnomalyDetector() throws IOException {
+        String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
+            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
+            + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
+            + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"schema_version\":-1203962153,\"ui_metadata\":"
+            + "{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,"
+            + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
+        AnomalyDetector parsedDetector = AnomalyDetector
+            .parseValidation(TestHelpers.parser(detectorString), "id", 1L, AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+        assertTrue(parsedDetector.getFilterQuery() instanceof MatchAllQueryBuilder);
+        assertEquals((long) parsedDetector.getShingleSize(), (long) AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+    }
+
+    public void testParseValidationAnomalyDetectorWithWrongFilterQuery() throws Exception {
+        String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
+            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\":"
+            + "true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"filter_query\":"
+            + "{\"aa\":\"bb\"},\"detection_interval\":{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":973,\"unit\":\"Minutes\"}},\"shingle_size\":8,\"schema_version\":"
+            + "-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\","
+            + "\"feature_enabled\":false,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},"
+            + "\"last_update_time\":1568396089028}";
+        TestHelpers
+            .assertFailWith(
+                ParsingException.class,
+                () -> AnomalyDetector
+                    .parseValidation(TestHelpers.parser(detectorString), "id", 1L, AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE)
+            );
+    }
+
     public void testParseAnomalyDetectorWithInvalidShingleSize() throws Exception {
         String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
             + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
@@ -112,6 +159,23 @@ public class AnomalyDetectorTests extends ESTestCase {
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
         assertNull(parsedDetector.getUiMetadata());
+    }
+
+    public void testParseValidationAnomalyDetectorWithNullUiMetadata() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        AnomalyDetector parsedDetector = AnomalyDetector
+            .parseValidation(TestHelpers.parser(detectorString), "id", 1L, AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+        assertNull(parsedDetector.getUiMetadata());
+    }
+
+    public void testParseValidationAnomalyDetectorWithEmptyUiMetadata() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now());
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        AnomalyDetector parsedDetector = AnomalyDetector
+            .parseValidation(TestHelpers.parser(detectorString), "id", 1L, AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
     }
 
     public void testParseAnomalyDetectorWithEmptyUiMetadata() throws IOException {

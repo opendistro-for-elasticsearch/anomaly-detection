@@ -18,11 +18,7 @@ package com.amazon.opendistroforelasticsearch.ad.model;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 import org.elasticsearch.common.ParsingException;
 import org.elasticsearch.common.xcontent.ToXContent;

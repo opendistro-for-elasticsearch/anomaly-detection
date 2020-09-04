@@ -40,15 +40,21 @@ To install and set-up AD CLI:
     chmod +x ./esad
     
     ```
-3. Move the binary in to your PATH.
+3. Move the binary in to your PATH for sudo users.
     ```
     sudo mv ./esad /usr/local/bin/esad
     
     ```
-4. Test to ensure the version you installed is up-to-date:
+    or, add current path to your PATH
+    ```
+    export PATH=$PATH:$(pwd)
+    ```
+4. Verify that you've installed esad by typing the following command
     ```
     esad --version
     ```
+
+5. Confirm that the command prints the installed version of esad.
 
 ## Configure
 

@@ -16,7 +16,7 @@
 buildscript {
     ext {
         es_group = "org.elasticsearch"
-        es_version = '7.9.0'
+        es_version = '7.9.1'
     }
 
     repositories {
@@ -44,7 +44,7 @@ repositories {
 }
 
 ext {
-    opendistroVersion = '1.10.0'
+    opendistroVersion = '1.10.1'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
@@ -292,7 +292,7 @@ checkstyle {
 dependencies {
     compile "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.10.0.0"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.10.1.0"
     compile group: 'com.google.guava', name: 'guava', version:'15.0'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     compile group: 'com.google.code.gson', name: 'gson', version: '2.8.5'
@@ -353,7 +353,7 @@ afterEvaluate {
 
         license 'ASL-2.0'
         maintainer 'OpenDistro for Elasticsearch Team <opendistro@amazon.com>'
-        url 'https://opendistro.github.io/elasticsearch/downloads'
+        url 'https://opendistro.github.io/for-elasticsearch/downloads.html'
         summary '''
          Anomaly Detection plugin for OpenDistro for Elasticsearch.
          Reference documentation can be found at https://opendistro.github.io/for-elasticsearch-docs/.

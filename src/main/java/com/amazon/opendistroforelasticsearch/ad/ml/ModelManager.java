@@ -326,42 +326,6 @@ public class ModelManager {
     }
 
     /**
-     * Gets the RCF anomaly result using the specified model.
-     *
-     * @deprecated use getRcfResult with listener instead.
-     *
-     * @param detectorId ID of the detector
-     * @param modelId ID of the model to score the point
-     * @param point features of the data point
-     * @return RCF result for the input point, including a score
-     * @throws ResourceNotFoundException when the model is not found
-     * @throws LimitExceededException when a limit is exceeded for the model
-     */
-    @Deprecated
-    public RcfResult getRcfResult(String detectorId, String modelId, double[] point) {
-        ModelState<RandomCutForest> modelState = forests
-            .computeIfAbsent(
-                modelId,
-                model -> checkpointDao
-                    .getModelCheckpoint(model)
-                    .map(
-                        checkpoint -> AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) () -> rcfSerde.fromJson(checkpoint))
-                    )
-                    .filter(rcf -> isHostingAllowed(detectorId, rcf))
-                    .map(rcf -> new ModelState<>(rcf, modelId, detectorId, ModelType.RCF.getName(), clock.instant()))
-                    .orElseThrow(() -> new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId))
-            );
-
-        RandomCutForest rcf = modelState.getModel();
-        double score = rcf.getAnomalyScore(point);
-        double confidence = computeRcfConfidence(rcf);
-        int forestSize = rcf.getNumberOfTrees();
-        rcf.update(point);
-        modelState.setLastUsedTime(clock.instant());
-        return new RcfResult(score, confidence, forestSize);
-    }
-
-    /**
      * Returns to listener the RCF anomaly result using the specified model.
      *
      * @param detectorId ID of the detector
@@ -433,40 +397,6 @@ public class ModelManager {
         } else {
             listener.onFailure(new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId));
         }
-    }
-
-    /**
-     * Gets the result using the specified thresholding model.
-     *
-     * @deprecated use getThresholdingResult with listener instead.
-     *
-     * @param detectorId ID of the detector
-     * @param modelId ID of the thresholding model
-     * @param score raw anomaly score
-     * @return thresholding model result for the raw score
-     * @throws ResourceNotFoundException when the model is not found
-     */
-    @Deprecated
-    public ThresholdingResult getThresholdingResult(String detectorId, String modelId, double score) {
-        ModelState<ThresholdingModel> modelState = thresholds
-            .computeIfAbsent(
-                modelId,
-                model -> checkpointDao
-                    .getModelCheckpoint(model)
-                    .map(
-                        checkpoint -> AccessController
-                            .doPrivileged((PrivilegedAction<ThresholdingModel>) () -> gson.fromJson(checkpoint, thresholdingModelClass))
-                    )
-                    .map(threshold -> new ModelState<>(threshold, modelId, detectorId, ModelType.THRESHOLD.getName(), clock.instant()))
-                    .orElseThrow(() -> new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId))
-            );
-
-        ThresholdingModel threshold = modelState.getModel();
-        double grade = threshold.grade(score);
-        double confidence = threshold.confidence();
-        threshold.update(score);
-        modelState.setLastUsedTime(clock.instant());
-        return new ThresholdingResult(grade, confidence);
     }
 
     /**

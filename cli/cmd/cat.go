@@ -17,6 +17,8 @@ import (
 	entity "esad/internal/entity/ad"
 	"esad/internal/handler/ad"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -38,23 +40,28 @@ var catCmd = &cobra.Command{
 			}
 			return
 		}
-		idStatus, _ := cmd.Flags().GetBool("id")
-		commandHandler, err := getCommandHandler()
-		if err != nil {
-			fmt.Println(err)
-		}
-		// default is name
-		action := ad.GetAnomalyDetectorsByNamePattern
-		if idStatus {
-			action = getDetectorsByID
-		}
-		results, err := getDetectors(commandHandler, args, action)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		printDetectors(results)
+		printDetectors(Println, cmd, args)
 	},
+}
+
+//printDetectors print detectors
+func printDetectors(f func(*entity.DetectorOutput), cmd *cobra.Command, detectors []string) {
+	idStatus, _ := cmd.Flags().GetBool("id")
+	commandHandler, err := getCommandHandler()
+	if err != nil {
+		fmt.Println(err)
+	}
+	// default is name
+	action := ad.GetAnomalyDetectorsByNamePattern
+	if idStatus {
+		action = getDetectorsByID
+	}
+	results, err := getDetectors(commandHandler, detectors, action)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	print(f, results)
 }
 
 func getDetectors(
@@ -81,19 +88,32 @@ func getDetectorsByID(commandHandler *ad.Handler, ID string) ([]*entity.Detector
 	return []*entity.DetectorOutput{output}, nil
 }
 
-//printDetectors displays the list of output. Since this is json format, use indent function to
-// pretty print before printing on console
-func printDetectors(results []*entity.DetectorOutput) {
+//print displays the list of output.
+func print(f func(*entity.DetectorOutput), results []*entity.DetectorOutput) {
 	if results == nil {
 		return
 	}
 	for _, d := range results {
-		formattedOutput, err := json.MarshalIndent(d, "", "  ")
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		fmt.Println(string(formattedOutput))
+		f(d)
+	}
+}
+
+//FPrint prints detector configuration on writer
+//Since this is json format, use indent function to pretty print before printing on writer
+func FPrint(writer io.Writer, d *entity.DetectorOutput) error {
+	formattedOutput, err := json.MarshalIndent(d, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(writer, string(formattedOutput))
+	return err
+}
+
+//Println prints detector configuration on stdout
+func Println(d *entity.DetectorOutput) {
+	err := FPrint(os.Stdout, d)
+	if err != nil {
+		fmt.Println(err)
 	}
 }
 

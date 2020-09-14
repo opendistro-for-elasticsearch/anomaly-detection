@@ -29,6 +29,7 @@ const (
 	searchURLTemplate = baseURL + "/_search"
 	deleteURLTemplate = baseURL + "/%s"
 	getURLTemplate    = baseURL + "/%s"
+	updateURLTemplate = baseURL + "/%s"
 )
 
 //go:generate mockgen -destination=mocks/mock_ad.go -package=mocks . Gateway
@@ -41,6 +42,7 @@ type Gateway interface {
 	DeleteDetector(context.Context, string) error
 	SearchDetector(context.Context, interface{}) ([]byte, error)
 	GetDetector(context.Context, string) ([]byte, error)
+	UpdateDetector(context.Context, string, interface{}) error
 }
 
 type gateway struct {
@@ -268,4 +270,79 @@ func (g *gateway) GetDetector(ctx context.Context, ID string) ([]byte, error) {
 		return nil, err
 	}
 	return response, nil
+}
+
+func (g *gateway) buildUpdateURL(ID string) (*url.URL, error) {
+	endpoint, err := gw.GetValidEndpoint(g.UserConfig)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.Path = fmt.Sprintf(updateURLTemplate, ID)
+	return endpoint, nil
+}
+
+/*UpdateDetector Updates a detector with any changes, including the description or adding or removing of features.
+It calls http request: PUT _opendistro/_anomaly_detection/detectors/<detectorId>
+Sample Input:
+{
+ "name": "test-detector",
+ "description": "Test detector",
+ "time_field": "timestamp",
+ "indices": [
+   "order*"
+ ],
+ "feature_attributes": [
+   {
+     "feature_name": "total_order",
+     "feature_enabled": true,
+     "aggregation_query": {
+       "total_order": {
+         "sum": {
+           "field": "value"
+         }
+       }
+     }
+   }
+ ],
+ "filter_query": {
+   "bool": {
+     "filter": [
+       {
+         "exists": {
+           "field": "value",
+           "boost": 1
+         }
+       }
+     ],
+     "adjust_pure_negative": true,
+     "boost": 1
+   }
+ },
+ "detection_interval": {
+   "period": {
+     "interval": 10,
+     "unit": "Minutes"
+   }
+ },
+ "window_delay": {
+   "period": {
+     "interval": 1,
+     "unit": "Minutes"
+   }
+ }
+}*/
+func (g *gateway) UpdateDetector(ctx context.Context, ID string, payload interface{}) error {
+	updateURL, err := g.buildUpdateURL(ID)
+	if err != nil {
+		return err
+	}
+	detectorRequest, err := g.BuildRequest(ctx, http.MethodPut, payload, updateURL.String(), gw.GetHeaders())
+	if err != nil {
+		return err
+	}
+	_, err = g.Call(detectorRequest, http.StatusOK)
+	if err != nil {
+		return err
+	}
+	return nil
 }

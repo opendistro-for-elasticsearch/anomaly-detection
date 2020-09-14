@@ -65,7 +65,14 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
                     ActionListener
                         .wrap(
                             result -> listener
-                                .onResponse(new RCFResultResponse(result.getScore(), result.getConfidence(), result.getForestSize())),
+                                .onResponse(
+                                    new RCFResultResponse(
+                                        result.getScore(),
+                                        result.getConfidence(),
+                                        result.getForestSize(),
+                                        result.getAttribution()
+                                    )
+                                ),
                             exception -> {
                                 LOG.warn(exception);
                                 listener.onFailure(exception);

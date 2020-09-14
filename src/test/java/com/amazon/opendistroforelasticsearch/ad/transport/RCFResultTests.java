@@ -25,6 +25,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 
 import org.elasticsearch.action.ActionListener;
@@ -58,6 +59,8 @@ import com.google.gson.GsonBuilder;
 public class RCFResultTests extends ESTestCase {
     Gson gson = new GsonBuilder().create();
 
+    private double[] attribution = new double[] { 1. };
+
     @SuppressWarnings("unchecked")
     public void testNormal() {
         TransportService transportService = new TransportService(
@@ -80,7 +83,7 @@ public class RCFResultTests extends ESTestCase {
         );
         doAnswer(invocation -> {
             ActionListener<RcfResult> listener = invocation.getArgument(3);
-            listener.onResponse(new RcfResult(0, 0, 25));
+            listener.onResponse(new RcfResult(0, 0, 25, attribution));
             return null;
         }).when(manager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
@@ -93,6 +96,7 @@ public class RCFResultTests extends ESTestCase {
         RCFResultResponse response = future.actionGet();
         assertEquals(0, response.getRCFScore(), 0.001);
         assertEquals(25, response.getForestSize(), 0.001);
+        assertTrue(Arrays.equals(attribution, response.getAttribution()));
     }
 
     @SuppressWarnings("unchecked")
@@ -128,7 +132,7 @@ public class RCFResultTests extends ESTestCase {
     }
 
     public void testSerialzationResponse() throws IOException {
-        RCFResultResponse response = new RCFResultResponse(0.3, 0, 26);
+        RCFResultResponse response = new RCFResultResponse(0.3, 0, 26, attribution);
         BytesStreamOutput output = new BytesStreamOutput();
         response.writeTo(output);
 
@@ -136,16 +140,20 @@ public class RCFResultTests extends ESTestCase {
         RCFResultResponse readResponse = RCFResultAction.INSTANCE.getResponseReader().read(streamInput);
         assertThat(response.getForestSize(), equalTo(readResponse.getForestSize()));
         assertThat(response.getRCFScore(), equalTo(readResponse.getRCFScore()));
+        assertArrayEquals(response.getAttribution(), readResponse.getAttribution(), 1e-6);
     }
 
     public void testJsonResponse() throws IOException, JsonPathNotFoundException {
-        RCFResultResponse response = new RCFResultResponse(0.3, 0, 26);
+        RCFResultResponse response = new RCFResultResponse(0.3, 0, 26, attribution);
         XContentBuilder builder = jsonBuilder();
         response.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = Strings.toString(builder);
         assertEquals(JsonDeserializer.getDoubleValue(json, RCFResultResponse.RCF_SCORE_JSON_KEY), response.getRCFScore(), 0.001);
         assertEquals(JsonDeserializer.getDoubleValue(json, RCFResultResponse.FOREST_SIZE_JSON_KEY), response.getForestSize(), 0.001);
+        assertTrue(
+            Arrays.equals(JsonDeserializer.getDoubleArrayValue(json, RCFResultResponse.ATTRIBUTION_JSON_KEY), response.getAttribution())
+        );
     }
 
     public void testEmptyID() {
@@ -205,7 +213,7 @@ public class RCFResultTests extends ESTestCase {
         );
         doAnswer(invocation -> {
             ActionListener<RcfResult> listener = invocation.getArgument(3);
-            listener.onResponse(new RcfResult(0, 0, 25));
+            listener.onResponse(new RcfResult(0, 0, 25, attribution));
             return null;
         }).when(manager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
         when(breakerService.isOpen()).thenReturn(true);

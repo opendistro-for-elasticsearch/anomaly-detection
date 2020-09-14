@@ -27,14 +27,17 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
     public static final String RCF_SCORE_JSON_KEY = "rcfScore";
     public static final String CONFIDENCE_JSON_KEY = "confidence";
     public static final String FOREST_SIZE_JSON_KEY = "forestSize";
+    public static final String ATTRIBUTION_JSON_KEY = "attribution";
     private double rcfScore;
     private double confidence;
     private int forestSize;
+    private double[] attribution;
 
-    public RCFResultResponse(double rcfScore, double confidence, int forestSize) {
+    public RCFResultResponse(double rcfScore, double confidence, int forestSize, double[] attribution) {
         this.rcfScore = rcfScore;
         this.confidence = confidence;
         this.forestSize = forestSize;
+        this.attribution = attribution;
     }
 
     public RCFResultResponse(StreamInput in) throws IOException {
@@ -42,6 +45,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         rcfScore = in.readDouble();
         confidence = in.readDouble();
         forestSize = in.readVInt();
+        attribution = in.readDoubleArray();
     }
 
     public double getRCFScore() {
@@ -56,11 +60,21 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         return forestSize;
     }
 
+    /**
+     * Returns RCF score attribution.
+     *
+     * @return RCF score attribution.
+     */
+    public double[] getAttribution() {
+        return attribution;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeDouble(rcfScore);
         out.writeDouble(confidence);
         out.writeVInt(forestSize);
+        out.writeDoubleArray(attribution);
     }
 
     @Override
@@ -69,6 +83,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         builder.field(RCF_SCORE_JSON_KEY, rcfScore);
         builder.field(CONFIDENCE_JSON_KEY, confidence);
         builder.field(FOREST_SIZE_JSON_KEY, forestSize);
+        builder.field(ATTRIBUTION_JSON_KEY, attribution);
         builder.endObject();
         return builder;
     }

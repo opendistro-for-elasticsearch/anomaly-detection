@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.ad.ml.rcf;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.util.Arrays;
 
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
@@ -28,12 +31,14 @@ public class CombinedRcfResultTests {
 
     private double score = 1.;
     private double confidence = .5;
-    private CombinedRcfResult rcfResult = new CombinedRcfResult(score, confidence);
+    private double[] attribution = new double[] { 1. };
+    private CombinedRcfResult rcfResult = new CombinedRcfResult(score, confidence, attribution);
 
     @Test
     public void getters_returnExcepted() {
         assertEquals(score, rcfResult.getScore(), 1e-8);
         assertEquals(confidence, rcfResult.getConfidence(), 1e-8);
+        assertTrue(Arrays.equals(attribution, rcfResult.getAttribution()));
     }
 
     private Object[] equalsData() {
@@ -41,10 +46,11 @@ public class CombinedRcfResultTests {
             new Object[] { rcfResult, null, false },
             new Object[] { rcfResult, rcfResult, true },
             new Object[] { rcfResult, 1, false },
-            new Object[] { rcfResult, new CombinedRcfResult(score, confidence), true },
-            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence), false },
-            new Object[] { rcfResult, new CombinedRcfResult(score, confidence + 1), false },
-            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence + 1), false }, };
+            new Object[] { rcfResult, new CombinedRcfResult(score, confidence, attribution), true },
+            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence, attribution), false },
+            new Object[] { rcfResult, new CombinedRcfResult(score, confidence + 1, attribution), false },
+            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence + 1, attribution), false },
+            new Object[] { rcfResult, new CombinedRcfResult(score, confidence, new double[] { 0. }), false }, };
     }
 
     @Test
@@ -55,10 +61,11 @@ public class CombinedRcfResultTests {
 
     private Object[] hashCodeData() {
         return new Object[] {
-            new Object[] { rcfResult, new CombinedRcfResult(score, confidence), true },
-            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence), false },
-            new Object[] { rcfResult, new CombinedRcfResult(score, confidence + 1), false },
-            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence + 1), false }, };
+            new Object[] { rcfResult, new CombinedRcfResult(score, confidence, attribution), true },
+            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence, attribution), false },
+            new Object[] { rcfResult, new CombinedRcfResult(score, confidence + 1, attribution), false },
+            new Object[] { rcfResult, new CombinedRcfResult(score + 1, confidence + 1, attribution), false },
+            new Object[] { rcfResult, new CombinedRcfResult(score, confidence, new double[] { 0. }), false }, };
     }
 
     @Test

@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.util.Arrays;
 
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
@@ -29,12 +32,14 @@ public class RcfResultTests {
     private double score = 1.;
     private double confidence = 0;
     private int forestSize = 10;
-    private RcfResult rcfResult = new RcfResult(score, confidence, forestSize);
+    private double[] attribution = new double[] { 1. };
+    private RcfResult rcfResult = new RcfResult(score, confidence, forestSize, attribution);
 
     @Test
     public void getters_returnExcepted() {
         assertEquals(score, rcfResult.getScore(), 1e-8);
         assertEquals(forestSize, rcfResult.getForestSize());
+        assertTrue(Arrays.equals(attribution, rcfResult.getAttribution()));
     }
 
     private Object[] equalsData() {
@@ -42,11 +47,12 @@ public class RcfResultTests {
             new Object[] { rcfResult, null, false },
             new Object[] { rcfResult, rcfResult, true },
             new Object[] { rcfResult, 1, false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize), true },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1), false },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence + 1, forestSize), false }, };
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, attribution), true },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize, attribution), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1, attribution), false },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1, attribution), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence + 1, forestSize, attribution), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, new double[] { 2. }), false }, };
     }
 
     @Test
@@ -57,10 +63,11 @@ public class RcfResultTests {
 
     private Object[] hashCodeData() {
         return new Object[] {
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize), true },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1), false },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1), false }, };
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, attribution), true },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize, attribution), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1, attribution), false },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1, attribution), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, new double[] { 2. }), false }, };
     }
 
     @Test

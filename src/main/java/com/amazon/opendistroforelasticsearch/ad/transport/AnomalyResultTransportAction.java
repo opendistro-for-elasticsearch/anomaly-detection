@@ -363,7 +363,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     featureInResponse,
                     rcfPartitionNum,
                     responseCount,
-                    adID
+                    adID,
+                    detector.getEnabledFeatureIds().size()
                 );
 
                 transportService
@@ -463,12 +464,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
     }
 
-    private CombinedRcfResult getCombinedResult(List<RCFResultResponse> rcfResults) {
+    private CombinedRcfResult getCombinedResult(List<RCFResultResponse> rcfResults, int numFeatures) {
         List<RcfResult> rcfResultLib = new ArrayList<>();
         for (RCFResultResponse result : rcfResults) {
-            rcfResultLib.add(new RcfResult(result.getRCFScore(), result.getConfidence(), result.getForestSize()));
+            rcfResultLib.add(new RcfResult(result.getRCFScore(), result.getConfidence(), result.getForestSize(), result.getAttribution()));
         }
-        return modelManager.combineRcfResults(rcfResultLib);
+        return modelManager.combineRcfResults(rcfResultLib, numFeatures);
     }
 
     void handleExecuteException(Exception ex, ActionListener<AnomalyResultResponse> listener, String adID) {
@@ -495,6 +496,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private int nodeCount;
         private final AtomicInteger responseCount;
         private final String adID;
+        private int numEnabledFeatures;
 
         RCFActionListener(
             List<RCFResultResponse> rcfResults,
@@ -508,7 +510,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             List<FeatureData> features,
             int nodeCount,
             AtomicInteger responseCount,
-            String adID
+            String adID,
+            int numEnabledFeatures
         ) {
             this.rcfResults = rcfResults;
             this.modelID = modelID;
@@ -522,6 +525,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.nodeCount = nodeCount;
             this.responseCount = responseCount;
             this.adID = adID;
+            this.numEnabledFeatures = numEnabledFeatures;
         }
 
         @Override
@@ -537,7 +541,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
                 if (nodeCount == responseCount.incrementAndGet()) {
-                    handleRCFResults();
+                    handleRCFResults(numEnabledFeatures);
                 }
             }
         }
@@ -550,12 +554,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
                 if (nodeCount == responseCount.incrementAndGet()) {
-                    handleRCFResults();
+                    handleRCFResults(numEnabledFeatures);
                 }
             }
         }
 
-        private void handleRCFResults() {
+        private void handleRCFResults(int numFeatures) {
             try {
                 AnomalyDetectionException exception = coldStartIfNoModel(failure, detector);
                 if (exception != null) {
@@ -568,7 +572,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     return;
                 }
 
-                CombinedRcfResult combinedResult = getCombinedResult(rcfResults);
+                CombinedRcfResult combinedResult = getCombinedResult(rcfResults, numFeatures);
                 double combinedScore = combinedResult.getScore();
 
                 final AtomicReference<AnomalyResultResponse> anomalyResultResponse = new AtomicReference<>();

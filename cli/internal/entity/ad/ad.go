@@ -172,3 +172,9 @@ type DetectorOutput struct {
 	LastUpdatedAt uint64          `json:"last_update_time"`
 	SchemaVersion int32           `json:"schema_version"`
 }
+
+//UpdateDetectorUserInput represents user's detector input for update
+type UpdateDetectorUserInput DetectorOutput
+
+// UpdateDetector represents detector's settings updated by api
+type UpdateDetector CreateDetector

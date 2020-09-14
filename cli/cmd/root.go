@@ -48,9 +48,10 @@ var password string
 var endpoint string
 
 var esadCmd = &cobra.Command{
-	Use:     cliName,
-	Short:   "Use the CLI to interact with the Anomaly Detection plugin in your ES cluster",
-	Long:    `The ESAD CLI is a tool to manage your Anomaly Detection plugin`,
+	Use:   cliName,
+	Short: "use the CLI to interact with the Anomaly Detection plugin in your ES cluster",
+	Long: fmt.Sprintf("Description:\n  " +
+		`The ESAD CLI is a tool to manage your Anomaly Detection plugin`),
 	Version: pkg.VERSION,
 }
 
@@ -66,7 +67,7 @@ func init() {
 	esadCmd.PersistentFlags().StringVar(&user, FlagUser, "", "user to use. Overrides config/env settings.")
 	esadCmd.PersistentFlags().StringVar(&password, FlagPassword, "", "password to use. Overrides config/env settings.")
 	esadCmd.PersistentFlags().StringVar(&endpoint, FlagEndpoint, "", "endpoint to use. Overrides config/env settings.")
-	esadCmd.PersistentFlags().StringVar(&profile, FlagProfile, "", "Use a specific profile from your credential file.")
+	esadCmd.PersistentFlags().StringVar(&profile, FlagProfile, "", "use a specific profile from your credential file.")
 
 }
 

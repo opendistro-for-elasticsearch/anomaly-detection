@@ -193,3 +193,17 @@ func (mr *MockControllerMockRecorder) StopDetectorByName(arg0, arg1, arg2 interf
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopDetectorByName", reflect.TypeOf((*MockController)(nil).StopDetectorByName), arg0, arg1, arg2)
 }
+
+// UpdateDetector mocks base method
+func (m *MockController) UpdateDetector(arg0 context.Context, arg1 ad.UpdateDetectorUserInput, arg2, arg3 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateDetector", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateDetector indicates an expected call of UpdateDetector
+func (mr *MockControllerMockRecorder) UpdateDetector(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDetector", reflect.TypeOf((*MockController)(nil).UpdateDetector), arg0, arg1, arg2, arg3)
+}

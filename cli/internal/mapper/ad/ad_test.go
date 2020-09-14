@@ -267,3 +267,106 @@ func TestMapToDetectorOutput(t *testing.T) {
 		assert.EqualError(t, err, "invalid request: 'Hour', only Minutes is supported")
 	})
 }
+
+func TestMapToUpdateDetector(t *testing.T) {
+	expected := ad.UpdateDetector{
+		Name:        "test-detector",
+		Description: "Test detector",
+		TimeField:   "timestamp",
+		Index:       []string{"order*"},
+		Features: []ad.Feature{
+			{
+				Name:             "total_order",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"total_order":{"sum":{"field":"value"}}}`),
+			},
+		},
+		Filter: []byte(`{"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}}`),
+		Interval: ad.Interval{Period: ad.Period{
+			Duration: 5,
+			Unit:     "Minutes",
+		}},
+		Delay: ad.Interval{Period: ad.Period{
+			Duration: 1,
+			Unit:     "Minutes",
+		}},
+	}
+	input := ad.UpdateDetectorUserInput{
+		ID:          "m4ccEnIBTXsGi3mvMt9p",
+		Name:        "test-detector",
+		Description: "Test detector",
+		TimeField:   "timestamp",
+		Index:       []string{"order*"},
+		Features: []ad.Feature{
+			{
+				Name:             "total_order",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"total_order":{"sum":{"field":"value"}}}`),
+			},
+		},
+		Filter:        []byte(`{"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}}`),
+		Interval:      "5m",
+		Delay:         "1m",
+		LastUpdatedAt: 1589441737319,
+		SchemaVersion: 0,
+	}
+	t.Run("maps input success", func(t *testing.T) {
+		actual, err := MapToUpdateDetector(input)
+		assert.NoError(t, err)
+		assert.EqualValues(t, *actual, expected)
+	})
+	t.Run("maps input failed", func(t *testing.T) {
+		corruptIntervalInput := input
+		corruptIntervalInput.Delay = "10h"
+		_, err := MapToUpdateDetector(corruptIntervalInput)
+		assert.EqualError(t, err, "invalid unit: 'h' in 10h, only m (Minutes) is supported")
+	})
+	t.Run("feature count failed", func(t *testing.T) {
+		corruptIntervalInput := input
+		corruptIntervalInput.Features = append(corruptIntervalInput.Features,
+			ad.Feature{
+				Name:             "avg_order",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"avg_order":{"avg":{"field":"value"}}}`),
+			},
+			ad.Feature{
+				Name:             "avg_order2",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"avg_order":{"avg":{"field":"value"}}}`),
+			},
+			ad.Feature{
+				Name:             "avg_order3",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"avg_order":{"avg":{"field":"value"}}}`),
+			}, ad.Feature{
+				Name:             "avg_order4",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"avg_order":{"avg":{"field":"value"}}}`),
+			},
+			ad.Feature{
+				Name:             "avg_order5",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"avg_order":{"avg":{"field":"value"}}}`),
+			},
+		)
+		_, err := MapToUpdateDetector(corruptIntervalInput)
+		assert.EqualError(t, err, "trying to update 6 features, only upto 5 features are allowed")
+	})
+	t.Run("feature duplicate", func(t *testing.T) {
+		corruptIntervalInput := input
+		corruptIntervalInput.Features = append(corruptIntervalInput.Features,
+			ad.Feature{
+				Name:             "avg_order",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"avg_order":{"avg":{"field":"value"}}}`),
+			},
+			ad.Feature{
+				Name:             "avg_order",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"avg_order":{"avg":{"field":"value"}}}`),
+			},
+		)
+		_, err := MapToUpdateDetector(corruptIntervalInput)
+		assert.EqualError(t, err, "feature avg_order is defined more than once")
+	})
+}

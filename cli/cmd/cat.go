@@ -35,21 +35,22 @@ var catCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no args, display usage
 		if len(args) < 1 {
-			if err := cmd.Usage(); err != nil {
-				fmt.Println(err)
-			}
+			displayError(cmd.Usage(), commandCat)
 			return
 		}
-		printDetectors(Println, cmd, args)
+		err := printDetectors(Println, cmd, args)
+		displayError(err, commandCat)
 	},
 }
 
+type Display func(*entity.DetectorOutput) error
+
 //printDetectors print detectors
-func printDetectors(f func(*entity.DetectorOutput), cmd *cobra.Command, detectors []string) {
+func printDetectors(display Display, cmd *cobra.Command, detectors []string) error {
 	idStatus, _ := cmd.Flags().GetBool("id")
 	commandHandler, err := getCommandHandler()
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 	// default is name
 	action := ad.GetAnomalyDetectorsByNamePattern
@@ -58,10 +59,9 @@ func printDetectors(f func(*entity.DetectorOutput), cmd *cobra.Command, detector
 	}
 	results, err := getDetectors(commandHandler, detectors, action)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
-	print(f, results)
+	return print(display, results)
 }
 
 func getDetectors(
@@ -89,13 +89,16 @@ func getDetectorsByID(commandHandler *ad.Handler, ID string) ([]*entity.Detector
 }
 
 //print displays the list of output.
-func print(f func(*entity.DetectorOutput), results []*entity.DetectorOutput) {
+func print(display Display, results []*entity.DetectorOutput) error {
 	if results == nil {
-		return
+		return nil
 	}
 	for _, d := range results {
-		f(d)
+		if err := display(d); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 //FPrint prints detector configuration on writer
@@ -110,11 +113,8 @@ func FPrint(writer io.Writer, d *entity.DetectorOutput) error {
 }
 
 //Println prints detector configuration on stdout
-func Println(d *entity.DetectorOutput) {
-	err := FPrint(os.Stdout, d)
-	if err != nil {
-		fmt.Println(err)
-	}
+func Println(d *entity.DetectorOutput) error {
+	return FPrint(os.Stdout, d)
 }
 
 func init() {

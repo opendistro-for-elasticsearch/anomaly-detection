@@ -111,3 +111,10 @@ func GetHandler(c *client.Client, u *client.UserConfig) *handler.Handler {
 	ctr := controller.New(os.Stdin, esc, g)
 	return handler.New(ctr)
 }
+
+func displayError(err error, cmdName string) {
+	if err != nil {
+		fmt.Println(cmdName, "command failed")
+		fmt.Println("Reason: ", err)
+	}
+}

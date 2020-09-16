@@ -17,11 +17,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
-const commandDownload = "download"
+const (
+	commandDownload   = "download"
+	flagInteractive   = "interactive"
+	fileExtensionJSON = "json"
+)
 
 //downloadCmd downloads detectors configuration on current working directory
 //based on detector id or name patter
@@ -44,12 +49,16 @@ var downloadCmd = &cobra.Command{
 //WriteInFile writes detector's configuration on file
 //file will be created inside current working directory,
 //with detector name as file name
-func WriteInFile(d *entity.DetectorOutput) error {
+func WriteInFile(cmd *cobra.Command, d *entity.DetectorOutput) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	filePath := filepath.Join(cwd, d.Name)
+	filePath := filepath.Join(cwd, fmt.Sprintf("%s.%s", d.Name, fileExtensionJSON))
+	interactive, _ := cmd.Flags().GetBool(flagInteractive)
+	if ok := isCreateFileAllowed(filePath, interactive); !ok {
+		return nil
+	}
 	f, err := os.Create(filePath)
 	defer func() {
 		f.Close()
@@ -60,8 +69,39 @@ func WriteInFile(d *entity.DetectorOutput) error {
 	return FPrint(f, d)
 }
 
+func isCreateFileAllowed(path string, interactive bool) bool {
+	if !interactive {
+		return true
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return true
+	}
+	return askForConfirmation(path)
+}
+
+func askForConfirmation(path string) bool {
+
+	fmt.Printf("overwrite %s? (y/n [n])", filepath.Base(path))
+	var response string
+	_, err := fmt.Fscanln(os.Stdin, &response)
+	if err != nil {
+		//Exit if for some reason, we are not able to accept user input
+		fmt.Printf("failed to accept value from user due to %s", err)
+		return false
+	}
+	switch strings.ToLower(response) {
+	case "y", "yes":
+		return true
+	case "n", "no":
+		return false
+	default:
+		return false
+	}
+}
+
 func init() {
 	esadCmd.AddCommand(downloadCmd)
 	downloadCmd.Flags().BoolP("name", "", true, "input is name or pattern")
 	downloadCmd.Flags().BoolP("id", "", false, "input is id")
+	downloadCmd.Flags().BoolP(flagInteractive, "i", false, "write a prompt before downloading a file that would overwrite an existing file.")
 }

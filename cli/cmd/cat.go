@@ -43,7 +43,7 @@ var catCmd = &cobra.Command{
 	},
 }
 
-type Display func(*entity.DetectorOutput) error
+type Display func(*cobra.Command, *entity.DetectorOutput) error
 
 //printDetectors print detectors
 func printDetectors(display Display, cmd *cobra.Command, detectors []string) error {
@@ -61,7 +61,7 @@ func printDetectors(display Display, cmd *cobra.Command, detectors []string) err
 	if err != nil {
 		return err
 	}
-	return print(display, results)
+	return print(cmd, display, results)
 }
 
 func getDetectors(
@@ -89,12 +89,12 @@ func getDetectorsByID(commandHandler *ad.Handler, ID string) ([]*entity.Detector
 }
 
 //print displays the list of output.
-func print(display Display, results []*entity.DetectorOutput) error {
+func print(cmd *cobra.Command, display Display, results []*entity.DetectorOutput) error {
 	if results == nil {
 		return nil
 	}
 	for _, d := range results {
-		if err := display(d); err != nil {
+		if err := display(cmd, d); err != nil {
 			return err
 		}
 	}
@@ -113,7 +113,7 @@ func FPrint(writer io.Writer, d *entity.DetectorOutput) error {
 }
 
 //Println prints detector configuration on stdout
-func Println(d *entity.DetectorOutput) error {
+func Println(cmd *cobra.Command, d *entity.DetectorOutput) error {
 	return FPrint(os.Stdout, d)
 }
 

@@ -17,6 +17,8 @@ import (
 	entity "esad/internal/entity/ad"
 	"esad/internal/handler/ad"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -33,28 +35,33 @@ var catCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no args, display usage
 		if len(args) < 1 {
-			if err := cmd.Usage(); err != nil {
-				fmt.Println(err)
-			}
+			displayError(cmd.Usage(), commandCat)
 			return
 		}
-		idStatus, _ := cmd.Flags().GetBool("id")
-		commandHandler, err := getCommandHandler()
-		if err != nil {
-			fmt.Println(err)
-		}
-		// default is name
-		action := ad.GetAnomalyDetectorsByNamePattern
-		if idStatus {
-			action = getDetectorsByID
-		}
-		results, err := getDetectors(commandHandler, args, action)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		printDetectors(results)
+		err := printDetectors(Println, cmd, args)
+		displayError(err, commandCat)
 	},
+}
+
+type Display func(*cobra.Command, *entity.DetectorOutput) error
+
+//printDetectors print detectors
+func printDetectors(display Display, cmd *cobra.Command, detectors []string) error {
+	idStatus, _ := cmd.Flags().GetBool("id")
+	commandHandler, err := getCommandHandler()
+	if err != nil {
+		return err
+	}
+	// default is name
+	action := ad.GetAnomalyDetectorsByNamePattern
+	if idStatus {
+		action = getDetectorsByID
+	}
+	results, err := getDetectors(commandHandler, detectors, action)
+	if err != nil {
+		return err
+	}
+	return print(cmd, display, results)
 }
 
 func getDetectors(
@@ -81,20 +88,33 @@ func getDetectorsByID(commandHandler *ad.Handler, ID string) ([]*entity.Detector
 	return []*entity.DetectorOutput{output}, nil
 }
 
-//printDetectors displays the list of output. Since this is json format, use indent function to
-// pretty print before printing on console
-func printDetectors(results []*entity.DetectorOutput) {
+//print displays the list of output.
+func print(cmd *cobra.Command, display Display, results []*entity.DetectorOutput) error {
 	if results == nil {
-		return
+		return nil
 	}
 	for _, d := range results {
-		formattedOutput, err := json.MarshalIndent(d, "", "  ")
-		if err != nil {
-			fmt.Println(err)
-			return
+		if err := display(cmd, d); err != nil {
+			return err
 		}
-		fmt.Println(string(formattedOutput))
 	}
+	return nil
+}
+
+//FPrint prints detector configuration on writer
+//Since this is json format, use indent function to pretty print before printing on writer
+func FPrint(writer io.Writer, d *entity.DetectorOutput) error {
+	formattedOutput, err := json.MarshalIndent(d, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(writer, string(formattedOutput))
+	return err
+}
+
+//Println prints detector configuration on stdout
+func Println(cmd *cobra.Command, d *entity.DetectorOutput) error {
+	return FPrint(os.Stdout, d)
 }
 
 func init() {

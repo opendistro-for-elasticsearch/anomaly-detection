@@ -39,17 +39,12 @@ var createCmd = &cobra.Command{
 		}
 		//If no args, display usage
 		if len(args) < 1 {
-			if err := cmd.Usage(); err != nil {
-				fmt.Println(err)
-			}
+			displayError(cmd.Usage(), commandCreate)
 			return
 		}
 		status, _ := cmd.Flags().GetBool(interactive)
 		err := createDetectors(args, status)
-		if err != nil {
-			fmt.Println(commandCreate, "command failed")
-			fmt.Println("Reason:", err)
-		}
+		displayError(err, commandCreate)
 	},
 }
 

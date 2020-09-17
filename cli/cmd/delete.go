@@ -14,7 +14,6 @@ package cmd
 
 import (
 	handler "esad/internal/handler/ad"
-	"fmt"
 
 	"github.com/spf13/cobra"
 )
@@ -30,9 +29,7 @@ var deleteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no args, display usage
 		if len(args) < 1 {
-			if err := cmd.Usage(); err != nil {
-				fmt.Println(err)
-			}
+			displayError(cmd.Usage(), commandDelete)
 			return
 		}
 		force, _ := cmd.Flags().GetBool("force")
@@ -42,10 +39,7 @@ var deleteCmd = &cobra.Command{
 			action = handler.DeleteAnomalyDetectorByID
 		}
 		err := deleteDetectors(args, force, action)
-		if err != nil {
-			fmt.Println(commandDelete, "command failed")
-			fmt.Println("Reason:", err)
-		}
+		displayError(err, commandDelete)
 	},
 }
 

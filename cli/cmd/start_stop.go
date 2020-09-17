@@ -15,7 +15,6 @@ package cmd
 import (
 	"esad/internal/client"
 	"esad/internal/handler/ad"
-	"fmt"
 
 	"github.com/spf13/cobra"
 )
@@ -32,16 +31,17 @@ var startCmd = &cobra.Command{
 	Short: "Start detectors based on an ID or name pattern",
 	Long:  `Start detectors based on a pattern. Use "" to make sure the name does not match with pwd lists'`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) < 1 {
+			displayError(cmd.Usage(), commandStop)
+			return
+		}
 		idStatus, _ := cmd.Flags().GetBool("id")
 		action := ad.StartAnomalyDetectorByNamePattern
 		if idStatus {
 			action = ad.StartAnomalyDetectorByID
 		}
 		err := execute(action, args)
-		if err != nil {
-			fmt.Println(commandStart, "command failed")
-			fmt.Println("Reason:", err)
-		}
+		displayError(err, commandStart)
 	},
 }
 
@@ -54,9 +54,7 @@ var stopCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no args, display usage
 		if len(args) < 1 {
-			if err := cmd.Usage(); err != nil {
-				fmt.Println(err)
-			}
+			displayError(cmd.Usage(), commandStop)
 			return
 		}
 		idStatus, _ := cmd.Flags().GetBool("id")
@@ -65,10 +63,7 @@ var stopCmd = &cobra.Command{
 			action = ad.StopAnomalyDetectorByID
 		}
 		err := execute(action, args)
-		if err != nil {
-			fmt.Println(commandStop, "command failed")
-			fmt.Println("Reason:", err)
-		}
+		displayError(err, commandStop)
 	},
 }
 

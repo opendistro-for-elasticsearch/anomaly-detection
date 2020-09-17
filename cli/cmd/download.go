@@ -25,6 +25,7 @@ import (
 const (
 	commandDownload   = "download"
 	flagInteractive   = "interactive"
+	flagOutput        = "output"
 	fileExtensionJSON = "json"
 )
 
@@ -50,11 +51,11 @@ var downloadCmd = &cobra.Command{
 //file will be created inside current working directory,
 //with detector name as file name
 func WriteInFile(cmd *cobra.Command, d *entity.DetectorOutput) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
+	output, _ := cmd.Flags().GetString(flagOutput)
+	if _, err := os.Stat(output); os.IsNotExist(err) {
+		return fmt.Errorf("output directory [%s] does not exists", output)
 	}
-	filePath := filepath.Join(cwd, fmt.Sprintf("%s.%s", d.Name, fileExtensionJSON))
+	filePath := filepath.Join(output, fmt.Sprintf("%s.%s", d.Name, fileExtensionJSON))
 	interactive, _ := cmd.Flags().GetBool(flagInteractive)
 	if ok := isCreateFileAllowed(filePath, interactive); !ok {
 		return nil
@@ -104,4 +105,9 @@ func init() {
 	downloadCmd.Flags().BoolP("name", "", true, "input is name or pattern")
 	downloadCmd.Flags().BoolP("id", "", false, "input is id")
 	downloadCmd.Flags().BoolP(flagInteractive, "i", false, "write a prompt before downloading a file that would overwrite an existing file.")
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Println("failed to find current working directory due to ", err)
+	}
+	downloadCmd.Flags().StringP(flagOutput, "o", cwd, "downloads detectors inside this folder path")
 }

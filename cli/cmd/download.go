@@ -24,7 +24,6 @@ import (
 
 const (
 	commandDownload   = "download"
-	flagInteractive   = "interactive"
 	flagOutput        = "output"
 	fileExtensionJSON = "json"
 )
@@ -56,8 +55,7 @@ func WriteInFile(cmd *cobra.Command, d *entity.DetectorOutput) error {
 		return fmt.Errorf("output directory [%s] does not exists", output)
 	}
 	filePath := filepath.Join(output, fmt.Sprintf("%s.%s", d.Name, fileExtensionJSON))
-	interactive, _ := cmd.Flags().GetBool(flagInteractive)
-	if ok := isCreateFileAllowed(filePath, interactive); !ok {
+	if ok := isCreateFileAllowed(filePath); !ok {
 		return nil
 	}
 	f, err := os.Create(filePath)
@@ -70,10 +68,7 @@ func WriteInFile(cmd *cobra.Command, d *entity.DetectorOutput) error {
 	return FPrint(f, d)
 }
 
-func isCreateFileAllowed(path string, interactive bool) bool {
-	if !interactive {
-		return true
-	}
+func isCreateFileAllowed(path string) bool {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return true
 	}
@@ -104,7 +99,6 @@ func init() {
 	esadCmd.AddCommand(downloadCmd)
 	downloadCmd.Flags().BoolP("name", "", true, "input is name or pattern")
 	downloadCmd.Flags().BoolP("id", "", false, "input is id")
-	downloadCmd.Flags().BoolP(flagInteractive, "i", false, "write a prompt before downloading a file that would overwrite an existing file.")
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Println("failed to find current working directory due to ", err)

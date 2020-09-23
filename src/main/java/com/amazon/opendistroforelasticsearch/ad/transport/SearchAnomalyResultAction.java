@@ -20,7 +20,7 @@ import org.elasticsearch.action.search.SearchResponse;
 
 public class SearchAnomalyResultAction extends ActionType<SearchResponse> {
     public static final SearchAnomalyResultAction INSTANCE = new SearchAnomalyResultAction();
-    public static final String NAME = "cluster:admin/ad/search/result";
+    public static final String NAME = "cluster:admin/opendistro/ad/result/search";
 
     private SearchAnomalyResultAction() {
         super(NAME, SearchResponse::new);

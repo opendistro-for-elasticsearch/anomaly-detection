@@ -20,7 +20,7 @@ import org.elasticsearch.action.search.SearchResponse;
 
 public class SearchAnomalyDetectorAction extends ActionType<SearchResponse> {
     public static final SearchAnomalyDetectorAction INSTANCE = new SearchAnomalyDetectorAction();
-    public static final String NAME = "cluster:admin/ad/search/detector";
+    public static final String NAME = "cluster:admin/opendistro/ad/detector/search";
 
     private SearchAnomalyDetectorAction() {
         super(NAME, SearchResponse::new);

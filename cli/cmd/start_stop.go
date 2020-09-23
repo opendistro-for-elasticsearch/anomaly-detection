@@ -15,6 +15,7 @@ package cmd
 import (
 	"esad/internal/client"
 	"esad/internal/handler/ad"
+	"fmt"
 
 	"github.com/spf13/cobra"
 )

@@ -74,8 +74,8 @@ public class SearchAnomalyResultActionTests extends ESIntegTestCase {
 
     @Test
     public void testSearchResultAction() {
-        Assert.assertNotNull(SearchAnomalyDetectorAction.INSTANCE.name());
-        Assert.assertEquals(SearchAnomalyDetectorAction.INSTANCE.name(), SearchAnomalyDetectorAction.NAME);
+        Assert.assertNotNull(SearchAnomalyResultAction.INSTANCE.name());
+        Assert.assertEquals(SearchAnomalyResultAction.INSTANCE.name(), SearchAnomalyResultAction.NAME);
     }
 
     @Test

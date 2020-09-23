@@ -40,11 +40,12 @@ const (
 //profilesCmd is main command for profile operations like list, create and delete
 var profilesCmd = &cobra.Command{
 	Use:   profileBaseCmdName + " [flags] [command] [sub command]",
-	Short: "A profile is a collection of settings and credentials that you can apply to an ESAD command",
-	Long: `A named profile is a collection of settings and credentials that you can apply to an ESAD command.
-           When you specify a profile for a command, its settings and credentials are used to run that command.
-           To configure a default profile for commands, specify the default profile in an environment variable (ESAD_PROFILE).
-           The ESAD CLI supports using any of the multiple named profiles that are stored in the configuration and credential files.`,
+	Short: "Manage collection of settings and credentials that you can apply to an ESAD command",
+	Long: fmt.Sprintf("Description:\n  " +
+		`A named profile is a collection of settings and credentials that you can apply to an ESAD command.
+  When you specify a profile for a command, its settings and credentials are used to run that command.
+  To configure a default profile for commands, specify the default profile in an environment variable (ESAD_PROFILE).
+  The ESAD CLI supports using any of the multiple named profiles that are stored in the configuration and credential files.`),
 }
 
 //createProfilesCmd creates profile interactively by prompting for name (distinct), user, endpoint, password.
@@ -77,7 +78,7 @@ var deleteProfileCmd = &cobra.Command{
 //listProfilesCmd lists profiles from config profile in tabular format.
 var listProfilesCmd = &cobra.Command{
 	Use:   listProfileCmdName,
-	Short: "lists named profiles",
+	Short: "Lists named profiles",
 	Long:  `A named profile is a collection of settings and credentials that you can apply to an ESAD command.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		displayProfiles()

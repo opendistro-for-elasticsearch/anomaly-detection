@@ -24,8 +24,9 @@ const commandDelete = "delete"
 //default input is name pattern, one can change this format to be id by passing --id flag
 var deleteCmd = &cobra.Command{
 	Use:   commandDelete + " [flags] [list of detectors]",
-	Short: "Deletes detectors",
-	Long:  `Deletes detectors based on a specified value. Use "" to make sure the name does not match with pwd lists'`,
+	Short: "Deletes detectors based on an id or name pattern",
+	Long: fmt.Sprintf("Description:\n  " +
+		`Deletes detectors based on a specified value. Use "" to make sure the name does not match with pwd lists'`),
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no args, display usage
 		if len(args) < 1 {

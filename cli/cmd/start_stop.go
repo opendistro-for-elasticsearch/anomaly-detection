@@ -28,8 +28,9 @@ const (
 //default input is name pattern, one can change this format to be id by passing --id flag
 var startCmd = &cobra.Command{
 	Use:   commandStart + " [flags] [list of detectors]",
-	Short: "Start detectors based on an ID or name pattern",
-	Long:  `Start detectors based on a pattern. Use "" to make sure the name does not match with pwd lists'`,
+	Short: "Start detectors based on an id or name pattern",
+	Long: fmt.Sprintf("Description:\n  " +
+		`Start detectors based on a pattern. Use "" to make sure the name does not match with pwd lists'`),
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			displayError(cmd.Usage(), commandStop)
@@ -50,7 +51,8 @@ var startCmd = &cobra.Command{
 var stopCmd = &cobra.Command{
 	Use:   commandStop + " [flags] [list of detectors]",
 	Short: "Stop detectors based on id or name pattern",
-	Long:  `Stops detectors based on pattern, use "" to make sure the name is not matched with pwd lists'`,
+	Long: fmt.Sprintf("Description:\n  " +
+		`Stops detectors based on pattern, use "" to make sure the name is not matched with pwd lists'`),
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no args, display usage
 		if len(args) < 1 {
@@ -69,11 +71,11 @@ var stopCmd = &cobra.Command{
 
 func init() {
 	esadCmd.AddCommand(startCmd)
-	startCmd.Flags().BoolP("name", "", true, "Input is name or pattern")
-	startCmd.Flags().BoolP("id", "", false, "Input is id")
+	startCmd.Flags().BoolP("name", "", true, "input is name or pattern")
+	startCmd.Flags().BoolP("id", "", false, "input is id")
 	esadCmd.AddCommand(stopCmd)
-	stopCmd.Flags().BoolP("name", "", true, "Input is name or pattern")
-	stopCmd.Flags().BoolP("id", "", false, "Input is id")
+	stopCmd.Flags().BoolP("name", "", true, "input is name or pattern")
+	stopCmd.Flags().BoolP("id", "", false, "input is id")
 }
 
 func execute(f func(*ad.Handler, string) error, detectors []string) error {

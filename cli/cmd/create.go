@@ -30,7 +30,8 @@ const (
 var createCmd = &cobra.Command{
 	Use:   commandCreate + " [list of file-path] [flags]",
 	Short: "Creates detectors based on configurations",
-	Long:  `Creates detectors based on a configuration specified by a file path`,
+	Long: fmt.Sprintf("Description:\n  " +
+		`Creates detectors based on a configuration specified by a file path`),
 	Run: func(cmd *cobra.Command, args []string) {
 		generate, _ := cmd.Flags().GetBool(generate)
 		if generate {

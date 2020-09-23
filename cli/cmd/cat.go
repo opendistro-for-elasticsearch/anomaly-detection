@@ -31,7 +31,8 @@ const (
 var catCmd = &cobra.Command{
 	Use:   commandCat + " [flags] [list of detectors]",
 	Short: "Concatenate and print detectors based on id or name pattern",
-	Long:  `concatenate and print detectors based on pattern, use "" to make sure the name is not matched with pwd lists'`,
+	Long: fmt.Sprintf("Description:\n  " +
+		`Concatenate and print detectors based on pattern, use "" to make sure the name is not matched with pwd lists'`),
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no args, display usage
 		if len(args) < 1 {

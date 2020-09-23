@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultAction;
 
-
 /**
  * This class consists of the REST handler to search anomaly results.
  */

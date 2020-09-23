@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static org.mockito.Mockito.mock;
+
 import org.apache.lucene.index.IndexNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
@@ -29,8 +31,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.mockito.Mockito.mock;
-
 public class SearchAnomalyResultActionTests extends ESIntegTestCase {
     private SearchAnomalyResultTransportAction action;
     private Task task;
@@ -40,11 +40,7 @@ public class SearchAnomalyResultActionTests extends ESIntegTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        action = new SearchAnomalyResultTransportAction(
-                mock(TransportService.class),
-                mock(ActionFilters.class),
-                client()
-        );
+        action = new SearchAnomalyResultTransportAction(mock(TransportService.class), mock(ActionFilters.class), client());
         task = mock(Task.class);
         response = new ActionListener<SearchResponse>() {
             @Override
@@ -62,10 +58,7 @@ public class SearchAnomalyResultActionTests extends ESIntegTestCase {
     @Test
     public void testSearchResponse() {
         // Will call response.onResponse as Index exists
-        Settings indexSettings = Settings.builder()
-                .put("number_of_shards", 5)
-                .put("number_of_replicas", 1)
-                .build();
+        Settings indexSettings = Settings.builder().put("number_of_shards", 5).put("number_of_replicas", 1).build();
         CreateIndexRequest indexRequest = new CreateIndexRequest("my-test-index", indexSettings);
         client().admin().indices().create(indexRequest).actionGet();
         SearchRequest searchRequest = new SearchRequest("my-test-index");

@@ -25,17 +25,12 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
-
 public class SearchAnomalyResultTransportAction extends HandledTransportAction<SearchRequest, SearchResponse> {
 
     private final Client client;
 
     @Inject
-    public SearchAnomalyResultTransportAction(
-            TransportService transportService,
-            ActionFilters actionFilters,
-            Client client
-    ) {
+    public SearchAnomalyResultTransportAction(TransportService transportService, ActionFilters actionFilters, Client client) {
         super(SearchAnomalyResultAction.NAME, transportService, actionFilters, SearchRequest::new);
         this.client = client;
     }

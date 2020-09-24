@@ -16,13 +16,13 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import org.elasticsearch.action.ActionType;
-import org.elasticsearch.action.search.SearchResponse;
 
-public class SearchAnomalyDetectorAction extends ActionType<SearchResponse> {
-    public static final SearchAnomalyDetectorAction INSTANCE = new SearchAnomalyDetectorAction();
-    public static final String NAME = "cluster:admin/ad/search/detector";
+public class StatsAnomalyDetectorAction extends ActionType<StatsAnomalyDetectorResponse> {
+    public static final StatsAnomalyDetectorAction INSTANCE = new StatsAnomalyDetectorAction();
+    public static final String NAME = "cluster:admin/opendistro/ad/detector/stats";
 
-    private SearchAnomalyDetectorAction() {
-        super(NAME, SearchResponse::new);
+    private StatsAnomalyDetectorAction() {
+        super(NAME, StatsAnomalyDetectorResponse::new);
     }
+
 }

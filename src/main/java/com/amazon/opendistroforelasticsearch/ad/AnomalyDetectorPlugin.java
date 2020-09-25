@@ -113,6 +113,10 @@ import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFResultTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
@@ -460,7 +464,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(CronAction.INSTANCE, CronTransportAction.class),
                 new ActionHandler<>(ADStatsNodesAction.INSTANCE, ADStatsNodesTransportAction.class),
                 new ActionHandler<>(ProfileAction.INSTANCE, ProfileTransportAction.class),
-                new ActionHandler<>(RCFPollingAction.INSTANCE, RCFPollingTransportAction.class)
+                new ActionHandler<>(RCFPollingAction.INSTANCE, RCFPollingTransportAction.class),
+                new ActionHandler<>(SearchAnomalyDetectorAction.INSTANCE, SearchAnomalyDetectorTransportAction.class),
+                new ActionHandler<>(SearchAnomalyResultAction.INSTANCE, SearchAnomalyResultTransportAction.class)
             );
     }
 

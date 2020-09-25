@@ -19,6 +19,7 @@ import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANO
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorAction;
 
 /**
  * This class consists of the REST handler to search anomaly detectors.
@@ -29,7 +30,7 @@ public class RestSearchAnomalyDetectorAction extends AbstractSearchAction<Anomal
     private final String SEARCH_ANOMALY_DETECTOR_ACTION = "search_anomaly_detector";
 
     public RestSearchAnomalyDetectorAction() {
-        super(URL_PATH, ANOMALY_DETECTORS_INDEX, AnomalyDetector.class);
+        super(URL_PATH, ANOMALY_DETECTORS_INDEX, AnomalyDetector.class, SearchAnomalyDetectorAction.INSTANCE);
     }
 
     @Override

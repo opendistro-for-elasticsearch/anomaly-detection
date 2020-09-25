@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.node.NodeClient;
@@ -57,13 +58,15 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
     private final String index;
     private final Class<T> clazz;
     private final String urlPath;
+    private final ActionType<SearchResponse> actionType;
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
-    public AbstractSearchAction(String urlPath, String index, Class<T> clazz) {
+    public AbstractSearchAction(String urlPath, String index, Class<T> clazz, ActionType<SearchResponse> actionType) {
         this.index = index;
         this.clazz = clazz;
         this.urlPath = urlPath;
+        this.actionType = actionType;
     }
 
     @Override
@@ -76,10 +79,10 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         searchSourceBuilder.fetchSource(getSourceContext(request));
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
         SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
-        return channel -> client.search(searchRequest, search(channel, this.clazz));
+        return channel -> client.execute(actionType, searchRequest, search(channel));
     }
 
-    private RestResponseListener<SearchResponse> search(RestChannel channel, Class<T> clazz) {
+    private RestResponseListener<SearchResponse> search(RestChannel channel) {
         return new RestResponseListener<SearchResponse>(channel) {
             @Override
             public RestResponse buildResponse(SearchResponse response) throws Exception {

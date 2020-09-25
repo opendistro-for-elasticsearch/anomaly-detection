@@ -17,17 +17,13 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import java.io.IOException;
 
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
-import com.amazon.opendistroforelasticsearch.ad.model.*;
-import com.amazon.opendistroforelasticsearch.ad.stats.ADStatsResponse;
-import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
-import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.rest.RestStatus;
+
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStatsResponse;
 
 public class StatsAnomalyDetectorResponse extends ActionResponse implements ToXContentObject {
     private ADStatsResponse adStatsResponse;

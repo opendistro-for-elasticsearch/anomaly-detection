@@ -15,11 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
-import com.amazon.opendistroforelasticsearch.ad.stats.ADStatsResponse;
-import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
-import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
@@ -32,10 +31,11 @@ import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
+import com.amazon.opendistroforelasticsearch.ad.stats.ADStatsResponse;
+import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
+import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener;
 
 public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<ADStatsRequest, StatsAnomalyDetectorResponse> {
 
@@ -45,11 +45,11 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
 
     @Inject
     public StatsAnomalyDetectorTransportAction(
-            TransportService transportService,
-            ActionFilters actionFilters,
-            Client client,
-            ADStats adStats,
-            ClusterService clusterService
+        TransportService transportService,
+        ActionFilters actionFilters,
+        Client client,
+        ADStats adStats,
+        ClusterService clusterService
 
     ) {
         super(StatsAnomalyDetectorAction.NAME, transportService, actionFilters, ADStatsRequest::new);
@@ -73,9 +73,9 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
     private void getStats(Client client, ActionListener<StatsAnomalyDetectorResponse> listener, ADStatsRequest adStatsRequest) {
         // Use MultiResponsesDelegateActionListener to execute 2 async requests and create the response once they finish
         MultiResponsesDelegateActionListener<ADStatsResponse> delegateListener = new MultiResponsesDelegateActionListener<>(
-                getRestStatsListener(listener),
-                2,
-                "Unable to return AD Stats"
+            getRestStatsListener(listener),
+            2,
+            "Unable to return AD Stats"
         );
 
         getClusterStats(client, delegateListener, adStatsRequest);
@@ -90,12 +90,10 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
      */
     private ActionListener<ADStatsResponse> getRestStatsListener(ActionListener<StatsAnomalyDetectorResponse> listener) {
         return ActionListener
-                .wrap(
-                        adStatsResponse -> {
-                            listener.onResponse(new StatsAnomalyDetectorResponse(adStatsResponse));
-                        },
-                        exception -> listener.onFailure(new ElasticsearchStatusException(exception.getMessage(), RestStatus.INTERNAL_SERVER_ERROR))
-                );
+            .wrap(
+                adStatsResponse -> { listener.onResponse(new StatsAnomalyDetectorResponse(adStatsResponse)); },
+                exception -> listener.onFailure(new ElasticsearchStatusException(exception.getMessage(), RestStatus.INTERNAL_SERVER_ERROR))
+            );
     }
 
     /**
@@ -107,18 +105,18 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
      * @param adStatsRequest Request containing stats to be retrieved
      */
     private void getClusterStats(
-            Client client,
-            MultiResponsesDelegateActionListener<ADStatsResponse> listener,
-            ADStatsRequest adStatsRequest
+        Client client,
+        MultiResponsesDelegateActionListener<ADStatsResponse> listener,
+        ADStatsRequest adStatsRequest
     ) {
         ADStatsResponse adStatsResponse = new ADStatsResponse();
         if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())) {
             if (clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
                 final SearchRequest request = client
-                        .prepareSearch(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-                        .setSize(0)
-                        .setTrackTotalHits(true)
-                        .request();
+                    .prepareSearch(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+                    .setSize(0)
+                    .setTrackTotalHits(true)
+                    .request();
                 client.search(request, ActionListener.wrap(indicesStatsResponse -> {
                     adStats.getStat(StatNames.DETECTOR_COUNT.getName()).setValue(indicesStatsResponse.getHits().getTotalHits().value);
                     adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
@@ -145,11 +143,11 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
         Map<String, Object> clusterStats = new HashMap<>();
         Set<String> statsToBeRetrieved = adStatsRequest.getStatsToBeRetrieved();
         adStats
-                .getClusterStats()
-                .entrySet()
-                .stream()
-                .filter(s -> statsToBeRetrieved.contains(s.getKey()))
-                .forEach(s -> clusterStats.put(s.getKey(), s.getValue().getValue()));
+            .getClusterStats()
+            .entrySet()
+            .stream()
+            .filter(s -> statsToBeRetrieved.contains(s.getKey()))
+            .forEach(s -> clusterStats.put(s.getKey(), s.getValue().getValue()));
         return clusterStats;
     }
 
@@ -162,9 +160,9 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
      * @param adStatsRequest Request containing stats to be retrieved
      */
     private void getNodeStats(
-            Client client,
-            MultiResponsesDelegateActionListener<ADStatsResponse> listener,
-            ADStatsRequest adStatsRequest
+        Client client,
+        MultiResponsesDelegateActionListener<ADStatsResponse> listener,
+        ADStatsRequest adStatsRequest
     ) {
         client.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
             ADStatsResponse restADStatsResponse = new ADStatsResponse();

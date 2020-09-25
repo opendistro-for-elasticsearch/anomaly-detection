@@ -29,8 +29,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorTransportAction;
 import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
@@ -119,6 +117,8 @@ import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorA
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
@@ -223,10 +223,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clusterService,
             anomalyDetectorRunner
         );
-        RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(
-            adStats,
-            this.nodeFilter
-        );
+        RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(adStats, this.nodeFilter);
         RestAnomalyDetectorJobAction anomalyDetectorJobAction = new RestAnomalyDetectorJobAction(
             settings,
             clusterService,

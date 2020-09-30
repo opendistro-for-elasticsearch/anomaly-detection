@@ -117,6 +117,8 @@ import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorA
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
@@ -221,11 +223,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clusterService,
             anomalyDetectorRunner
         );
-        RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(
-            adStats,
-            this.nodeFilter,
-            this.clusterService
-        );
+        RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(adStats, this.nodeFilter);
         RestAnomalyDetectorJobAction anomalyDetectorJobAction = new RestAnomalyDetectorJobAction(
             settings,
             clusterService,
@@ -466,7 +464,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(ProfileAction.INSTANCE, ProfileTransportAction.class),
                 new ActionHandler<>(RCFPollingAction.INSTANCE, RCFPollingTransportAction.class),
                 new ActionHandler<>(SearchAnomalyDetectorAction.INSTANCE, SearchAnomalyDetectorTransportAction.class),
-                new ActionHandler<>(SearchAnomalyResultAction.INSTANCE, SearchAnomalyResultTransportAction.class)
+                new ActionHandler<>(SearchAnomalyResultAction.INSTANCE, SearchAnomalyResultTransportAction.class),
+                new ActionHandler<>(StatsAnomalyDetectorAction.INSTANCE, StatsAnomalyDetectorTransportAction.class)
             );
     }
 

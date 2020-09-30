@@ -249,6 +249,7 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRunner',
         'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
         'com.amazon.opendistroforelasticsearch.ad.util.ParseUtils',
+        'com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorTransportAction'
 ]
 
 jacocoTestCoverageVerification {

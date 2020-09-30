@@ -18,36 +18,25 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 import static com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin.AD_BASE_URI;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.rest.BaseRestHandler;
-import org.elasticsearch.rest.BytesRestResponse;
-import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.rest.action.RestToXContentListener;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
-import com.amazon.opendistroforelasticsearch.ad.stats.ADStatsResponse;
-import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
-import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
-import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -65,12 +54,10 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
      *
      * @param adStats ADStats object
      * @param nodeFilter util class to get eligible data nodes
-     * @param clusterService ClusterService
      */
-    public RestStatsAnomalyDetectorAction(ADStats adStats, DiscoveryNodeFilterer nodeFilter, ClusterService clusterService) {
+    public RestStatsAnomalyDetectorAction(ADStats adStats, DiscoveryNodeFilterer nodeFilter) {
         this.adStats = adStats;
         this.nodeFilter = nodeFilter;
-        this.clusterService = clusterService;
     }
 
     @Override
@@ -84,7 +71,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
         ADStatsRequest adStatsRequest = getRequest(request);
-        return channel -> getStats(client, channel, adStatsRequest);
+        return channel -> client.execute(StatsAnomalyDetectorAction.INSTANCE, adStatsRequest, new RestToXContentListener<>(channel));
     }
 
     /**
@@ -139,116 +126,6 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
             }
         }
         return adStatsRequest;
-    }
-
-    /**
-     * Make the 2 requests to get the node and cluster statistics
-     *
-     * @param client Client
-     * @param channel Channel to send response
-     * @param adStatsRequest Request containing stats to be retrieved
-     */
-    private void getStats(Client client, RestChannel channel, ADStatsRequest adStatsRequest) {
-        // Use MultiResponsesDelegateActionListener to execute 2 async requests and create the response once they finish
-        MultiResponsesDelegateActionListener<ADStatsResponse> delegateListener = new MultiResponsesDelegateActionListener<>(
-            getRestStatsListener(channel),
-            2,
-            "Unable to return AD Stats"
-        );
-
-        getClusterStats(client, delegateListener, adStatsRequest);
-        getNodeStats(client, delegateListener, adStatsRequest);
-    }
-
-    /**
-     * Make async request to get the number of detectors in AnomalyDetector.ANOMALY_DETECTORS_INDEX if necessary
-     * and, onResponse, gather the cluster statistics
-     *
-     * @param client Client
-     * @param listener MultiResponsesDelegateActionListener to be used once both requests complete
-     * @param adStatsRequest Request containing stats to be retrieved
-     */
-    private void getClusterStats(
-        Client client,
-        MultiResponsesDelegateActionListener<ADStatsResponse> listener,
-        ADStatsRequest adStatsRequest
-    ) {
-        ADStatsResponse adStatsResponse = new ADStatsResponse();
-        if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())) {
-            if (clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
-                final SearchRequest request = client
-                    .prepareSearch(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-                    .setSize(0)
-                    .setTrackTotalHits(true)
-                    .request();
-                client.search(request, ActionListener.wrap(indicesStatsResponse -> {
-                    adStats.getStat(StatNames.DETECTOR_COUNT.getName()).setValue(indicesStatsResponse.getHits().getTotalHits().value);
-                    adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
-                    listener.onResponse(adStatsResponse);
-                }, e -> listener.onFailure(new RuntimeException("Failed to get AD cluster stats", e))));
-            } else {
-                adStats.getStat(StatNames.DETECTOR_COUNT.getName()).setValue(0L);
-                adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
-                listener.onResponse(adStatsResponse);
-            }
-        } else {
-            adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
-            listener.onResponse(adStatsResponse);
-        }
-    }
-
-    /**
-     * Make async request to get the Anomaly Detection statistics from each node and, onResponse, set the
-     * ADStatsNodesResponse field of ADStatsResponse
-     *
-     * @param client Client
-     * @param listener MultiResponsesDelegateActionListener to be used once both requests complete
-     * @param adStatsRequest Request containing stats to be retrieved
-     */
-    private void getNodeStats(
-        Client client,
-        MultiResponsesDelegateActionListener<ADStatsResponse> listener,
-        ADStatsRequest adStatsRequest
-    ) {
-        client.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
-            ADStatsResponse restADStatsResponse = new ADStatsResponse();
-            restADStatsResponse.setADStatsNodesResponse(adStatsResponse);
-            listener.onResponse(restADStatsResponse);
-        }, listener::onFailure));
-    }
-
-    /**
-     * Collect Cluster Stats into map to be retrieved
-     *
-     * @param adStatsRequest Request containing stats to be retrieved
-     * @return Map containing Cluster Stats
-     */
-    private Map<String, Object> getClusterStatsMap(ADStatsRequest adStatsRequest) {
-        Map<String, Object> clusterStats = new HashMap<>();
-        Set<String> statsToBeRetrieved = adStatsRequest.getStatsToBeRetrieved();
-        adStats
-            .getClusterStats()
-            .entrySet()
-            .stream()
-            .filter(s -> statsToBeRetrieved.contains(s.getKey()))
-            .forEach(s -> clusterStats.put(s.getKey(), s.getValue().getValue()));
-        return clusterStats;
-    }
-
-    /**
-     * Listener sends response once Node Stats and Cluster Stats are gathered
-     *
-     * @param channel Channel
-     * @return ActionListener for ADStatsResponse
-     */
-    private ActionListener<ADStatsResponse> getRestStatsListener(RestChannel channel) {
-        return ActionListener
-            .wrap(
-                adStatsResponse -> {
-                    channel.sendResponse(new BytesRestResponse(RestStatus.OK, adStatsResponse.toXContent(channel.newBuilder())));
-                },
-                exception -> channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, exception.getMessage()))
-            );
     }
 
     @Override

@@ -23,6 +23,7 @@ import java.util.Set;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -82,6 +83,11 @@ public final class RestHandlerUtils {
     public static XContentParser createXContentParser(RestChannel channel, BytesReference bytesReference) throws IOException {
         return XContentHelper
             .createParser(channel.request().getXContentRegistry(), LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON);
+    }
+
+    public static XContentParser createXContentParserFromRegistry(NamedXContentRegistry xContentRegistry, BytesReference bytesReference)
+        throws IOException {
+        return XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON);
     }
 
     public static String validateAnomalyDetector(AnomalyDetector anomalyDetector, int maxAnomalyFeatures) {

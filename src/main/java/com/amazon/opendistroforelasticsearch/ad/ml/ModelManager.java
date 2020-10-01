@@ -226,7 +226,7 @@ public class ModelManager {
                 double confidence = rcfResults.stream().mapToDouble(r -> r.getConfidence() * r.getForestSize()).sum() / Math
                     .max(rcfNumTrees, totalForestSize);
                 double[] attribution = combineAttribution(rcfResults, numFeatures, totalForestSize);
-                combinedResult = new CombinedRcfResult(score, confidence, combineAttribution(rcfResults, numFeatures, totalForestSize));
+                combinedResult = new CombinedRcfResult(score, confidence, attribution);
             }
         }
         return combinedResult;

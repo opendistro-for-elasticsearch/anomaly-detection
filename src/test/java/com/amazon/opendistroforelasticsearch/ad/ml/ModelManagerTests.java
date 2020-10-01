@@ -75,6 +75,7 @@ import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.returntypes.DiVector;
 import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 import com.google.gson.Gson;
 
@@ -142,6 +143,9 @@ public class ModelManagerTests {
     private String failModelId;
     private String successCheckpoint;
     private String failCheckpoint;
+    private double[] attribution;
+    private double[] point;
+    private DiVector attributionVec;
 
     @Mock
     private ActionListener<RcfResult> rcfResultListener;
@@ -171,8 +175,16 @@ public class ModelManagerTests {
         modelTtl = Duration.ofHours(1);
         checkpointInterval = Duration.ofHours(1);
         shingleSize = 1;
+        attribution = new double[] { 1, 1 };
+        attributionVec = new DiVector(attribution.length);
+        for (int i = 0; i < attribution.length; i++) {
+            attributionVec.high[i] = attribution[i];
+            attributionVec.low[i] = attribution[i] - 1;
+        }
+        point = new double[] { 2 };
 
-        rcf = RandomCutForest.builder().dimensions(numFeatures).sampleSize(numSamples).numberOfTrees(numTrees).build();
+        rcf = spy(RandomCutForest.builder().dimensions(numFeatures).sampleSize(numSamples).numberOfTrees(numTrees).build());
+        when(rcf.getAnomalyAttribution(point)).thenReturn(attributionVec);
 
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(10_000_000_000L);
 
@@ -267,28 +279,48 @@ public class ModelManagerTests {
     }
 
     private Object[] combineRcfResultsData() {
+        double[] attribution = new double[] { 1 };
         return new Object[] {
-            new Object[] { asList(), new CombinedRcfResult(0, 0) },
-            new Object[] { asList(new RcfResult(0, 0, 0)), new CombinedRcfResult(0, 0) },
-            new Object[] { asList(new RcfResult(1, 0, 50)), new CombinedRcfResult(1, 0) },
-            new Object[] { asList(new RcfResult(1, 0, 50), new RcfResult(2, 0, 50)), new CombinedRcfResult(1.5, 0) },
+            new Object[] { asList(), 1, new CombinedRcfResult(0, 0, new double[0]) },
+            new Object[] { asList(new RcfResult(0, 0, 0, new double[0])), 1, new CombinedRcfResult(0, 0, new double[0]) },
+            new Object[] { asList(new RcfResult(1, 0, 50, attribution)), 1, new CombinedRcfResult(1, 0, attribution) },
             new Object[] {
-                asList(new RcfResult(1, 0, 40), new RcfResult(2, 0, 60), new RcfResult(3, 0, 100)),
-                new CombinedRcfResult(2.3, 0) },
-            new Object[] { asList(new RcfResult(0, 1, 100)), new CombinedRcfResult(0, 1) },
-            new Object[] { asList(new RcfResult(0, 1, 50)), new CombinedRcfResult(0, 0.5) },
-            new Object[] { asList(new RcfResult(0, 0.5, 1000)), new CombinedRcfResult(0, 0.5) },
-            new Object[] { asList(new RcfResult(0, 1, 50), new RcfResult(0, 0, 50)), new CombinedRcfResult(0, 0.5) },
-            new Object[] { asList(new RcfResult(0, 0.5, 50), new RcfResult(0, 0.5, 50)), new CombinedRcfResult(0, 0.5) },
+                asList(new RcfResult(1, 0, 50, attribution), new RcfResult(2, 0, 50, attribution)),
+                1,
+                new CombinedRcfResult(1.5, 0, attribution) },
             new Object[] {
-                asList(new RcfResult(0, 1, 20), new RcfResult(0, 1, 30), new RcfResult(0, 0.5, 50)),
-                new CombinedRcfResult(0, 0.75) }, };
+                asList(new RcfResult(1, 0, 40, attribution), new RcfResult(2, 0, 60, attribution), new RcfResult(3, 0, 100, attribution)),
+                1,
+                new CombinedRcfResult(2.3, 0, attribution) },
+            new Object[] { asList(new RcfResult(0, 1, 100, attribution)), 1, new CombinedRcfResult(0, 1, attribution) },
+            new Object[] { asList(new RcfResult(0, 1, 50, attribution)), 1, new CombinedRcfResult(0, 0.5, attribution) },
+            new Object[] { asList(new RcfResult(0, 0.5, 1000, attribution)), 1, new CombinedRcfResult(0, 0.5, attribution) },
+            new Object[] {
+                asList(new RcfResult(0, 1, 50, attribution), new RcfResult(0, 0, 50, attribution)),
+                1,
+                new CombinedRcfResult(0, 0.5, attribution) },
+            new Object[] {
+                asList(new RcfResult(0, 0.5, 50, attribution), new RcfResult(0, 0.5, 50, attribution)),
+                1,
+                new CombinedRcfResult(0, 0.5, attribution) },
+            new Object[] {
+                asList(new RcfResult(0, 1, 20, attribution), new RcfResult(0, 1, 30, attribution), new RcfResult(0, 0.5, 50, attribution)),
+                1,
+                new CombinedRcfResult(0, 0.75, attribution) },
+            new Object[] {
+                asList(new RcfResult(1, 0, 20, new double[] { 0, 0, .5, .5 }), new RcfResult(1, 0, 80, new double[] { 0, .5, .25, .25 })),
+                2,
+                new CombinedRcfResult(1, 0, new double[] { .5, .5 }) },
+            new Object[] {
+                asList(new RcfResult(1, 0, 25, new double[] { 0, 0, 1, .0 }), new RcfResult(1, 0, 75, new double[] { 0, 0, 0, 1 })),
+                2,
+                new CombinedRcfResult(1, 0, new double[] { .25, .75 }) }, };
     }
 
     @Test
     @Parameters(method = "combineRcfResultsData")
-    public void combineRcfResults_returnExpected(List<RcfResult> results, CombinedRcfResult expected) {
-        assertEquals(expected, modelManager.combineRcfResults(results));
+    public void combineRcfResults_returnExpected(List<RcfResult> results, int numFeatures, CombinedRcfResult expected) {
+        assertEquals(expected, modelManager.combineRcfResults(results, numFeatures));
     }
 
     private ImmutableOpenMap<String, DiscoveryNode> createDataNodes(int numDataNodes) {
@@ -300,28 +332,29 @@ public class ModelManagerTests {
     }
 
     private Object[] getPartitionedForestSizesData() {
+        RandomCutForest rcf = RandomCutForest.builder().dimensions(1).sampleSize(10).numberOfTrees(100).build();
         return new Object[] {
             // one partition given sufficient large nodes
-            new Object[] { 100L, 100_000L, createDataNodes(10), pair(1, 100) },
+            new Object[] { rcf, 100L, 100_000L, createDataNodes(10), pair(1, 100) },
             // two paritions given sufficient medium nodes
-            new Object[] { 100L, 50_000L, createDataNodes(10), pair(2, 50) },
+            new Object[] { rcf, 100L, 50_000L, createDataNodes(10), pair(2, 50) },
             // ten partitions given sufficent small nodes
-            new Object[] { 100L, 10_000L, createDataNodes(10), pair(10, 10) },
+            new Object[] { rcf, 100L, 10_000L, createDataNodes(10), pair(10, 10) },
             // five double-sized paritions given fewer small nodes
-            new Object[] { 100L, 10_000L, createDataNodes(5), pair(5, 20) },
+            new Object[] { rcf, 100L, 10_000L, createDataNodes(5), pair(5, 20) },
             // one large-sized partition given one small node
-            new Object[] { 100L, 1_000L, createDataNodes(1), pair(1, 100) } };
+            new Object[] { rcf, 100L, 1_000L, createDataNodes(1), pair(1, 100) } };
     }
 
     @Test
     @Parameters(method = "getPartitionedForestSizesData")
     public void getPartitionedForestSizes_returnExpected(
+        RandomCutForest rcf,
         long totalModelSize,
         long heapSize,
         ImmutableOpenMap<String, DiscoveryNode> dataNodes,
         Entry<Integer, Integer> expected
     ) {
-
         when(modelManager.estimateModelSize(rcf)).thenReturn(totalModelSize);
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
         when(nodeFilter.getEligibleDataNodes()).thenReturn(dataNodes.values().toArray(DiscoveryNode.class));
@@ -330,15 +363,17 @@ public class ModelManagerTests {
     }
 
     private Object[] getPartitionedForestSizesLimitExceededData() {
+        RandomCutForest rcf = RandomCutForest.builder().dimensions(1).sampleSize(10).numberOfTrees(100).build();
         return new Object[] {
-            new Object[] { 101L, 1_000L, createDataNodes(1) },
-            new Object[] { 201L, 1_000L, createDataNodes(2) },
-            new Object[] { 3001L, 10_000L, createDataNodes(3) } };
+            new Object[] { rcf, 101L, 1_000L, createDataNodes(1) },
+            new Object[] { rcf, 201L, 1_000L, createDataNodes(2) },
+            new Object[] { rcf, 3001L, 10_000L, createDataNodes(3) } };
     }
 
     @Test(expected = LimitExceededException.class)
     @Parameters(method = "getPartitionedForestSizesLimitExceededData")
     public void getPartitionedForestSizes_throwLimitExceeded(
+        RandomCutForest rcf,
         long totalModelSize,
         long heapSize,
         ImmutableOpenMap<String, DiscoveryNode> dataNodes
@@ -379,11 +414,12 @@ public class ModelManagerTests {
         when(forest.getLambda()).thenReturn(rcfTimeDecay);
         when(forest.getSampleSize()).thenReturn(numSamples);
         when(forest.getTotalUpdates()).thenReturn((long) numSamples);
+        when(forest.getAnomalyAttribution(point)).thenReturn(attributionVec);
 
         ActionListener<RcfResult> listener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, rcfModelId, point, listener);
 
-        RcfResult expected = new RcfResult(score, 0, numTrees);
+        RcfResult expected = new RcfResult(score, 0, numTrees, new double[] { 0.5, 0.5 });
         verify(listener).onResponse(eq(expected));
 
         when(forest.getTotalUpdates()).thenReturn(numSamples + 1L);
@@ -825,12 +861,8 @@ public class ModelManagerTests {
 
     @Test
     public void maintenance_keepActiveRcfModel() {
-        String modelId = "testModelId";
-        double[] point = new double[0];
-        RandomCutForest forest = mock(RandomCutForest.class);
-        when(checkpointDao.getModelCheckpoint(modelId)).thenReturn(Optional.of(checkpoint));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
-        when(rcfSerde.toJson(forest)).thenReturn(checkpoint);
+        when(rcfSerde.fromJson(checkpoint)).thenReturn(rcf);
+        when(rcfSerde.toJson(rcf)).thenReturn(checkpoint);
         when(clock.instant()).thenReturn(Instant.MIN, Instant.EPOCH, Instant.EPOCH);
         modelManager.getRcfResult(detectorId, modelId, point, rcfResultListener);
 
@@ -1028,6 +1060,7 @@ public class ModelManagerTests {
             return null;
         }).when(checkpointDao).putModelCheckpoint(eq(rcfModelId), eq(checkpoint), any(ActionListener.class));
         when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
+        when(forest.getAnomalyAttribution(point)).thenReturn(attributionVec);
         when(rcfSerde.toJson(forest)).thenReturn(checkpoint);
         when(clock.instant()).thenReturn(Instant.MIN);
         ActionListener<RcfResult> scoreListener = mock(ActionListener.class);

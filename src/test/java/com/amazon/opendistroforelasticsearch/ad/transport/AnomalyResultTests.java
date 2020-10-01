@@ -218,10 +218,10 @@ public class AnomalyResultTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             ActionListener<RcfResult> listener = invocation.getArgument(3);
-            listener.onResponse(new RcfResult(0.2, 0, 100));
+            listener.onResponse(new RcfResult(0.2, 0, 100, new double[] { 1 }));
             return null;
         }).when(normalModelManager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
-        when(normalModelManager.combineRcfResults(any())).thenReturn(new CombinedRcfResult(0, 1.0d));
+        when(normalModelManager.combineRcfResults(any(), anyInt())).thenReturn(new CombinedRcfResult(0, 1.0d, new double[] { 1 }));
 
         rcfModelID = "123-rcf-1";
         when(normalModelManager.getRcfModelId(any(String.class), anyInt())).thenReturn(rcfModelID);
@@ -564,7 +564,7 @@ public class AnomalyResultTests extends AbstractADTest {
             @Override
             @SuppressWarnings("unchecked")
             public void handleResponse(T response) {
-                handler.handleResponse((T) new RCFResultResponse(1, 1, 100));
+                handler.handleResponse((T) new RCFResultResponse(1, 1, 100, new double[0]));
             }
 
             @Override
@@ -992,7 +992,7 @@ public class AnomalyResultTests extends AbstractADTest {
             threadPool
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
-            null, null, null, null, null, null, null, null, null, 0, new AtomicInteger(), null
+            null, null, null, null, null, null, null, null, null, 0, new AtomicInteger(), null, 1
         );
         listener.onFailure(null);
     }
@@ -1341,7 +1341,7 @@ public class AnomalyResultTests extends AbstractADTest {
             threadPool
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
-            null, "123-rcf-0", null, "123", null, null, null, null, null, 0, new AtomicInteger(), null
+            null, "123-rcf-0", null, "123", null, null, null, null, null, 0, new AtomicInteger(), null, 1
         );
         listener.onResponse(null);
         assertTrue(testAppender.containsMessage(AnomalyResultTransportAction.NULL_RESPONSE));

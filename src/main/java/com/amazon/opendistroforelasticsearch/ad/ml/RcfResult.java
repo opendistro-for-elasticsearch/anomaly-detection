@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -25,6 +26,7 @@ public class RcfResult {
     private final double score;
     private final double confidence;
     private final int forestSize;
+    private final double[] attribution;
 
     /**
      * Constructor with all arguments.
@@ -32,11 +34,13 @@ public class RcfResult {
      * @param score RCF score
      * @param confidence RCF confidence
      * @param forestSize number of RCF trees used for the score
+     * @param attribution anomaly score attribution
      */
-    public RcfResult(double score, double confidence, int forestSize) {
+    public RcfResult(double score, double confidence, int forestSize, double[] attribution) {
         this.score = score;
         this.confidence = confidence;
         this.forestSize = forestSize;
+        this.attribution = attribution;
     }
 
     /**
@@ -66,6 +70,15 @@ public class RcfResult {
         return forestSize;
     }
 
+    /**
+     * Returns anomaly score attribution.
+     *
+     * @return anomaly score attribution
+     */
+    public double[] getAttribution() {
+        return attribution;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o)
@@ -75,11 +88,12 @@ public class RcfResult {
         RcfResult that = (RcfResult) o;
         return Objects.equals(this.score, that.score)
             && Objects.equals(this.confidence, that.confidence)
-            && Objects.equals(this.forestSize, that.forestSize);
+            && Objects.equals(this.forestSize, that.forestSize)
+            && Arrays.equals(this.attribution, that.attribution);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(score, confidence, forestSize);
+        return Objects.hash(score, confidence, forestSize, attribution);
     }
 }

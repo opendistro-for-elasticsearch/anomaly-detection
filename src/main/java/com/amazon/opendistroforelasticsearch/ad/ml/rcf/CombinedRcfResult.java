@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.ml.rcf;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -24,16 +25,19 @@ public class CombinedRcfResult {
 
     private final double score;
     private final double confidence;
+    private final double[] attribution;
 
     /**
      * Constructor with all arguments.
      *
      * @param score combined RCF score
      * @param confidence confidence of the score
+     * @param attribution score attribution normalized to 1
      */
-    public CombinedRcfResult(double score, double confidence) {
+    public CombinedRcfResult(double score, double confidence, double[] attribution) {
         this.score = score;
         this.confidence = confidence;
+        this.attribution = attribution;
     }
 
     /**
@@ -54,6 +58,15 @@ public class CombinedRcfResult {
         return confidence;
     }
 
+    /**
+     * Return score attribution normalized to 1.
+     *
+     * @return score attribution normalized to 1
+     */
+    public double[] getAttribution() {
+        return attribution;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o)
@@ -61,11 +74,13 @@ public class CombinedRcfResult {
         if (o == null || getClass() != o.getClass())
             return false;
         CombinedRcfResult that = (CombinedRcfResult) o;
-        return Objects.equals(this.score, that.score) && Objects.equals(this.confidence, that.confidence);
+        return Objects.equals(this.score, that.score)
+            && Objects.equals(this.confidence, that.confidence)
+            && Arrays.equals(this.attribution, that.attribution);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(score, confidence);
+        return Objects.hash(score, confidence, attribution);
     }
 }

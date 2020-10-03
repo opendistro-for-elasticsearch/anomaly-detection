@@ -299,8 +299,8 @@ dependencies {
     compile group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
     compile group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
-    compile 'software.amazon.randomcutforest:randomcutforest-core:1.0-alpha'
-    compile 'software.amazon.randomcutforest:randomcutforest-serialization-json:1.0-alpha'
+    compile 'software.amazon.randomcutforest:randomcutforest-core:1.0'
+    compile 'software.amazon.randomcutforest:randomcutforest-serialization-json:1.0'
 
     compile "org.jacoco:org.jacoco.agent:0.8.5"
     compile ("org.jacoco:org.jacoco.ant:0.8.5") {

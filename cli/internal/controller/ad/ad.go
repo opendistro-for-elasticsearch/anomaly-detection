@@ -523,8 +523,8 @@ func (c controller) GetDetectorsByName(ctx context.Context, pattern string, disp
 }
 
 //UpdateDetector updates detector based on DetectorID, if force is enabled, it overrides without checking whether
-// user downloaded latest version before updating it, if restart is true, detector will be started after update
-func (c controller) UpdateDetector(ctx context.Context, input entity.UpdateDetectorUserInput, force bool, restart bool) error {
+// user downloaded latest version before updating it, if start is true, detector will be started after update
+func (c controller) UpdateDetector(ctx context.Context, input entity.UpdateDetectorUserInput, force bool, start bool) error {
 	if len(input.ID) < 1 {
 		return fmt.Errorf("detector Id cannot be empty")
 	}
@@ -549,9 +549,11 @@ func (c controller) UpdateDetector(ctx context.Context, input entity.UpdateDetec
 	if !proceed {
 		return nil
 	}
-	err := c.StopDetector(ctx, input.ID)
-	if err != nil {
-		return err
+	if force { // stop detector implicit since force is true
+		err := c.StopDetector(ctx, input.ID)
+		if err != nil {
+			return err
+		}
 	}
 	payload, err := mapper.MapToUpdateDetector(input)
 	if err != nil {
@@ -561,7 +563,7 @@ func (c controller) UpdateDetector(ctx context.Context, input entity.UpdateDetec
 	if err != nil {
 		return err
 	}
-	if !restart {
+	if !start {
 		return nil
 	}
 	return c.StartDetector(ctx, input.ID) // Start Detector if successfully updated it

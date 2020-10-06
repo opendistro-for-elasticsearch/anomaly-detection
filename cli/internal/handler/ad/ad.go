@@ -226,7 +226,7 @@ func (h *Handler) GetAnomalyDetectorByID(name string) (*entity.DetectorOutput, e
 }
 
 //UpdateDetector updates detector based on file configurations
-func (h *Handler) UpdateDetector(fileName string, force bool, restart bool) error {
+func (h *Handler) UpdateDetector(fileName string, force bool, start bool) error {
 	if len(fileName) < 1 {
 		return fmt.Errorf("file name cannot be empty")
 	}
@@ -248,7 +248,7 @@ func (h *Handler) UpdateDetector(fileName string, force bool, restart bool) erro
 		return fmt.Errorf("file %s cannot be accepted due to %v", fileName, err)
 	}
 	ctx := context.Background()
-	err = h.Controller.UpdateDetector(ctx, request, force, restart)
+	err = h.Controller.UpdateDetector(ctx, request, force, start)
 	if err != nil {
 		return err
 	}
@@ -257,6 +257,6 @@ func (h *Handler) UpdateDetector(fileName string, force bool, restart bool) erro
 }
 
 // UpdateAnomalyDetector updates detector based on file configurations
-func UpdateAnomalyDetector(h *Handler, fileName string, force bool, restart bool) error {
-	return h.UpdateDetector(fileName, force, restart)
+func UpdateAnomalyDetector(h *Handler, fileName string, force bool, start bool) error {
+	return h.UpdateDetector(fileName, force, start)
 }

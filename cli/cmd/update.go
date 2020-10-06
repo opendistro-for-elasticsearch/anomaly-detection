@@ -22,7 +22,7 @@ import (
 const (
 	commandUpdate = "update"
 	flagForce     = "force"
-	flagRestart   = "restart"
+	flagStart     = "start"
 )
 
 //updateCmd updates detectors based on file configuration
@@ -39,7 +39,7 @@ var updateCmd = &cobra.Command{
 			return
 		}
 		force, _ := cmd.Flags().GetBool(flagForce)
-		restart, _ := cmd.Flags().GetBool(flagRestart)
+		restart, _ := cmd.Flags().GetBool(flagStart)
 		err := updateDetectors(args, force, restart)
 		if err != nil {
 			fmt.Println(commandUpdate, "command failed")
@@ -51,7 +51,7 @@ var updateCmd = &cobra.Command{
 func init() {
 	esadCmd.AddCommand(updateCmd)
 	updateCmd.Flags().BoolP(flagForce, "f", false, "Will stop detector and update it")
-	updateCmd.Flags().BoolP(flagRestart, "r", false, "Will start detector if update is successful")
+	updateCmd.Flags().BoolP(flagStart, "r", false, "Will start detector if update is successful")
 }
 
 func updateDetectors(fileNames []string, force bool, restart bool) error {

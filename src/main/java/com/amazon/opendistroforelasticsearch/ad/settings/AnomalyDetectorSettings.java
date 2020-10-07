@@ -227,6 +227,18 @@ public final class AnomalyDetectorSettings {
     // TODO (kaituo): change to 4
     public static final int DEFAULT_MULTI_ENTITY_SHINGLE = 1;
 
+<<<<<<< HEAD
     // how many categorical fields we support
     public static final int CATEGORY_FIELD_LIMIT = 1;
+=======
+    // save partial zero-anomaly grade results after indexing pressure reaching the limit
+    public static final Setting<Float> INDEX_PRESSURE_SOFT_LIMIT = Setting
+        .floatSetting(
+            "opendistro.anomaly_detection.index_pressure_soft_limit",
+            0.8f,
+            0.0f,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+>>>>>>> Selectively store anomaly results when index pressure exceeds a threshold.
 }

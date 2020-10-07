@@ -32,8 +32,8 @@ import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 
 public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
@@ -110,7 +110,7 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
             boolean acknowledged = response.isAcknowledged();
             assertTrue(acknowledged);
         }, failure -> { throw new RuntimeException("should not recreate index"); }));
-        TestHelpers.waitForIndexCreationToComplete(client(), AnomalyResult.ANOMALY_RESULT_INDEX);
+        TestHelpers.waitForIndexCreationToComplete(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS);
     }
 
     public void testAnomalyResultIndexExistsAndNotRecreate() throws IOException {
@@ -122,15 +122,17 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
                         failure -> { throw new RuntimeException("should not recreate index"); }
                     )
             );
-        TestHelpers.waitForIndexCreationToComplete(client(), AnomalyResult.ANOMALY_RESULT_INDEX);
-        if (client().admin().indices().prepareExists(AnomalyResult.ANOMALY_RESULT_INDEX).get().isExists()) {
+        TestHelpers.waitForIndexCreationToComplete(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        if (client().admin().indices().prepareExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS).get().isExists()) {
             indices
                 .initAnomalyResultIndexIfAbsent(
                     TestHelpers
                         .createActionListener(
-                            response -> { throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX); },
+                            response -> {
+                                throw new RuntimeException("should not recreate index " + CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+                            },
                             failure -> {
-                                throw new RuntimeException("should not recreate index " + AnomalyResult.ANOMALY_RESULT_INDEX, failure);
+                                throw new RuntimeException("should not recreate index " + CommonName.ANOMALY_RESULT_INDEX_ALIAS, failure);
                             }
                         )
                 );

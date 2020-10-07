@@ -131,7 +131,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Map<String, Object> uiMetadata,
         Integer schemaVersion,
         Instant lastUpdateTime,
-        List<String> categoryField
+        List<String> categoryFields
     ) {
         if (Strings.isBlank(name)) {
             throw new IllegalArgumentException("Detector name should be set");
@@ -148,7 +148,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         if (shingleSize != null && shingleSize < 1) {
             throw new IllegalArgumentException("Shingle size must be a positive integer");
         }
-        if (categoryField != null && categoryField.size() > CATEGORY_FIELD_LIMIT) {
+        if (categoryFields != null && categoryFields.size() > CATEGORY_FIELD_LIMIT) {
             throw new IllegalArgumentException("We only support filtering data by one categorical variable");
         }
         this.detectorId = detectorId;
@@ -165,7 +165,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
-        this.categoryFields = categoryField;
+        this.categoryFields = categoryFields;
     }
 
     // TODO: remove after complete code merges. Created to not to touch too
@@ -540,7 +540,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     }
 
     public Integer getShingleSize() {
-        return getShingleSize(shingleSize, categoryFields);
+        return shingleSize;
     }
 
     /**

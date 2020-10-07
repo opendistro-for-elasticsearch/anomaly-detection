@@ -29,6 +29,7 @@ import static org.powermock.api.mockito.PowerMockito.when;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -105,6 +106,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionIn
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
+import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
@@ -411,6 +413,26 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             error
+        );
+    }
+
+    public static AnomalyResult randomMultiEntityAnomalyDetectResult(double score, double grade) {
+        return randomMutlEntityAnomalyDetectResult(score, grade, null);
+    }
+
+    public static AnomalyResult randomMutlEntityAnomalyDetectResult(double score, double grade, String error) {
+        return new AnomalyResult(
+            randomAlphaOfLength(5),
+            score,
+            grade,
+            randomDouble(),
+            ImmutableList.of(randomFeatureData(), randomFeatureData()),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            error,
+            Arrays.asList(new Entity(randomAlphaOfLength(5), randomAlphaOfLength(5)))
         );
     }
 

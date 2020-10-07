@@ -27,8 +27,16 @@ public final class AnomalyDetectorSettings {
 
     private AnomalyDetectorSettings() {}
 
-    public static final Setting<Integer> MAX_ANOMALY_DETECTORS = Setting
+    public static final Setting<Integer> MAX_SINGLE_ENTITY_ANOMALY_DETECTORS = Setting
         .intSetting("opendistro.anomaly_detection.max_anomaly_detectors", 1000, Setting.Property.NodeScope, Setting.Property.Dynamic);
+
+    public static final Setting<Integer> MAX_MULTI_ENTITY_ANOMALY_DETECTORS = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.max_multi_entity_anomaly_detectors",
+            10,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
     public static final Setting<Integer> MAX_ANOMALY_FEATURES = Setting
         .intSetting("opendistro.anomaly_detection.max_anomaly_features", 5, Setting.Property.NodeScope, Setting.Property.Dynamic);

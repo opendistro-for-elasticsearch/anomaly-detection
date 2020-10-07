@@ -421,7 +421,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         List<Setting<?>> systemSetting = ImmutableList
             .of(
-                AnomalyDetectorSettings.MAX_ANOMALY_DETECTORS,
+                AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
+                AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
                 AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
                 AnomalyDetectorSettings.REQUEST_TIMEOUT,
                 AnomalyDetectorSettings.DETECTION_INTERVAL,

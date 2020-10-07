@@ -76,6 +76,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private static final String SHINGLE_SIZE_FIELD = "shingle_size";
     private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String UI_METADATA_FIELD = "ui_metadata";
+    public static final String CATEGORY_FIELD = "category_field";
 
     private final String detectorId;
     private final Long version;
@@ -91,6 +92,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private final Map<String, Object> uiMetadata;
     private final Integer schemaVersion;
     private final Instant lastUpdateTime;
+    private final List<String> categoryField;
 
     /**
      * Constructor function.
@@ -109,7 +111,62 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * @param uiMetadata        metadata used by Kibana
      * @param schemaVersion     anomaly detector index mapping version
      * @param lastUpdateTime    detector's last update time
+     * @param categoryField     a list of partition fields
      */
+    public AnomalyDetector(
+        String detectorId,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration detectionInterval,
+        TimeConfiguration windowDelay,
+        Integer shingleSize,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime,
+        List<String> categoryField
+    ) {
+        if (Strings.isBlank(name)) {
+            throw new IllegalArgumentException("Detector name should be set");
+        }
+        if (timeField == null) {
+            throw new IllegalArgumentException("Time field should be set");
+        }
+        if (indices == null || indices.isEmpty()) {
+            throw new IllegalArgumentException("Indices should be set");
+        }
+        if (detectionInterval == null) {
+            throw new IllegalArgumentException("Detection interval should be set");
+        }
+        if (shingleSize != null && shingleSize < 1) {
+            throw new IllegalArgumentException("Shingle size must be a positive integer");
+        }
+        if (categoryField != null && categoryField.size() > 1) {
+            throw new IllegalArgumentException("We only support filtering data by one categorical variable");
+        }
+        this.detectorId = detectorId;
+        this.version = version;
+        this.name = name;
+        this.description = description;
+        this.timeField = timeField;
+        this.indices = indices;
+        this.featureAttributes = features;
+        this.filterQuery = filterQuery;
+        this.detectionInterval = detectionInterval;
+        this.windowDelay = windowDelay;
+        this.shingleSize = shingleSize;
+        this.uiMetadata = uiMetadata;
+        this.schemaVersion = schemaVersion;
+        this.lastUpdateTime = lastUpdateTime;
+        this.categoryField = categoryField;
+    }
+
+    // TODO: remove after complete code merges. Created to not to touch too
+    // many places in one PR.
     public AnomalyDetector(
         String detectorId,
         Long version,
@@ -155,6 +212,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
+        this.categoryField = null;
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {
@@ -188,6 +246,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         uiMetadata = input.readMap();
         schemaVersion = input.readInt();
         lastUpdateTime = input.readInstant();
+        this.categoryField = input.readStringList();
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -210,6 +269,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         output.writeMap(uiMetadata);
         output.writeInt(schemaVersion);
         output.writeInstant(lastUpdateTime);
+        output.writeStringCollection(categoryField);
     }
 
     @Override
@@ -235,6 +295,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         if (lastUpdateTime != null) {
             xContentBuilder.timeField(LAST_UPDATE_TIME_FIELD, LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli());
+        }
+        if (categoryField != null) {
+            xContentBuilder.field(CATEGORY_FIELD, categoryField.toArray());
         }
         return xContentBuilder.endObject();
     }
@@ -303,6 +366,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         int schemaVersion = 0;
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = null;
+        List<String> categoryField = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -359,6 +423,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 case LAST_UPDATE_TIME_FIELD:
                     lastUpdateTime = ParseUtils.toInstant(parser);
                     break;
+                case CATEGORY_FIELD:
+                    categoryField = (List) parser.list();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -378,7 +445,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             shingleSize,
             uiMetadata,
             schemaVersion,
-            lastUpdateTime
+            lastUpdateTime,
+            categoryField
         );
     }
 
@@ -498,4 +566,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return lastUpdateTime;
     }
 
+    public List<String> getCategoryField() {
+        return this.categoryField;
+    }
 }

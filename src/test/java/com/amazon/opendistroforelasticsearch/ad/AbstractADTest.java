@@ -18,7 +18,11 @@ package com.amazon.opendistroforelasticsearch.ad;
 import static org.hamcrest.Matchers.containsString;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,7 +36,15 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.apache.logging.log4j.util.StackLocatorUtil;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.support.PlainActionFuture;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.http.HttpRequest;
+import org.elasticsearch.http.HttpResponse;
+import org.elasticsearch.rest.RestRequest;
+import org.elasticsearch.rest.RestRequest.Method;
+import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.search.SearchModule;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.threadpool.FixedExecutorBuilder;
 import org.elasticsearch.threadpool.TestThreadPool;
@@ -41,6 +53,11 @@ import org.elasticsearch.transport.TransportInterceptor;
 import org.elasticsearch.transport.TransportService;
 
 import test.com.amazon.opendistroforelasticsearch.ad.util.FakeNode;
+
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 
 public class AbstractADTest extends ESTestCase {
 
@@ -215,5 +232,90 @@ public class AbstractADTest extends ESTestCase {
     ) {
         Exception e = expectThrows(exceptionType, () -> listener.actionGet());
         assertThat(e.getMessage(), containsString(msg));
+    }
+
+    @Override
+    protected NamedXContentRegistry xContentRegistry() {
+        SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
+        List<NamedXContentRegistry.Entry> entries = searchModule.getNamedXContents();
+        entries
+            .addAll(
+                Arrays
+                    .asList(
+                        AnomalyDetector.XCONTENT_REGISTRY,
+                        AnomalyResult.XCONTENT_REGISTRY,
+                        DetectorInternalState.XCONTENT_REGISTRY,
+                        AnomalyDetectorJob.XCONTENT_REGISTRY
+                    )
+            );
+        return new NamedXContentRegistry(entries);
+    }
+
+    protected RestRequest createRestRequest(Method method) {
+        return RestRequest.request(xContentRegistry(), new HttpRequest() {
+
+            @Override
+            public Method method() {
+                return method;
+            }
+
+            @Override
+            public String uri() {
+                return "/";
+            }
+
+            @Override
+            public BytesReference content() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public Map<String, List<String>> getHeaders() {
+                return new HashMap<>();
+            }
+
+            @Override
+            public List<String> strictCookies() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public HttpVersion protocolVersion() {
+                return HttpRequest.HttpVersion.HTTP_1_1;
+            }
+
+            @Override
+            public HttpRequest removeHeader(String header) {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public HttpResponse createResponse(RestStatus status, BytesReference content) {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public Exception getInboundException() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public void release() {
+                // TODO Auto-generated method stub
+
+            }
+
+            @Override
+            public HttpRequest releaseAndCopy() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+        }, null);
     }
 }

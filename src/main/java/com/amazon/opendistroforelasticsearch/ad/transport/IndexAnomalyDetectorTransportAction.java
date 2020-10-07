@@ -15,10 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_DETECTORS;
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
@@ -38,9 +36,8 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
-
+    private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);
     private final Client client;
-    private final Settings settings;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
@@ -58,7 +55,6 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = client;
         this.clusterService = clusterService;
-        this.settings = settings;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.xContentRegistry = xContentRegistry;
     }
@@ -71,12 +67,12 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         WriteRequest.RefreshPolicy refreshPolicy = request.getRefreshPolicy();
         AnomalyDetector detector = request.getDetector();
         RestRequest.Method method = request.getMethod();
-        TimeValue requestTimeout = REQUEST_TIMEOUT.get(settings);
-        Integer maxAnomalyDetectors = MAX_ANOMALY_DETECTORS.get(settings);
-        Integer maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
+        TimeValue requestTimeout = request.getRequestTimeout();
+        Integer maxSingleEntityAnomalyDetectors = request.getMaxSingleEntityAnomalyDetectors();
+        Integer maxMultiEntityAnomalyDetectors = request.getMaxMultiEntityAnomalyDetectors();
+        Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
 
         IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
-            settings,
             clusterService,
             client,
             listener,
@@ -87,7 +83,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
             refreshPolicy,
             detector,
             requestTimeout,
-            maxAnomalyDetectors,
+            maxSingleEntityAnomalyDetectors,
+            maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
             xContentRegistry
@@ -95,7 +92,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         try {
             indexAnomalyDetectorActionHandler.start();
         } catch (Exception e) {
-            logger.error(e);
+            LOG.error(e);
         }
     }
 }

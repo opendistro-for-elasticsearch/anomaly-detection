@@ -18,8 +18,9 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DETECTION_INTERVAL;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DETECTION_WINDOW_DELAY;
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_DETECTORS;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
@@ -65,15 +66,13 @@ import com.google.common.collect.ImmutableList;
 public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
 
     private static final String INDEX_ANOMALY_DETECTOR_ACTION = "index_anomaly_detector_action";
-    private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final Logger logger = LogManager.getLogger(RestIndexAnomalyDetectorAction.class);
-    private final ClusterService clusterService;
-    private final Settings settings;
 
     private volatile TimeValue requestTimeout;
     private volatile TimeValue detectionInterval;
     private volatile TimeValue detectionWindowDelay;
-    private volatile Integer maxAnomalyDetectors;
+    private volatile Integer maxSingleEntityDetectors;
+    private volatile Integer maxMultiEntityDetectors;
     private volatile Integer maxAnomalyFeatures;
 
     public RestIndexAnomalyDetectorAction(
@@ -81,20 +80,23 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
         ClusterService clusterService,
         AnomalyDetectionIndices anomalyDetectionIndices
     ) {
-        this.settings = settings;
-        this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         this.detectionInterval = DETECTION_INTERVAL.get(settings);
         this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(settings);
-        this.maxAnomalyDetectors = MAX_ANOMALY_DETECTORS.get(settings);
+        this.maxSingleEntityDetectors = MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings);
+        this.maxMultiEntityDetectors = MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings);
         this.maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
-        this.clusterService = clusterService;
         // TODO: will add more cluster setting consumer later
         // TODO: inject ClusterSettings only if clusterService is only used to get ClusterSettings
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(DETECTION_INTERVAL, it -> detectionInterval = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(DETECTION_WINDOW_DELAY, it -> detectionWindowDelay = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_DETECTORS, it -> maxAnomalyDetectors = it);
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(MAX_SINGLE_ENTITY_ANOMALY_DETECTORS, it -> maxSingleEntityDetectors = it);
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(MAX_MULTI_ENTITY_ANOMALY_DETECTORS, it -> maxMultiEntityDetectors = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
     }
 
@@ -131,7 +133,11 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
             primaryTerm,
             refreshPolicy,
             detector,
-            method
+            method,
+            requestTimeout,
+            maxSingleEntityDetectors,
+            maxMultiEntityDetectors,
+            maxAnomalyFeatures
         );
 
         return channel -> client

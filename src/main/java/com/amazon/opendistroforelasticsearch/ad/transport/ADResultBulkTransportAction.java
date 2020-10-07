@@ -47,7 +47,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 
 public class ADResultBulkTransportAction extends HandledTransportAction<ADResultBulkRequest, BulkResponse> {
 
-    private static final Logger LOG = LogManager.getLogger(ADResultBulkAction.class);
+    private static final Logger LOG = LogManager.getLogger(ADResultBulkTransportAction.class);
     private IndexingPressure indexingPressure;
     private final long primaryAndCoordinatingLimits;
     private float softLimit;
@@ -79,7 +79,6 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
         // Write all until index pressure (global indexing memory pressure) is less than 80% of 10% of heap. Otherwise, index
         // all non-zero anomaly grade index requests and index zero anomaly grade index requests with probability (1 - index pressure).
         long totalBytes = indexingPressure.getCurrentCombinedCoordinatingAndPrimaryBytes() + indexingPressure.getCurrentReplicaBytes();
-        LOG.info(primaryAndCoordinatingLimits + " " + totalBytes);
         float indexingPressurePercent = (float) totalBytes / primaryAndCoordinatingLimits;
 
         BulkRequest bulkRequest = new BulkRequest();

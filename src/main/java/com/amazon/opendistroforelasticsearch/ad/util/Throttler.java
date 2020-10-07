@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.elasticsearch.action.ActionRequest;
+import org.elasticsearch.common.inject.Inject;
 
 /**
  * Utility functions for throttling query.
@@ -33,6 +34,12 @@ public class Throttler {
     private final ConcurrentHashMap<String, Map.Entry<ActionRequest, Instant>> negativeCache;
     private final Clock clock;
 
+    /**
+     * Inject annotation required by Guice to instantiate EntityResultTransportAction (transitive dependency)
+     * (EntityResultTransportAction &gt; ResultHandler &gt; ClientUtil &gt; Throttler)
+     * @param clock a UTC clock
+     */
+    @Inject
     public Throttler(Clock clock) {
         this.negativeCache = new ConcurrentHashMap<>();
         this.clock = clock;

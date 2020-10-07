@@ -32,6 +32,16 @@ public class AnomalyResultTests extends ESTestCase {
         detectResultString = detectResultString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
-        assertEquals("Parsing anomaly detect result doesn't work", detectResult, parsedDetectResult);
+        assertEquals(
+            "Parsing anomaly detect result doesn't work",
+            // String.format(
+            // Locale.ROOT,
+            // "\"Parsing anomaly detect result doesn't work\". Expected %s, but get %s",
+            // detectResult,
+            // parsedDetectResult
+            // ),
+            detectResult,
+            parsedDetectResult
+        );
     }
 }

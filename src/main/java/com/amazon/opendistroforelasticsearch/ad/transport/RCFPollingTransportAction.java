@@ -38,6 +38,7 @@ import org.elasticsearch.transport.TransportService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelPartitioner;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
 /**
@@ -52,6 +53,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
 
     private final TransportService transportService;
     private final ModelManager modelManager;
+    private final ModelPartitioner modelPartitioner;
     private final HashRing hashRing;
     private final TransportRequestOptions option;
     private final ClusterService clusterService;
@@ -62,12 +64,14 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
         TransportService transportService,
         Settings settings,
         ModelManager modelManager,
+        ModelPartitioner modelPartitioner,
         HashRing hashRing,
         ClusterService clusterService
     ) {
         super(RCFPollingAction.NAME, transportService, actionFilters, RCFPollingRequest::new);
         this.transportService = transportService;
         this.modelManager = modelManager;
+        this.modelPartitioner = modelPartitioner;
         this.hashRing = hashRing;
         this.option = TransportRequestOptions
             .builder()
@@ -82,7 +86,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
 
         String adID = request.getAdID();
 
-        String rcfModelID = modelManager.getRcfModelId(adID, 0);
+        String rcfModelID = modelPartitioner.getRcfModelId(adID, 0);
 
         Optional<DiscoveryNode> rcfNode = hashRing.getOwningNode(rcfModelID.toString());
         if (!rcfNode.isPresent()) {

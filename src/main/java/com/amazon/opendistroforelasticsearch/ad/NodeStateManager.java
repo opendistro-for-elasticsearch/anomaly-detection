@@ -13,12 +13,13 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.ad.transport;
+package com.amazon.opendistroforelasticsearch.ad;
 
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +30,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
@@ -36,22 +38,25 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelPartitioner;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.transport.BackPressureRouting;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 
 /**
- * ADStateManager is used by transport layer to manage AnomalyDetector object
- * and the number of partitions for a detector id.
+ * NodeStateManager is used to manage states shared by transport and ml components
+ * like AnomalyDetector object
  *
  */
-public class TransportStateManager {
-    private static final Logger LOG = LogManager.getLogger(TransportStateManager.class);
-    private ConcurrentHashMap<String, TransportState> transportStates;
+public class NodeStateManager implements MaintenanceState, CleanState {
+    private static final Logger LOG = LogManager.getLogger(NodeStateManager.class);
+    private ConcurrentHashMap<String, NodeState> states;
     private Client client;
-    private ModelManager modelManager;
+    private ModelPartitioner modelPartitioner;
     private NamedXContentRegistry xContentRegistry;
     private ClientUtil clientUtil;
     // map from ES node id to the node's backpressureMuter
@@ -59,27 +64,42 @@ public class TransportStateManager {
     private final Clock clock;
     private final Settings settings;
     private final Duration stateTtl;
+    // last time we are throttled due to too much index pressure
+    private Instant lastIndexThrottledTime;
 
     public static final String NO_ERROR = "no_error";
 
-    public TransportStateManager(
+    /**
+     * Constructor
+     *
+     * @param client Client to make calls to ElasticSearch
+     * @param xContentRegistry ES named content registry
+     * @param settings ES settings
+     * @param clientUtil AD Client utility
+     * @param clock A UTC clock
+     * @param stateTtl Max time to keep state in memory
+     * @param modelPartitioner Used to partiton a RCF forest
+    
+     */
+    public NodeStateManager(
         Client client,
         NamedXContentRegistry xContentRegistry,
-        ModelManager modelManager,
         Settings settings,
         ClientUtil clientUtil,
         Clock clock,
-        Duration stateTtl
+        Duration stateTtl,
+        ModelPartitioner modelPartitioner
     ) {
-        this.transportStates = new ConcurrentHashMap<>();
+        this.states = new ConcurrentHashMap<>();
         this.client = client;
-        this.modelManager = modelManager;
+        this.modelPartitioner = modelPartitioner;
         this.xContentRegistry = xContentRegistry;
         this.clientUtil = clientUtil;
         this.backpressureMuter = new ConcurrentHashMap<>();
         this.clock = clock;
         this.settings = settings;
         this.stateTtl = stateTtl;
+        this.lastIndexThrottledTime = Instant.MIN;
     }
 
     /**
@@ -90,20 +110,30 @@ public class TransportStateManager {
      * @throws LimitExceededException when there is no sufficient resource available
      */
     public int getPartitionNumber(String adID, AnomalyDetector detector) {
-        TransportState state = transportStates.get(adID);
+        NodeState state = states.get(adID);
         if (state != null && state.getPartitonNumber() > 0) {
             return state.getPartitonNumber();
         }
 
-        int partitionNum = modelManager.getPartitionedForestSizes(detector).getKey();
-        state = transportStates.computeIfAbsent(adID, id -> new TransportState(id, clock));
+        int partitionNum = modelPartitioner.getPartitionedForestSizes(detector).getKey();
+        state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));
         state.setPartitonNumber(partitionNum);
 
         return partitionNum;
     }
 
+    /**
+     * Get Detector config object if present
+     * @param adID detector Id
+     * @return the Detecor config object or empty Optional
+     */
+    public Optional<AnomalyDetector> getAnomalyDetectorIfPresent(String adID) {
+        NodeState state = states.get(adID);
+        return Optional.ofNullable(state).map(NodeState::getDetectorDef);
+    }
+
     public void getAnomalyDetector(String adID, ActionListener<Optional<AnomalyDetector>> listener) {
-        TransportState state = transportStates.get(adID);
+        NodeState state = states.get(adID);
         if (state != null && state.getDetectorDef() != null) {
             listener.onResponse(Optional.of(state.getDetectorDef()));
         } else {
@@ -127,7 +157,12 @@ public class TransportStateManager {
             ) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId());
-                TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id, clock));
+                // end execution if all features are disabled
+                if (detector.getEnabledFeatureIds().isEmpty()) {
+                    listener.onFailure(new EndRunException(adID, CommonErrorMessages.ALL_FEATURES_DISABLED_ERR_MSG, true));
+                    return;
+                }
+                NodeState state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));
                 state.setDetectorDef(detector);
 
                 listener.onResponse(Optional.of(detector));
@@ -145,13 +180,13 @@ public class TransportStateManager {
      * @param listener listener to handle get request
      */
     public void getDetectorCheckpoint(String adID, ActionListener<Boolean> listener) {
-        TransportState state = transportStates.get(adID);
+        NodeState state = states.get(adID);
         if (state != null && state.doesCheckpointExists()) {
             listener.onResponse(Boolean.TRUE);
             return;
         }
 
-        GetRequest request = new GetRequest(CommonName.CHECKPOINT_INDEX_NAME, modelManager.getRcfModelId(adID, 0));
+        GetRequest request = new GetRequest(CommonName.CHECKPOINT_INDEX_NAME, modelPartitioner.getRcfModelId(adID, 0));
 
         clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetCheckpointResponse(adID, listener));
     }
@@ -161,7 +196,7 @@ public class TransportStateManager {
             if (response == null || !response.isExists()) {
                 listener.onResponse(Boolean.FALSE);
             } else {
-                TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id, clock));
+                NodeState state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));
                 state.setCheckpointExists(true);
                 listener.onResponse(Boolean.TRUE);
             }
@@ -173,8 +208,9 @@ public class TransportStateManager {
      *
      * @param adID detector ID
      */
+    @Override
     public void clear(String adID) {
-        transportStates.remove(adID);
+        states.remove(adID);
     }
 
     /**
@@ -183,18 +219,9 @@ public class TransportStateManager {
      * java.util.ConcurrentModificationException.
      *
      */
+    @Override
     public void maintenance() {
-        transportStates.entrySet().stream().forEach(entry -> {
-            String detectorId = entry.getKey();
-            try {
-                TransportState state = entry.getValue();
-                if (state.expired(stateTtl)) {
-                    transportStates.remove(detectorId);
-                }
-            } catch (Exception e) {
-                LOG.warn("Failed to finish maintenance for detector id " + detectorId, e);
-            }
-        });
+        maintenance(states, stateTtl);
     }
 
     public boolean isMuted(String nodeId) {
@@ -232,7 +259,7 @@ public class TransportStateManager {
      * @return last error for the detector
      */
     public String getLastDetectionError(String adID) {
-        return Optional.ofNullable(transportStates.get(adID)).flatMap(state -> state.getLastDetectionError()).orElse(NO_ERROR);
+        return Optional.ofNullable(states.get(adID)).flatMap(state -> state.getLastDetectionError()).orElse(NO_ERROR);
     }
 
     /**
@@ -241,7 +268,7 @@ public class TransportStateManager {
      * @param error error, can be null
      */
     public void setLastDetectionError(String adID, String error) {
-        TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id, clock));
+        NodeState state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));
         state.setLastDetectionError(error);
     }
 
@@ -251,7 +278,7 @@ public class TransportStateManager {
      * @param exception exception, can be null
      */
     public void setLastColdStartException(String adID, AnomalyDetectionException exception) {
-        TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id, clock));
+        NodeState state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));
         state.setLastColdStartException(exception);
     }
 
@@ -262,7 +289,7 @@ public class TransportStateManager {
      * @return last cold start exception for the detector
      */
     public Optional<AnomalyDetectionException> fetchColdStartException(String adID) {
-        TransportState state = transportStates.get(adID);
+        NodeState state = states.get(adID);
         if (state == null) {
             return Optional.empty();
         }
@@ -279,7 +306,7 @@ public class TransportStateManager {
      * @return running or not
      */
     public boolean isColdStartRunning(String adID) {
-        TransportState state = transportStates.get(adID);
+        NodeState state = states.get(adID);
         if (state != null) {
             return state.isColdStartRunning();
         }
@@ -290,10 +317,24 @@ public class TransportStateManager {
     /**
      * Mark the cold start status of the detector
      * @param adID detector ID
-     * @param running whether it is running
+     * @return a callback when cold start is done
      */
-    public void setColdStartRunning(String adID, boolean running) {
-        TransportState state = transportStates.computeIfAbsent(adID, id -> new TransportState(id, clock));
-        state.setColdStartRunning(running);
+    public Releasable markColdStartRunning(String adID) {
+        NodeState state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));
+        state.setColdStartRunning(true);
+        return () -> {
+            NodeState nodeState = states.get(adID);
+            if (nodeState != null) {
+                nodeState.setColdStartRunning(false);
+            }
+        };
+    }
+
+    public Instant getLastIndexThrottledTime() {
+        return lastIndexThrottledTime;
+    }
+
+    public void setLastIndexThrottledTime(Instant lastIndexThrottledTime) {
+        this.lastIndexThrottledTime = lastIndexThrottledTime;
     }
 }

@@ -36,10 +36,6 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
 
 public class AnomalyResultRequest extends ActionRequest implements ToXContentObject {
-    static final String INVALID_TIMESTAMP_ERR_MSG = "timestamp is invalid";
-    static final String START_JSON_KEY = "start";
-    static final String END_JSON_KEY = "end";
-
     private String adID;
     // time range start and end. Unit: epoch milliseconds
     private long start;
@@ -87,7 +83,7 @@ public class AnomalyResultRequest extends ActionRequest implements ToXContentObj
         }
         if (start <= 0 || end <= 0 || start > end) {
             validationException = addValidationError(
-                String.format(Locale.ROOT, "%s: start %d, end %d", INVALID_TIMESTAMP_ERR_MSG, start, end),
+                String.format(Locale.ROOT, "%s: start %d, end %d", CommonErrorMessages.INVALID_TIMESTAMP_ERR_MSG, start, end),
                 validationException
             );
         }
@@ -98,8 +94,8 @@ public class AnomalyResultRequest extends ActionRequest implements ToXContentObj
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
         builder.field(CommonMessageAttributes.ID_JSON_KEY, adID);
-        builder.field(START_JSON_KEY, start);
-        builder.field(END_JSON_KEY, end);
+        builder.field(CommonMessageAttributes.START_JSON_KEY, start);
+        builder.field(CommonMessageAttributes.END_JSON_KEY, end);
         builder.endObject();
         return builder;
     }

@@ -44,6 +44,7 @@ type Controller interface {
 	StopDetectorByName(context.Context, string, bool) error
 	DeleteDetectorByName(context.Context, string, bool, bool) error
 	GetDetectorsByName(context.Context, string, bool) ([]*entity.DetectorOutput, error)
+	UpdateDetector(context.Context, entity.UpdateDetectorUserInput, bool, bool) error
 }
 
 type controller struct {
@@ -519,4 +520,51 @@ func (c controller) GetDetectorsByName(ctx context.Context, pattern string, disp
 		bar.Finish()
 	}
 	return output, nil
+}
+
+//UpdateDetector updates detector based on DetectorID, if force is enabled, it overrides without checking whether
+// user downloaded latest version before updating it, if start is true, detector will be started after update
+func (c controller) UpdateDetector(ctx context.Context, input entity.UpdateDetectorUserInput, force bool, start bool) error {
+	if len(input.ID) < 1 {
+		return fmt.Errorf("detector Id cannot be empty")
+	}
+	if !force {
+		latestDetector, err := c.GetDetector(ctx, input.ID)
+		if err != nil {
+			return err
+		}
+		if latestDetector.LastUpdatedAt > input.LastUpdatedAt {
+			return fmt.Errorf(
+				"new version for detector is available. Please fetch latest version and then merge your changes")
+		}
+	}
+	proceed := c.askForConfirmation(
+		cmapper.StringToStringPtr(
+			fmt.Sprintf(
+				"esad will update detector: %s . Do you want to proceed? please type (y)es or (n)o and then press enter:",
+				input.ID,
+			),
+		),
+	)
+	if !proceed {
+		return nil
+	}
+	if force { // stop detector implicit since force is true
+		err := c.StopDetector(ctx, input.ID)
+		if err != nil {
+			return err
+		}
+	}
+	payload, err := mapper.MapToUpdateDetector(input)
+	if err != nil {
+		return err
+	}
+	err = c.gateway.UpdateDetector(ctx, input.ID, payload)
+	if err != nil {
+		return err
+	}
+	if !start {
+		return nil
+	}
+	return c.StartDetector(ctx, input.ID) // Start Detector if successfully updated it
 }

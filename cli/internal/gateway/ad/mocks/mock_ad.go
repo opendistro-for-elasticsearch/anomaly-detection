@@ -121,3 +121,17 @@ func (mr *MockGatewayMockRecorder) StopDetector(arg0, arg1 interface{}) *gomock.
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopDetector", reflect.TypeOf((*MockGateway)(nil).StopDetector), arg0, arg1)
 }
+
+// UpdateDetector mocks base method
+func (m *MockGateway) UpdateDetector(arg0 context.Context, arg1 string, arg2 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateDetector", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateDetector indicates an expected call of UpdateDetector
+func (mr *MockGatewayMockRecorder) UpdateDetector(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDetector", reflect.TypeOf((*MockGateway)(nil).UpdateDetector), arg0, arg1, arg2)
+}

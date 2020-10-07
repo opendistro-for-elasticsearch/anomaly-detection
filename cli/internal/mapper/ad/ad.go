@@ -225,3 +225,42 @@ func MapToDetectorOutput(response ad.DetectorResponse) (*ad.DetectorOutput, erro
 		SchemaVersion: response.AnomalyDetector.SchemaVersion,
 	}, nil
 }
+
+func MapToUpdateDetector(request ad.UpdateDetectorUserInput) (*ad.UpdateDetector, error) {
+	if err := validateFeatures(request.Features); err != nil {
+		return nil, err
+	}
+	delay, err := mapToInterval(request.Delay)
+	if err != nil {
+		return nil, err
+	}
+	interval, err := mapToInterval(request.Interval)
+	if err != nil {
+		return nil, err
+	}
+	return &ad.UpdateDetector{
+		Name:        request.Name,
+		Description: request.Description,
+		TimeField:   request.TimeField,
+		Index:       request.Index,
+		Features:    request.Features,
+		Filter:      request.Filter,
+		Interval:    *interval,
+		Delay:       *delay,
+	}, nil
+}
+
+func validateFeatures(features []ad.Feature) error {
+	if len(features) > featureCountLimit {
+		return fmt.Errorf("trying to update %d features, only upto %d features are allowed", len(features), featureCountLimit)
+	}
+	// check unique name
+	names := map[string]ad.Feature{}
+	for _, f := range features {
+		if _, ok := names[f.Name]; ok {
+			return fmt.Errorf("feature %s is defined more than once", f.Name)
+		}
+		names[f.Name] = f
+	}
+	return nil
+}

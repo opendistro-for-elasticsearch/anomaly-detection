@@ -811,3 +811,172 @@ func TestController_GetDetectorByName(t *testing.T) {
 		assert.EqualValues(t, *res[0], *detectorOutput)
 	})
 }
+
+func TestController_UpdateDetector(t *testing.T) {
+	input := entity.UpdateDetectorUserInput{
+		ID:          "m4ccEnIBTXsGi3mvMt9p",
+		Name:        "test-detector",
+		Description: "Test detector",
+		TimeField:   "timestamp",
+		Index:       []string{"order*"},
+		Features: []entity.Feature{
+			{
+				Name:             "total_order",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"total_order":{"sum":{"field":"value"}}}`),
+			},
+		},
+		Filter:        []byte(`{"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}}`),
+		Interval:      "5m",
+		Delay:         "1m",
+		LastUpdatedAt: 1589441737319,
+		SchemaVersion: 0,
+	}
+	request := entity.UpdateDetector{
+		Name:        "test-detector",
+		Description: "Test detector",
+		TimeField:   "timestamp",
+		Index:       []string{"order*"},
+		Features: []entity.Feature{
+			{
+				Name:             "total_order",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"total_order":{"sum":{"field":"value"}}}`),
+			},
+		},
+		Filter: []byte(`{"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}}`),
+		Interval: entity.Interval{Period: entity.Period{
+			Duration: 5,
+			Unit:     "Minutes",
+		}},
+		Delay: entity.Interval{Period: entity.Period{
+			Duration: 1,
+			Unit:     "Minutes",
+		}},
+	}
+	t.Run("update detector without ID", func(t *testing.T) {
+		invalidInput := input
+		invalidInput.ID = ""
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		ctx := context.Background()
+		ctrl := New(os.Stdin, mockESController, mockADGateway)
+		err := ctrl.UpdateDetector(ctx, invalidInput, true, true)
+		assert.EqualError(t, err, "detector Id cannot be empty")
+	})
+	t.Run("stale detector update failure", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockADGateway.EXPECT().GetDetector(ctx, "m4ccEnIBTXsGi3mvMt9p").Return(helperLoadBytes(t, "get_response.json"), nil)
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		staleDetector := input
+		staleDetector.LastUpdatedAt = input.LastUpdatedAt - 100
+		var stdin bytes.Buffer
+		stdin.Write([]byte("yes\n"))
+		ctrl := New(&stdin, mockESController, mockADGateway)
+		err := ctrl.UpdateDetector(ctx, staleDetector, false, true)
+		assert.EqualError(t, err, "new version for detector is available. Please fetch latest version and then merge your changes")
+	})
+	t.Run("don't update if user says no", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockADGateway.EXPECT().GetDetector(ctx, "m4ccEnIBTXsGi3mvMt9p").Return(helperLoadBytes(t, "get_response.json"), nil)
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		var stdin bytes.Buffer
+		stdin.Write([]byte("no\n"))
+		ctrl := New(&stdin, mockESController, mockADGateway)
+		err := ctrl.UpdateDetector(ctx, input, false, true)
+		assert.NoError(t, err)
+	})
+	t.Run("stop detector gateway failed", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockADGateway.EXPECT().StopDetector(ctx, "m4ccEnIBTXsGi3mvMt9p").Return(nil, errors.New("failed to stop detector"))
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		var stdin bytes.Buffer
+		stdin.Write([]byte("yes\n"))
+		ctrl := New(&stdin, mockESController, mockADGateway)
+		err := ctrl.UpdateDetector(ctx, input, true, true)
+		assert.EqualError(t, err, "failed to stop detector")
+	})
+	t.Run("get detector gateway failed", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockADGateway.EXPECT().GetDetector(ctx, "m4ccEnIBTXsGi3mvMt9p").Return(
+			nil, errors.New("failed to get detector"))
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		ctrl := New(os.Stdin, mockESController, mockADGateway)
+		err := ctrl.UpdateDetector(ctx, input, false, false)
+		assert.EqualError(t, err, "failed to get detector")
+	})
+	t.Run("update detector gateway failed", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockADGateway.EXPECT().GetDetector(ctx, "m4ccEnIBTXsGi3mvMt9p").Return(helperLoadBytes(t, "get_response.json"), nil)
+		mockADGateway.EXPECT().UpdateDetector(ctx, "m4ccEnIBTXsGi3mvMt9p", &request).Return(errors.New("failed to update"))
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		var stdin bytes.Buffer
+		stdin.Write([]byte("yes\n"))
+		ctrl := New(&stdin, mockESController, mockADGateway)
+		err := ctrl.UpdateDetector(ctx, input, false, true)
+		assert.EqualError(t, err, "failed to update")
+	})
+	t.Run("start detector gateway failed", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockADGateway.EXPECT().GetDetector(ctx, "m4ccEnIBTXsGi3mvMt9p").Return(helperLoadBytes(t, "get_response.json"), nil)
+		mockADGateway.EXPECT().UpdateDetector(ctx, "m4ccEnIBTXsGi3mvMt9p", &request).Return(nil)
+		mockADGateway.EXPECT().StartDetector(ctx, "m4ccEnIBTXsGi3mvMt9p").Return(errors.New("failed to start"))
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		var stdin bytes.Buffer
+		stdin.Write([]byte("yes\n"))
+		ctrl := New(&stdin, mockESController, mockADGateway)
+		err := ctrl.UpdateDetector(ctx, input, false, true)
+		assert.EqualError(t, err, "failed to start")
+	})
+	t.Run("force detector update success", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		staleDetector := input
+		staleDetector.LastUpdatedAt = input.LastUpdatedAt - 100
+		mockADGateway.EXPECT().StopDetector(ctx, "m4ccEnIBTXsGi3mvMt9p").Return(nil, nil)
+		mockADGateway.EXPECT().UpdateDetector(ctx, "m4ccEnIBTXsGi3mvMt9p", &request).Return(nil)
+		var stdin bytes.Buffer
+		stdin.Write([]byte("yes\n"))
+		ctrl := New(&stdin, mockESController, mockADGateway)
+		err := ctrl.UpdateDetector(ctx, input, true, false)
+		assert.NoError(t, err)
+	})
+	t.Run("update detector and start", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		ctx := context.Background()
+		mockADGateway := adgateway.NewMockGateway(mockCtrl)
+		mockADGateway.EXPECT().GetDetector(ctx, "m4ccEnIBTXsGi3mvMt9p").Return(helperLoadBytes(t, "get_response.json"), nil)
+		mockADGateway.EXPECT().UpdateDetector(ctx, "m4ccEnIBTXsGi3mvMt9p", &request).Return(nil)
+		mockADGateway.EXPECT().StartDetector(ctx, "m4ccEnIBTXsGi3mvMt9p").Return(nil)
+		mockESController := esmockctrl.NewMockController(mockCtrl)
+		var stdin bytes.Buffer
+		stdin.Write([]byte("yes\n"))
+		ctrl := New(&stdin, mockESController, mockADGateway)
+		err := ctrl.UpdateDetector(ctx, input, false, true)
+		assert.NoError(t, err)
+	})
+}

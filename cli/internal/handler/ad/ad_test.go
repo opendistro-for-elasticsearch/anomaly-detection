@@ -299,3 +299,55 @@ func TestHandler_GetAnomalyDetectorByID(t *testing.T) {
 		assert.EqualError(t, err, "failed to stop")
 	})
 }
+
+func TestHandler_UpdateDetector(t *testing.T) {
+	ctx := context.Background()
+	mockCtrl := gomock.NewController(t)
+	input := ad.UpdateDetectorUserInput{
+		ID:          "m4ccEnIBTXsGi3mvMt9p",
+		Name:        "test-detector",
+		Description: "Test detector",
+		TimeField:   "timestamp",
+		Index:       []string{"order*"},
+		Features: []ad.Feature{
+			{
+				Name:             "total_order",
+				Enabled:          true,
+				AggregationQuery: []byte(`{"total_order":{"sum":{"field":"value"}}}`),
+			},
+		},
+		Filter:        []byte(`{"bool" : {"filter" : [{"exists" : {"field" : "value","boost" : 1.0}}],"adjust_pure_negative" : true,"boost" : 1.0}}`),
+		Interval:      "5m",
+		Delay:         "1m",
+		LastUpdatedAt: 1589441737319,
+		SchemaVersion: 0,
+	}
+	t.Run("update invalid file name", func(t *testing.T) {
+		mockedController := mocks.NewMockController(mockCtrl)
+		mockedController.EXPECT().UpdateDetector(ctx, input, true, true).Return(errors.New("failed to update"))
+		instance := New(mockedController)
+		err := instance.UpdateDetector("", true, true)
+		assert.EqualError(t, err, "file name cannot be empty")
+	})
+	t.Run("update invalid file contents", func(t *testing.T) {
+		mockedController := mocks.NewMockController(mockCtrl)
+		mockedController.EXPECT().UpdateDetector(ctx, input, true, true).Return(errors.New("failed to update"))
+		instance := New(mockedController)
+		err := instance.UpdateDetector("testdata/invalid.txt", true, true)
+		assert.EqualError(t, err, "file testdata/invalid.txt cannot be accepted due to invalid character 'i' looking for beginning of value")
+	})
+	t.Run("upload failed", func(t *testing.T) {
+		mockedController := mocks.NewMockController(mockCtrl)
+		mockedController.EXPECT().UpdateDetector(ctx, input, true, true).Return(errors.New("failed to update"))
+		instance := New(mockedController)
+		err := instance.UpdateDetector("testdata/update.json", true, true)
+		assert.EqualError(t, err, "failed to update")
+	})
+	t.Run("upload success", func(t *testing.T) {
+		mockedController := mocks.NewMockController(mockCtrl)
+		mockedController.EXPECT().UpdateDetector(ctx, input, true, true).Return(nil)
+		instance := New(mockedController)
+		err := UpdateAnomalyDetector(instance, "testdata/update.json", true, true)
+		assert.NoError(t, err)
+	})
+}

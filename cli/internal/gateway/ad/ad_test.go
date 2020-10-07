@@ -314,3 +314,37 @@ func TestGateway_GetDetector(t *testing.T) {
 		assert.EqualValues(t, helperLoadBytes(t, "get_result.json"), resp)
 	})
 }
+
+func TestGateway_UpdateDetector(t *testing.T) {
+	ctx := context.Background()
+	t.Run("connection failed", func(t *testing.T) {
+		testClient := getTestClient(t, `connection failed`, 400, http.MethodPut, "")
+		testGateway := New(testClient, &client.UserConfig{
+			Endpoint: "http://localhost:9200",
+			Username: "admin",
+			Password: "admin",
+		})
+		err := testGateway.UpdateDetector(ctx, "id", nil)
+		assert.EqualError(t, err, "connection failed")
+	})
+	t.Run("invalid user", func(t *testing.T) {
+		testClient := getTestClient(t, `connection failed`, 400, http.MethodPut, "")
+		testGateway := New(testClient, &client.UserConfig{
+			Endpoint: "http://localhost:9200",
+			Username: "",
+			Password: "",
+		})
+		err := testGateway.UpdateDetector(ctx, "id", nil)
+		assert.EqualError(t, err, "user name and password cannot be empty")
+	})
+	t.Run("update success", func(t *testing.T) {
+		testClient := getTestClient(t, "ok", 200, http.MethodPut, "")
+		testGateway := New(testClient, &client.UserConfig{
+			Endpoint: "http://localhost:9200",
+			Username: "admin",
+			Password: "admin",
+		})
+		err := testGateway.UpdateDetector(ctx, "id", nil)
+		assert.NoError(t, err)
+	})
+}

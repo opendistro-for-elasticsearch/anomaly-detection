@@ -24,6 +24,7 @@ import java.time.Instant;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
+import org.elasticsearch.common.io.stream.Writeable;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -40,7 +41,7 @@ import com.google.common.base.Objects;
 /**
  * Anomaly detector job.
  */
-public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParameter {
+public class AnomalyDetectorJob implements Writeable, ToXContentObject, ScheduledJobParameter {
     enum ScheduleType {
         CRON,
         INTERVAL
@@ -125,6 +126,7 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
         return xContentBuilder.endObject();
     }
 
+    @Override
     public void writeTo(StreamOutput output) throws IOException {
         output.writeString(name);
         if (schedule instanceof CronSchedule) {

@@ -22,13 +22,14 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
+import org.elasticsearch.common.io.stream.Writeable;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 
-public class DetectorProfile implements ToXContentObject, Mergeable {
+public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
     private DetectorState state;
     private String error;
     private ModelProfile[] modelProfile;
@@ -39,16 +40,6 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
         return toXContent(builder, ToXContent.EMPTY_PARAMS);
-    }
-
-    public void writeTo(StreamOutput out) throws IOException {
-        out.writeEnum(state);
-        out.writeString(error);
-        out.writeArray(modelProfile);
-        out.writeInt(shingleSize);
-        out.writeString(coordinatingNode);
-        out.writeLong(totalSizeInBytes);
-        initProgress.writeTo(out);
     }
 
     public DetectorProfile(StreamInput in) throws IOException {
@@ -121,6 +112,17 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
 
             return profile;
         }
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeEnum(state);
+        out.writeString(error);
+        out.writeArray(modelProfile);
+        out.writeInt(shingleSize);
+        out.writeString(coordinatingNode);
+        out.writeLong(totalSizeInBytes);
+        initProgress.writeTo(out);
     }
 
     @Override

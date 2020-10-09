@@ -109,6 +109,8 @@ import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorA
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingAction;
@@ -211,7 +213,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             this.nodeFilter,
             AnomalyDetectorSettings.NUM_MIN_SAMPLES
         );
-        RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction(profileRunner);
+        RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction();
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(
             settings,
             clusterService,
@@ -468,7 +470,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(SearchAnomalyDetectorAction.INSTANCE, SearchAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(SearchAnomalyResultAction.INSTANCE, SearchAnomalyResultTransportAction.class),
                 new ActionHandler<>(StatsAnomalyDetectorAction.INSTANCE, StatsAnomalyDetectorTransportAction.class),
-                new ActionHandler<>(DeleteAnomalyDetectorAction.INSTANCE, DeleteAnomalyDetectorTransportAction.class)
+                new ActionHandler<>(DeleteAnomalyDetectorAction.INSTANCE, DeleteAnomalyDetectorTransportAction.class),
+                new ActionHandler<>(GetAnomalyDetectorAction.INSTANCE, GetAnomalyDetectorTransportAction.class)
             );
     }
 

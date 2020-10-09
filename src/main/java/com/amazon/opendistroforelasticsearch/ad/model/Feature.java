@@ -21,6 +21,9 @@ import java.io.IOException;
 
 import org.apache.logging.log4j.util.Strings;
 import org.elasticsearch.common.UUIDs;
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.StreamOutput;
+import org.elasticsearch.common.io.stream.Writeable;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -33,7 +36,7 @@ import com.google.common.base.Objects;
 /**
  * Anomaly detector feature
  */
-public class Feature implements ToXContentObject {
+public class Feature implements Writeable, ToXContentObject {
 
     private static final String FEATURE_ID_FIELD = "feature_id";
     private static final String FEATURE_NAME_FIELD = "feature_name";
@@ -63,6 +66,21 @@ public class Feature implements ToXContentObject {
         this.name = name;
         this.enabled = enabled;
         this.aggregation = aggregation;
+    }
+
+    public Feature(StreamInput input) throws IOException {
+        this.id = input.readString();
+        this.name = input.readString();
+        this.enabled = input.readBoolean();
+        this.aggregation = input.readNamedWriteable(AggregationBuilder.class);
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeString(this.id);
+        out.writeString(this.name);
+        out.writeBoolean(this.enabled);
+        aggregation.writeTo(out);
     }
 
     @Override

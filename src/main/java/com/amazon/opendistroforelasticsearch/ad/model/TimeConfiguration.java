@@ -21,13 +21,14 @@ import java.io.IOException;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
+import org.elasticsearch.common.io.stream.Writeable;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentParser;
 
 /**
  * TimeConfiguration represents the time configuration for a job which runs regularly.
  */
-public abstract class TimeConfiguration implements ToXContentObject {
+public abstract class TimeConfiguration implements Writeable, ToXContentObject {
 
     public static final String PERIOD_FIELD = "period";
     public static final String INTERVAL_FIELD = "interval";

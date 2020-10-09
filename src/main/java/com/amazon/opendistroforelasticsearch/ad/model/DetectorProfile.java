@@ -20,6 +20,8 @@ import java.io.IOException;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -37,6 +39,26 @@ public class DetectorProfile implements ToXContentObject, Mergeable {
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
         return toXContent(builder, ToXContent.EMPTY_PARAMS);
+    }
+
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeEnum(state);
+        out.writeString(error);
+        out.writeArray(modelProfile);
+        out.writeInt(shingleSize);
+        out.writeString(coordinatingNode);
+        out.writeLong(totalSizeInBytes);
+        initProgress.writeTo(out);
+    }
+
+    public DetectorProfile(StreamInput in) throws IOException {
+        this.state = in.readEnum(DetectorState.class);
+        this.error = in.readString();
+        this.modelProfile = in.readArray(ModelProfile::new, ModelProfile[]::new);
+        this.shingleSize = in.readInt();
+        this.coordinatingNode = in.readString();
+        this.totalSizeInBytes = in.readLong();
+        this.initProgress = new InitProgressProfile(in);
     }
 
     private DetectorProfile() {}

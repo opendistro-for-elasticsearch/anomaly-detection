@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.time.Instant;
 
 import org.elasticsearch.common.ParseField;
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -29,6 +31,8 @@ import org.elasticsearch.common.xcontent.XContentParser;
 
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.ScheduleParser;
 import com.google.common.base.Objects;
@@ -37,6 +41,10 @@ import com.google.common.base.Objects;
  * Anomaly detector job.
  */
 public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParameter {
+    enum ScheduleType {
+        CRON,
+        INTERVAL
+    }
 
     public static final String PARSE_FIELD_NAME = "AnomalyDetectorJob";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
@@ -85,6 +93,21 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
         this.lockDurationSeconds = lockDurationSeconds;
     }
 
+    public AnomalyDetectorJob(StreamInput input) throws IOException {
+        name = input.readString();
+        if (input.readEnum(AnomalyDetectorJob.ScheduleType.class) == ScheduleType.CRON) {
+            schedule = new CronSchedule(input);
+        } else {
+            schedule = new IntervalSchedule(input);
+        }
+        windowDelay = IntervalTimeConfiguration.readFrom(input);
+        isEnabled = input.readBoolean();
+        enabledTime = input.readInstant();
+        disabledTime = input.readInstant();
+        lastUpdateTime = input.readInstant();
+        lockDurationSeconds = input.readLong();
+    }
+
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         XContentBuilder xContentBuilder = builder
@@ -100,6 +123,21 @@ public class AnomalyDetectorJob implements ToXContentObject, ScheduledJobParamet
             xContentBuilder.field(DISABLED_TIME_FIELD, disabledTime.toEpochMilli());
         }
         return xContentBuilder.endObject();
+    }
+
+    public void writeTo(StreamOutput output) throws IOException {
+        output.writeString(name);
+        if (schedule instanceof CronSchedule) {
+            output.writeEnum(ScheduleType.CRON);
+        } else {
+            output.writeEnum(ScheduleType.INTERVAL);
+        }
+        schedule.writeTo(output);
+        windowDelay.writeTo(output);
+        output.writeInstant(enabledTime);
+        output.writeInstant(disabledTime);
+        output.writeInstant(lastUpdateTime);
+        output.writeLong(lockDurationSeconds);
     }
 
     public static AnomalyDetectorJob parse(XContentParser parser) throws IOException {

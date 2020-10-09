@@ -227,6 +227,8 @@ List<String> jacocoExclusions = [
         //TODO: add more test cases later for these package
         'com.amazon.opendistroforelasticsearch.ad.model.*',
         'com.amazon.opendistroforelasticsearch.ad.rest.*',
+        'com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler',
+        'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorJobRunner',
 
         // Class containing just constants.  Don't need to test
         'com.amazon.opendistroforelasticsearch.ad.constant.*',
@@ -250,7 +252,9 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
         'com.amazon.opendistroforelasticsearch.ad.util.ParseUtils',
         'com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorTransportAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorTransportAction*'
+        'com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorTransportAction*',
+        'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorTransportAction*',
+        'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorResponse'
 ]
 
 jacocoTestCoverageVerification {

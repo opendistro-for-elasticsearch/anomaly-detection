@@ -33,12 +33,13 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.seqno.SequenceNumbers;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.RestRequest;
+import org.elasticsearch.rest.action.RestToXContentListener;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
-import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobRequest;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -48,10 +49,8 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
 
     public static final String AD_JOB_ACTION = "anomaly_detector_job_action";
     private volatile TimeValue requestTimeout;
-    private final AnomalyDetectionIndices anomalyDetectionIndices;
 
-    public RestAnomalyDetectorJobAction(Settings settings, ClusterService clusterService, AnomalyDetectionIndices anomalyDetectionIndices) {
-        this.anomalyDetectionIndices = anomalyDetectionIndices;
+    public RestAnomalyDetectorJobAction(Settings settings, ClusterService clusterService) {
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
     }
@@ -68,29 +67,14 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
         }
 
         String detectorId = request.param(DETECTOR_ID);
+        long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
+        long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
+        String rawPath = request.rawPath();
 
-        return channel -> {
-            long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
-            long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
+        AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(detectorId, seqNo, primaryTerm, rawPath);
 
-            IndexAnomalyDetectorJobActionHandler handler = new IndexAnomalyDetectorJobActionHandler(
-                client,
-                channel,
-                anomalyDetectionIndices,
-                detectorId,
-                seqNo,
-                primaryTerm,
-                requestTimeout
-            );
-
-            String rawPath = request.rawPath();
-
-            if (rawPath.endsWith(START_JOB)) {
-                handler.startAnomalyDetectorJob();
-            } else if (rawPath.endsWith(STOP_JOB)) {
-                handler.stopAnomalyDetectorJob(detectorId);
-            }
-        };
+        return channel -> client
+            .execute(AnomalyDetectorJobAction.INSTANCE, anomalyDetectorJobRequest, new RestToXContentListener<>(channel));
     }
 
     @Override

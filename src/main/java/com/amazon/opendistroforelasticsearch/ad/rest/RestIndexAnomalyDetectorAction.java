@@ -38,17 +38,25 @@ import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.seqno.SequenceNumbers;
 import org.elasticsearch.rest.BaseRestHandler;
+import org.elasticsearch.rest.BytesRestResponse;
+import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestRequest;
+import org.elasticsearch.rest.RestResponse;
+import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.rest.action.RestResponseListener;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -115,22 +123,19 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
         WriteRequest.RefreshPolicy refreshPolicy = request.hasParam(REFRESH)
             ? WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
             : WriteRequest.RefreshPolicy.IMMEDIATE;
+        RestRequest.Method method = request.getHttpRequest().method();
 
-        return channel -> new IndexAnomalyDetectorActionHandler(
-            settings,
-            clusterService,
-            client,
-            channel,
-            anomalyDetectionIndices,
+        IndexAnomalyDetectorRequest indexAnomalyDetectorRequest = new IndexAnomalyDetectorRequest(
             detectorId,
             seqNo,
             primaryTerm,
             refreshPolicy,
             detector,
-            requestTimeout,
-            maxAnomalyDetectors,
-            maxAnomalyFeatures
-        ).start();
+            method
+        );
+
+        return channel -> client
+            .execute(IndexAnomalyDetectorAction.INSTANCE, indexAnomalyDetectorRequest, indexAnomalyDetectorResponse(channel, method));
     }
 
     @Override
@@ -145,5 +150,29 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
                     String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID)
                 )
             );
+    }
+
+    private RestResponseListener<IndexAnomalyDetectorResponse> indexAnomalyDetectorResponse(
+        RestChannel channel,
+        RestRequest.Method method
+    ) {
+        return new RestResponseListener<IndexAnomalyDetectorResponse>(channel) {
+            @Override
+            public RestResponse buildResponse(IndexAnomalyDetectorResponse response) throws Exception {
+                RestStatus restStatus = RestStatus.CREATED;
+                if (method == RestRequest.Method.PUT) {
+                    restStatus = RestStatus.OK;
+                }
+                BytesRestResponse bytesRestResponse = new BytesRestResponse(
+                    restStatus,
+                    response.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS)
+                );
+                if (restStatus == RestStatus.CREATED) {
+                    String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_URI, response.getId());
+                    bytesRestResponse.addHeader("Location", location);
+                }
+                return bytesRestResponse;
+            }
+        };
     }
 }

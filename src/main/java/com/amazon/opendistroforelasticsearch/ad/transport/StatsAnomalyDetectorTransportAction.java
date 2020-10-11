@@ -75,7 +75,8 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
         MultiResponsesDelegateActionListener<ADStatsResponse> delegateListener = new MultiResponsesDelegateActionListener<>(
             getRestStatsListener(listener),
             2,
-            "Unable to return AD Stats"
+            "Unable to return AD Stats",
+            false
         );
 
         getClusterStats(client, delegateListener, adStatsRequest);

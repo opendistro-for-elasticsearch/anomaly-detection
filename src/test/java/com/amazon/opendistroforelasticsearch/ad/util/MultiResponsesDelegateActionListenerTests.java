@@ -15,13 +15,20 @@
 
 package com.amazon.opendistroforelasticsearch.ad.util;
 
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomMutlEntityAnomalyDetectResult;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
+import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.test.ESTestCase;
 
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
+import com.amazon.opendistroforelasticsearch.ad.model.EntityAnomalyResult;
 
 public class MultiResponsesDelegateActionListenerTests extends ESTestCase {
 
@@ -39,10 +46,38 @@ public class MultiResponsesDelegateActionListenerTests extends ESTestCase {
         MultiResponsesDelegateActionListener<DetectorProfile> multiListener = new MultiResponsesDelegateActionListener<DetectorProfile>(
             actualListener,
             2,
-            "blah"
+            "blah",
+            false
         );
         multiListener.onResponse(null);
         multiListener.onResponse(null);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testForceResponse() {
+        AnomalyResult anomalyResult1 = randomMutlEntityAnomalyDetectResult(0.25, 0.25, "error");
+        AnomalyResult anomalyResult2 = randomMutlEntityAnomalyDetectResult(0.5, 0.5, "error");
+
+        EntityAnomalyResult entityAnomalyResult1 = new EntityAnomalyResult(new ArrayList<AnomalyResult>() {
+            {
+                add(anomalyResult1);
+            }
+        });
+        EntityAnomalyResult entityAnomalyResult2 = new EntityAnomalyResult(new ArrayList<AnomalyResult>() {
+            {
+                add(anomalyResult2);
+            }
+        });
+
+        ActionListener<EntityAnomalyResult> actualListener = mock(ActionListener.class);
+        MultiResponsesDelegateActionListener<EntityAnomalyResult> multiListener =
+            new MultiResponsesDelegateActionListener<EntityAnomalyResult>(actualListener, 3, "blah", true);
+        multiListener.onResponse(entityAnomalyResult1);
+        multiListener.onResponse(entityAnomalyResult2);
+        multiListener.onFailure(new RuntimeException());
+        entityAnomalyResult1.merge(entityAnomalyResult2);
+
+        verify(actualListener).onResponse(entityAnomalyResult1);
     }
 }

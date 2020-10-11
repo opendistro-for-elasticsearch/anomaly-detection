@@ -41,14 +41,21 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
     private final List<T> savedResponses;
     private List<String> exceptions;
     private String finalErrorMsg;
+    private final boolean forceReturn;
 
-    public MultiResponsesDelegateActionListener(ActionListener<T> delegate, int maxResponseCount, String finalErrorMsg) {
+    public MultiResponsesDelegateActionListener(
+        ActionListener<T> delegate,
+        int maxResponseCount,
+        String finalErrorMsg,
+        boolean forceReturn
+    ) {
         this.delegate = delegate;
         this.collectedResponseCount = new AtomicInteger(0);
         this.maxResponseCount = maxResponseCount;
         this.savedResponses = Collections.synchronizedList(new ArrayList<T>());
         this.exceptions = Collections.synchronizedList(new ArrayList<String>());
         this.finalErrorMsg = finalErrorMsg;
+        this.forceReturn = forceReturn;
     }
 
     @Override
@@ -81,18 +88,22 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
     }
 
     private void finish() {
-        if (this.exceptions.size() == 0) {
-            if (savedResponses.size() == 0) {
-                this.delegate.onFailure(new RuntimeException(NO_RESPONSE));
-            } else {
-                T response0 = savedResponses.get(0);
-                for (int i = 1; i < savedResponses.size(); i++) {
-                    response0.merge(savedResponses.get(i));
-                }
-                this.delegate.onResponse(response0);
-            }
+        if (this.forceReturn || this.exceptions.size() == 0) {
+            handleSavedResponses();
         } else {
             this.delegate.onFailure(new RuntimeException(String.format(Locale.ROOT, finalErrorMsg + " Exceptions: %s", exceptions)));
+        }
+    }
+
+    private void handleSavedResponses() {
+        if (savedResponses.size() == 0) {
+            this.delegate.onFailure(new RuntimeException(NO_RESPONSE));
+        } else {
+            T response0 = savedResponses.get(0);
+            for (int i = 1; i < savedResponses.size(); i++) {
+                response0.merge(savedResponses.get(i));
+            }
+            this.delegate.onResponse(response0);
         }
     }
 

@@ -115,7 +115,8 @@ public class AnomalyDetectorProfileRunner {
         MultiResponsesDelegateActionListener<DetectorProfile> delegateListener = new MultiResponsesDelegateActionListener<DetectorProfile>(
             listener,
             totalListener,
-            "Fail to fetch profile for " + detectorId
+            "Fail to fetch profile for " + detectorId,
+            false
         );
 
         prepareProfile(detectorId, delegateListener, profilesToCollect);

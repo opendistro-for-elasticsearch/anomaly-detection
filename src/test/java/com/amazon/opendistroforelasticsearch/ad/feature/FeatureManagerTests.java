@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
@@ -66,6 +67,7 @@ import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.util.ArrayEqMatcher;
 
@@ -502,6 +504,74 @@ public class FeatureManagerTests {
     @Test
     public void getPreviewFeatures_returnExceptionToListener_whenQueryFail() throws IOException {
         getPreviewFeaturesTemplate(asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 3 })), false, false);
+    }
+
+    @Test
+    public void getPreviewFeatureForEntity() throws IOException {
+        long start = 0L;
+        long end = 240_000L;
+        Entity entity = new Entity("fieldName", "value");
+
+        List<Optional<double[]>> coldStartSamples = new ArrayList<>();
+        coldStartSamples.add(Optional.of(new double[] { 10.0 }));
+        coldStartSamples.add(Optional.of(new double[] { 30.0 }));
+
+        doAnswer(invocation -> {
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(3);
+            listener.onResponse(coldStartSamples);
+            return null;
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), any());
+
+        ActionListener<Features> listener = mock(ActionListener.class);
+
+        featureManager.getPreviewFeaturesForEntity(detector, entity, start, end, listener);
+
+        Features expected = new Features(
+            asList(new SimpleEntry<>(120_000L, 180_000L)),
+            new double[][] { { 30 } },
+            new double[][] { { 10, 20, 30 } }
+        );
+        verify(listener).onResponse(expected);
+    }
+
+    @Test
+    public void getPreviewFeatureForEntity_noDataToPreview() throws IOException {
+        long start = 0L;
+        long end = 240_000L;
+        Entity entity = new Entity("fieldName", "value");
+
+        doAnswer(invocation -> {
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(3);
+            listener.onResponse(new ArrayList<>());
+            return null;
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), any());
+
+        ActionListener<Features> listener = mock(ActionListener.class);
+
+        featureManager.getPreviewFeaturesForEntity(detector, entity, start, end, listener);
+
+        verify(listener).onFailure(any(IllegalArgumentException.class));
+    }
+
+    @Test
+    public void getPreviewEntities() {
+        long start = 0L;
+        long end = 240_000L;
+
+        Entity entity1 = new Entity("fieldName", "value1");
+        Entity entity2 = new Entity("fieldName", "value2");
+        List<Entity> entities = asList(entity1, entity2);
+        doAnswer(invocation -> {
+            ActionListener<List<Entity>> listener = invocation.getArgument(3);
+            listener.onResponse(entities);
+            return null;
+        }).when(searchFeatureDao).getHighestCountEntities(any(), anyLong(), anyLong(), any());
+
+        ActionListener<List<Entity>> listener = mock(ActionListener.class);
+
+        featureManager.getPreviewEntities(detector, start, end, listener);
+
+        verify(listener).onResponse(entities);
     }
 
     private void setupSearchFeatureDaoForGetCurrentFeatures(

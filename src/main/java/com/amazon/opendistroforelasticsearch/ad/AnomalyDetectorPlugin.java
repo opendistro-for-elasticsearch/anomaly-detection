@@ -578,8 +578,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
                 AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
-                AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT,
                 AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
+                AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
+                AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT,
                 AnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
                 AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES
             );

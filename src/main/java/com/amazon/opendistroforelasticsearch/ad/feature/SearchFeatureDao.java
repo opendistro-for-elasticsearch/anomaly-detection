@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.feature;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY;
 import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
 
@@ -69,6 +70,7 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
@@ -92,6 +94,7 @@ public class SearchFeatureDao {
     private final ClientUtil clientUtil;
     private ThreadPool threadPool;
     private int maxEntitiesPerQuery;
+    private int maxEntitiesForPreview;
 
     /**
      * Constructor injection.
@@ -120,6 +123,8 @@ public class SearchFeatureDao {
         this.threadPool = threadPool;
         this.maxEntitiesPerQuery = MAX_ENTITIES_PER_QUERY.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_PER_QUERY, it -> maxEntitiesPerQuery = it);
+        this.maxEntitiesForPreview = MAX_ENTITIES_FOR_PREVIEW.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> maxEntitiesForPreview = it);
     }
 
     /**
@@ -166,6 +171,54 @@ public class SearchFeatureDao {
             .map(aggs -> aggs.asMap())
             .map(map -> (Max) map.get(AGG_NAME_MAX))
             .map(agg -> (long) agg.getValue());
+    }
+
+    /**
+     * Get list of entities with high count in descending order within specified time range
+     * @param detector detector config
+     * @param startTime start time of time range
+     * @param endTime end time of time range
+     * @param listener listener to return back the entities
+     */
+    public void getHighestCountEntities(AnomalyDetector detector, long startTime, long endTime, ActionListener<List<Entity>> listener) {
+        RangeQueryBuilder rangeQuery = new RangeQueryBuilder(detector.getTimeField())
+            .from(startTime)
+            .to(endTime)
+            .format("epoch_millis")
+            .includeLower(true)
+            .includeUpper(false);
+
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery().filter(rangeQuery).filter(detector.getFilterQuery());
+        TermsAggregationBuilder termsAgg = AggregationBuilders
+            .terms(AGG_NAME_TERM)
+            .field(detector.getCategoryField().get(0))
+            .size(maxEntitiesForPreview);
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
+            .query(boolQueryBuilder)
+            .aggregation(termsAgg)
+            .trackTotalHits(false)
+            .size(0);
+        SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        ActionListener<SearchResponse> termsListener = ActionListener.wrap(response -> {
+            Aggregations aggs = response.getAggregations();
+            if (aggs == null) {
+                listener.onResponse(Collections.emptyList());
+                return;
+            }
+
+            List<Entity> results = aggs
+                .asList()
+                .stream()
+                .filter(agg -> AGG_NAME_TERM.equals(agg.getName()))
+                .flatMap(agg -> ((Terms) agg).getBuckets().stream())
+                .map(bucket -> bucket.getKeyAsString())
+                .collect(Collectors.toList())
+                .stream()
+                .map(entityValue -> new Entity(detector.getCategoryField().get(0), entityValue))
+                .collect(Collectors.toList());
+            listener.onResponse(results);
+        }, listener::onFailure);
+        client.search(searchRequest, termsListener);
     }
 
     /**

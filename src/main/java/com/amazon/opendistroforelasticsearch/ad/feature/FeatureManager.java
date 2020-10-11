@@ -50,6 +50,7 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 
 /**
  * A facade managing feature data operations and buffers.
@@ -472,6 +473,66 @@ public class FeatureManager implements CleanState {
     }
 
     /**
+     * Returns the entities for preview to listener
+     * @param detector detector config
+     * @param startTime start of the range in epoch milliseconds
+     * @param endTime end of the range in epoch milliseconds
+     * @param listener onResponse is called when entities are found
+     */
+    public void getPreviewEntities(AnomalyDetector detector, long startTime, long endTime, ActionListener<List<Entity>> listener) {
+        searchFeatureDao.getHighestCountEntities(detector, startTime, endTime, listener);
+    }
+
+    /**
+     * Returns to listener feature data points (unprocessed and processed) from the period for preview purpose for specific entity.
+     *
+     * Due to the constraints (workload, latency) from preview, a small number of data samples are from actual
+     * query results and the remaining are from interpolation. The results are approximate to the actual features.
+     *
+     * @param detector detector info containing indices, features, interval, etc
+     * @param entity entity specified
+     * @param startMilli start of the range in epoch milliseconds
+     * @param endMilli end of the range in epoch milliseconds
+     * @param listener onResponse is called with time ranges, unprocessed features,
+     *                                      and processed features of the data points from the period
+     *                 onFailure is called with IllegalArgumentException when there is no data to preview
+     * @throws IOException if a user gives wrong query input when defining a detector
+     */
+    public void getPreviewFeaturesForEntity(
+        AnomalyDetector detector,
+        Entity entity,
+        long startMilli,
+        long endMilli,
+        ActionListener<Features> listener
+    ) throws IOException {
+        // TODO refactor this common lines so that these code can be run for 1 time for all entities
+        Entry<List<Entry<Long, Long>>, Integer> sampleRangeResults = getSampleRanges(detector, startMilli, endMilli);
+        List<Entry<Long, Long>> sampleRanges = sampleRangeResults.getKey();
+        int stride = sampleRangeResults.getValue();
+        int shingleSize = detector.getShingleSize();
+
+        getSamplesInRangesForEntity(detector, sampleRanges, entity, getFeatureSamplesListener(stride, shingleSize, listener));
+    }
+
+    private ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> getFeatureSamplesListener(
+        int stride,
+        int shingleSize,
+        ActionListener<Features> listener
+    ) {
+        return ActionListener.wrap(samples -> {
+            List<Entry<Long, Long>> searchTimeRange = samples.getKey();
+            if (searchTimeRange.size() == 0) {
+                listener.onFailure(new IllegalArgumentException("No data to preview anomaly detection."));
+                return;
+            }
+            double[][] sampleFeatures = samples.getValue();
+            List<Entry<Long, Long>> previewRanges = getPreviewRanges(searchTimeRange, stride, shingleSize);
+            Entry<double[][], double[][]> previewFeatures = getPreviewFeatures(sampleFeatures, stride, shingleSize);
+            listener.onResponse(new Features(previewRanges, previewFeatures.getKey(), previewFeatures.getValue()));
+        }, listener::onFailure);
+    }
+
+    /**
      * Returns to listener feature data points (unprocessed and processed) from the period for preview purpose.
      *
      * Due to the constraints (workload, latency) from preview, a small number of data samples are from actual
@@ -492,18 +553,7 @@ public class FeatureManager implements CleanState {
         int stride = sampleRangeResults.getValue();
         int shingleSize = detector.getShingleSize();
 
-        getSamplesForRanges(detector, sampleRanges, ActionListener.wrap(samples -> {
-            List<Entry<Long, Long>> searchTimeRange = samples.getKey();
-            if (searchTimeRange.size() == 0) {
-                listener.onFailure(new IllegalArgumentException("No data to preview anomaly detection."));
-                return;
-            }
-            double[][] sampleFeatures = samples.getValue();
-
-            List<Entry<Long, Long>> previewRanges = getPreviewRanges(searchTimeRange, stride, shingleSize);
-            Entry<double[][], double[][]> previewFeatures = getPreviewFeatures(sampleFeatures, stride, shingleSize);
-            listener.onResponse(new Features(previewRanges, previewFeatures.getKey(), previewFeatures.getValue()));
-        }, listener::onFailure));
+        getSamplesForRanges(detector, sampleRanges, getFeatureSamplesListener(stride, shingleSize, listener));
     }
 
     /**
@@ -531,17 +581,27 @@ public class FeatureManager implements CleanState {
     }
 
     /**
-     * Gets search results for the sampled time ranges.
+     * Gets search results in the sampled time ranges for specified entity.
      *
+     * @param entity specified entity
      * @param listener handle search results map: key is time ranges, value is corresponding search results
      * @throws IOException if a user gives wrong query input when defining a detector
      */
-    void getSamplesForRanges(
+    void getSamplesInRangesForEntity(
         AnomalyDetector detector,
         List<Entry<Long, Long>> sampleRanges,
+        Entity entity,
         ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> listener
     ) throws IOException {
-        searchFeatureDao.getFeatureSamplesForPeriods(detector, sampleRanges, ActionListener.wrap(featureSamples -> {
+        searchFeatureDao
+            .getColdStartSamplesForPeriods(detector, sampleRanges, entity.getValue(), getSamplesRangesListener(sampleRanges, listener));
+    }
+
+    private ActionListener<List<Optional<double[]>>> getSamplesRangesListener(
+        List<Entry<Long, Long>> sampleRanges,
+        ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> listener
+    ) {
+        return ActionListener.wrap(featureSamples -> {
             List<Entry<Long, Long>> ranges = new ArrayList<>(featureSamples.size());
             List<double[]> samples = new ArrayList<>(featureSamples.size());
             for (int i = 0; i < featureSamples.size(); i++) {
@@ -552,8 +612,21 @@ public class FeatureManager implements CleanState {
                 });
             }
             listener.onResponse(new SimpleImmutableEntry<>(ranges, samples.toArray(new double[0][0])));
-        }, listener::onFailure));
+        }, listener::onFailure);
+    }
 
+    /**
+     * Gets search results for the sampled time ranges.
+     *
+     * @param listener handle search results map: key is time ranges, value is corresponding search results
+     * @throws IOException if a user gives wrong query input when defining a detector
+     */
+    void getSamplesForRanges(
+        AnomalyDetector detector,
+        List<Entry<Long, Long>> sampleRanges,
+        ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> listener
+    ) throws IOException {
+        searchFeatureDao.getFeatureSamplesForPeriods(detector, sampleRanges, getSamplesRangesListener(sampleRanges, listener));
     }
 
     /**

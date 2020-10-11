@@ -107,7 +107,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
-            null,
+            detector.getCategoryField(),
             detector.getUser()
         );
     }

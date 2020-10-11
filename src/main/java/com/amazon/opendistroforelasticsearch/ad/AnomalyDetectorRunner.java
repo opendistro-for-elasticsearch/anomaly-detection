@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.ad;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +34,11 @@ import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.model.Entity;
+import com.amazon.opendistroforelasticsearch.ad.model.EntityAnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
+import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener;
 
 /**
  * Runner to trigger an anomaly detector.
@@ -63,15 +67,50 @@ public final class AnomalyDetectorRunner {
      */
     public void executeDetector(AnomalyDetector detector, Instant startTime, Instant endTime, ActionListener<List<AnomalyResult>> listener)
         throws IOException {
-        featureManager.getPreviewFeatures(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(features -> {
-            try {
-                List<ThresholdingResult> results = modelManager.getPreviewResults(features.getProcessedFeatures());
-                listener.onResponse(sample(parsePreviewResult(detector, features, results), maxPreviewResults));
-            } catch (Exception e) {
-                onFailure(e, listener, detector.getDetectorId());
-            }
-        }, e -> onFailure(e, listener, detector.getDetectorId())));
+        List<String> categoryField = detector.getCategoryField();
+        if (categoryField != null && !categoryField.isEmpty()) {
+            featureManager.getPreviewEntities(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(entities -> {
 
+                ActionListener<EntityAnomalyResult> entityAnomalyResultListener = ActionListener
+                    .wrap(
+                        entityAnomalyResult -> { listener.onResponse(entityAnomalyResult.getAnomalyResults()); },
+                        e -> onFailure(e, listener, detector.getDetectorId())
+                    );
+                MultiResponsesDelegateActionListener<EntityAnomalyResult> multiEntitiesResponseListener =
+                    new MultiResponsesDelegateActionListener<EntityAnomalyResult>(
+                        entityAnomalyResultListener,
+                        entities.size(),
+                        String.format("Fail to get preview result for multi entity detector %s", detector.getDetectorId()),
+                        true
+                    );
+                for (Entity entity : entities) {
+                    featureManager
+                        .getPreviewFeaturesForEntity(
+                            detector,
+                            entity,
+                            startTime.toEpochMilli(),
+                            endTime.toEpochMilli(),
+                            ActionListener.wrap(features -> {
+                                List<ThresholdingResult> entityResults = modelManager.getPreviewResults(features.getProcessedFeatures());
+                                List<AnomalyResult> sampledEntityResults = sample(
+                                    parsePreviewResult(detector, features, entityResults, Arrays.asList(entity)),
+                                    maxPreviewResults
+                                );
+                                multiEntitiesResponseListener.onResponse(new EntityAnomalyResult(sampledEntityResults));
+                            }, e -> multiEntitiesResponseListener.onFailure(e))
+                        );
+                }
+            }, e -> onFailure(e, listener, detector.getDetectorId())));
+        } else {
+            featureManager.getPreviewFeatures(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(features -> {
+                try {
+                    List<ThresholdingResult> results = modelManager.getPreviewResults(features.getProcessedFeatures());
+                    listener.onResponse(sample(parsePreviewResult(detector, features, results, null), maxPreviewResults));
+                } catch (Exception e) {
+                    onFailure(e, listener, detector.getDetectorId());
+                }
+            }, e -> onFailure(e, listener, detector.getDetectorId())));
+        }
     }
 
     private void onFailure(Exception e, ActionListener<List<AnomalyResult>> listener, String detectorId) {
@@ -79,7 +118,12 @@ public final class AnomalyDetectorRunner {
         listener.onResponse(Collections.emptyList());
     }
 
-    private List<AnomalyResult> parsePreviewResult(AnomalyDetector detector, Features features, List<ThresholdingResult> results) {
+    private List<AnomalyResult> parsePreviewResult(
+        AnomalyDetector detector,
+        Features features,
+        List<ThresholdingResult> results,
+        List<Entity> entity
+    ) {
         // unprocessedFeatures[][], each row is for one date range.
         // For example, unprocessedFeatures[0][2] is for the first time range, the third feature
         double[][] unprocessedFeatures = features.getUnprocessedFeatures();
@@ -113,6 +157,7 @@ public final class AnomalyDetectorRunner {
                         null,
                         null,
                         null,
+                        entity,
                         detector.getUser()
                     );
                 } else {
@@ -127,6 +172,7 @@ public final class AnomalyDetectorRunner {
                         null,
                         null,
                         null,
+                        entity,
                         detector.getUser()
                     );
                 }

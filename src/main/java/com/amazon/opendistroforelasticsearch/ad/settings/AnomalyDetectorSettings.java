@@ -261,6 +261,19 @@ public final class AnomalyDetectorSettings {
     public static final Setting<Integer> MAX_ENTITIES_PER_QUERY = Setting
         .intSetting("opendistro.anomaly_detection.max_entities_per_query", 1000, 1, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
+    // Default number of entities retrieved for Preview API
+    public static final int DEFAULT_ENTITIES_FOR_PREVIEW = 30;
+
+    // Maximum number of entities retrieved for Preview API
+    public static final Setting<Integer> MAX_ENTITIES_FOR_PREVIEW = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.max_entities_for_preview",
+            DEFAULT_ENTITIES_FOR_PREVIEW,
+            1,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
     // save partial zero-anomaly grade results after indexing pressure reaching the limit
     public static final Setting<Float> INDEX_PRESSURE_SOFT_LIMIT = Setting
         .floatSetting(

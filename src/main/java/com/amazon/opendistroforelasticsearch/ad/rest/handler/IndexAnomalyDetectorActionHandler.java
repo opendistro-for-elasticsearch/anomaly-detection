@@ -259,9 +259,6 @@ public class IndexAnomalyDetectorActionHandler {
         }
     }
 
-    /**
-     * Precondition: anomalyDetector.getCategoryField() != null.
-     */
     @SuppressWarnings("unchecked")
     private void validateCategoricalField(String detectorId) {
         List<String> categoryField = anomalyDetector.getCategoryField();

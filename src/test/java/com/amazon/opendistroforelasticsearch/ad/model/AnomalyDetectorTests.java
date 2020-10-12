@@ -89,8 +89,7 @@ public class AnomalyDetectorTests extends ESTestCase {
             + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"schema_version\":-1203962153,\"ui_metadata\":"
             + "{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,"
             + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
-        AnomalyDetector parsedDetector = AnomalyDetector
-            .parse(TestHelpers.parser(detectorString), "id", 1L, null, null, AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
         assertTrue(parsedDetector.getFilterQuery() instanceof MatchAllQueryBuilder);
         assertEquals((long) parsedDetector.getShingleSize(), (long) AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
     }

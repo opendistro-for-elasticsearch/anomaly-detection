@@ -80,6 +80,7 @@ public class IndexAnomalyDetectorJobActionHandler {
      * @param seqNo                   sequence number of last modification
      * @param primaryTerm             primary term of last modification
      * @param requestTimeout          request time out configuration
+     * @param xContentRegistry        Registry which is used for XContentParser
      */
     public IndexAnomalyDetectorJobActionHandler(
         Client client,
@@ -106,7 +107,7 @@ public class IndexAnomalyDetectorJobActionHandler {
      * 1.If job not exists, create new job.
      * 2.If job exists: a). if job enabled, return error message; b). if job disabled, enable job.
      *
-     * @throws IOException IOException from //TODO vemsarat@ fix this comment
+     * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorJobMappings}
      */
     public void startAnomalyDetectorJob() throws IOException {
         if (!anomalyDetectionIndices.doesAnomalyDetectorJobIndexExist()) {

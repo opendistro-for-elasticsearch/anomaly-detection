@@ -31,6 +31,7 @@ import org.apache.logging.log4j.util.Strings;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
+import org.elasticsearch.common.io.stream.Writeable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContent;
@@ -49,7 +50,7 @@ import com.google.common.base.Objects;
 /**
  * An AnomalyDetector is used to represent anomaly detection model(RCF) related parameters.
  */
-public class AnomalyDetector implements ToXContentObject {
+public class AnomalyDetector implements Writeable, ToXContentObject {
 
     public static final String PARSE_FIELD_NAME = "AnomalyDetector";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
@@ -193,6 +194,7 @@ public class AnomalyDetector implements ToXContentObject {
         return toXContent(builder, ToXContent.EMPTY_PARAMS);
     }
 
+    @Override
     public void writeTo(StreamOutput output) throws IOException {
         output.writeString(detectorId);
         output.writeLong(version);

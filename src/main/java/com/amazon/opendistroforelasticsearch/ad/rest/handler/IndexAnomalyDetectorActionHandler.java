@@ -78,7 +78,6 @@ public class IndexAnomalyDetectorActionHandler {
     private final RestRequest.Method method;
     private final Client client;
     private final NamedXContentRegistry xContentRegistry;
-    // TODO vemsarat@ add support for AbstractHandler when JobIndex is completed
     private final Settings settings;
     private final ActionListener<IndexAnomalyDetectorResponse> listener;
 
@@ -98,6 +97,8 @@ public class IndexAnomalyDetectorActionHandler {
      * @param requestTimeout          request time out configuration
      * @param maxAnomalyDetectors     max anomaly detector allowed
      * @param maxAnomalyFeatures      max features allowed per detector
+     * @param method                  Rest Method type
+     * @param xContentRegistry        Registry which is used for XContentParser
      */
     public IndexAnomalyDetectorActionHandler(
         Settings settings,
@@ -141,14 +142,12 @@ public class IndexAnomalyDetectorActionHandler {
      */
     public void start() throws IOException {
         if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist()) {
-            System.out.println("AnomalyDetector Indices do not exist");
             logger.info("AnomalyDetector Indices do not exist");
             anomalyDetectionIndices
                 .initAnomalyDetectorIndex(
                     ActionListener.wrap(response -> onCreateMappingsResponse(response), exception -> listener.onFailure(exception))
                 );
         } else {
-            System.out.println("AnomalyDetector Indices do exist");
             logger.info("AnomalyDetector Indices do exist, calling prepareAnomalyDetectorIndexing");
             prepareAnomalyDetectorIndexing();
         }
@@ -166,15 +165,12 @@ public class IndexAnomalyDetectorActionHandler {
         logger.info("prepareAnomalyDetectorIndexing called after creating indices");
         String error = RestHandlerUtils.validateAnomalyDetector(anomalyDetector, maxAnomalyFeatures);
         if (StringUtils.isNotBlank(error)) {
-            logger.info("Logging error from #169 " + error);
             listener.onFailure(new ElasticsearchStatusException(error, RestStatus.BAD_REQUEST));
             return;
         }
         if (method == RestRequest.Method.PUT) {
-            logger.info("#174 Request Method is PUT ");
             handler.getDetectorJob(clusterService, client, detectorId, listener, () -> updateAnomalyDetector(detectorId), xContentRegistry);
         } else {
-            logger.info("#177 creating Anomaly Detector");
             createAnomalyDetector();
         }
     }
@@ -200,7 +196,6 @@ public class IndexAnomalyDetectorActionHandler {
 
     private void createAnomalyDetector() {
         try {
-            logger.info("#198 Request Method is PUT ");
             QueryBuilder query = QueryBuilders.matchAllQuery();
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
 
@@ -217,7 +212,6 @@ public class IndexAnomalyDetectorActionHandler {
     }
 
     private void onSearchAdResponse(SearchResponse response) throws IOException {
-        logger.info("#211 onSearchAdResponse is called ");
         if (response.getHits().getTotalHits().value >= maxAnomalyDetectors) {
             String errorMsg = "Can't create anomaly detector more than " + maxAnomalyDetectors;
             logger.error(errorMsg);
@@ -228,7 +222,6 @@ public class IndexAnomalyDetectorActionHandler {
     }
 
     private void searchAdInputIndices(String detectorId) {
-        logger.info("#222 searchAdInputIndices is called ");
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(QueryBuilders.matchAllQuery())
             .size(0)
@@ -248,7 +241,6 @@ public class IndexAnomalyDetectorActionHandler {
     }
 
     private void onSearchAdInputIndicesResponse(SearchResponse response, String detectorId) throws IOException {
-        logger.info("#239 onSearchAdInputIndicesResponse is called ");
         if (response.getHits().getTotalHits().value == 0) {
             String errorMsg = "Can't create anomaly detector as no document found in indices: "
                 + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));

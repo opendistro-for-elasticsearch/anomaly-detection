@@ -51,6 +51,7 @@ public class AnomalyDetectorActionHandler {
      * @param detectorId detector identifier
      * @param listener Listener to send response
      * @param function AD function
+     * @param xContentRegistry Registry which is used for XContentParser
      */
     public void getDetectorJob(
         ClusterService clusterService,

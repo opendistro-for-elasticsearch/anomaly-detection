@@ -227,6 +227,8 @@ List<String> jacocoExclusions = [
         //TODO: add more test cases later for these package
         'com.amazon.opendistroforelasticsearch.ad.model.*',
         'com.amazon.opendistroforelasticsearch.ad.rest.*',
+        'com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler',
+        'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorJobRunner',
 
         // Class containing just constants.  Don't need to test
         'com.amazon.opendistroforelasticsearch.ad.constant.*',
@@ -250,7 +252,9 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
         'com.amazon.opendistroforelasticsearch.ad.util.ParseUtils',
         'com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorTransportAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorTransportAction*'
+        'com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorTransportAction*',
+        'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorTransportAction*',
+        'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorResponse'
 ]
 
 jacocoTestCoverageVerification {
@@ -292,7 +296,7 @@ checkstyle {
 dependencies {
     compile "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.10.1.0"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.10.1.1"
     compile group: 'com.google.guava', name: 'guava', version:'15.0'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     compile group: 'com.google.code.gson', name: 'gson', version: '2.8.5'

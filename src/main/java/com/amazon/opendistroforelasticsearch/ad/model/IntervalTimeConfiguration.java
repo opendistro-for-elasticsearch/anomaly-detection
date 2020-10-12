@@ -21,6 +21,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Set;
 
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
@@ -49,6 +51,21 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
         }
         this.interval = interval;
         this.unit = unit;
+    }
+
+    public IntervalTimeConfiguration(StreamInput input) throws IOException {
+        this.interval = input.readLong();
+        this.unit = input.readEnum(ChronoUnit.class);
+    }
+
+    public static IntervalTimeConfiguration readFrom(StreamInput input) throws IOException {
+        return new IntervalTimeConfiguration(input);
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeLong(this.interval);
+        out.writeEnum(this.unit);
     }
 
     @Override

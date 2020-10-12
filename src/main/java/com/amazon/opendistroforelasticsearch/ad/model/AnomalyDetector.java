@@ -29,12 +29,16 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.util.Strings;
 import org.elasticsearch.common.ParseField;
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.StreamOutput;
+import org.elasticsearch.common.io.stream.Writeable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -46,7 +50,7 @@ import com.google.common.base.Objects;
 /**
  * An AnomalyDetector is used to represent anomaly detection model(RCF) related parameters.
  */
-public class AnomalyDetector implements ToXContentObject {
+public class AnomalyDetector implements Writeable, ToXContentObject {
 
     public static final String PARSE_FIELD_NAME = "AnomalyDetector";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
@@ -153,8 +157,59 @@ public class AnomalyDetector implements ToXContentObject {
         this.lastUpdateTime = lastUpdateTime;
     }
 
+    public AnomalyDetector(StreamInput input) throws IOException {
+        detectorId = input.readString();
+        version = input.readLong();
+        String name = input.readString();
+        if (Strings.isBlank(name)) {
+            throw new IllegalArgumentException("Detector name should be set");
+        }
+        this.name = name;
+        description = input.readString();
+        String timeField = input.readString();
+        if (timeField == null) {
+            throw new IllegalArgumentException("Time field should be set");
+        }
+        this.timeField = timeField;
+        List<String> indices = input.readStringList();
+        if (indices == null || indices.isEmpty()) {
+            throw new IllegalArgumentException("Indices should be set");
+        }
+        this.indices = indices;
+        featureAttributes = input.readList(Feature::new);
+        filterQuery = new MatchAllQueryBuilder(input);
+        detectionInterval = IntervalTimeConfiguration.readFrom(input);
+        windowDelay = IntervalTimeConfiguration.readFrom(input);
+        Integer shingleSize = input.readInt();
+        if (shingleSize != null && shingleSize < 1) {
+            throw new IllegalArgumentException("Shingle size must be a positive integer");
+        }
+        this.shingleSize = shingleSize;
+        uiMetadata = input.readMap();
+        schemaVersion = input.readInt();
+        lastUpdateTime = input.readInstant();
+    }
+
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
         return toXContent(builder, ToXContent.EMPTY_PARAMS);
+    }
+
+    @Override
+    public void writeTo(StreamOutput output) throws IOException {
+        output.writeString(detectorId);
+        output.writeLong(version);
+        output.writeString(name);
+        output.writeString(description);
+        output.writeString(timeField);
+        output.writeStringCollection(indices);
+        output.writeList(featureAttributes);
+        filterQuery.writeTo(output);
+        detectionInterval.writeTo(output);
+        windowDelay.writeTo(output);
+        output.writeInt(shingleSize);
+        output.writeMap(uiMetadata);
+        output.writeInt(schemaVersion);
+        output.writeInstant(lastUpdateTime);
     }
 
     @Override

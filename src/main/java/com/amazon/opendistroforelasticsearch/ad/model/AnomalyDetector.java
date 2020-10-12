@@ -161,7 +161,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.filterQuery = filterQuery;
         this.detectionInterval = detectionInterval;
         this.windowDelay = windowDelay;
-        this.shingleSize = shingleSize;
+        this.shingleSize = getShingleSize(shingleSize, categoryField);
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;

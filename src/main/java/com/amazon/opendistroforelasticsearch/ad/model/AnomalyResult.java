@@ -85,17 +85,19 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Instant executionEndTime,
         String error
     ) {
-        this.detectorId = detectorId;
-        this.anomalyScore = anomalyScore;
-        this.anomalyGrade = anomalyGrade;
-        this.confidence = confidence;
-        this.featureData = featureData;
-        this.dataStartTime = dataStartTime;
-        this.dataEndTime = dataEndTime;
-        this.executionStartTime = executionStartTime;
-        this.executionEndTime = executionEndTime;
-        this.error = error;
-        this.entity = null;
+        this(
+            detectorId,
+            anomalyScore,
+            anomalyGrade,
+            confidence,
+            featureData,
+            dataStartTime,
+            dataEndTime,
+            executionStartTime,
+            executionEndTime,
+            error,
+            null
+        );
     }
 
     public AnomalyResult(

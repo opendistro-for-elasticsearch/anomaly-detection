@@ -107,12 +107,14 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
             }
         }
 
-        client
-            .execute(
-                BulkAction.INSTANCE,
-                bulkRequest,
-                ActionListener.<BulkResponse>wrap(response -> listener.onResponse(response), listener::onFailure)
-            );
+        if (bulkRequest.numberOfActions() > 0) {
+            client
+                .execute(
+                    BulkAction.INSTANCE,
+                    bulkRequest,
+                    ActionListener.<BulkResponse>wrap(response -> listener.onResponse(response), listener::onFailure)
+                );
+        }
     }
 
     private void addResult(BulkRequest bulkRequest, AnomalyResult result) {

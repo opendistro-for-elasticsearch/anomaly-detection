@@ -103,6 +103,7 @@ import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
@@ -122,7 +123,6 @@ import com.amazon.opendistroforelasticsearch.ad.ml.RcfResult;
 import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingResult;
 import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
@@ -138,7 +138,7 @@ public class AnomalyResultTests extends AbstractADTest {
     private static Settings settings = Settings.EMPTY;
     private TransportService transportService;
     private ClusterService clusterService;
-    private TransportStateManager stateManager;
+    private NodeStateManager stateManager;
     private FeatureManager featureQuery;
     private ModelManager normalModelManager;
     private Client client;
@@ -174,7 +174,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
         transportService = testNodes[0].transportService;
         clusterService = testNodes[0].clusterService;
-        stateManager = mock(TransportStateManager.class);
+        stateManager = mock(NodeStateManager.class);
         // return 2 RCF partitions
         partitionNum = 2;
         when(stateManager.getPartitionNumber(any(String.class), any(AnomalyDetector.class))).thenReturn(partitionNum);
@@ -212,7 +212,7 @@ public class AnomalyResultTests extends AbstractADTest {
         normalModelManager = mock(ModelManager.class);
         doAnswer(invocation -> {
             ActionListener<ThresholdingResult> listener = invocation.getArgument(3);
-            listener.onResponse(new ThresholdingResult(0, 1.0d));
+            listener.onResponse(new ThresholdingResult(0, 1.0d, 0));
             return null;
         }).when(normalModelManager).getThresholdingResult(any(String.class), any(String.class), anyDouble(), any(ActionListener.class));
 
@@ -245,7 +245,7 @@ public class AnomalyResultTests extends AbstractADTest {
             }
 
             assertTrue(request != null && listener != null);
-            ShardId shardId = new ShardId(new Index(AnomalyResult.ANOMALY_RESULT_INDEX, randomAlphaOfLength(10)), 0);
+            ShardId shardId = new ShardId(new Index(CommonName.ANOMALY_RESULT_INDEX_ALIAS, randomAlphaOfLength(10)), 0);
             listener.onResponse(new IndexResponse(shardId, randomAlphaOfLength(10), request.id(), 1, 1, 1, true));
 
             return null;
@@ -786,7 +786,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testMute() {
-        TransportStateManager muteStateManager = mock(TransportStateManager.class);
+        NodeStateManager muteStateManager = mock(NodeStateManager.class);
         when(muteStateManager.isMuted(any(String.class))).thenReturn(true);
         doAnswer(invocation -> {
             ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);

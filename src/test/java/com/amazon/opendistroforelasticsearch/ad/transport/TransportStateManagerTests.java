@@ -46,6 +46,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.After;
 import org.junit.Before;
 
+import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -54,7 +55,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import com.google.common.collect.ImmutableMap;
 
 public class TransportStateManagerTests extends ESTestCase {
-    private TransportStateManager stateManager;
+    private NodeStateManager stateManager;
     private ModelManager modelManager;
     private Client client;
     private ClientUtil clientUtil;
@@ -92,7 +93,7 @@ public class TransportStateManagerTests extends ESTestCase {
         throttler = new Throttler(clock);
 
         clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, mock(ThreadPool.class));
-        stateManager = new TransportStateManager(client, xContentRegistry(), modelManager, settings, clientUtil, clock, duration);
+        stateManager = new NodeStateManager(client, xContentRegistry(), modelManager, settings, clientUtil, clock, duration);
 
         checkpointResponse = mock(GetResponse.class);
     }
@@ -175,7 +176,7 @@ public class TransportStateManagerTests extends ESTestCase {
 
     public void testGetLastError() throws IOException, InterruptedException {
         String error = "blah";
-        assertEquals(TransportStateManager.NO_ERROR, stateManager.getLastDetectionError(adId));
+        assertEquals(NodeStateManager.NO_ERROR, stateManager.getLastDetectionError(adId));
         stateManager.setLastDetectionError(adId, error);
         assertEquals(error, stateManager.getLastDetectionError(adId));
     }
@@ -207,7 +208,7 @@ public class TransportStateManagerTests extends ESTestCase {
     }
 
     public void testHasRunningQuery() throws IOException {
-        stateManager = new TransportStateManager(
+        stateManager = new NodeStateManager(
             client,
             xContentRegistry(),
             modelManager,

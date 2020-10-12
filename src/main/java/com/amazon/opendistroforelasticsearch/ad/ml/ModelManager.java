@@ -469,7 +469,7 @@ public class ModelManager {
             threshold.update(score);
         }
         modelState.setLastUsedTime(clock.instant());
-        listener.onResponse(new ThresholdingResult(grade, confidence));
+        listener.onResponse(new ThresholdingResult(grade, confidence, score));
     }
 
     private void processThresholdCheckpoint(
@@ -987,7 +987,7 @@ public class ModelManager {
         return Arrays.stream(dataPoints).map(point -> {
             double rcfScore = forest.getAnomalyScore(point);
             forest.update(point);
-            ThresholdingResult result = new ThresholdingResult(threshold.grade(rcfScore), threshold.confidence());
+            ThresholdingResult result = new ThresholdingResult(threshold.grade(rcfScore), threshold.confidence(), rcfScore);
             threshold.update(rcfScore);
             return result;
         }).collect(Collectors.toList());
@@ -1047,5 +1047,19 @@ public class ModelManager {
                 );
         }
 
+    }
+
+    public String getEntityModelId(String detectorId, String entityValue) {
+        return detectorId + "_entity_" + entityValue;
+    }
+
+    public ThresholdingResult getAnomalyResultForEntity(
+        String detectorId,
+        double[] datapoint,
+        String entityName,
+        ModelState<EntityModel> modelState,
+        String modelId
+    ) {
+        throw new UnsupportedOperationException("not supported");
     }
 }

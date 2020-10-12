@@ -214,4 +214,10 @@ public final class AnomalyDetectorSettings {
 
     // Thread pool
     public static final int AD_THEAD_POOL_QUEUE_SIZE = 1000;
+
+    // Multi-entity detector model setting:
+    // TODO (kaituo): change to 4
+    public static final int DEFAULT_MULTI_ENTITY_SHINGLE = 1;
+
+    public static int MAX_ENTITY_LENGTH = 256;
 }

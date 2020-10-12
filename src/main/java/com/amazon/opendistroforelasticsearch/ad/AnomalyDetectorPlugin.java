@@ -127,7 +127,6 @@ import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultTransportAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
@@ -190,10 +189,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             client,
             settings,
             threadPool,
-            AnomalyResult.ANOMALY_RESULT_INDEX,
+            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
-            false,
             this.clientUtil,
             this.indexUtils,
             clusterService
@@ -316,7 +314,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
 
         HashRing hashRing = new HashRing(nodeFilter, clock, settings);
-        TransportStateManager stateManager = new TransportStateManager(
+        NodeStateManager stateManager = new NodeStateManager(
             client,
             xContentRegistry,
             modelManager,
@@ -354,7 +352,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             )
             .put(
                 StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(),
-                new ADStat<>(true, new IndexStatusSupplier(indexUtils, AnomalyResult.ANOMALY_RESULT_INDEX))
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.ANOMALY_RESULT_INDEX_ALIAS))
             )
             .put(
                 StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(),

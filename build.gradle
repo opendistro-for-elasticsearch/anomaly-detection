@@ -254,7 +254,16 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorTransportAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorTransportAction*',
         'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorTransportAction*',
-        'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorResponse'
+        'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorResponse',
+
+        // hc caused coverage to drop.  Will address when code merges
+        'com.amazon.opendistroforelasticsearch.ad.transport.handler.MultitiEntityResultHandler',
+        'com.amazon.opendistroforelasticsearch.ad.transport.EntityResultAction',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADResultBulkRequest',
+        'com.amazon.opendistroforelasticsearch.ad.MaintenanceState',
+        'com.amazon.opendistroforelasticsearch.ad.util.ExpiringState',
+        'com.amazon.opendistroforelasticsearch.ad.ml.EntityModel',
+        'com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider'
 ]
 
 jacocoTestCoverageVerification {

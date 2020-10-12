@@ -16,9 +16,18 @@
 package com.amazon.opendistroforelasticsearch.ad;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,9 +39,20 @@ import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.apache.logging.log4j.util.StackLocatorUtil;
+import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.support.PlainActionFuture;
+import org.elasticsearch.cluster.metadata.AliasMetadata;
+import org.elasticsearch.cluster.metadata.IndexMetadata;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.http.HttpRequest;
+import org.elasticsearch.http.HttpResponse;
+import org.elasticsearch.rest.RestRequest;
+import org.elasticsearch.rest.RestRequest.Method;
+import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.search.SearchModule;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.threadpool.FixedExecutorBuilder;
 import org.elasticsearch.threadpool.TestThreadPool;
@@ -41,6 +61,11 @@ import org.elasticsearch.transport.TransportInterceptor;
 import org.elasticsearch.transport.TransportService;
 
 import test.com.amazon.opendistroforelasticsearch.ad.util.FakeNode;
+
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 
 public class AbstractADTest extends ESTestCase {
 
@@ -215,5 +240,126 @@ public class AbstractADTest extends ESTestCase {
     ) {
         Exception e = expectThrows(exceptionType, () -> listener.actionGet());
         assertThat(e.getMessage(), containsString(msg));
+    }
+
+    @Override
+    protected NamedXContentRegistry xContentRegistry() {
+        SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
+        List<NamedXContentRegistry.Entry> entries = searchModule.getNamedXContents();
+        entries
+            .addAll(
+                Arrays
+                    .asList(
+                        AnomalyDetector.XCONTENT_REGISTRY,
+                        AnomalyResult.XCONTENT_REGISTRY,
+                        DetectorInternalState.XCONTENT_REGISTRY,
+                        AnomalyDetectorJob.XCONTENT_REGISTRY
+                    )
+            );
+        return new NamedXContentRegistry(entries);
+    }
+
+    protected RestRequest createRestRequest(Method method) {
+        return RestRequest.request(xContentRegistry(), new HttpRequest() {
+
+            @Override
+            public Method method() {
+                return method;
+            }
+
+            @Override
+            public String uri() {
+                return "/";
+            }
+
+            @Override
+            public BytesReference content() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public Map<String, List<String>> getHeaders() {
+                return new HashMap<>();
+            }
+
+            @Override
+            public List<String> strictCookies() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public HttpVersion protocolVersion() {
+                return HttpRequest.HttpVersion.HTTP_1_1;
+            }
+
+            @Override
+            public HttpRequest removeHeader(String header) {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public HttpResponse createResponse(RestStatus status, BytesReference content) {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public Exception getInboundException() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public void release() {
+                // TODO Auto-generated method stub
+
+            }
+
+            @Override
+            public HttpRequest releaseAndCopy() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+        }, null);
+    }
+
+    protected boolean areEqualWithArrayValue(Map<String, double[]> first, Map<String, double[]> second) {
+        if (first.size() != second.size()) {
+            return false;
+        }
+
+        return first.entrySet().stream().allMatch(e -> Arrays.equals(e.getValue(), second.get(e.getKey())));
+    }
+
+    protected IndexMetadata indexMeta(String name, long creationDate, String... aliases) {
+        IndexMetadata.Builder builder = IndexMetadata
+            .builder(name)
+            .settings(
+                Settings
+                    .builder()
+                    .put("index.number_of_shards", 1)
+                    .put("index.number_of_replicas", 1)
+                    .put("index.version.created", Version.CURRENT.id)
+            );
+        builder.creationDate(creationDate);
+        for (String alias : aliases) {
+            builder.putAlias(AliasMetadata.builder(alias).build());
+        }
+        return builder.build();
+    }
+
+    protected void setUpADThreadPool(ThreadPool mockThreadPool) {
+        ExecutorService executorService = mock(ExecutorService.class);
+
+        when(mockThreadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(executorService).execute(any(Runnable.class));
     }
 }

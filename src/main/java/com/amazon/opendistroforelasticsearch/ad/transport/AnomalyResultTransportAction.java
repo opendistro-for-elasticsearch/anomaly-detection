@@ -53,6 +53,7 @@ import org.elasticsearch.transport.TransportRequestOptions;
 import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
@@ -93,7 +94,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String BUG_RESPONSE = "We might have bugs.";
 
     private final TransportService transportService;
-    private final TransportStateManager stateManager;
+    private final NodeStateManager stateManager;
     private final FeatureManager featureManager;
     private final ModelManager modelManager;
     private final HashRing hashRing;
@@ -109,7 +110,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         ActionFilters actionFilters,
         TransportService transportService,
         Settings settings,
-        TransportStateManager manager,
+        NodeStateManager manager,
         FeatureManager featureManager,
         ModelManager modelManager,
         HashRing hashRing,

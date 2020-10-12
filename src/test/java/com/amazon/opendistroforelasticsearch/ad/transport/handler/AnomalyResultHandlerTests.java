@@ -55,6 +55,7 @@ import org.mockito.MockitoAnnotations;
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTests;
@@ -137,10 +138,9 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             client,
             settings,
             threadPool,
-            AnomalyResult.ANOMALY_RESULT_INDEX,
+            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
-            false,
             clientUtil,
             indexUtil,
             clusterService
@@ -175,10 +175,9 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             client,
             settings,
             threadPool,
-            AnomalyResult.ANOMALY_RESULT_INDEX,
+            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
-            false,
             clientUtil,
             indexUtil,
             clusterService
@@ -195,10 +194,9 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             client,
             settings,
             threadPool,
-            AnomalyResult.ANOMALY_RESULT_INDEX,
+            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
-            false,
             clientUtil,
             indexUtil,
             clusterService
@@ -217,10 +215,9 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             client,
             settings,
             threadPool,
-            AnomalyResult.ANOMALY_RESULT_INDEX,
+            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
-            false,
             clientUtil,
             indexUtil,
             clusterService
@@ -246,7 +243,7 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
         Settings settings = blocked
             ? Settings.builder().put(IndexMetadata.INDEX_BLOCKS_WRITE_SETTING.getKey(), true).build()
             : Settings.EMPTY;
-        ClusterState blockedClusterState = createIndexBlockedState(indexName, settings, AnomalyResult.ANOMALY_RESULT_INDEX);
+        ClusterState blockedClusterState = createIndexBlockedState(indexName, settings, CommonName.ANOMALY_RESULT_INDEX_ALIAS);
         when(clusterService.state()).thenReturn(blockedClusterState);
         when(indexNameResolver.concreteIndexNames(any(), any(), any(String.class))).thenReturn(new String[] { indexName });
     }
@@ -296,10 +293,9 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             client,
             backoffSettings,
             threadPool,
-            AnomalyResult.ANOMALY_RESULT_INDEX,
+            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
-            false,
             clientUtil,
             indexUtil,
             clusterService
@@ -317,7 +313,7 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 1);
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
             assertTrue(listener != null);
-            listener.onResponse(new CreateIndexResponse(true, true, AnomalyResult.ANOMALY_RESULT_INDEX) {
+            listener.onResponse(new CreateIndexResponse(true, true, CommonName.ANOMALY_RESULT_INDEX_ALIAS) {
             });
             return null;
         }).when(anomalyDetectionIndices).initAnomalyResultIndexDirectly(any());

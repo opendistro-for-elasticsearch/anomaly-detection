@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.ad.transport;
+package com.amazon.opendistroforelasticsearch.ad;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -27,7 +27,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
  * Storing intermediate state during the execution of transport action
  *
  */
-public class TransportState {
+public class NodeState {
     private String detectorId;
     // detector definition
     private AnomalyDetector detectorDef;
@@ -47,7 +47,7 @@ public class TransportState {
     // cold start running flag to prevent concurrent cold start
     private boolean coldStartRunning;
 
-    public TransportState(String detectorId, Clock clock) {
+    public NodeState(String detectorId, Clock clock) {
         this.detectorId = detectorId;
         this.detectorDef = null;
         this.partitonNumber = -1;

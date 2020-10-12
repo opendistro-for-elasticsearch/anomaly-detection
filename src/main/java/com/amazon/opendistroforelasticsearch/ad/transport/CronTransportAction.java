@@ -27,12 +27,13 @@ import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
+import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 
 public class CronTransportAction extends TransportNodesAction<CronRequest, CronResponse, CronNodeRequest, CronNodeResponse> {
 
-    private TransportStateManager transportStateManager;
+    private NodeStateManager transportStateManager;
     private ModelManager modelManager;
     private FeatureManager featureManager;
 
@@ -42,7 +43,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
-        TransportStateManager tarnsportStatemanager,
+        NodeStateManager tarnsportStatemanager,
         ModelManager modelManager,
         FeatureManager featureManager
     ) {

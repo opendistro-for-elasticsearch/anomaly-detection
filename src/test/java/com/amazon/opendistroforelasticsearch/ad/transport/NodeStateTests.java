@@ -25,18 +25,19 @@ import java.time.Instant;
 
 import org.elasticsearch.test.ESTestCase;
 
+import com.amazon.opendistroforelasticsearch.ad.NodeState;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 
-public class TransportStateTests extends ESTestCase {
-    private TransportState state;
+public class NodeStateTests extends ESTestCase {
+    private NodeState state;
     private Clock clock;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
         clock = mock(Clock.class);
-        state = new TransportState("123", clock);
+        state = new NodeState("123", clock);
     }
 
     private Duration duration = Duration.ofHours(1);

@@ -22,6 +22,9 @@ public class CommonName {
     // index name for anomaly checkpoint of each model. One model one document.
     public static final String CHECKPOINT_INDEX_NAME = ".opendistro-anomaly-checkpoints";
 
+    // The alias of the index in which to write single-entity AD result history
+    public static final String ANOMALY_RESULT_INDEX_ALIAS = ".opendistro-anomaly-results";
+
     // ======================================
     // Format name
     // ======================================
@@ -55,4 +58,18 @@ public class CommonName {
     public static final String TOTAL_SIZE_IN_BYTES = "total_size_in_bytes";
     public static final String MODELS = "models";
     public static final String INIT_PROGRESS = "init_progress";
+    public static final String TOTAL_ENTITIES = "total_entities";
+    public static final String ACTIVE_ENTITIES = "active_entities";
+
+    // Elastic mapping type
+    public static final String MAPPING_TYPE = "_doc";
+
+    // Used to fetch mapping
+    public static final String TYPE = "type";
+
+    public static final String KEYWORD_TYPE = "keyword";
+
+    public static final String IP_TYPE = "ip";
+
+    public static final String TOTAL_UPDATES = "total_updates";
 }

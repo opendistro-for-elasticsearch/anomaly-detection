@@ -30,44 +30,36 @@ import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
 import com.google.common.base.Objects;
 
 /**
- * Feature data used by RCF model.
+ * Categorical field name and its value
+ * @author kaituo
+ *
  */
-public class FeatureData implements ToXContentObject, Writeable {
+public class Entity implements ToXContentObject, Writeable {
+    public static final String ENTITY_NAME_FIELD = "name";
+    public static final String ENTITY_VALUE_FIELD = "value";
 
-    public static final String FEATURE_ID_FIELD = "feature_id";
-    public static final String FEATURE_NAME_FIELD = "feature_name";
-    public static final String DATA_FIELD = "data";
+    private final String name;
+    private final String value;
 
-    private final String featureId;
-    private final String featureName;
-    private final Double data;
-
-    public FeatureData(String featureId, String featureName, Double data) {
-        this.featureId = featureId;
-        this.featureName = featureName;
-        this.data = data;
+    public Entity(String name, String value) {
+        this.name = name;
+        this.value = value;
     }
 
-    public FeatureData(StreamInput input) throws IOException {
-        this.featureId = input.readString();
-        this.featureName = input.readString();
-        this.data = input.readDouble();
+    public Entity(StreamInput input) throws IOException {
+        this.name = input.readString();
+        this.value = input.readString();
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        XContentBuilder xContentBuilder = builder
-            .startObject()
-            .field(FEATURE_ID_FIELD, featureId)
-            .field(FEATURE_NAME_FIELD, featureName)
-            .field(DATA_FIELD, data);
+        XContentBuilder xContentBuilder = builder.startObject().field(ENTITY_NAME_FIELD, name).field(ENTITY_VALUE_FIELD, value);
         return xContentBuilder.endObject();
     }
 
-    public static FeatureData parse(XContentParser parser) throws IOException {
-        String featureId = null;
-        Double data = null;
-        String parsedFeatureName = null;
+    public static Entity parse(XContentParser parser) throws IOException {
+        String parsedValue = null;
+        String parsedName = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -75,20 +67,17 @@ public class FeatureData implements ToXContentObject, Writeable {
             parser.nextToken();
 
             switch (fieldName) {
-                case FEATURE_ID_FIELD:
-                    featureId = parser.text();
+                case ENTITY_NAME_FIELD:
+                    parsedName = parser.text();
                     break;
-                case FEATURE_NAME_FIELD:
-                    parsedFeatureName = parser.text();
-                    break;
-                case DATA_FIELD:
-                    data = parser.doubleValue();
+                case ENTITY_VALUE_FIELD:
+                    parsedValue = parser.text();
                     break;
                 default:
                     break;
             }
         }
-        return new FeatureData(featureId, parsedFeatureName, data);
+        return new Entity(parsedName, parsedValue);
     }
 
     @Generated
@@ -98,37 +87,29 @@ public class FeatureData implements ToXContentObject, Writeable {
             return true;
         if (o == null || getClass() != o.getClass())
             return false;
-        FeatureData that = (FeatureData) o;
-        return Objects.equal(getFeatureId(), that.getFeatureId())
-            && Objects.equal(getFeatureName(), that.getFeatureName())
-            && Objects.equal(getData(), that.getData());
+        Entity that = (Entity) o;
+        return Objects.equal(getName(), that.getName()) && Objects.equal(getValue(), that.getValue());
     }
 
     @Generated
     @Override
     public int hashCode() {
-        return Objects.hashCode(getFeatureId(), getData());
+        return Objects.hashCode(getName(), getValue());
     }
 
     @Generated
-    public String getFeatureId() {
-        return featureId;
+    public String getName() {
+        return name;
     }
 
     @Generated
-    public Double getData() {
-        return data;
-    }
-
-    @Generated
-    public String getFeatureName() {
-        return featureName;
+    public String getValue() {
+        return value;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(featureId);
-        out.writeString(featureName);
-        out.writeDouble(data);
+        out.writeString(name);
+        out.writeString(value);
     }
 }

@@ -172,4 +172,8 @@ public class CheckpointDao {
                 ActionListener.wrap(r -> listener.onResponse(null), listener::onFailure)
             );
     }
+
+    public void flush() {
+        throw new UnsupportedOperationException("not supported");
+    }
 }

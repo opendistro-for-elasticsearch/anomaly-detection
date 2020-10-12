@@ -24,16 +24,21 @@ public class ThresholdingResult {
 
     private final double grade;
     private final double confidence;
+    private final double rcfScore;
 
     /**
      * Constructor with all arguments.
      *
      * @param grade anomaly grade
      * @param confidence confidence for the grade
+     * @param rcfScore rcf score associated with the grade and confidence. Used
+     *   by multi-entity detector to differentiate whether the result is worth
+     *   saving or not.
      */
-    public ThresholdingResult(double grade, double confidence) {
+    public ThresholdingResult(double grade, double confidence, double rcfScore) {
         this.grade = grade;
         this.confidence = confidence;
+        this.rcfScore = rcfScore;
     }
 
     /**
@@ -54,6 +59,10 @@ public class ThresholdingResult {
         return confidence;
     }
 
+    public double getRcfScore() {
+        return rcfScore;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o)
@@ -61,11 +70,13 @@ public class ThresholdingResult {
         if (o == null || getClass() != o.getClass())
             return false;
         ThresholdingResult that = (ThresholdingResult) o;
-        return Objects.equals(this.grade, that.grade) && Objects.equals(this.confidence, that.confidence);
+        return Objects.equals(this.grade, that.grade)
+            && Objects.equals(this.confidence, that.confidence)
+            && Objects.equals(this.rcfScore, that.rcfScore);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(grade, confidence);
+        return Objects.hash(grade, confidence, rcfScore);
     }
 }

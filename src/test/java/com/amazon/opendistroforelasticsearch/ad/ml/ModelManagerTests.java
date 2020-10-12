@@ -482,7 +482,7 @@ public class ModelManagerTests {
         ActionListener<ThresholdingResult> listener = mock(ActionListener.class);
         modelManager.getThresholdingResult(detectorId, thresholdModelId, score, listener);
 
-        ThresholdingResult expected = new ThresholdingResult(grade, confidence);
+        ThresholdingResult expected = new ThresholdingResult(grade, confidence, score);
         verify(listener).onResponse(eq(expected));
 
         listener = mock(ActionListener.class);

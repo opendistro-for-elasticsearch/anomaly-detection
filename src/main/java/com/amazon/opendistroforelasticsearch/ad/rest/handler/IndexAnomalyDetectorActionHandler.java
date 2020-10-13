@@ -17,17 +17,16 @@ package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
-import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.get.GetRequest;
@@ -37,25 +36,23 @@ import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.node.NodeClient;
+import org.elasticsearch.action.support.replication.ReplicationResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.rest.BytesRestResponse;
-import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.rest.RestResponse;
 import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.rest.action.RestResponseListener;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 
 /**
@@ -63,7 +60,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
  * POST request is for creating anomaly detector.
  * PUT request is for updating anomaly detector.
  */
-public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
+public class IndexAnomalyDetectorActionHandler {
 
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final String detectorId;
@@ -78,6 +75,11 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
     private final Integer maxAnomalyDetectors;
     private final Integer maxAnomalyFeatures;
     private final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
+    private final RestRequest.Method method;
+    private final Client client;
+    private final NamedXContentRegistry xContentRegistry;
+    private final Settings settings;
+    private final ActionListener<IndexAnomalyDetectorResponse> listener;
 
     /**
      * Constructor function.
@@ -85,7 +87,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
      * @param settings                ES settings
      * @param clusterService          ClusterService
      * @param client                  ES node client that executes actions on the local node
-     * @param channel                 ES channel used to construct bytes / builder based outputs, and send responses
+     * @param listener                 ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetectionIndices anomaly detector index manager
      * @param detectorId              detector identifier
      * @param seqNo                   sequence number of last modification
@@ -95,12 +97,14 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
      * @param requestTimeout          request time out configuration
      * @param maxAnomalyDetectors     max anomaly detector allowed
      * @param maxAnomalyFeatures      max features allowed per detector
+     * @param method                  Rest Method type
+     * @param xContentRegistry        Registry which is used for XContentParser
      */
     public IndexAnomalyDetectorActionHandler(
         Settings settings,
         ClusterService clusterService,
-        NodeClient client,
-        RestChannel channel,
+        Client client,
+        ActionListener<IndexAnomalyDetectorResponse> listener,
         AnomalyDetectionIndices anomalyDetectionIndices,
         String detectorId,
         Long seqNo,
@@ -109,11 +113,15 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         AnomalyDetector anomalyDetector,
         TimeValue requestTimeout,
         Integer maxAnomalyDetectors,
-        Integer maxAnomalyFeatures
+        Integer maxAnomalyFeatures,
+        RestRequest.Method method,
+        NamedXContentRegistry xContentRegistry
     ) {
-        super(client, channel);
+        this.settings = settings;
         this.clusterService = clusterService;
+        this.client = client;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
+        this.listener = listener;
         this.detectorId = detectorId;
         this.seqNo = seqNo;
         this.primaryTerm = primaryTerm;
@@ -122,6 +130,8 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         this.requestTimeout = requestTimeout;
         this.maxAnomalyDetectors = maxAnomalyDetectors;
         this.maxAnomalyFeatures = maxAnomalyFeatures;
+        this.method = method;
+        this.xContentRegistry = xContentRegistry;
     }
 
     /**
@@ -132,11 +142,13 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
      */
     public void start() throws IOException {
         if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist()) {
+            logger.info("AnomalyDetector Indices do not exist");
             anomalyDetectionIndices
                 .initAnomalyDetectorIndex(
-                    ActionListener.wrap(response -> onCreateMappingsResponse(response), exception -> onFailure(exception))
+                    ActionListener.wrap(response -> onCreateMappingsResponse(response), exception -> listener.onFailure(exception))
                 );
         } else {
+            logger.info("AnomalyDetector Indices do exist, calling prepareAnomalyDetectorIndexing");
             prepareAnomalyDetectorIndexing();
         }
     }
@@ -150,31 +162,32 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         // 2).If filter will only return one document,
         // 3).If custom expression has specific logic to return one number for some case,
         // but multiple for others, like some if/else branch
+        logger.info("prepareAnomalyDetectorIndexing called after creating indices");
         String error = RestHandlerUtils.validateAnomalyDetector(anomalyDetector, maxAnomalyFeatures);
         if (StringUtils.isNotBlank(error)) {
-            channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
+            listener.onFailure(new ElasticsearchStatusException(error, RestStatus.BAD_REQUEST));
             return;
         }
-        if (channel.request().method() == RestRequest.Method.PUT) {
-            handler.getDetectorJob(clusterService, client, detectorId, channel, () -> updateAnomalyDetector(client, detectorId));
+        if (method == RestRequest.Method.PUT) {
+            handler.getDetectorJob(clusterService, client, detectorId, listener, () -> updateAnomalyDetector(detectorId), xContentRegistry);
         } else {
             createAnomalyDetector();
         }
     }
 
-    private void updateAnomalyDetector(NodeClient client, String detectorId) {
+    private void updateAnomalyDetector(String detectorId) {
         GetRequest request = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
-        client.get(request, ActionListener.wrap(response -> onGetAnomalyDetectorResponse(response), exception -> onFailure(exception)));
+        client
+            .get(
+                request,
+                ActionListener.wrap(response -> onGetAnomalyDetectorResponse(response), exception -> listener.onFailure(exception))
+            );
     }
 
     private void onGetAnomalyDetectorResponse(GetResponse response) throws IOException {
         if (!response.isExists()) {
-            XContentBuilder builder = channel
-                .newErrorBuilder()
-                .startObject()
-                .field("Message", "AnomalyDetector is not found with id: " + detectorId)
-                .endObject();
-            channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, EMPTY_PARAMS)));
+            listener
+                .onFailure(new ElasticsearchStatusException("AnomalyDetector is not found with id: " + detectorId, RestStatus.NOT_FOUND));
             return;
         }
 
@@ -188,9 +201,13 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
 
             SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
 
-            client.search(searchRequest, ActionListener.wrap(response -> onSearchAdResponse(response), exception -> onFailure(exception)));
+            client
+                .search(
+                    searchRequest,
+                    ActionListener.wrap(response -> onSearchAdResponse(response), exception -> listener.onFailure(exception))
+                );
         } catch (Exception e) {
-            onFailure(e);
+            listener.onFailure(e);
         }
     }
 
@@ -198,7 +215,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         if (response.getHits().getTotalHits().value >= maxAnomalyDetectors) {
             String errorMsg = "Can't create anomaly detector more than " + maxAnomalyDetectors;
             logger.error(errorMsg);
-            onFailure(new IllegalArgumentException(errorMsg));
+            listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
             searchAdInputIndices(null);
         }
@@ -216,7 +233,10 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
             .search(
                 searchRequest,
                 ActionListener
-                    .wrap(searchResponse -> onSearchAdInputIndicesResponse(searchResponse, detectorId), exception -> onFailure(exception))
+                    .wrap(
+                        searchResponse -> onSearchAdInputIndicesResponse(searchResponse, detectorId),
+                        exception -> listener.onFailure(exception)
+                    )
             );
     }
 
@@ -225,7 +245,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
             String errorMsg = "Can't create anomaly detector as no document found in indices: "
                 + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));
             logger.error(errorMsg);
-            onFailure(new IllegalArgumentException(errorMsg));
+            listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
             checkADNameExists(detectorId);
         }
@@ -247,7 +267,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
                 ActionListener
                     .wrap(
                         searchResponse -> onSearchADNameResponse(searchResponse, detectorId, anomalyDetector.getName()),
-                        exception -> onFailure(exception)
+                        exception -> listener.onFailure(exception)
                     )
             );
     }
@@ -261,7 +281,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
                     Arrays.stream(response.getHits().getHits()).map(hit -> hit.getId()).collect(Collectors.toList())
                 );
             logger.warn(errorMsg);
-            onFailure(new IllegalArgumentException(errorMsg));
+            listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
             indexAnomalyDetector(detectorId);
         }
@@ -286,42 +306,38 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
         );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)
-            .source(detector.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
+            .source(detector.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE))
             .setIfSeqNo(seqNo)
             .setIfPrimaryTerm(primaryTerm)
             .timeout(requestTimeout);
         if (detectorId != null) {
             indexRequest.id(detectorId);
         }
-        client.index(indexRequest, indexAnomalyDetectorResponse());
-    }
-
-    private ActionListener<IndexResponse> indexAnomalyDetectorResponse() {
-        return new RestResponseListener<IndexResponse>(channel) {
+        client.index(indexRequest, new ActionListener<IndexResponse>() {
             @Override
-            public RestResponse buildResponse(IndexResponse response) throws Exception {
-                if (response.getShardInfo().getSuccessful() < 1) {
-                    return new BytesRestResponse(response.status(), response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS));
+            public void onResponse(IndexResponse indexResponse) {
+                String errorMsg = checkShardsFailure(indexResponse);
+                if (errorMsg != null) {
+                    listener.onFailure(new ElasticsearchStatusException(errorMsg, indexResponse.status()));
+                    return;
                 }
-
-                XContentBuilder builder = channel
-                    .newBuilder()
-                    .startObject()
-                    .field(RestHandlerUtils._ID, response.getId())
-                    .field(RestHandlerUtils._VERSION, response.getVersion())
-                    .field(RestHandlerUtils._SEQ_NO, response.getSeqNo())
-                    .field(RestHandlerUtils._PRIMARY_TERM, response.getPrimaryTerm())
-                    .field("anomaly_detector", anomalyDetector)
-                    .endObject();
-
-                BytesRestResponse restResponse = new BytesRestResponse(response.status(), builder);
-                if (response.status() == RestStatus.CREATED) {
-                    String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_URI, response.getId());
-                    restResponse.addHeader("Location", location);
-                }
-                return restResponse;
+                listener
+                    .onResponse(
+                        new IndexAnomalyDetectorResponse(
+                            indexResponse.getId(),
+                            indexResponse.getVersion(),
+                            indexResponse.getSeqNo(),
+                            indexResponse.getPrimaryTerm(),
+                            RestStatus.CREATED
+                        )
+                    );
             }
-        };
+
+            @Override
+            public void onFailure(Exception e) {
+                listener.onFailure(e);
+            }
+        });
     }
 
     private void onCreateMappingsResponse(CreateIndexResponse response) throws IOException {
@@ -330,11 +346,24 @@ public class IndexAnomalyDetectorActionHandler extends AbstractActionHandler {
             prepareAnomalyDetectorIndexing();
         } else {
             logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
-            channel
-                .sendResponse(
-                    new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS))
+            listener
+                .onFailure(
+                    new ElasticsearchStatusException(
+                        "Created " + ANOMALY_DETECTORS_INDEX + "with mappings call not acknowledged.",
+                        RestStatus.INTERNAL_SERVER_ERROR
+                    )
                 );
         }
     }
 
+    private String checkShardsFailure(IndexResponse response) {
+        StringBuilder failureReasons = new StringBuilder();
+        if (response.getShardInfo().getFailed() > 0) {
+            for (ReplicationResponse.ShardInfo.Failure failure : response.getShardInfo().getFailures()) {
+                failureReasons.append(failure);
+            }
+            return failureReasons.toString();
+        }
+        return null;
+    }
 }

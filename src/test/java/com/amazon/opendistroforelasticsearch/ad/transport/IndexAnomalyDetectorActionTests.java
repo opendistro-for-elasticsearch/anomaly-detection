@@ -20,6 +20,7 @@ import java.io.IOException;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestStatus;
 import org.junit.Assert;
@@ -52,7 +53,12 @@ public class IndexAnomalyDetectorActionTests {
             5678,
             WriteRequest.RefreshPolicy.NONE,
             detector,
-            RestRequest.Method.PUT
+            RestRequest.Method.PUT,
+            TimeValue.timeValueSeconds(60),
+            1000,
+            10,
+            5
+
         );
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();

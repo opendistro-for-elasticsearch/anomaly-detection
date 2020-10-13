@@ -21,6 +21,8 @@ import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCO
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
@@ -29,17 +31,21 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
+import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsAction;
+import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsRequest;
+import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
+import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.action.support.replication.ReplicationResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentFactory;
@@ -50,6 +56,7 @@ import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse;
@@ -61,6 +68,12 @@ import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
  * PUT request is for updating anomaly detector.
  */
 public class IndexAnomalyDetectorActionHandler {
+    public static final String EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG = "Can't create multi-entity anomaly detectors more than ";
+    public static final String EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG = "Can't create single-entity anomaly detectors more than ";
+    public static final String NO_DOCS_IN_USER_INDEX_MSG = "Can't create anomaly detector as no document found in indices: ";
+    public static final String ONLY_ONE_CATEGORICAL_FIELD_ERR_MSG = "We can have only one categorical field.";
+    public static final String CATEGORICAL_FIELD_TYPE_ERR_MSG = "A categorical field must be of type keyword or ip.";
+    public static final String NOT_FOUND_ERR_MSG = "Cannot found the categorical field %s";
 
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final String detectorId;
@@ -72,19 +85,18 @@ public class IndexAnomalyDetectorActionHandler {
 
     private final Logger logger = LogManager.getLogger(IndexAnomalyDetectorActionHandler.class);
     private final TimeValue requestTimeout;
-    private final Integer maxAnomalyDetectors;
+    private final Integer maxSingleEntityAnomalyDetectors;
+    private final Integer maxMultiEntityAnomalyDetectors;
     private final Integer maxAnomalyFeatures;
     private final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
     private final RestRequest.Method method;
     private final Client client;
     private final NamedXContentRegistry xContentRegistry;
-    private final Settings settings;
     private final ActionListener<IndexAnomalyDetectorResponse> listener;
 
     /**
      * Constructor function.
      *
-     * @param settings                ES settings
      * @param clusterService          ClusterService
      * @param client                  ES node client that executes actions on the local node
      * @param listener                 ES channel used to construct bytes / builder based outputs, and send responses
@@ -95,13 +107,13 @@ public class IndexAnomalyDetectorActionHandler {
      * @param refreshPolicy           refresh policy
      * @param anomalyDetector         anomaly detector instance
      * @param requestTimeout          request time out configuration
-     * @param maxAnomalyDetectors     max anomaly detector allowed
+     * @param maxSingleEntityAnomalyDetectors     max single-entity anomaly detectors allowed
+     * @param maxMultiEntityAnomalyDetectors      max multi-entity detectors allowed
      * @param maxAnomalyFeatures      max features allowed per detector
      * @param method                  Rest Method type
      * @param xContentRegistry        Registry which is used for XContentParser
      */
     public IndexAnomalyDetectorActionHandler(
-        Settings settings,
         ClusterService clusterService,
         Client client,
         ActionListener<IndexAnomalyDetectorResponse> listener,
@@ -112,12 +124,12 @@ public class IndexAnomalyDetectorActionHandler {
         WriteRequest.RefreshPolicy refreshPolicy,
         AnomalyDetector anomalyDetector,
         TimeValue requestTimeout,
-        Integer maxAnomalyDetectors,
+        Integer maxSingleEntityAnomalyDetectors,
+        Integer maxMultiEntityAnomalyDetectors,
         Integer maxAnomalyFeatures,
         RestRequest.Method method,
         NamedXContentRegistry xContentRegistry
     ) {
-        this.settings = settings;
         this.clusterService = clusterService;
         this.client = client;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
@@ -128,7 +140,8 @@ public class IndexAnomalyDetectorActionHandler {
         this.refreshPolicy = refreshPolicy;
         this.anomalyDetector = anomalyDetector;
         this.requestTimeout = requestTimeout;
-        this.maxAnomalyDetectors = maxAnomalyDetectors;
+        this.maxSingleEntityAnomalyDetectors = maxSingleEntityAnomalyDetectors;
+        this.maxMultiEntityAnomalyDetectors = maxMultiEntityAnomalyDetectors;
         this.maxAnomalyFeatures = maxAnomalyFeatures;
         this.method = method;
         this.xContentRegistry = xContentRegistry;
@@ -191,34 +204,126 @@ public class IndexAnomalyDetectorActionHandler {
             return;
         }
 
-        searchAdInputIndices(detectorId);
+        validateCategoricalField(detectorId);
     }
 
     private void createAnomalyDetector() {
         try {
-            QueryBuilder query = QueryBuilders.matchAllQuery();
-            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
+            List<String> categoricalFields = anomalyDetector.getCategoryField();
+            if (categoricalFields != null && categoricalFields.size() > 0) {
+                QueryBuilder query = QueryBuilders.boolQuery().filter(QueryBuilders.existsQuery(AnomalyDetector.CATEGORY_FIELD));
 
-            SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
+                SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
 
-            client
-                .search(
-                    searchRequest,
-                    ActionListener.wrap(response -> onSearchAdResponse(response), exception -> listener.onFailure(exception))
-                );
+                SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
+
+                client
+                    .search(
+                        searchRequest,
+                        ActionListener.wrap(response -> onSearchMultiEntityAdResponse(response), exception -> listener.onFailure(exception))
+                    );
+            } else {
+                QueryBuilder query = QueryBuilders.matchAllQuery();
+                SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
+
+                SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
+
+                client
+                    .search(
+                        searchRequest,
+                        ActionListener
+                            .wrap(response -> onSearchSingleEntityAdResponse(response), exception -> listener.onFailure(exception))
+                    );
+            }
         } catch (Exception e) {
             listener.onFailure(e);
         }
     }
 
-    private void onSearchAdResponse(SearchResponse response) throws IOException {
-        if (response.getHits().getTotalHits().value >= maxAnomalyDetectors) {
-            String errorMsg = "Can't create anomaly detector more than " + maxAnomalyDetectors;
+    private void onSearchSingleEntityAdResponse(SearchResponse response) throws IOException {
+        if (response.getHits().getTotalHits().value >= maxSingleEntityAnomalyDetectors) {
+            String errorMsg = EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG + maxSingleEntityAnomalyDetectors;
             logger.error(errorMsg);
             listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
             searchAdInputIndices(null);
         }
+    }
+
+    private void onSearchMultiEntityAdResponse(SearchResponse response) throws IOException {
+        if (response.getHits().getTotalHits().value >= maxMultiEntityAnomalyDetectors) {
+            String errorMsg = EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG + maxMultiEntityAnomalyDetectors;
+            logger.error(errorMsg);
+            listener.onFailure(new IllegalArgumentException(errorMsg));
+        } else {
+            validateCategoricalField(null);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void validateCategoricalField(String detectorId) {
+        List<String> categoryField = anomalyDetector.getCategoryField();
+
+        if (categoryField == null) {
+            searchAdInputIndices(detectorId);
+            return;
+        }
+
+        // we only support one categorical field
+        // If there is more than 1 field or none, AnomalyDetector's constructor
+        // throws IllegalArgumentException before reaching this line
+        if (categoryField.size() != 1) {
+            listener.onFailure(new IllegalArgumentException(ONLY_ONE_CATEGORICAL_FIELD_ERR_MSG));
+            return;
+        }
+
+        String categoryField0 = categoryField.get(0);
+
+        GetFieldMappingsRequest getMappingsRequest = new GetFieldMappingsRequest();
+        getMappingsRequest.indices(anomalyDetector.getIndices().toArray(new String[0])).fields(categoryField.toArray(new String[0]));
+        getMappingsRequest.indicesOptions(IndicesOptions.strictExpand());
+
+        ActionListener<GetFieldMappingsResponse> mappingsListener = ActionListener.wrap(getMappingsResponse -> {
+            // example getMappingsResponse:
+            // GetFieldMappingsResponse{mappings={server-metrics={_doc={service=FieldMappingMetadata{fullName='service',
+            // source=org.elasticsearch.common.bytes.BytesArray@7ba87dbd}}}}}
+            boolean foundField = false;
+            Map<String, Map<String, Map<String, FieldMappingMetadata>>> mappingsByIndex = getMappingsResponse.mappings();
+
+            for (Map<String, Map<String, FieldMappingMetadata>> mappingsByType : mappingsByIndex.values()) {
+                for (Map<String, FieldMappingMetadata> mappingsByField : mappingsByType.values()) {
+                    for (Map.Entry<String, FieldMappingMetadata> field2Metadata : mappingsByField.entrySet()) {
+                        FieldMappingMetadata fieldMetadata = field2Metadata.getValue();
+
+                        if (fieldMetadata != null) {
+                            Object metadata = fieldMetadata.sourceAsMap().get(categoryField0);
+                            if (metadata != null && metadata instanceof Map) {
+                                foundField = true;
+                                Map<String, Object> metadataMap = (Map<String, Object>) metadata;
+                                String typeName = (String) metadataMap.get(CommonName.TYPE);
+                                if (!typeName.equals(CommonName.KEYWORD_TYPE) && !typeName.equals(CommonName.IP_TYPE)) {
+                                    listener.onFailure(new IllegalArgumentException(CATEGORICAL_FIELD_TYPE_ERR_MSG));
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (foundField == false) {
+                listener.onFailure(new IllegalArgumentException(String.format(NOT_FOUND_ERR_MSG, categoryField0)));
+                return;
+            }
+
+            searchAdInputIndices(detectorId);
+        }, error -> {
+            String message = String.format("Fail to get the index mapping of %s", anomalyDetector.getIndices());
+            logger.error(message, error);
+            listener.onFailure(new IllegalArgumentException(message));
+        });
+
+        client.execute(GetFieldMappingsAction.INSTANCE, getMappingsRequest, mappingsListener);
     }
 
     private void searchAdInputIndices(String detectorId) {
@@ -242,8 +347,7 @@ public class IndexAnomalyDetectorActionHandler {
 
     private void onSearchAdInputIndicesResponse(SearchResponse response, String detectorId) throws IOException {
         if (response.getHits().getTotalHits().value == 0) {
-            String errorMsg = "Can't create anomaly detector as no document found in indices: "
-                + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));
+            String errorMsg = NO_DOCS_IN_USER_INDEX_MSG + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));
             logger.error(errorMsg);
             listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
@@ -302,7 +406,8 @@ public class IndexAnomalyDetectorActionHandler {
             anomalyDetector.getShingleSize(),
             anomalyDetector.getUiMetadata(),
             anomalyDetector.getSchemaVersion(),
-            Instant.now()
+            Instant.now(),
+            anomalyDetector.getCategoryField()
         );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)

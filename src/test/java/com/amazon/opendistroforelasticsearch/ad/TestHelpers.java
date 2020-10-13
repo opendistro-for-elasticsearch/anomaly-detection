@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -47,6 +48,7 @@ import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
+import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
@@ -66,6 +68,7 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.CheckedConsumer;
 import org.elasticsearch.common.Priority;
 import org.elasticsearch.common.UUIDs;
+import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
@@ -96,6 +99,7 @@ import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.test.rest.ESRestTestCase;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
@@ -177,6 +181,11 @@ public class TestHelpers {
         return randomAnomalyDetector(ImmutableList.of(randomFeature()), uiMetadata, lastUpdateTime);
     }
 
+    public static AnomalyDetector randomAnomalyDetector(Map<String, Object> uiMetadata, Instant lastUpdateTime, boolean featureEnabled)
+        throws IOException {
+        return randomAnomalyDetector(ImmutableList.of(randomFeature(featureEnabled)), uiMetadata, lastUpdateTime);
+    }
+
     public static AnomalyDetector randomAnomalyDetector(List<Feature> features, Map<String, Object> uiMetadata, Instant lastUpdateTime)
         throws IOException {
         return new AnomalyDetector(
@@ -193,7 +202,29 @@ public class TestHelpers {
             randomIntBetween(1, 2000),
             uiMetadata,
             randomInt(),
-            lastUpdateTime
+            lastUpdateTime,
+            null
+        );
+    }
+
+    public static AnomalyDetector randomAnomalyDetectorUsingCategoryFields(String detectorId, List<String> categoryFields)
+        throws IOException {
+        return new AnomalyDetector(
+            detectorId,
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomFeature()),
+            randomQuery(),
+            randomIntervalTimeConfiguration(),
+            randomIntervalTimeConfiguration(),
+            randomIntBetween(1, 2000),
+            null,
+            randomInt(),
+            Instant.now(),
+            categoryFields
         );
     }
 
@@ -212,7 +243,8 @@ public class TestHelpers {
             randomIntBetween(1, 2000),
             null,
             randomInt(),
-            Instant.now()
+            Instant.now(),
+            null
         );
     }
 
@@ -231,7 +263,8 @@ public class TestHelpers {
             randomIntBetween(1, 2000),
             null,
             randomInt(),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            null
         );
     }
 
@@ -250,7 +283,8 @@ public class TestHelpers {
             randomIntBetween(1, 2000),
             null,
             randomInt(),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            null
         );
     }
 
@@ -315,6 +349,21 @@ public class TestHelpers {
             throw new RuntimeException();
         }
         return new Feature(randomAlphaOfLength(5), featureName, ESRestTestCase.randomBoolean(), testAggregation);
+    }
+
+    public static Feature randomFeature(boolean enabled) {
+        return randomFeature(randomAlphaOfLength(5), randomAlphaOfLength(5), enabled);
+    }
+
+    public static Feature randomFeature(String featureName, String aggregationName, boolean enabled) {
+        AggregationBuilder testAggregation = null;
+        try {
+            testAggregation = randomAggregation(aggregationName);
+        } catch (IOException e) {
+            logger.error("Fail to generate test aggregation");
+            throw new RuntimeException();
+        }
+        return new Feature(randomAlphaOfLength(5), featureName, enabled, testAggregation);
     }
 
     public static <S, T> void assertFailWith(Class<S> clazz, Callable<T> callable) throws Exception {
@@ -558,5 +607,19 @@ public class TestHelpers {
 
     public static DetectorInternalState randomDetectState(String error, Instant lastUpdateTime) {
         return new DetectorInternalState.Builder().lastUpdateTime(lastUpdateTime).error(error).build();
+    }
+
+    public static Map<String, Map<String, Map<String, FieldMappingMetadata>>> createFieldMappings(
+        String index,
+        String fieldName,
+        String fieldType
+    ) throws IOException {
+        Map<String, Map<String, Map<String, FieldMappingMetadata>>> mappings = new HashMap<>();
+        FieldMappingMetadata fieldMappingMetadata = new FieldMappingMetadata(
+            fieldName,
+            new BytesArray("{\"" + fieldName + "\":{\"type\":\"" + fieldType + "\"}}")
+        );
+        mappings.put(index, Collections.singletonMap(CommonName.MAPPING_TYPE, Collections.singletonMap(fieldName, fieldMappingMetadata)));
+        return mappings;
     }
 }

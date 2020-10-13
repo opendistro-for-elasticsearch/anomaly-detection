@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.test.ESIntegTestCase;
@@ -58,7 +59,11 @@ public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
             7890,
             WriteRequest.RefreshPolicy.IMMEDIATE,
             mock(AnomalyDetector.class),
-            RestRequest.Method.PUT
+            RestRequest.Method.PUT,
+            TimeValue.timeValueSeconds(60),
+            1000,
+            10,
+            5
         );
         response = new ActionListener<IndexAnomalyDetectorResponse>() {
             @Override

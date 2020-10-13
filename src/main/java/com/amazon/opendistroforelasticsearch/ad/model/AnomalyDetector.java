@@ -236,7 +236,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         uiMetadata = input.readMap();
         schemaVersion = input.readInt();
         lastUpdateTime = input.readInstant();
-        this.categoryField = input.readStringList();
+        this.categoryFields = input.readStringList();
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -259,7 +259,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         output.writeMap(uiMetadata);
         output.writeInt(schemaVersion);
         output.writeInstant(lastUpdateTime);
-        output.writeStringCollection(categoryField);
+        output.writeStringCollection(categoryFields);
     }
 
     @Override

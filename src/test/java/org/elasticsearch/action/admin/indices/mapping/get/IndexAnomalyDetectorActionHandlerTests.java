@@ -140,11 +140,11 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         channel = mock(ActionListener.class);
 
-//        final RestRequest restRequest = createRestRequest(Method.POST);
+        // final RestRequest restRequest = createRestRequest(Method.POST);
 
-//        when(channel.request()).thenReturn(restRequest);
-//        when(channel.newErrorBuilder()).thenReturn(JsonXContent.contentBuilder());
-//        when(channel.detailedErrorsEnabled()).thenReturn(true);
+        // when(channel.request()).thenReturn(restRequest);
+        // when(channel.newErrorBuilder()).thenReturn(JsonXContent.contentBuilder());
+        // when(channel.detailedErrorsEnabled()).thenReturn(true);
 
         anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
         when(anomalyDetectionIndices.doesAnomalyDetectorIndexExist()).thenReturn(true);
@@ -245,9 +245,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
         assertTrue(value instanceof IllegalArgumentException);
-        assertTrue(
-            value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG)
-        );
+        assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG));
     }
 
     @SuppressWarnings("unchecked")
@@ -523,8 +521,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
         assertTrue(value instanceof IllegalArgumentException);
-        assertTrue(
-            value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG)
-        );
+        assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG));
     }
 }

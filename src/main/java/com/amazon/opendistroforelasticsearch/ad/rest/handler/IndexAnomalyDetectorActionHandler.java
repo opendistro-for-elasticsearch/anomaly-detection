@@ -220,7 +220,7 @@ public class IndexAnomalyDetectorActionHandler {
                 client
                     .search(
                         searchRequest,
-                        ActionListener.wrap(response -> onSearchMultiEntityAdResponse(response), exception -> listener.onFailure(exception) )
+                        ActionListener.wrap(response -> onSearchMultiEntityAdResponse(response), exception -> listener.onFailure(exception))
                     );
             } else {
                 QueryBuilder query = QueryBuilders.matchAllQuery();
@@ -231,7 +231,8 @@ public class IndexAnomalyDetectorActionHandler {
                 client
                     .search(
                         searchRequest,
-                        ActionListener.wrap(response -> onSearchSingleEntityAdResponse(response), exception -> listener.onFailure(exception))
+                        ActionListener
+                            .wrap(response -> onSearchSingleEntityAdResponse(response), exception -> listener.onFailure(exception))
                     );
             }
         } catch (Exception e) {

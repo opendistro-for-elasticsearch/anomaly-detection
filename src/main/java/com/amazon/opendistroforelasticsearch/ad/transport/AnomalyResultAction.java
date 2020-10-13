@@ -19,7 +19,7 @@ import org.elasticsearch.action.ActionType;
 
 public class AnomalyResultAction extends ActionType<AnomalyResultResponse> {
     public static final AnomalyResultAction INSTANCE = new AnomalyResultAction();
-    public static final String NAME = "cluster:admin/ad/result";
+    public static final String NAME = "cluster:admin/opendistro/ad/detector/run";
 
     private AnomalyResultAction() {
         super(NAME, AnomalyResultResponse::new);

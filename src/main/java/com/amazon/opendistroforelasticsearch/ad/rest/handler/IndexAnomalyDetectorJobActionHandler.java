@@ -16,11 +16,8 @@
 package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.createXContentParser;
 import static org.elasticsearch.action.DocWriteResponse.Result.CREATED;
 import static org.elasticsearch.action.DocWriteResponse.Result.UPDATED;
-import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -29,6 +26,7 @@ import java.time.Instant;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.get.GetRequest;
@@ -36,18 +34,19 @@ import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.node.NodeClient;
+import org.elasticsearch.action.support.replication.ReplicationResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.rest.BytesRestResponse;
-import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestStatus;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorRequest;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorResponse;
@@ -58,12 +57,15 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
 /**
  * Anomaly detector job REST action handler to process POST/PUT request.
  */
-public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler {
+public class IndexAnomalyDetectorJobActionHandler {
 
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final String detectorId;
     private final Long seqNo;
     private final Long primaryTerm;
+    private final Client client;
+    private final ActionListener<AnomalyDetectorJobResponse> listener;
+    private final NamedXContentRegistry xContentRegistry;
 
     private final Logger logger = LogManager.getLogger(IndexAnomalyDetectorJobActionHandler.class);
     private final TimeValue requestTimeout;
@@ -72,28 +74,32 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
      * Constructor function.
      *
      * @param client                  ES node client that executes actions on the local node
-     * @param channel                 ES channel used to construct bytes / builder based outputs, and send responses
+     * @param listener                Listener to send responses
      * @param anomalyDetectionIndices anomaly detector index manager
      * @param detectorId              detector identifier
      * @param seqNo                   sequence number of last modification
      * @param primaryTerm             primary term of last modification
      * @param requestTimeout          request time out configuration
+     * @param xContentRegistry        Registry which is used for XContentParser
      */
     public IndexAnomalyDetectorJobActionHandler(
-        NodeClient client,
-        RestChannel channel,
+        Client client,
+        ActionListener<AnomalyDetectorJobResponse> listener,
         AnomalyDetectionIndices anomalyDetectionIndices,
         String detectorId,
         Long seqNo,
         Long primaryTerm,
-        TimeValue requestTimeout
+        TimeValue requestTimeout,
+        NamedXContentRegistry xContentRegistry
     ) {
-        super(client, channel);
+        this.client = client;
+        this.listener = listener;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.detectorId = detectorId;
         this.seqNo = seqNo;
         this.primaryTerm = primaryTerm;
         this.requestTimeout = requestTimeout;
+        this.xContentRegistry = xContentRegistry;
     }
 
     /**
@@ -107,7 +113,7 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
         if (!anomalyDetectionIndices.doesAnomalyDetectorJobIndexExist()) {
             anomalyDetectionIndices
                 .initAnomalyDetectorJobIndex(
-                    ActionListener.wrap(response -> onCreateMappingsResponse(response), exception -> onFailure(exception))
+                    ActionListener.wrap(response -> onCreateMappingsResponse(response), exception -> listener.onFailure(exception))
                 );
         } else {
             prepareAnomalyDetectorJobIndexing();
@@ -120,34 +126,40 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
             prepareAnomalyDetectorJobIndexing();
         } else {
             logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
-            channel
-                .sendResponse(
-                    new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS))
+            listener
+                .onFailure(
+                    new ElasticsearchStatusException(
+                        "Created " + ANOMALY_DETECTORS_INDEX + " with mappings call not acknowledged.",
+                        RestStatus.INTERNAL_SERVER_ERROR
+                    )
                 );
         }
     }
 
     private void prepareAnomalyDetectorJobIndexing() {
         GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
-        client.get(getRequest, ActionListener.wrap(response -> onGetAnomalyDetectorResponse(response), exception -> onFailure(exception)));
+        client
+            .get(
+                getRequest,
+                ActionListener.wrap(response -> onGetAnomalyDetectorResponse(response), exception -> listener.onFailure(exception))
+            );
     }
 
     private void onGetAnomalyDetectorResponse(GetResponse response) throws IOException {
         if (!response.isExists()) {
-            XContentBuilder builder = channel
-                .newErrorBuilder()
-                .startObject()
-                .field("Message", "AnomalyDetector is not found with id: " + detectorId)
-                .endObject();
-            channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, EMPTY_PARAMS)));
+            listener
+                .onFailure(new ElasticsearchStatusException("AnomalyDetector is not found with id: " + detectorId, RestStatus.NOT_FOUND));
             return;
         }
-        try (XContentParser parser = RestHandlerUtils.createXContentParser(channel, response.getSourceAsBytesRef())) {
+        try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
             AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
             if (detector.getFeatureAttributes().size() == 0) {
-                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Can't start detector job as no features configured"));
+                listener
+                    .onFailure(
+                        new ElasticsearchStatusException("Can't start detector job as no features configured", RestStatus.BAD_REQUEST)
+                    );
                 return;
             }
 
@@ -170,7 +182,7 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
         } catch (IOException e) {
             String message = "Failed to parse anomaly detector job " + detectorId;
             logger.error(message, e);
-            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, message));
+            listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
         }
     }
 
@@ -180,17 +192,22 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
         client
             .get(
                 getRequest,
-                ActionListener.wrap(response -> onGetAnomalyDetectorJobForWrite(response, job), exception -> onFailure(exception))
+                ActionListener.wrap(response -> onGetAnomalyDetectorJobForWrite(response, job), exception -> listener.onFailure(exception))
             );
     }
 
     private void onGetAnomalyDetectorJobForWrite(GetResponse response, AnomalyDetectorJob job) throws IOException {
         if (response.isExists()) {
-            try (XContentParser parser = createXContentParser(channel, response.getSourceAsBytesRef())) {
+            try (
+                XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
+            ) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
                 AnomalyDetectorJob currentAdJob = AnomalyDetectorJob.parse(parser);
                 if (currentAdJob.isEnabled()) {
-                    channel.sendResponse(new BytesRestResponse(RestStatus.OK, "Anomaly detector job is already running: " + detectorId));
+                    listener
+                        .onFailure(
+                            new ElasticsearchStatusException("Anomaly detector job is already running: " + detectorId, RestStatus.OK)
+                        );
                     return;
                 } else {
                     AnomalyDetectorJob newJob = new AnomalyDetectorJob(
@@ -208,7 +225,7 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
             } catch (IOException e) {
                 String message = "Failed to parse anomaly detector job " + job.getName();
                 logger.error(message, e);
-                channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, message));
+                listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
         } else {
             indexAnomalyDetectorJob(job, null);
@@ -218,7 +235,7 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
     private void indexAnomalyDetectorJob(AnomalyDetectorJob job, AnomalyDetectorFunction function) throws IOException {
         IndexRequest indexRequest = new IndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
-            .source(job.toXContent(channel.newBuilder(), XCONTENT_WITH_TYPE))
+            .source(job.toXContent(XContentFactory.jsonBuilder(), RestHandlerUtils.XCONTENT_WITH_TYPE))
             .setIfSeqNo(seqNo)
             .setIfPrimaryTerm(primaryTerm)
             .timeout(requestTimeout)
@@ -226,27 +243,28 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
         client
             .index(
                 indexRequest,
-                ActionListener.wrap(response -> onIndexAnomalyDetectorJobResponse(response, function), exception -> onFailure(exception))
+                ActionListener
+                    .wrap(response -> onIndexAnomalyDetectorJobResponse(response, function), exception -> listener.onFailure(exception))
             );
     }
 
     private void onIndexAnomalyDetectorJobResponse(IndexResponse response, AnomalyDetectorFunction function) throws IOException {
         if (response == null || (response.getResult() != CREATED && response.getResult() != UPDATED)) {
-            channel.sendResponse(new BytesRestResponse(response.status(), response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS)));
+            String errorMsg = checkShardsFailure(response);
+            listener.onFailure(new ElasticsearchStatusException(errorMsg, response.status()));
             return;
         }
         if (function != null) {
             function.execute();
         } else {
-            XContentBuilder builder = channel
-                .newBuilder()
-                .startObject()
-                .field(RestHandlerUtils._ID, response.getId())
-                .field(RestHandlerUtils._VERSION, response.getVersion())
-                .field(RestHandlerUtils._SEQ_NO, response.getSeqNo())
-                .field(RestHandlerUtils._PRIMARY_TERM, response.getPrimaryTerm())
-                .endObject();
-            channel.sendResponse(new BytesRestResponse(RestStatus.OK, builder));
+            AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(
+                response.getId(),
+                response.getVersion(),
+                response.getSeqNo(),
+                response.getPrimaryTerm(),
+                RestStatus.OK
+            );
+            listener.onResponse(anomalyDetectorJobResponse);
         }
     }
 
@@ -262,12 +280,17 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
 
         client.get(getRequest, ActionListener.wrap(response -> {
             if (response.isExists()) {
-                try (XContentParser parser = createXContentParser(channel, response.getSourceAsBytesRef())) {
+                try (
+                    XContentParser parser = RestHandlerUtils
+                        .createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
+                ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
                     AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
                     if (!job.isEnabled()) {
-                        channel
-                            .sendResponse(new BytesRestResponse(RestStatus.OK, "Anomaly detector job is already stopped: " + detectorId));
+                        listener
+                            .onFailure(
+                                new ElasticsearchStatusException("Anomaly detector job is already stopped: " + detectorId, RestStatus.OK)
+                            );
                         return;
                     } else {
                         AnomalyDetectorJob newJob = new AnomalyDetectorJob(
@@ -286,40 +309,56 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
                                 .execute(
                                     StopDetectorAction.INSTANCE,
                                     new StopDetectorRequest(detectorId),
-                                    stopAdDetectorListener(channel, detectorId)
+                                    stopAdDetectorListener(detectorId)
                                 )
                         );
                     }
                 } catch (IOException e) {
                     String message = "Failed to parse anomaly detector job " + detectorId;
                     logger.error(message, e);
-                    channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, message));
+                    listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
                 }
             } else {
-                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Anomaly detector job not exist: " + detectorId));
+                listener
+                    .onFailure(new ElasticsearchStatusException("Anomaly detector job not exist: " + detectorId, RestStatus.BAD_REQUEST));
             }
-        }, exception -> onFailure(exception)));
+        }, exception -> listener.onFailure(exception)));
     }
 
-    private ActionListener<StopDetectorResponse> stopAdDetectorListener(RestChannel channel, String detectorId) {
+    private ActionListener<StopDetectorResponse> stopAdDetectorListener(String detectorId) {
         return new ActionListener<StopDetectorResponse>() {
             @Override
             public void onResponse(StopDetectorResponse stopDetectorResponse) {
                 if (stopDetectorResponse.success()) {
                     logger.info("AD model deleted successfully for detector {}", detectorId);
-                    channel.sendResponse(new BytesRestResponse(RestStatus.OK, "Stopped detector: " + detectorId));
+                    AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(null, 0, 0, 0, RestStatus.OK);
+                    listener.onResponse(anomalyDetectorJobResponse);
                 } else {
                     logger.error("Failed to delete AD model for detector {}", detectorId);
-                    channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Failed to delete AD model"));
+                    listener.onFailure(new ElasticsearchStatusException("Failed to delete AD model", RestStatus.INTERNAL_SERVER_ERROR));
                 }
             }
 
             @Override
             public void onFailure(Exception e) {
                 logger.error("Failed to delete AD model for detector " + detectorId, e);
-                channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Failed to execute stop detector action"));
+                listener
+                    .onFailure(
+                        new ElasticsearchStatusException("Failed to execute stop detector action", RestStatus.INTERNAL_SERVER_ERROR)
+                    );
             }
         };
+    }
+
+    private String checkShardsFailure(IndexResponse response) {
+        StringBuilder failureReasons = new StringBuilder();
+        if (response.getShardInfo().getFailed() > 0) {
+            for (ReplicationResponse.ShardInfo.Failure failure : response.getShardInfo().getFailures()) {
+                failureReasons.append(failure);
+            }
+            return failureReasons.toString();
+        }
+        return null;
     }
 
 }

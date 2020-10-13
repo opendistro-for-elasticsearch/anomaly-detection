@@ -129,7 +129,7 @@ public class IndexAnomalyDetectorJobActionHandler {
             listener
                 .onFailure(
                     new ElasticsearchStatusException(
-                        "Created " + ANOMALY_DETECTORS_INDEX + "with mappings call not acknowledged.",
+                        "Created " + ANOMALY_DETECTORS_INDEX + " with mappings call not acknowledged.",
                         RestStatus.INTERNAL_SERVER_ERROR
                     )
                 );

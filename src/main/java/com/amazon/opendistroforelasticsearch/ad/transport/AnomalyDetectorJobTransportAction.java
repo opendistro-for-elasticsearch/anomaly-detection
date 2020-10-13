@@ -75,16 +75,14 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
             requestTimeout,
             xContentRegistry
         );
-
-        if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
-            try {
+        try {
+            if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
                 handler.startAnomalyDetectorJob();
-            } catch (IOException e) {
-                e.printStackTrace();
+            } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
+                handler.stopAnomalyDetectorJob(detectorId);
             }
-        } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
-            handler.stopAnomalyDetectorJob(detectorId);
+        } catch (IOException e) {
+            logger.error(e);
         }
-
     }
 }

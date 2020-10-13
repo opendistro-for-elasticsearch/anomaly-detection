@@ -19,7 +19,7 @@ import org.elasticsearch.action.ActionType;
 
 public class AnomalyDetectorJobAction extends ActionType<AnomalyDetectorJobResponse> {
     public static final AnomalyDetectorJobAction INSTANCE = new AnomalyDetectorJobAction();
-    public static final String NAME = "cluster:admin/opendistro/ad/detector/startstop";
+    public static final String NAME = "cluster:admin/opendistro/ad/detector/jobmanagement";
 
     private AnomalyDetectorJobAction() {
         super(NAME, AnomalyDetectorJobResponse::new);

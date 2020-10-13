@@ -59,7 +59,7 @@ import com.google.common.collect.Sets;
 
 public class GetAnomalyDetectorTransportAction extends HandledTransportAction<GetAnomalyDetectorRequest, GetAnomalyDetectorResponse> {
 
-    private static final Logger LOG = LogManager.getLogger(StopDetectorTransportAction.class);
+    private static final Logger LOG = LogManager.getLogger(GetAnomalyDetectorTransportAction.class);
 
     private final Client client;
     private final AnomalyDetectorProfileRunner profileRunner;

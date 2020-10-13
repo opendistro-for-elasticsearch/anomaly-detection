@@ -114,7 +114,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * @param uiMetadata        metadata used by Kibana
      * @param schemaVersion     anomaly detector index mapping version
      * @param lastUpdateTime    detector's last update time
-     * @param categoryField     a list of partition fields
+     * @param categoryFields     a list of partition fields
      */
     public AnomalyDetector(
         String detectorId,
@@ -161,7 +161,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.filterQuery = filterQuery;
         this.detectionInterval = detectionInterval;
         this.windowDelay = windowDelay;
-        this.shingleSize = getShingleSize(shingleSize, categoryField);
+        this.shingleSize = getShingleSize(shingleSize, categoryFields);
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;

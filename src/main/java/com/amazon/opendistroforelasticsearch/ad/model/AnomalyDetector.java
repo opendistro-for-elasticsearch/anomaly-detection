@@ -91,6 +91,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private final Map<String, Object> uiMetadata;
     private final Integer schemaVersion;
     private final Instant lastUpdateTime;
+    private final Boolean validation;
 
     /**
      * Constructor function.
@@ -126,20 +127,62 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Integer schemaVersion,
         Instant lastUpdateTime
     ) {
-        if (Strings.isBlank(name)) {
-            throw new IllegalArgumentException("Detector name should be set");
-        }
-        if (timeField == null) {
-            throw new IllegalArgumentException("Time field should be set");
-        }
-        if (indices == null || indices.isEmpty()) {
-            throw new IllegalArgumentException("Indices should be set");
-        }
-        if (detectionInterval == null) {
-            throw new IllegalArgumentException("Detection interval should be set");
-        }
-        if (shingleSize != null && shingleSize < 1) {
-            throw new IllegalArgumentException("Shingle size must be a positive integer");
+        this(
+            detectorId,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            detectionInterval,
+            windowDelay,
+            shingleSize,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime,
+            false
+        );
+    }
+
+    public AnomalyDetector(
+        String detectorId,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration detectionInterval,
+        TimeConfiguration windowDelay,
+        Integer shingleSize,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime,
+        Boolean validation
+    ) {
+        if (validation) {
+            if (indices == null || indices.isEmpty()) {
+                indices = null;
+            }
+        } else {
+            if (Strings.isBlank(name)) {
+                throw new IllegalArgumentException("Detector name should be set");
+            }
+            if (timeField == null) {
+                throw new IllegalArgumentException("Time field should be set");
+            }
+            if (indices == null || indices.isEmpty()) {
+                throw new IllegalArgumentException("Indices should be set");
+            }
+            if (detectionInterval == null) {
+                throw new IllegalArgumentException("Detection interval should be set");
+            }
+            if (shingleSize != null && shingleSize < 1) {
+                throw new IllegalArgumentException("Shingle size must be a positive integer");
+            }
         }
         this.detectorId = detectorId;
         this.version = version;
@@ -155,6 +198,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
+        this.validation = validation;
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {
@@ -308,7 +352,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();
-
             switch (fieldName) {
                 case NAME_FIELD:
                     name = parser.text();
@@ -379,6 +422,100 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             uiMetadata,
             schemaVersion,
             lastUpdateTime
+        );
+    }
+
+    public static AnomalyDetector parseValidation(XContentParser parser, String detectorId, Long version, Integer defaultShingleSize)
+        throws IOException {
+        String name = null;
+        String description = null;
+        String timeField = null;
+        List<String> indices = new ArrayList<String>();
+        QueryBuilder filterQuery = QueryBuilders.matchAllQuery();
+        TimeConfiguration detectionInterval = null;
+        TimeConfiguration windowDelay = null;
+        List<Feature> features = new ArrayList<>();
+        int schemaVersion = 0;
+        Map<String, Object> uiMetadata = null;
+        Instant lastUpdateTime = null;
+        Integer shingleSize = defaultShingleSize;
+
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            String fieldName = parser.currentName();
+            parser.nextToken();
+
+            switch (fieldName) {
+                case NAME_FIELD:
+                    name = parser.text();
+                    break;
+                case DESCRIPTION_FIELD:
+                    description = parser.text();
+                    break;
+                case TIMEFIELD_FIELD:
+                    timeField = parser.text();
+                    break;
+                case INDICES_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser::getTokenLocation);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        indices.add(parser.text());
+                    }
+                    break;
+                case UI_METADATA_FIELD:
+                    uiMetadata = parser.map();
+                    break;
+                case SCHEMA_VERSION_FIELD:
+                    schemaVersion = parser.intValue();
+                    break;
+                case FILTER_QUERY_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+                    try {
+                        filterQuery = parseInnerQueryBuilder(parser);
+                    } catch (IllegalArgumentException e) {
+                        if (!e.getMessage().contains("empty clause")) {
+                            throw e;
+                        }
+                    }
+                    break;
+                case DETECTION_INTERVAL_FIELD:
+                    detectionInterval = TimeConfiguration.parse(parser);
+                    break;
+                case FEATURE_ATTRIBUTES_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser::getTokenLocation);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        features.add(Feature.parse(parser));
+                    }
+                    break;
+                case WINDOW_DELAY_FIELD:
+                    windowDelay = TimeConfiguration.parse(parser);
+                    break;
+                case SHINGLE_SIZE_FIELD:
+                    shingleSize = parser.intValue();
+                    break;
+                case LAST_UPDATE_TIME_FIELD:
+                    lastUpdateTime = ParseUtils.toInstant(parser);
+                    break;
+                default:
+                    parser.skipChildren();
+                    break;
+            }
+        }
+        return new AnomalyDetector(
+            detectorId,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            detectionInterval,
+            windowDelay,
+            shingleSize,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime,
+            true
         );
     }
 

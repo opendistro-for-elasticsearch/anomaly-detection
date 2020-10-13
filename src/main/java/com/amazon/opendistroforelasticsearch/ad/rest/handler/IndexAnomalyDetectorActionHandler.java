@@ -171,7 +171,6 @@ public class IndexAnomalyDetectorActionHandler {
         if (method == RestRequest.Method.PUT) {
             handler.getDetectorJob(clusterService, client, detectorId, listener, () -> updateAnomalyDetector(detectorId), xContentRegistry);
         } else {
-            logger.info("#177 creating Anomaly Detector");
             createAnomalyDetector();
         }
     }
@@ -197,7 +196,6 @@ public class IndexAnomalyDetectorActionHandler {
 
     private void createAnomalyDetector() {
         try {
-            logger.info("#198 Request Method is PUT ");
             QueryBuilder query = QueryBuilders.matchAllQuery();
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
 
@@ -214,7 +212,6 @@ public class IndexAnomalyDetectorActionHandler {
     }
 
     private void onSearchAdResponse(SearchResponse response) throws IOException {
-        logger.info("#211 onSearchAdResponse is called ");
         if (response.getHits().getTotalHits().value >= maxAnomalyDetectors) {
             String errorMsg = "Can't create anomaly detector more than " + maxAnomalyDetectors;
             logger.error(errorMsg);
@@ -225,7 +222,6 @@ public class IndexAnomalyDetectorActionHandler {
     }
 
     private void searchAdInputIndices(String detectorId) {
-        logger.info("#222 searchAdInputIndices is called ");
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(QueryBuilders.matchAllQuery())
             .size(0)
@@ -245,7 +241,6 @@ public class IndexAnomalyDetectorActionHandler {
     }
 
     private void onSearchAdInputIndicesResponse(SearchResponse response, String detectorId) throws IOException {
-        logger.info("#239 onSearchAdInputIndicesResponse is called ");
         if (response.getHits().getTotalHits().value == 0) {
             String errorMsg = "Can't create anomaly detector as no document found in indices: "
                 + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));

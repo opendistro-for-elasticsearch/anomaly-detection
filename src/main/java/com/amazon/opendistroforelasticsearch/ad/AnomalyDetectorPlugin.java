@@ -99,6 +99,8 @@ import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.SettableSupplier;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADResultBulkAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADResultBulkTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobAction;
@@ -194,7 +196,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             client,
             settings,
             threadPool,
-            AnomalyResult.ANOMALY_RESULT_INDEX,
+            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
             false,
@@ -354,7 +356,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             )
             .put(
                 StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(),
-                new ADStat<>(true, new IndexStatusSupplier(indexUtils, AnomalyResult.ANOMALY_RESULT_INDEX))
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.ANOMALY_RESULT_INDEX_ALIAS))
             )
             .put(
                 StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(),
@@ -436,7 +438,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY,
                 AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
-                AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE
+                AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
+                AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT
             );
         return unmodifiableList(Stream.concat(enabledSetting.stream(), systemSetting.stream()).collect(Collectors.toList()));
     }
@@ -474,7 +477,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(DeleteAnomalyDetectorAction.INSTANCE, DeleteAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(GetAnomalyDetectorAction.INSTANCE, GetAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(IndexAnomalyDetectorAction.INSTANCE, IndexAnomalyDetectorTransportAction.class),
-                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class)
+                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
+                new ActionHandler<>(ADResultBulkAction.INSTANCE, ADResultBulkTransportAction.class)
             );
     }
 

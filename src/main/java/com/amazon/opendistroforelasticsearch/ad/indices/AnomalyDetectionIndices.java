@@ -54,9 +54,9 @@ import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.google.common.base.Charsets;
@@ -66,9 +66,6 @@ import com.google.common.io.Resources;
  * This class provides utility methods for various anomaly detection indices.
  */
 public class AnomalyDetectionIndices implements LocalNodeMasterListener {
-
-    // The alias of the index in which to write AD result history
-    public static final String AD_RESULT_HISTORY_WRITE_INDEX_ALIAS = AnomalyResult.ANOMALY_RESULT_INDEX;
 
     // The index name pattern to query all the AD result history indices
     public static final String AD_RESULT_HISTORY_INDEX_PATTERN = "<.opendistro-anomaly-results-history-{now/d}-1>";
@@ -185,7 +182,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly detector index exists
      */
     public boolean doesAnomalyResultIndexExist() {
-        return clusterService.state().metadata().hasAlias(AnomalyResult.ANOMALY_RESULT_INDEX);
+        return clusterService.state().metadata().hasAlias(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
     }
 
     /**
@@ -243,7 +240,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         String mapping = getAnomalyResultMappings();
         CreateIndexRequest request = new CreateIndexRequest(AD_RESULT_HISTORY_INDEX_PATTERN)
             .mapping(MAPPING_TYPE, mapping, XContentType.JSON)
-            .alias(new Alias(AD_RESULT_HISTORY_WRITE_INDEX_ALIAS));
+            .alias(new Alias(CommonName.ANOMALY_RESULT_INDEX_ALIAS));
         adminClient.indices().create(request, actionListener);
     }
 
@@ -314,7 +311,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }
 
         // We have to pass null for newIndexName in order to get Elastic to increment the index count.
-        RolloverRequest request = new RolloverRequest(AD_RESULT_HISTORY_WRITE_INDEX_ALIAS, null);
+        RolloverRequest request = new RolloverRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS, null);
         String adResultMapping = null;
         try {
             adResultMapping = getAnomalyResultMappings();
@@ -326,9 +323,10 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         request.addMaxIndexDocsCondition(historyMaxDocs);
         adminClient.indices().rolloverIndex(request, ActionListener.wrap(response -> {
             if (!response.isRolledOver()) {
-                logger.warn("{} not rolled over. Conditions were: {}", AD_RESULT_HISTORY_WRITE_INDEX_ALIAS, response.getConditionStatus());
+                logger
+                    .warn("{} not rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());
             } else {
-                logger.info("{} rolled over. Conditions were: {}", AD_RESULT_HISTORY_WRITE_INDEX_ALIAS, response.getConditionStatus());
+                logger.info("{} rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());
                 deleteOldHistoryIndices();
             }
         }, exception -> { logger.error("Fail to roll over result index", exception); }));

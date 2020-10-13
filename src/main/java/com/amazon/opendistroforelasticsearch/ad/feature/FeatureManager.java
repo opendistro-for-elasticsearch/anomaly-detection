@@ -93,6 +93,7 @@ public class FeatureManager {
      * @param maxPreviewSamples max number of samples from search for preview features
      * @param featureBufferTtl time to live for stale feature buffers
      * @param threadPool object through which we can invoke different threadpool using different names
+     * @param adThreadPoolName AD threadpool's name
      */
     public FeatureManager(
         SearchFeatureDao searchFeatureDao,

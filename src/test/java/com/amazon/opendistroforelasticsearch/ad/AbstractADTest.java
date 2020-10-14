@@ -16,6 +16,10 @@
 package com.amazon.opendistroforelasticsearch.ad;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,6 +27,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,8 +39,11 @@ import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.apache.logging.log4j.util.StackLocatorUtil;
+import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.support.PlainActionFuture;
+import org.elasticsearch.cluster.metadata.AliasMetadata;
+import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
@@ -317,5 +325,41 @@ public class AbstractADTest extends ESTestCase {
             }
 
         }, null);
+    }
+
+    protected boolean areEqualWithArrayValue(Map<String, double[]> first, Map<String, double[]> second) {
+        if (first.size() != second.size()) {
+            return false;
+        }
+
+        return first.entrySet().stream().allMatch(e -> Arrays.equals(e.getValue(), second.get(e.getKey())));
+    }
+
+    protected IndexMetadata indexMeta(String name, long creationDate, String... aliases) {
+        IndexMetadata.Builder builder = IndexMetadata
+            .builder(name)
+            .settings(
+                Settings
+                    .builder()
+                    .put("index.number_of_shards", 1)
+                    .put("index.number_of_replicas", 1)
+                    .put("index.version.created", Version.CURRENT.id)
+            );
+        builder.creationDate(creationDate);
+        for (String alias : aliases) {
+            builder.putAlias(AliasMetadata.builder(alias).build());
+        }
+        return builder.build();
+    }
+
+    protected void setUpADThreadPool(ThreadPool mockThreadPool) {
+        ExecutorService executorService = mock(ExecutorService.class);
+
+        when(mockThreadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(executorService).execute(any(Runnable.class));
     }
 }

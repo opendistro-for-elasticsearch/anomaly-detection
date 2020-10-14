@@ -20,7 +20,7 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse;
 
 public class EntityResultAction extends ActionType<AcknowledgedResponse> {
     public static final EntityResultAction INSTANCE = new EntityResultAction();
-    public static final String NAME = "cluster:admin/ad/entity/result";
+    public static final String NAME = "cluster:admin/opendistro/ad/entity/result";
 
     private EntityResultAction() {
         super(NAME, AcknowledgedResponse::new);

@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
@@ -129,10 +130,12 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 .plus(Duration.ofMinutes(coolDownMinutes))
                 .isAfter(clock.instant());
 
+            Instant executionStartTime = Instant.now();
             for (Entry<String, double[]> entity : request.getEntities().entrySet()) {
                 String entityName = entity.getKey();
                 // For ES, the limit of the document ID is 512 bytes.
-                // truncate to 256 characters if too long since we are using it as part of document id.
+                // skip an entity if the entity's name is more than 256 characters
+                // since we are using it as part of document id.
                 if (entityName.length() > AnomalyDetectorSettings.MAX_ENTITY_LENGTH) {
                     continue;
                 }
@@ -159,7 +162,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                                 ParseUtils.getFeatureData(datapoint, detector),
                                 Instant.ofEpochMilli(request.getStart()),
                                 Instant.ofEpochMilli(request.getEnd()),
-                                Instant.now(),
+                                executionStartTime,
                                 Instant.now(),
                                 null,
                                 Arrays.asList(new Entity(categoricalField, entityName))
@@ -174,7 +177,15 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
 
             listener.onResponse(new AcknowledgedResponse(true));
         }, exception -> {
-            LOG.error("fail to get entity's anomaly grade", exception);
+            LOG.error(
+                new ParameterizedMessage(
+                    "fail to get entity's anomaly grade for detector [{}]: start: [{}], end: [{}]",
+                    detectorId,
+                    request.getStart(),
+                    request.getEnd()
+                ),
+                exception
+            );
             listener.onFailure(exception);
         });
     }

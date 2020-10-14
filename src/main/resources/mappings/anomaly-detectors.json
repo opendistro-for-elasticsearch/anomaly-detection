@@ -103,6 +103,9 @@
     "ui_metadata": {
       "type": "object",
       "enabled": false
+    },
+    "category_field": {
+      "type": "keyword"
     }
   }
 }

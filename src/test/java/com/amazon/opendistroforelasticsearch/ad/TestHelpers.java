@@ -376,10 +376,10 @@ public class TestHelpers {
 
     public static User randomUser() {
         return new User(
-                randomAlphaOfLength(8),
-                ImmutableList.of(randomAlphaOfLength(10)),
-                ImmutableList.of("all_access"),
-                ImmutableList.of("attribute=test")
+            randomAlphaOfLength(8),
+            ImmutableList.of(randomAlphaOfLength(10)),
+            ImmutableList.of("all_access"),
+            ImmutableList.of("attribute=test")
         );
     }
 

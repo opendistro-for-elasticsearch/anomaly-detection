@@ -139,7 +139,8 @@ public class AnomalyDetectorTests extends ESTestCase {
                     0,
                     null,
                     1,
-                    Instant.now()
+                    Instant.now(),
+                    TestHelpers.randomUser()
                 )
             );
     }
@@ -162,7 +163,8 @@ public class AnomalyDetectorTests extends ESTestCase {
                     AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
-                    Instant.now()
+                    Instant.now(),
+                    TestHelpers.randomUser()
                 )
             );
     }
@@ -185,7 +187,8 @@ public class AnomalyDetectorTests extends ESTestCase {
                     AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
-                    Instant.now()
+                    Instant.now(),
+                    TestHelpers.randomUser()
                 )
             );
     }
@@ -208,7 +211,8 @@ public class AnomalyDetectorTests extends ESTestCase {
                     AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
-                    Instant.now()
+                    Instant.now(),
+                    TestHelpers.randomUser()
                 )
             );
     }
@@ -231,7 +235,8 @@ public class AnomalyDetectorTests extends ESTestCase {
                     AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
-                    Instant.now()
+                    Instant.now(),
+                    TestHelpers.randomUser()
                 )
             );
     }
@@ -254,7 +259,8 @@ public class AnomalyDetectorTests extends ESTestCase {
                     AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
-                    Instant.now()
+                    Instant.now(),
+                    TestHelpers.randomUser()
                 )
             );
     }
@@ -277,7 +283,8 @@ public class AnomalyDetectorTests extends ESTestCase {
                     AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
-                    Instant.now()
+                    Instant.now(),
+                    TestHelpers.randomUser()
                 )
             );
     }
@@ -312,7 +319,8 @@ public class AnomalyDetectorTests extends ESTestCase {
             5,
             null,
             1,
-            Instant.now()
+            Instant.now(),
+            TestHelpers.randomUser()
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
     }
@@ -332,7 +340,8 @@ public class AnomalyDetectorTests extends ESTestCase {
             null,
             null,
             1,
-            Instant.now()
+            Instant.now(),
+            TestHelpers.randomUser()
         );
         assertEquals((int) anomalyDetector.getShingleSize(), AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
     }

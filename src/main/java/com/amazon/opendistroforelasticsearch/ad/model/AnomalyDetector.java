@@ -45,6 +45,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.base.Objects;
 
 /**
@@ -76,6 +77,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private static final String SHINGLE_SIZE_FIELD = "shingle_size";
     private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String UI_METADATA_FIELD = "ui_metadata";
+    public static final String USER_FIELD = "user";
 
     private final String detectorId;
     private final Long version;
@@ -91,6 +93,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private final Map<String, Object> uiMetadata;
     private final Integer schemaVersion;
     private final Instant lastUpdateTime;
+    private User user;
 
     /**
      * Constructor function.
@@ -109,6 +112,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * @param uiMetadata        metadata used by Kibana
      * @param schemaVersion     anomaly detector index mapping version
      * @param lastUpdateTime    detector's last update time
+     * @param user              user to which detector is associated
      */
     public AnomalyDetector(
         String detectorId,
@@ -124,7 +128,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Integer shingleSize,
         Map<String, Object> uiMetadata,
         Integer schemaVersion,
-        Instant lastUpdateTime
+        Instant lastUpdateTime,
+        User user
     ) {
         if (Strings.isBlank(name)) {
             throw new IllegalArgumentException("Detector name should be set");
@@ -155,6 +160,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
+        this.user = user;
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {
@@ -188,6 +194,11 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         uiMetadata = input.readMap();
         schemaVersion = input.readInt();
         lastUpdateTime = input.readInstant();
+        if (input.readBoolean()) {
+            this.user = new User(input);
+        } else {
+            user = null;
+        }
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -210,6 +221,12 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         output.writeMap(uiMetadata);
         output.writeInt(schemaVersion);
         output.writeInstant(lastUpdateTime);
+        if (user != null) {
+            output.writeBoolean(true); // user exists
+            user.writeTo(output);
+        } else {
+            output.writeBoolean(false); // user does not exist
+        }
     }
 
     @Override
@@ -235,6 +252,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         if (lastUpdateTime != null) {
             xContentBuilder.timeField(LAST_UPDATE_TIME_FIELD, LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli());
+        }
+        if (user != null) {
+            xContentBuilder.field(USER_FIELD, user);
         }
         return xContentBuilder.endObject();
     }
@@ -303,6 +323,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         int schemaVersion = 0;
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = null;
+        User user = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -359,6 +380,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 case LAST_UPDATE_TIME_FIELD:
                     lastUpdateTime = ParseUtils.toInstant(parser);
                     break;
+                case USER_FIELD:
+                    user = User.parse(parser);
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -378,7 +402,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             shingleSize,
             uiMetadata,
             schemaVersion,
-            lastUpdateTime
+            lastUpdateTime,
+            user
         );
     }
 
@@ -496,6 +521,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
 
     public Instant getLastUpdateTime() {
         return lastUpdateTime;
+    }
+
+    public User getUser() {
+        return user;
     }
 
 }

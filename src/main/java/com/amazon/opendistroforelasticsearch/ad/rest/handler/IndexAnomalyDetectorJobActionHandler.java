@@ -163,7 +163,8 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
                 Instant.now(),
                 null,
                 Instant.now(),
-                duration.getSeconds()
+                duration.getSeconds(),
+                detector.getUser()
             );
 
             getAnomalyDetectorJobForWrite(job);
@@ -201,7 +202,8 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
                         Instant.now(),
                         currentAdJob.getDisabledTime(),
                         Instant.now(),
-                        job.getLockDurationSeconds()
+                        job.getLockDurationSeconds(),
+                        job.getUser()
                     );
                     indexAnomalyDetectorJob(newJob, null);
                 }
@@ -278,7 +280,8 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
                             job.getEnabledTime(),
                             Instant.now(),
                             Instant.now(),
-                            job.getLockDurationSeconds()
+                            job.getLockDurationSeconds(),
+                            job.getUser()
                         );
                         indexAnomalyDetectorJob(
                             newJob,

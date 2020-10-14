@@ -15,12 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.AD_BASE_PREVIEW_URI;
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomAnomalyDetectorWithEmptyFeature;
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomFeature;
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomIntervalTimeConfiguration;
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomQuery;
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomUiMetadata;
 import static org.hamcrest.Matchers.containsString;
 
 import java.io.IOException;
@@ -93,14 +87,15 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomAlphaOfLength(5),
             randomAlphaOfLength(5),
             detector.getIndices(),
-            ImmutableList.of(randomFeature()),
-            randomQuery(),
-            randomIntervalTimeConfiguration(),
-            randomIntervalTimeConfiguration(),
+            ImmutableList.of(TestHelpers.randomFeature()),
+            TestHelpers.randomQuery(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            TestHelpers.randomIntervalTimeConfiguration(),
             randomIntBetween(1, 2000),
-            randomUiMetadata(),
+            TestHelpers.randomUiMetadata(),
             randomInt(),
-            null
+            null,
+            TestHelpers.randomUser()
         );
 
         TestHelpers
@@ -182,7 +177,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
-            detector.getLastUpdateTime()
+            detector.getLastUpdateTime(),
+            detector.getUser()
         );
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
@@ -242,7 +238,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector1.getShingleSize(),
             detector1.getUiMetadata(),
             detector1.getSchemaVersion(),
-            detector1.getLastUpdateTime()
+            detector1.getLastUpdateTime(),
+            detector1.getUser()
         );
 
         TestHelpers
@@ -278,7 +275,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
-            Instant.now()
+            Instant.now(),
+            detector.getUser()
         );
 
         TestHelpers
@@ -320,7 +318,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
-            detector.getLastUpdateTime()
+            detector.getLastUpdateTime(),
+            detector.getUser()
         );
 
         deleteIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
@@ -408,7 +407,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 .makeRequest(
                     client(),
                     "POST",
-                    String.format(AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                    String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                     ImmutableMap.of(),
                     toHttpEntity(input),
                     null
@@ -422,7 +421,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                String.format(AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                 ImmutableMap.of(),
                 toHttpEntity(input),
                 null
@@ -487,7 +486,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                String.format(AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                 ImmutableMap.of(),
                 toHttpEntity(input),
                 null
@@ -501,7 +500,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getDetectorId(),
             Instant.now().minusSeconds(60 * 10),
             Instant.now(),
-            randomAnomalyDetectorWithEmptyFeature()
+            TestHelpers.randomAnomalyDetectorWithEmptyFeature()
         );
         TestHelpers
             .assertFailWith(
@@ -702,7 +701,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
-            detector.getLastUpdateTime()
+            detector.getLastUpdateTime(),
+            detector.getUser()
         );
 
         TestHelpers

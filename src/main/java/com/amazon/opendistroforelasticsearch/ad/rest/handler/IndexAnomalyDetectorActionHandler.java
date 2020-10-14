@@ -302,7 +302,8 @@ public class IndexAnomalyDetectorActionHandler {
             anomalyDetector.getShingleSize(),
             anomalyDetector.getUiMetadata(),
             anomalyDetector.getSchemaVersion(),
-            Instant.now()
+            Instant.now(),
+            anomalyDetector.getUser()
         );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)

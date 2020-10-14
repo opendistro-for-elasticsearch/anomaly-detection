@@ -56,6 +56,8 @@ public class SearchAnomalyDetectorActionTests extends ESIntegTestCase {
         };
     }
 
+    //Ignoring this test as this is flaky.
+    @Ignore
     @Test
     public void testSearchResponse() {
         // Will call response.onResponse as Index exists

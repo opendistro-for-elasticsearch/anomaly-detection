@@ -47,7 +47,8 @@ import org.elasticsearch.threadpool.ThreadPool;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker.Origin;
-import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
 import com.amazon.opendistroforelasticsearch.ad.ml.EntityModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
@@ -57,7 +58,6 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.util.concurrent.RateLimiter;
 
 public class PriorityCache implements EntityCache {
     private final Logger LOG = LogManager.getLogger(PriorityCache.class);
@@ -76,11 +76,11 @@ public class PriorityCache implements EntityCache {
     private final Duration modelTtl;
     private final int numMinSamples;
     private Map<String, DoorKeeper> doorKeepers;
-    private final RateLimiter cacheMissRateLimiter;
     private Instant lastThrottledRestoreTime;
     private int coolDownMinutes;
     private ThreadPool threadPool;
     private Random random;
+    private AbstractRunnable clearMemoryRunnable;
 
     public PriorityCache(
         CheckpointDao checkpointDao,
@@ -108,8 +108,6 @@ public class PriorityCache implements EntityCache {
         this.modelTtl = modelTtl;
         this.numMinSamples = numMinSamples;
         this.doorKeepers = new ConcurrentHashMap<>();
-        // respond to 10 cache misses per second allowed.
-        this.cacheMissRateLimiter = RateLimiter.create(10);
 
         this.inActiveEntities = CacheBuilder
             .newBuilder()
@@ -122,6 +120,17 @@ public class PriorityCache implements EntityCache {
         this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
         this.threadPool = threadPool;
         this.random = new Random(42);
+        this.clearMemoryRunnable = new AbstractRunnable() {
+            @Override
+            protected void doRun() throws Exception {
+                clearMemory();
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                LOG.error("Fail to clear up memory taken by CacheBuffer.  Will retry during maintenance.");
+            }
+        };
     }
 
     @Override
@@ -131,7 +140,7 @@ public class PriorityCache implements EntityCache {
         ModelState<EntityModel> modelState = buffer.get(modelId);
         try {
             // during maintenance period, stop putting new entries
-            if (modelState == null && maintenanceLock.tryLock() && cacheMissRateLimiter.tryAcquire()) {
+            if (modelState == null && maintenanceLock.tryLock()) {
                 DoorKeeper doorKeeper = doorKeepers
                     .computeIfAbsent(
                         detectorId,
@@ -219,6 +228,14 @@ public class PriorityCache implements EntityCache {
         // thread can access its buffer.
         if (buffer.dedicatedCacheAvailable()) {
             buffer.put(modelId, state);
+        } else if (memoryTracker.canAllocate(buffer.getMemoryConsumptionPerEntity())) {
+            // can allocate in shared cache
+            // race conditions can happen when multiple threads evaluating this condition.
+            // This is a problem as our AD memory usage is close to full and we put
+            // more things than we planned. One model in multi-entity case is small,
+            // it is fine we exceed a little. We have regular maintenance to remove
+            // extra memory usage.
+            buffer.put(modelId, state);
         } else if (buffer.canReplace(priority)) {
             // can replace an entity in the same CacheBuffer living in reserved
             // or shared cache
@@ -226,25 +243,15 @@ public class PriorityCache implements EntityCache {
             // thread can access its buffer.
             buffer.replace(modelId, state);
         } else {
-            // race conditions can happen when multiple threads evaluating this condition.
-            // This is a problem as our AD memory usage is close to full and we put
-            // more things than we planned. One model in multi-entity case is small,
-            // it is fine we exceed a little. We have regular maintenance to remove
-            // extra memory usage.
-            if (memoryTracker.canAllocate(buffer.getMemoryConsumptionPerEntity())) {
-                // can allocate in shared cache
+            // If two threads try to remove the same entity and add their own state, the 2nd remove
+            // returns null and only the first one succeeds.
+            Entry<CacheBuffer, String> bufferToRemoveEntity = canReplaceInSharedCache(buffer, priority);
+            CacheBuffer bufferToRemove = bufferToRemoveEntity.getKey();
+            String entityId = bufferToRemoveEntity.getValue();
+            if (bufferToRemove != null && bufferToRemove.remove(entityId) != null) {
                 buffer.put(modelId, state);
             } else {
-                // If two threads try to remove the same entity and add their own state, the 2nd remove
-                // returns null and only the first one succeeds.
-                Entry<CacheBuffer, String> bufferToRemoveEntity = canReplaceInSharedCache(buffer, priority);
-                CacheBuffer bufferToRemove = bufferToRemoveEntity.getKey();
-                String entityId = bufferToRemoveEntity.getValue();
-                if (bufferToRemove != null && bufferToRemove.remove(entityId) != null) {
-                    buffer.put(modelId, state);
-                } else {
-                    return false;
-                }
+                return false;
             }
         }
 
@@ -257,7 +264,7 @@ public class PriorityCache implements EntityCache {
         Queue<double[]> samples = stateToPromote.getModel().getSamples();
         samples.add(datapoint);
         // only keep the recent numMinSamples
-        if (samples.size() > this.numMinSamples) {
+        while (samples.size() > this.numMinSamples) {
             samples.remove();
         }
     }
@@ -306,7 +313,7 @@ public class PriorityCache implements EntityCache {
                 );
             }
             // if hosting not allowed, exception will be thrown by isHostingAllowed
-            throw new EndRunException(detectorId, "Unexpected bug", true);
+            throw new LimitExceededException(detectorId, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG);
         });
     }
 
@@ -330,10 +337,10 @@ public class PriorityCache implements EntityCache {
         String minPriorityEntityId = null;
         for (Map.Entry<String, CacheBuffer> entry : activeEnities.entrySet()) {
             CacheBuffer buffer = entry.getValue();
-            if (buffer != originBuffer) {
+            if (buffer != originBuffer && buffer.canRemove()) {
                 Entry<String, Float> priorityEntry = buffer.getMinimumPriority();
                 float priority = priorityEntry.getValue();
-                if (buffer.canRemove() && candicatePriority > priority && priority < minPriority) {
+                if (candicatePriority > priority && priority < minPriority) {
                     minPriority = priority;
                     minPriorityBuffer = buffer;
                     minPriorityEntityId = priorityEntry.getKey();
@@ -348,17 +355,6 @@ public class PriorityCache implements EntityCache {
             if (maintenanceLock.tryLock()) {
                 clearMemory();
             } else {
-                AbstractRunnable clearMemoryRunnable = new AbstractRunnable() {
-                    @Override
-                    protected void doRun() throws Exception {
-                        clearMemory();
-                    }
-
-                    @Override
-                    public void onFailure(Exception e) {
-                        LOG.error("Fail to clear up memory taken by CacheBuffer.  Will retry during maintenance.");
-                    }
-                };
                 threadPool
                     .schedule(
                         () -> clearMemoryRunnable.run(),

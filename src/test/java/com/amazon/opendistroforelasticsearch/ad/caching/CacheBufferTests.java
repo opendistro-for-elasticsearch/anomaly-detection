@@ -16,9 +16,9 @@
 package com.amazon.opendistroforelasticsearch.ad.caching;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -130,7 +130,7 @@ public class CacheBufferTests extends ESTestCase {
         List<Long> capturedMemoryReleased = memoryReleased.getAllValues();
         List<Boolean> capturedreserved = reserved.getAllValues();
         List<MemoryTracker.Origin> capturedOrigin = orign.getAllValues();
-        assertEquals(3*memoryPerEntity, capturedMemoryReleased.stream().reduce(0L, (a, b) -> a+b).intValue());
+        assertEquals(3 * memoryPerEntity, capturedMemoryReleased.stream().reduce(0L, (a, b) -> a + b).intValue());
         assertTrue(capturedreserved.get(0));
         assertTrue(!capturedreserved.get(1));
         assertEquals(MemoryTracker.Origin.MULTI_ENTITY_DETECTOR, capturedOrigin.get(0));

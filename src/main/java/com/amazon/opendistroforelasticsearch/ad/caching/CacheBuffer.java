@@ -144,6 +144,9 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
         Duration modelTtl,
         String detectorId
     ) {
+        if (minimumCapacity <= 0) {
+            throw new IllegalArgumentException("minimum capacity should be larger than 0");
+        }
         this.minimumCapacity = minimumCapacity;
         this.key2Priority = new ConcurrentHashMap<>();
         this.priorityList = new ConcurrentSkipListSet<>(new PriorityNodeComparator());
@@ -182,7 +185,6 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
     public float getUpdatedPriority(float oldPriority) {
         long increment = computeWeightedCountIncrement();
         // if overflowed, we take the short cut from now on
-
         oldPriority += Math.log(1 + Math.exp(increment - oldPriority));
         // if overflow happens, using \log(g(t_k-L)) instead.
         if (oldPriority == Float.POSITIVE_INFINITY) {
@@ -238,9 +240,6 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
     * @param priority the priority
     */
     private void put(String entityId, ModelState<EntityModel> value, float priority) {
-        if (minimumCapacity <= 0) {
-            return;
-        }
         ModelState<EntityModel> contentNode = items.get(entityId);
         if (contentNode == null) {
             PriorityNode node = new PriorityNode(entityId, priority);
@@ -363,7 +362,11 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
      * @return whether one entity can be replaced by another entity with a certain priority
      */
     public boolean canReplace(float priority) {
-        return !items.isEmpty() && priority > getMinimumPriority().getValue();
+        if (items.isEmpty()) {
+            return false;
+        }
+        Entry<String, Float> minPriorityItem = getMinimumPriority();
+        return minPriorityItem != null && priority > minPriorityItem.getValue();
     }
 
     /**

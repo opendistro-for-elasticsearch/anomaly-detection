@@ -280,9 +280,7 @@ public class CheckpointDao {
 
     private void flush(BulkRequest bulkRequest) {
         clientUtil.<BulkRequest, BulkResponse>execute(BulkAction.INSTANCE, bulkRequest, ActionListener.wrap(r -> {
-            if (r.hasFailures() == false) {
-                logger.debug("Succeeded in bulking checkpoints");
-            } else {
+            if (r.hasFailures()) {
                 requests.addAll(BulkUtil.getIndexRequestToRetry(bulkRequest, r));
             }
         }, e -> {

@@ -21,6 +21,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -103,7 +104,7 @@ public class EntityColdStarter {
      * @param interpolator Used to generate data points between samples.
      * @param searchFeatureDao Used to issue ES queries.
      * @param shingleSize The size of a data point window that appear consecutively.
-          * @param thresholdMinPvalue min P-value for thresholding
+     * @param thresholdMinPvalue min P-value for thresholding
      * @param thresholdMaxRankError  max rank error for thresholding
      * @param thresholdMaxScore max RCF score to thresholding
      * @param thresholdNumLogNormalQuantiles num of lognormal quantiles for thresholding
@@ -316,7 +317,6 @@ public class EntityColdStarter {
         }
 
         double[] scores = new double[dataPoints.length];
-        Arrays.fill(scores, 0.);
 
         for (int j = 0; j < dataPoints.length; j++) {
             scores[j] = rcf.getAnomalyScore(dataPoints[j]);
@@ -469,11 +469,10 @@ public class EntityColdStarter {
         // adjust if numStrides is more than the max samples
         if (maxTrainSamples - 1 < numStrides) {
             numStrides = maxTrainSamples - 1;
-            startMilli = endMilli - bucketSize * stride * numStrides;
         }
         List<Entry<Long, Long>> sampleRanges = Stream
             .iterate(endMilli, i -> i - stride * bucketSize)
-            .limit(numStrides + 1)
+            .limit(numStrides)
             .map(time -> new SimpleImmutableEntry<>(time - bucketSize, time))
             .collect(Collectors.toList());
         return sampleRanges;
@@ -537,14 +536,16 @@ public class EntityColdStarter {
      */
     private void combineTrainSamples(List<double[][]> coldstartDatapoints, String modelId, ModelState<EntityModel> entityState) {
         EntityModel model = entityState.getModel();
-        if (model != null) {
-            for (double[][] consecutivePoints : coldstartDatapoints) {
-                for (int i = 0; i < consecutivePoints.length; i++) {
-                    model.addSample(consecutivePoints[i]);
-                }
-            }
-            // save to checkpoint
-            checkpointDao.write(entityState, modelId, true);
+        if (model == null) {
+            model = new EntityModel(modelId, new ArrayDeque<>(), null, null);
         }
+        for (double[][] consecutivePoints : coldstartDatapoints) {
+            for (int i = 0; i < consecutivePoints.length; i++) {
+                model.addSample(consecutivePoints[i]);
+            }
+        }
+        // save to checkpoint
+        checkpointDao.write(entityState, modelId, true);
+
     }
 }

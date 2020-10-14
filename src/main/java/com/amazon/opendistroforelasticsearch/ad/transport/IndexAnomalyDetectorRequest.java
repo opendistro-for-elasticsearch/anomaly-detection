@@ -22,6 +22,7 @@ import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.rest.RestRequest;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -34,6 +35,10 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
     private WriteRequest.RefreshPolicy refreshPolicy;
     private AnomalyDetector detector;
     private RestRequest.Method method;
+    private TimeValue requestTimeout;
+    private Integer maxSingleEntityAnomalyDetectors;
+    private Integer maxMultiEntityAnomalyDetectors;
+    private Integer maxAnomalyFeatures;
 
     public IndexAnomalyDetectorRequest(StreamInput in) throws IOException {
         super(in);
@@ -43,6 +48,10 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         refreshPolicy = in.readEnum(WriteRequest.RefreshPolicy.class);
         detector = new AnomalyDetector(in);
         method = in.readEnum(RestRequest.Method.class);
+        requestTimeout = in.readTimeValue();
+        maxSingleEntityAnomalyDetectors = in.readInt();
+        maxMultiEntityAnomalyDetectors = in.readInt();
+        maxAnomalyFeatures = in.readInt();
     }
 
     public IndexAnomalyDetectorRequest(
@@ -51,7 +60,11 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         long primaryTerm,
         WriteRequest.RefreshPolicy refreshPolicy,
         AnomalyDetector detector,
-        RestRequest.Method method
+        RestRequest.Method method,
+        TimeValue requestTimeout,
+        Integer maxSingleEntityAnomalyDetectors,
+        Integer maxMultiEntityAnomalyDetectors,
+        Integer maxAnomalyFeatures
     ) {
         super();
         this.detectorID = detectorID;
@@ -60,6 +73,10 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         this.refreshPolicy = refreshPolicy;
         this.detector = detector;
         this.method = method;
+        this.requestTimeout = requestTimeout;
+        this.maxSingleEntityAnomalyDetectors = maxSingleEntityAnomalyDetectors;
+        this.maxMultiEntityAnomalyDetectors = maxMultiEntityAnomalyDetectors;
+        this.maxAnomalyFeatures = maxAnomalyFeatures;
     }
 
     public String getDetectorID() {
@@ -86,6 +103,22 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         return method;
     }
 
+    public TimeValue getRequestTimeout() {
+        return requestTimeout;
+    }
+
+    public Integer getMaxSingleEntityAnomalyDetectors() {
+        return maxSingleEntityAnomalyDetectors;
+    }
+
+    public Integer getMaxMultiEntityAnomalyDetectors() {
+        return maxMultiEntityAnomalyDetectors;
+    }
+
+    public Integer getMaxAnomalyFeatures() {
+        return maxAnomalyFeatures;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
@@ -95,6 +128,10 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         out.writeEnum(refreshPolicy);
         detector.writeTo(out);
         out.writeEnum(method);
+        out.writeTimeValue(requestTimeout);
+        out.writeInt(maxSingleEntityAnomalyDetectors);
+        out.writeInt(maxMultiEntityAnomalyDetectors);
+        out.writeInt(maxAnomalyFeatures);
     }
 
     @Override

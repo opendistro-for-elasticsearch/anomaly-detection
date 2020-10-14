@@ -15,84 +15,74 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
+
+import java.io.IOException;
+
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
-import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
+import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 
-public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
-    private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);
+public class AnomalyDetectorJobTransportAction extends HandledTransportAction<AnomalyDetectorJobRequest, AnomalyDetectorJobResponse> {
+
     private final Client client;
+    private final Settings settings;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
-    private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
 
     @Inject
-    public IndexAnomalyDetectorTransportAction(
+    public AnomalyDetectorJobTransportAction(
         TransportService transportService,
         ActionFilters actionFilters,
         Client client,
-        ClusterService clusterService,
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry
     ) {
-        super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
+        super(AnomalyDetectorJobAction.NAME, transportService, actionFilters, AnomalyDetectorJobRequest::new);
         this.client = client;
-        this.clusterService = clusterService;
+        this.settings = settings;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.xContentRegistry = xContentRegistry;
     }
 
     @Override
-    protected void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> listener) {
+    protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<AnomalyDetectorJobResponse> listener) {
         String detectorId = request.getDetectorID();
         long seqNo = request.getSeqNo();
         long primaryTerm = request.getPrimaryTerm();
-        WriteRequest.RefreshPolicy refreshPolicy = request.getRefreshPolicy();
-        AnomalyDetector detector = request.getDetector();
-        RestRequest.Method method = request.getMethod();
-        TimeValue requestTimeout = request.getRequestTimeout();
-        Integer maxSingleEntityAnomalyDetectors = request.getMaxSingleEntityAnomalyDetectors();
-        Integer maxMultiEntityAnomalyDetectors = request.getMaxMultiEntityAnomalyDetectors();
-        Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
+        String rawPath = request.getRawPath();
+        TimeValue requestTimeout = REQUEST_TIMEOUT.get(settings);
 
-        IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
-            clusterService,
+        IndexAnomalyDetectorJobActionHandler handler = new IndexAnomalyDetectorJobActionHandler(
             client,
             listener,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
             primaryTerm,
-            refreshPolicy,
-            detector,
             requestTimeout,
-            maxSingleEntityAnomalyDetectors,
-            maxMultiEntityAnomalyDetectors,
-            maxAnomalyFeatures,
-            method,
             xContentRegistry
         );
         try {
-            indexAnomalyDetectorActionHandler.start();
-        } catch (Exception e) {
-            LOG.error(e);
+            if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
+                handler.startAnomalyDetectorJob();
+            } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
+                handler.stopAnomalyDetectorJob(detectorId);
+            }
+        } catch (IOException e) {
+            logger.error(e);
         }
     }
 }

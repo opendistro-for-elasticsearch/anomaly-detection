@@ -15,11 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.model;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.CATEGORY_FIELD_LIMIT;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DEFAULT_MULTI_ENTITY_SHINGLE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -77,6 +80,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private static final String SHINGLE_SIZE_FIELD = "shingle_size";
     private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String UI_METADATA_FIELD = "ui_metadata";
+    public static final String CATEGORY_FIELD = "category_field";
     public static final String USER_FIELD = "user";
 
     private final String detectorId;
@@ -93,6 +97,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private final Map<String, Object> uiMetadata;
     private final Integer schemaVersion;
     private final Instant lastUpdateTime;
+    private final List<String> categoryFields;
     private User user;
 
     /**
@@ -112,6 +117,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * @param uiMetadata        metadata used by Kibana
      * @param schemaVersion     anomaly detector index mapping version
      * @param lastUpdateTime    detector's last update time
+     * @param categoryFields    a list of partition fields
      * @param user              user to which detector is associated
      */
     public AnomalyDetector(
@@ -129,6 +135,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Map<String, Object> uiMetadata,
         Integer schemaVersion,
         Instant lastUpdateTime,
+        List<String> categoryFields,
         User user
     ) {
         if (Strings.isBlank(name)) {
@@ -146,6 +153,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         if (shingleSize != null && shingleSize < 1) {
             throw new IllegalArgumentException("Shingle size must be a positive integer");
         }
+        if (categoryFields != null && categoryFields.size() > CATEGORY_FIELD_LIMIT) {
+            throw new IllegalArgumentException("We only support filtering data by one categorical variable");
+        }
         this.detectorId = detectorId;
         this.version = version;
         this.name = name;
@@ -156,11 +166,51 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.filterQuery = filterQuery;
         this.detectionInterval = detectionInterval;
         this.windowDelay = windowDelay;
-        this.shingleSize = shingleSize;
+        this.shingleSize = getShingleSize(shingleSize, categoryFields);
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
+        this.categoryFields = categoryFields;
         this.user = user;
+    }
+
+    // TODO: remove after complete code merges. Created to not to touch too
+    // many places in one PR.
+    public AnomalyDetector(
+        String detectorId,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration detectionInterval,
+        TimeConfiguration windowDelay,
+        Integer shingleSize,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime,
+        User user
+    ) {
+        this(
+            detectorId,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            detectionInterval,
+            windowDelay,
+            shingleSize,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime,
+            null,
+            user
+        );
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {
@@ -194,6 +244,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         uiMetadata = input.readMap();
         schemaVersion = input.readInt();
         lastUpdateTime = input.readInstant();
+        this.categoryFields = input.readStringList();
         if (input.readBoolean()) {
             this.user = new User(input);
         } else {
@@ -221,6 +272,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         output.writeMap(uiMetadata);
         output.writeInt(schemaVersion);
         output.writeInstant(lastUpdateTime);
+        output.writeStringCollection(categoryFields);
         if (user != null) {
             output.writeBoolean(true); // user exists
             user.writeTo(output);
@@ -253,6 +305,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         if (lastUpdateTime != null) {
             xContentBuilder.timeField(LAST_UPDATE_TIME_FIELD, LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli());
         }
+        if (categoryFields != null) {
+            xContentBuilder.field(CATEGORY_FIELD, categoryFields.toArray());
+        }
         if (user != null) {
             xContentBuilder.field(USER_FIELD, user);
         }
@@ -284,7 +339,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * @throws IOException IOException if content can't be parsed correctly
      */
     public static AnomalyDetector parse(XContentParser parser, String detectorId, Long version) throws IOException {
-        return parse(parser, detectorId, version, null, null, null);
+        return parse(parser, detectorId, version, null, null);
     }
 
     /**
@@ -295,7 +350,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * @param version                     detector document version
      * @param defaultDetectionInterval    default detection interval
      * @param defaultDetectionWindowDelay default detection window delay
-     * @param defaultShingleSize           default number of intervals in shingle
      * @return anomaly detector instance
      * @throws IOException IOException if content can't be parsed correctly
      */
@@ -304,8 +358,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         String detectorId,
         Long version,
         TimeValue defaultDetectionInterval,
-        TimeValue defaultDetectionWindowDelay,
-        Integer defaultShingleSize
+        TimeValue defaultDetectionWindowDelay
     ) throws IOException {
         String name = null;
         String description = null;
@@ -318,12 +371,14 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         TimeConfiguration windowDelay = defaultDetectionWindowDelay == null
             ? null
             : new IntervalTimeConfiguration(defaultDetectionWindowDelay.getSeconds(), ChronoUnit.SECONDS);
-        Integer shingleSize = defaultShingleSize;
+        Integer shingleSize = null;
         List<Feature> features = new ArrayList<>();
         int schemaVersion = 0;
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = null;
         User user = null;
+
+        List<String> categoryField = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -380,6 +435,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 case LAST_UPDATE_TIME_FIELD:
                     lastUpdateTime = ParseUtils.toInstant(parser);
                     break;
+                case CATEGORY_FIELD:
+                    categoryField = (List) parser.list();
+                    break;
                 case USER_FIELD:
                     user = User.parse(parser);
                     break;
@@ -399,10 +457,11 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             filterQuery,
             detectionInterval,
             windowDelay,
-            shingleSize,
+            getShingleSize(shingleSize, categoryField),
             uiMetadata,
             schemaVersion,
             lastUpdateTime,
+            categoryField,
             user
         );
     }
@@ -508,7 +567,20 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     }
 
     public Integer getShingleSize() {
-        return shingleSize == null ? DEFAULT_SHINGLE_SIZE : shingleSize;
+        return shingleSize;
+    }
+
+    /**
+     * If the given shingle size is null, return default based on the kind of detector;
+     * otherwise, return the given shingle size.
+     * @param customShingleSize Given shingle size
+     * @param categoryField Used to verify if this is a multi-entity or single-entity detector
+     * @return Shingle size
+     */
+    private static Integer getShingleSize(Integer customShingleSize, List<String> categoryField) {
+        return customShingleSize == null
+            ? (categoryField != null && categoryField.size() > 0 ? DEFAULT_MULTI_ENTITY_SHINGLE : DEFAULT_SHINGLE_SIZE)
+            : customShingleSize;
     }
 
     public Map<String, Object> getUiMetadata() {
@@ -523,8 +595,23 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return lastUpdateTime;
     }
 
+    public List<String> getCategoryField() {
+        return this.categoryFields;
+    }
+
+    public long getDetectorIntervalInMilliseconds() {
+        return ((IntervalTimeConfiguration) getDetectionInterval()).toDuration().toMillis();
+    }
+
+    public long getDetectorIntervalInSeconds() {
+        return getDetectorIntervalInMilliseconds() / 1000;
+    }
+
+    public Duration getDetectionIntervalDuration() {
+        return ((IntervalTimeConfiguration) getDetectionInterval()).toDuration();
+    }
+
     public User getUser() {
         return user;
     }
-
 }

@@ -657,10 +657,8 @@ public class SearchFeatureDao {
         ActionListener<List<Optional<double[]>>> listener
     ) throws IOException {
         SearchRequest request = createColdStartFeatureSearchRequest(detector, ranges, entityName);
-        logger.debug(() -> "getColdStartSamplesForPeriods: " + request.toString());
 
         client.search(request, ActionListener.wrap(response -> {
-            logger.debug(() -> "getColdStartSamplesForPeriods: " + response.toString());
             Aggregations aggs = response.getAggregations();
             if (aggs == null) {
                 listener.onResponse(Collections.emptyList());

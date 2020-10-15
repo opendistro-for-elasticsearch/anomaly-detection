@@ -44,6 +44,7 @@ import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
+import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
@@ -70,6 +71,8 @@ public class CronTransportActionTests extends AbstractADTest {
         ModelManager modelManager = mock(ModelManager.class);
         FeatureManager featureManager = mock(FeatureManager.class);
         CacheProvider cacheProvider = mock(CacheProvider.class);
+        EntityCache entityCache = mock(EntityCache.class);
+        when(cacheProvider.get()).thenReturn(entityCache);
 
         action = new CronTransportAction(
             threadPool,

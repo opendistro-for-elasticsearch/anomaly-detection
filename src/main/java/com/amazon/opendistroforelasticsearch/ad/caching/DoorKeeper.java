@@ -19,8 +19,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
+import com.amazon.opendistroforelasticsearch.ad.ExpiringState;
 import com.amazon.opendistroforelasticsearch.ad.MaintenanceState;
-import com.amazon.opendistroforelasticsearch.ad.util.ExpiringState;
 import com.google.common.base.Charsets;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;

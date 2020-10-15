@@ -29,15 +29,18 @@ import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
+import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
+import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 
 public class DeleteModelTransportAction extends
     TransportNodesAction<DeleteModelRequest, DeleteModelResponse, DeleteModelNodeRequest, DeleteModelNodeResponse> {
     private static final Logger LOG = LogManager.getLogger(DeleteModelTransportAction.class);
-    private TransportStateManager transportStateManager;
+    private NodeStateManager transportStateManager;
     private ModelManager modelManager;
     private FeatureManager featureManager;
+    private CacheProvider cache;
 
     @Inject
     public DeleteModelTransportAction(
@@ -45,9 +48,10 @@ public class DeleteModelTransportAction extends
         ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
-        TransportStateManager tarnsportStatemanager,
+        NodeStateManager tarnsportStatemanager,
         ModelManager modelManager,
-        FeatureManager featureManager
+        FeatureManager featureManager,
+        CacheProvider cache
     ) {
         super(
             DeleteModelAction.NAME,
@@ -63,6 +67,7 @@ public class DeleteModelTransportAction extends
         this.transportStateManager = tarnsportStatemanager;
         this.modelManager = modelManager;
         this.featureManager = featureManager;
+        this.cache = cache;
     }
 
     @Override
@@ -105,6 +110,8 @@ public class DeleteModelTransportAction extends
 
         // delete transport state
         transportStateManager.clear(adID);
+
+        cache.clear(adID);
 
         LOG.info("Finished deleting {}", adID);
         return new DeleteModelNodeResponse(clusterService.localNode());

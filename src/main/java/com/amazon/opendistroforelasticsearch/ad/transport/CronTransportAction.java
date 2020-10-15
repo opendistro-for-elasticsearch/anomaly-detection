@@ -27,14 +27,17 @@ import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
+import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
+import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 
 public class CronTransportAction extends TransportNodesAction<CronRequest, CronResponse, CronNodeRequest, CronNodeResponse> {
 
-    private TransportStateManager transportStateManager;
+    private NodeStateManager transportStateManager;
     private ModelManager modelManager;
     private FeatureManager featureManager;
+    private CacheProvider cacheProvider;
 
     @Inject
     public CronTransportAction(
@@ -42,9 +45,10 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
-        TransportStateManager tarnsportStatemanager,
+        NodeStateManager tarnsportStatemanager,
         ModelManager modelManager,
-        FeatureManager featureManager
+        FeatureManager featureManager,
+        CacheProvider cacheProvider
     ) {
         super(
             CronAction.NAME,
@@ -60,6 +64,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         this.transportStateManager = tarnsportStatemanager;
         this.modelManager = modelManager;
         this.featureManager = featureManager;
+        this.cacheProvider = cacheProvider;
     }
 
     @Override
@@ -89,7 +94,10 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
 
         // makes checkpoints for hosted models and stop hosting models not actively
         // used.
+        // for single-entity detector
         modelManager.maintenance();
+        // for multi-entity detector
+        cacheProvider.maintenance();
 
         // delete unused buffered shingle data
         featureManager.maintenance();

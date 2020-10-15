@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad;
 
 import static java.util.Collections.unmodifiableList;
 
+import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
@@ -29,10 +30,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder;
 import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.client.RestClient;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -170,6 +173,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private DiscoveryNodeFilterer nodeFilter;
     private IndexUtils indexUtils;
     private DetectionStateHandler detectorStateHandler;
+    private RestClient restClient;
 
     static {
         SpecialPermission.check();
@@ -291,6 +295,13 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         this.nodeFilter = new DiscoveryNodeFilterer(this.clusterService);
 
+        try {
+            this.restClient = new SecureRestClientBuilder(settings, environment.configFile()).build();
+        } catch (IOException e) {
+            //TODO vemsarat
+            e.printStackTrace();
+        }
+
         ModelManager modelManager = new ModelManager(
             nodeFilter,
             jvmService,
@@ -399,7 +410,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 adStats,
                 new MasterEventListener(clusterService, threadPool, client, clock, clientUtil, nodeFilter),
                 nodeFilter,
-                detectorStateHandler
+                detectorStateHandler,
+                restClient
             );
     }
 
@@ -439,7 +451,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
                 AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
-                AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT
+                AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT,
+                AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES
             );
         return unmodifiableList(Stream.concat(enabledSetting.stream(), systemSetting.stream()).collect(Collectors.toList()));
     }

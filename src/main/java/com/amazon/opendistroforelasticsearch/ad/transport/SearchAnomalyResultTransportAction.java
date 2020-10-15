@@ -15,38 +15,113 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.Response;
+import org.elasticsearch.client.ResponseListener;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermsQueryBuilder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
-public class SearchAnomalyResultTransportAction extends HandledTransportAction<SearchRequest, SearchResponse> {
+import java.io.IOException;
+
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
+
+public class SearchAnomalyResultTransportAction extends HandledTransportAction<SearchAnomalyRequest, SearchResponse> {
 
     private final Client client;
+    private final RestClient restClient;
+    private volatile Boolean filterEnabled;
 
     @Inject
-    public SearchAnomalyResultTransportAction(TransportService transportService, ActionFilters actionFilters, Client client) {
-        super(SearchAnomalyResultAction.NAME, transportService, actionFilters, SearchRequest::new);
+    public SearchAnomalyResultTransportAction(Settings settings, TransportService transportService, ClusterService clusterService, ActionFilters actionFilters, Client client, RestClient restClient) {
+        super(SearchAnomalyResultAction.NAME, transportService, actionFilters, SearchAnomalyRequest::new);
         this.client = client;
+        this.restClient = restClient;
+        filterEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
     }
 
     @Override
-    protected void doExecute(Task task, SearchRequest request, ActionListener<SearchResponse> listener) {
-        client.search(request, new ActionListener<SearchResponse>() {
-            @Override
-            public void onResponse(SearchResponse searchResponse) {
-                listener.onResponse(searchResponse);
-            }
+    protected void doExecute(Task task, SearchAnomalyRequest request, ActionListener<SearchResponse> listener) {
+        client.threadPool().getThreadContext().stashContext();
+        try {
+            validateRole(request, listener);
+        } catch (Exception e) {
+            logger.error(e);
+        } finally {
+            client.threadPool().getThreadContext().stashContext().close();
+        }
+    }
 
-            @Override
-            public void onFailure(Exception e) {
-                listener.onFailure(e);
-            }
-        });
+    private void validateRole(SearchAnomalyRequest request, ActionListener<SearchResponse> listener) {
+        if (request.getAuthHeader() == null) {
+            // Auth Header is empty when 1. Security is disabled. 2. When user is super-admin
+            // Proceed with search
+            search(request.getSearchRequest(), listener);
+        } else if (!filterEnabled) {
+            // Security is enabled and filter is disabled
+            // Proceed with search as user is already authenticated to hit this API.
+            search(request.getSearchRequest(), listener);
+        } else {
+            // Security is enabled and filter is enabled
+            Request authRequest = new AuthUserRequestBuilder(request.getAuthHeader()).build();
+            restClient.performRequestAsync(authRequest, new ResponseListener() {
+                @Override
+                public void onSuccess(Response response) {
+                    try {
+                        User user = new User(response);
+                        addFilter(user, request.getSearchRequest().source(), "user.backend_roles");
+                        logger.info("Filtering result by " + user.getBackendRoles());
+                        search(request.getSearchRequest(), listener);
+                    } catch (IOException e) {
+                        listener.onFailure(e);
+                    }
+                }
+
+                @Override
+                public void onFailure(Exception exception) {
+                    listener.onFailure(exception);
+                }
+            });
+        }
+    }
+
+    private void search(SearchRequest request, ActionListener<SearchResponse> listener) {
+        client.search(request, new ActionListener<SearchResponse>() {
+                @Override
+                public void onResponse(SearchResponse searchResponse) {
+                    listener.onResponse(searchResponse);
+                }
+
+                @Override
+                public void onFailure(Exception e) {
+                    listener.onFailure(e);
+                }
+            });
+    }
+
+    //TODO vemsarat@ move it to a common place
+    private void addFilter(User user, SearchSourceBuilder searchSourceBuilder, String fieldName) {
+        TermsQueryBuilder filterBackendRoles = QueryBuilders.termsQuery(fieldName, user.getBackendRoles());
+        BoolQueryBuilder queryBuilder = (BoolQueryBuilder) searchSourceBuilder.query();
+        searchSourceBuilder.query(queryBuilder.filter(filterBackendRoles));
     }
 }

@@ -23,6 +23,8 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 import java.io.IOException;
 import java.util.List;
 
+import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyRequest;
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionType;
@@ -74,12 +76,14 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
+        String authHeader = request.header(ConfigConstants.AUTHORIZATION);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
         searchSourceBuilder.fetchSource(getSourceContext(request));
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
         SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
-        return channel -> client.execute(actionType, searchRequest, search(channel));
+        SearchAnomalyRequest searchAnomalyRequest = new SearchAnomalyRequest(searchRequest, authHeader);
+        return channel -> client.execute(actionType, searchAnomalyRequest, search(channel));
     }
 
     private RestResponseListener<SearchResponse> search(RestChannel channel) {

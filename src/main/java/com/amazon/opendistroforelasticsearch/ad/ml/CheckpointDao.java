@@ -171,20 +171,7 @@ public class CheckpointDao {
         if (indexUtil.doesCheckpointIndexExist()) {
             saveModelCheckpointSync(source, modelId);
         } else {
-            indexUtil.initCheckpointIndex(ActionListener.wrap(initResponse -> {
-                if (initResponse.isAcknowledged()) {
-                    saveModelCheckpointSync(source, modelId);
-                } else {
-                    throw new RuntimeException("Creating checkpoint with mappings call not acknowledged.");
-                }
-            }, exception -> {
-                if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
-                    // It is possible the index has been created while we sending the create request
-                    saveModelCheckpointSync(source, modelId);
-                } else {
-                    logger.error(String.format("Unexpected error creating index %s", indexName), exception);
-                }
-            }));
+            onCheckpointNotExist(source, modelId, false, null);
         }
     }
 
@@ -206,21 +193,33 @@ public class CheckpointDao {
         if (indexUtil.doesCheckpointIndexExist()) {
             saveModelCheckpointAsync(source, modelId, listener);
         } else {
-            indexUtil.initCheckpointIndex(ActionListener.wrap(initResponse -> {
-                if (initResponse.isAcknowledged()) {
-                    saveModelCheckpointAsync(source, modelId, listener);
-                } else {
-                    throw new RuntimeException("Creating checkpoint with mappings call not acknowledged.");
-                }
-            }, exception -> {
-                if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
-                    // It is possible the index has been created while we sending the create request
-                    saveModelCheckpointAsync(source, modelId, listener);
-                } else {
-                    logger.error(String.format("Unexpected error creating index %s", indexName), exception);
-                }
-            }));
+            onCheckpointNotExist(source, modelId, true, listener);
         }
+    }
+
+    private void onCheckpointNotExist(Map<String, Object> source, String modelId, boolean isAsync, ActionListener<Void> listener) {
+        indexUtil.initCheckpointIndex(ActionListener.wrap(initResponse -> {
+            if (initResponse.isAcknowledged()) {
+                if (isAsync) {
+                    saveModelCheckpointAsync(source, modelId, listener);
+                } else {
+                    saveModelCheckpointSync(source, modelId);
+                }
+            } else {
+                throw new RuntimeException("Creating checkpoint with mappings call not acknowledged.");
+            }
+        }, exception -> {
+            if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                // It is possible the index has been created while we sending the create request
+                if (isAsync) {
+                    saveModelCheckpointAsync(source, modelId, listener);
+                } else {
+                    saveModelCheckpointSync(source, modelId);
+                }
+            } else {
+                logger.error(String.format("Unexpected error creating index %s", indexName), exception);
+            }
+        }));
     }
 
     private void saveModelCheckpointAsync(Map<String, Object> source, String modelId, ActionListener<Void> listener) {
@@ -325,7 +324,7 @@ public class CheckpointDao {
             source.put(FIELD_MODEL, toCheckpoint(modelState.getModel()));
             source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
             requests.add(new IndexRequest(indexName).id(modelId).source(source));
-            modelState.setLastCheckpointTime(Instant.now());
+            modelState.setLastCheckpointTime(clock.instant());
             if (requests.size() >= maxBulkRequestSize) {
                 flush();
             }

@@ -15,12 +15,16 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -35,6 +39,7 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.action.support.ThreadedActionListener;
+import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.block.ClusterBlockLevel;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
@@ -42,17 +47,20 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.node.NodeClosedException;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.ConnectTransportException;
+import org.elasticsearch.transport.NodeNotConnectedException;
 import org.elasticsearch.transport.ReceiveTimeoutTransportException;
 import org.elasticsearch.transport.TransportRequestOptions;
 import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
@@ -64,8 +72,10 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoun
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
+import com.amazon.opendistroforelasticsearch.ad.feature.SearchFeatureDao;
 import com.amazon.opendistroforelasticsearch.ad.feature.SinglePointFeatures;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelPartitioner;
 import com.amazon.opendistroforelasticsearch.ad.ml.RcfResult;
 import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -76,6 +86,7 @@ import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil;
+import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 
 public class AnomalyResultTransportAction extends HandledTransportAction<ActionRequest, AnomalyResultResponse> {
 
@@ -84,7 +95,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         + " models are not ready or all nodes are unresponsive or the system might have bugs.";
     static final String WAIT_FOR_THRESHOLD_ERR_MSG = "Exception in waiting for threshold result";
     static final String NODE_UNRESPONSIVE_ERR_MSG = "Model node is unresponsive.  Mute model";
-    static final String ALL_FEATURES_DISABLED_ERR_MSG = "Having trouble querying data because all of your features have been disabled.";
     static final String READ_WRITE_BLOCKED = "Cannot read/write due to global block.";
     static final String INDEX_READ_BLOCKED = "Cannot read user index due to read block.";
     static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
@@ -93,8 +103,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String BUG_RESPONSE = "We might have bugs.";
 
     private final TransportService transportService;
-    private final TransportStateManager stateManager;
+    private final NodeStateManager stateManager;
     private final FeatureManager featureManager;
+    private final ModelPartitioner modelPartitioner;
     private final ModelManager modelManager;
     private final HashRing hashRing;
     private final TransportRequestOptions option;
@@ -103,26 +114,30 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final ADStats adStats;
     private final ADCircuitBreakerService adCircuitBreakerService;
     private final ThreadPool threadPool;
+    private final SearchFeatureDao searchFeatureDao;
 
     @Inject
     public AnomalyResultTransportAction(
         ActionFilters actionFilters,
         TransportService transportService,
         Settings settings,
-        TransportStateManager manager,
+        NodeStateManager manager,
         FeatureManager featureManager,
         ModelManager modelManager,
+        ModelPartitioner modelPartitioner,
         HashRing hashRing,
         ClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
         ADCircuitBreakerService adCircuitBreakerService,
         ADStats adStats,
-        ThreadPool threadPool
+        ThreadPool threadPool,
+        SearchFeatureDao searchFeatureDao
     ) {
         super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);
         this.transportService = transportService;
         this.stateManager = manager;
         this.featureManager = featureManager;
+        this.modelPartitioner = modelPartitioner;
         this.modelManager = modelManager;
         this.hashRing = hashRing;
         this.option = TransportRequestOptions
@@ -135,17 +150,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.adStats = adStats;
         this.threadPool = threadPool;
-    }
-
-    private List<FeatureData> getFeatureData(double[] currentFeature, AnomalyDetector detector) {
-        List<String> featureIds = detector.getEnabledFeatureIds();
-        List<String> featureNames = detector.getEnabledFeatureNames();
-        int featureLen = featureIds.size();
-        List<FeatureData> featureData = new ArrayList<>();
-        for (int i = 0; i < featureLen; i++) {
-            featureData.add(new FeatureData(featureIds.get(i), featureNames.get(i), currentFeature[i]));
-        }
-        return featureData;
+        this.searchFeatureDao = searchFeatureDao;
     }
 
     /**
@@ -234,14 +239,106 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         String adID,
         AnomalyResultRequest request
     ) {
-        return ActionListener.wrap(detector -> {
-            if (!detector.isPresent()) {
+        return ActionListener.wrap(detectorOptional -> {
+            if (!detectorOptional.isPresent()) {
                 listener.onFailure(new EndRunException(adID, "AnomalyDetector is not available.", true));
                 return;
             }
-            AnomalyDetector anomalyDetector = detector.get();
 
-            String thresholdModelID = modelManager.getThresholdModelId(adID);
+            AnomalyDetector anomalyDetector = detectorOptional.get();
+
+            long delayMillis = Optional
+                .ofNullable((IntervalTimeConfiguration) anomalyDetector.getWindowDelay())
+                .map(t -> t.toDuration().toMillis())
+                .orElse(0L);
+            long dataStartTime = request.getStart() - delayMillis;
+            long dataEndTime = request.getEnd() - delayMillis;
+
+            List<String> categoryField = anomalyDetector.getCategoryField();
+            if (categoryField != null) {
+                Optional<AnomalyDetectionException> previousException = stateManager.fetchColdStartException(adID);
+
+                if (previousException.isPresent()) {
+                    Exception exception = previousException.get();
+                    LOG.error("Previous exception of {}: {}", adID, exception);
+                    if (exception instanceof EndRunException) {
+                        listener.onFailure(exception);
+                        EndRunException endRunException = (EndRunException) exception;
+                        if (endRunException.isEndNow()) {
+                            return;
+                        }
+                    }
+                }
+
+                ActionListener<Map<String, double[]>> getEntityFeatureslistener = ActionListener.wrap(entityFeatures -> {
+                    if (entityFeatures.isEmpty()) {
+                        // Feature not available is common when we have data holes. Respond empty response
+                        // so that alerting will not print stack trace to avoid bloating our logs.
+                        LOG.info("No data in current detection window between {} and {} for {}", dataStartTime, dataEndTime, adID);
+                        listener
+                            .onResponse(
+                                new AnomalyResultResponse(
+                                    Double.NaN,
+                                    Double.NaN,
+                                    Double.NaN,
+                                    new ArrayList<FeatureData>(),
+                                    "No data in current detection window"
+                                )
+                            );
+                    } else {
+                        entityFeatures
+                            .entrySet()
+                            .stream()
+                            .collect(
+                                Collectors
+                                    .groupingBy(
+                                        e -> hashRing.getOwningNode(e.getKey()).get(),
+                                        Collectors.toMap(Entry::getKey, Entry::getValue)
+                                    )
+                            )
+                            .entrySet()
+                            .stream()
+                            .forEach(nodeEntity -> {
+                                DiscoveryNode node = nodeEntity.getKey();
+                                transportService
+                                    .sendRequest(
+                                        node,
+                                        EntityResultAction.NAME,
+                                        new EntityResultRequest(adID, nodeEntity.getValue(), dataStartTime, dataEndTime),
+                                        this.option,
+                                        new ActionListenerResponseHandler<>(
+                                            new EntityResultListener(node.getId(), adID),
+                                            AcknowledgedResponse::new,
+                                            ThreadPool.Names.SAME
+                                        )
+                                    );
+                            });
+                    }
+
+                    listener.onResponse(new AnomalyResultResponse(0, 0, 0, new ArrayList<FeatureData>()));
+                }, exception -> handleFailure(exception, listener, adID));
+
+                threadPool
+                    .executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)
+                    .execute(
+                        () -> searchFeatureDao
+                            .getFeaturesByEntities(
+                                anomalyDetector,
+                                dataStartTime,
+                                dataEndTime,
+                                new ThreadedActionListener<>(
+                                    LOG,
+                                    threadPool,
+                                    AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+                                    getEntityFeatureslistener,
+                                    false
+                                )
+                            )
+                    );
+                return;
+            }
+
+            String thresholdModelID = modelPartitioner.getThresholdModelId(adID);
             Optional<DiscoveryNode> asThresholdNode = hashRing.getOwningNode(thresholdModelID);
             if (!asThresholdNode.isPresent()) {
                 listener.onFailure(new InternalFailure(adID, "Threshold model node is not available."));
@@ -253,13 +350,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             if (!shouldStart(listener, adID, anomalyDetector, thresholdNode.getId(), thresholdModelID)) {
                 return;
             }
-
-            long delayMillis = Optional
-                .ofNullable((IntervalTimeConfiguration) anomalyDetector.getWindowDelay())
-                .map(t -> t.toDuration().toMillis())
-                .orElse(0L);
-            long dataStartTime = request.getStart() - delayMillis;
-            long dataEndTime = request.getEnd() - delayMillis;
 
             featureManager
                 .getCurrentFeatures(
@@ -285,7 +375,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             List<FeatureData> featureInResponse = null;
 
             if (featureOptional.getUnprocessedFeatures().isPresent()) {
-                featureInResponse = getFeatureData(featureOptional.getUnprocessedFeatures().get(), detector);
+                featureInResponse = ParseUtils.getFeatureData(featureOptional.getUnprocessedFeatures().get(), detector);
             }
 
             if (!featureOptional.getProcessedFeatures().isPresent()) {
@@ -337,7 +427,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             final AtomicInteger responseCount = new AtomicInteger();
 
             for (int i = 0; i < rcfPartitionNum; i++) {
-                String rcfModelID = modelManager.getRcfModelId(adID, i);
+                String rcfModelID = modelPartitioner.getRcfModelId(adID, i);
 
                 Optional<DiscoveryNode> rcfNode = hashRing.getOwningNode(rcfModelID.toString());
                 if (!rcfNode.isPresent()) {
@@ -376,18 +466,18 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
                     );
             }
-        }, exception -> {
-            if (exception instanceof IndexNotFoundException) {
-                listener.onFailure(new EndRunException(adID, "Having trouble querying data: " + exception.getMessage(), true));
-            } else if (exception instanceof IllegalArgumentException && detector.getEnabledFeatureIds().isEmpty()) {
-                listener.onFailure(new EndRunException(adID, ALL_FEATURES_DISABLED_ERR_MSG, true));
-            } else if (exception instanceof EndRunException) {
-                // invalid feature query
-                listener.onFailure(exception);
-            } else {
-                handleExecuteException(exception, listener, adID);
-            }
-        });
+        }, exception -> { handleFailure(exception, listener, adID); });
+    }
+
+    private void handleFailure(Exception exception, ActionListener<AnomalyResultResponse> listener, String adID) {
+        if (exception instanceof IndexNotFoundException) {
+            listener.onFailure(new EndRunException(adID, "Having trouble querying data: " + exception.getMessage(), true));
+        } else if (exception instanceof EndRunException) {
+            // invalid feature query
+            listener.onFailure(exception);
+        } else {
+            handleExecuteException(exception, listener, adID);
+        }
     }
 
     /**
@@ -420,6 +510,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             return null;
         }
 
+        // rethrow exceptions like LimitExceededException to caller
         if (!(exp instanceof ResourceNotFoundException)) {
             throw exp;
         }
@@ -705,7 +796,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *         right state (being closed) or transport request times out (sent from TimeoutHandler.run)
      */
     private boolean hasConnectionIssue(Throwable e) {
-        return e instanceof ConnectTransportException || e instanceof NodeClosedException || e instanceof ReceiveTimeoutTransportException;
+        return e instanceof ConnectTransportException
+            || e instanceof NodeClosedException
+            || e instanceof ReceiveTimeoutTransportException
+            || e instanceof NodeNotConnectedException
+            || e instanceof ConnectException;
     }
 
     private void handleConnectionException(String node) {
@@ -789,41 +884,38 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             return;
         }
 
-        stateManager.setColdStartRunning(detectorId, true);
+        final Releasable coldStartFinishingCallback = stateManager.markColdStartRunning(detectorId);
 
         ActionListener<Optional<double[][]>> listener = ActionListener.wrap(trainingData -> {
             if (trainingData.isPresent()) {
                 double[][] dataPoints = trainingData.get();
 
-                ActionListener<Void> trainModelListener = ActionListener.wrap(res -> {
-                    stateManager.setColdStartRunning(detectorId, false);
-                    LOG.info("Succeeded in training {}", detectorId);
-                }, exception -> {
-                    if (exception instanceof AnomalyDetectionException) {
-                        // e.g., partitioned model exceeds memory limit
-                        stateManager.setLastColdStartException(detectorId, (AnomalyDetectionException) exception);
-                    } else if (exception instanceof IllegalArgumentException) {
-                        // IllegalArgumentException due to invalid training data
-                        stateManager
-                            .setLastColdStartException(
-                                detectorId,
-                                new EndRunException(detectorId, "Invalid training data", exception, false)
-                            );
-                    } else if (exception instanceof ElasticsearchTimeoutException) {
-                        stateManager
-                            .setLastColdStartException(
-                                detectorId,
-                                new InternalFailure(detectorId, "Time out while indexing cold start checkpoint", exception)
-                            );
-                    } else {
-                        stateManager
-                            .setLastColdStartException(
-                                detectorId,
-                                new EndRunException(detectorId, "Error while training model", exception, false)
-                            );
-                    }
-                    stateManager.setColdStartRunning(detectorId, false);
-                });
+                ActionListener<Void> trainModelListener = ActionListener
+                    .wrap(res -> { LOG.info("Succeeded in training {}", detectorId); }, exception -> {
+                        if (exception instanceof AnomalyDetectionException) {
+                            // e.g., partitioned model exceeds memory limit
+                            stateManager.setLastColdStartException(detectorId, (AnomalyDetectionException) exception);
+                        } else if (exception instanceof IllegalArgumentException) {
+                            // IllegalArgumentException due to invalid training data
+                            stateManager
+                                .setLastColdStartException(
+                                    detectorId,
+                                    new EndRunException(detectorId, "Invalid training data", exception, false)
+                                );
+                        } else if (exception instanceof ElasticsearchTimeoutException) {
+                            stateManager
+                                .setLastColdStartException(
+                                    detectorId,
+                                    new InternalFailure(detectorId, "Time out while indexing cold start checkpoint", exception)
+                                );
+                        } else {
+                            stateManager
+                                .setLastColdStartException(
+                                    detectorId,
+                                    new EndRunException(detectorId, "Error while training model", exception, false)
+                                );
+                        }
+                    });
 
                 modelManager
                     .trainModel(
@@ -833,7 +925,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     );
             } else {
                 stateManager.setLastColdStartException(detectorId, new EndRunException(detectorId, "Cannot get training data", false));
-                stateManager.setColdStartRunning(detectorId, false);
             }
         }, exception -> {
             if (exception instanceof ElasticsearchTimeoutException) {
@@ -849,8 +940,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 stateManager
                     .setLastColdStartException(detectorId, new EndRunException(detectorId, "Error while cold start", exception, false));
             }
-            stateManager.setColdStartRunning(detectorId, false);
         });
+
+        final ActionListener<Optional<double[][]>> listenerWithReleaseCallback = ActionListener
+            .runAfter(listener, coldStartFinishingCallback::close);
 
         threadPool
             .executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)
@@ -858,7 +951,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 () -> featureManager
                     .getColdStartData(
                         detector,
-                        new ThreadedActionListener<>(LOG, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, listener, false)
+                        new ThreadedActionListener<>(
+                            LOG,
+                            threadPool,
+                            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+                            listenerWithReleaseCallback,
+                            false
+                        )
                     )
             );
     }
@@ -900,5 +999,36 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }));
 
         return previousException;
+    }
+
+    class EntityResultListener implements ActionListener<AcknowledgedResponse> {
+        private String nodeId;
+        private final String adID;
+
+        EntityResultListener(String nodeId, String adID) {
+            this.nodeId = nodeId;
+            this.adID = adID;
+        }
+
+        @Override
+        public void onResponse(AcknowledgedResponse response) {
+            stateManager.resetBackpressureCounter(nodeId);
+            if (response.isAcknowledged() == false) {
+                LOG.error("Cannot send entities' features to {} for {}", nodeId, adID);
+                stateManager.addPressure(nodeId);
+            }
+        }
+
+        @Override
+        public void onFailure(Exception e) {
+            if (e == null) {
+                return;
+            }
+            Throwable cause = ExceptionsHelper.unwrapCause(e);
+            if (hasConnectionIssue(cause)) {
+                handleConnectionException(nodeId);
+            }
+            LOG.error(new ParameterizedMessage("Cannot send entities' features to {} for {}", nodeId, adID), e);
+        }
     }
 }

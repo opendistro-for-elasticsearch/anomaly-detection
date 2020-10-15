@@ -30,6 +30,7 @@ import org.elasticsearch.cluster.health.ClusterIndexHealth;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.inject.Inject;
 
 public class IndexUtils {
     /**
@@ -51,13 +52,14 @@ public class IndexUtils {
     private final IndexNameExpressionResolver indexNameExpressionResolver;
 
     /**
-     * Constructor
+     * Inject annotation required by Guice to instantiate EntityResultTransportAction (transitive dependency)
      *
      * @param client Client to make calls to ElasticSearch
      * @param clientUtil AD Client utility
      * @param clusterService ES ClusterService
      * @param indexNameExpressionResolver index name resolver
      */
+    @Inject
     public IndexUtils(
         Client client,
         ClientUtil clientUtil,

@@ -17,9 +17,11 @@ package com.amazon.opendistroforelasticsearch.ad.transport.handler;
 
 import java.time.Clock;
 import java.util.Locale;
+import java.util.concurrent.RejectedExecutionException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.util.Throwables;
 import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.action.ActionListener;
@@ -30,7 +32,6 @@ import org.elasticsearch.cluster.block.ClusterBlockLevel;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
@@ -85,10 +86,11 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
         this.clock = clock;
     }
 
-    public void write(AnomalyResult toSave, ADResultBulkRequest currentBulkRequest) {
-        currentBulkRequest.add(toSave);
-    }
-
+    /**
+     * Execute the bulk request
+     * @param currentBulkRequest The bulk request
+     * @param detectorId Detector Id
+     */
     public void flush(ADResultBulkRequest currentBulkRequest, String detectorId) {
         if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.indexName)) {
             LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, detectorId));
@@ -143,9 +145,10 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
                 currentBulkRequest,
                 ActionListener.<BulkResponse>wrap(response -> LOG.debug(String.format(SUCCESS_SAVING_MSG, detectorId)), exception -> {
                     LOG.error(String.format(FAIL_TO_SAVE_ERR_MSG, detectorId), exception);
+                    Throwable cause = Throwables.getRootCause(exception);
                     // too much indexing pressure
                     // TODO: pause indexing a bit before trying again, ideally with randomized exponential backoff.
-                    if (exception instanceof EsRejectedExecutionException) {
+                    if (cause instanceof RejectedExecutionException) {
                         nodeStateManager.setLastIndexThrottledTime(clock.instant());
                     }
                 })

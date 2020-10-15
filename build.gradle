@@ -253,6 +253,7 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.util.ParseUtils',
         'com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorTransportAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorTransportAction*',
+        'com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorTransportAction*',
         'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorTransportAction*',
         'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorResponse',
         'com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorRequest'

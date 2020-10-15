@@ -407,7 +407,8 @@ public class IndexAnomalyDetectorActionHandler {
             anomalyDetector.getUiMetadata(),
             anomalyDetector.getSchemaVersion(),
             Instant.now(),
-            anomalyDetector.getCategoryField()
+            anomalyDetector.getCategoryField(),
+            anomalyDetector.getUser()
         );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)

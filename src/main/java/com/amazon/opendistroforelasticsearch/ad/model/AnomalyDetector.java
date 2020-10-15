@@ -48,6 +48,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.base.Objects;
 
 /**
@@ -80,6 +81,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String UI_METADATA_FIELD = "ui_metadata";
     public static final String CATEGORY_FIELD = "category_field";
+    public static final String USER_FIELD = "user";
 
     private final String detectorId;
     private final Long version;
@@ -96,6 +98,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private final Integer schemaVersion;
     private final Instant lastUpdateTime;
     private final List<String> categoryFields;
+    private User user;
 
     /**
      * Constructor function.
@@ -114,7 +117,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * @param uiMetadata        metadata used by Kibana
      * @param schemaVersion     anomaly detector index mapping version
      * @param lastUpdateTime    detector's last update time
-     * @param categoryFields     a list of partition fields
+     * @param categoryFields    a list of partition fields
+     * @param user              user to which detector is associated
      */
     public AnomalyDetector(
         String detectorId,
@@ -131,7 +135,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Map<String, Object> uiMetadata,
         Integer schemaVersion,
         Instant lastUpdateTime,
-        List<String> categoryFields
+        List<String> categoryFields,
+        User user
     ) {
         if (Strings.isBlank(name)) {
             throw new IllegalArgumentException("Detector name should be set");
@@ -166,6 +171,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
         this.categoryFields = categoryFields;
+        this.user = user;
     }
 
     // TODO: remove after complete code merges. Created to not to touch too
@@ -184,7 +190,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Integer shingleSize,
         Map<String, Object> uiMetadata,
         Integer schemaVersion,
-        Instant lastUpdateTime
+        Instant lastUpdateTime,
+        User user
     ) {
         this(
             detectorId,
@@ -201,7 +208,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             uiMetadata,
             schemaVersion,
             lastUpdateTime,
-            null
+            null,
+            user
         );
     }
 
@@ -237,6 +245,11 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         schemaVersion = input.readInt();
         lastUpdateTime = input.readInstant();
         this.categoryFields = input.readStringList();
+        if (input.readBoolean()) {
+            this.user = new User(input);
+        } else {
+            user = null;
+        }
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -260,6 +273,12 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         output.writeInt(schemaVersion);
         output.writeInstant(lastUpdateTime);
         output.writeStringCollection(categoryFields);
+        if (user != null) {
+            output.writeBoolean(true); // user exists
+            user.writeTo(output);
+        } else {
+            output.writeBoolean(false); // user does not exist
+        }
     }
 
     @Override
@@ -288,6 +307,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         if (categoryFields != null) {
             xContentBuilder.field(CATEGORY_FIELD, categoryFields.toArray());
+        }
+        if (user != null) {
+            xContentBuilder.field(USER_FIELD, user);
         }
         return xContentBuilder.endObject();
     }
@@ -354,6 +376,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         int schemaVersion = 0;
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = null;
+        User user = null;
 
         List<String> categoryField = null;
 
@@ -415,6 +438,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 case CATEGORY_FIELD:
                     categoryField = (List) parser.list();
                     break;
+                case USER_FIELD:
+                    user = User.parse(parser);
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -435,7 +461,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             uiMetadata,
             schemaVersion,
             lastUpdateTime,
-            categoryField
+            categoryField,
+            user
         );
     }
 
@@ -582,5 +609,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
 
     public Duration getDetectionIntervalDuration() {
         return ((IntervalTimeConfiguration) getDetectionInterval()).toDuration();
+    }
+
+    public User getUser() {
+        return user;
     }
 }

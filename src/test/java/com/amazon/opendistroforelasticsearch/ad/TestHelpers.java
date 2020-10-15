@@ -111,6 +111,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.model.TimeConfiguration;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -205,7 +206,8 @@ public class TestHelpers {
             uiMetadata,
             randomInt(),
             lastUpdateTime,
-            null
+            null,
+            randomUser()
         );
     }
 
@@ -226,7 +228,8 @@ public class TestHelpers {
             null,
             randomInt(),
             Instant.now(),
-            categoryFields
+            categoryFields,
+            randomUser()
         );
     }
 
@@ -246,7 +249,8 @@ public class TestHelpers {
             null,
             randomInt(),
             Instant.now(),
-            null
+            null,
+            randomUser()
         );
     }
 
@@ -266,7 +270,8 @@ public class TestHelpers {
             null,
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            null
+            null,
+            randomUser()
         );
     }
 
@@ -286,7 +291,8 @@ public class TestHelpers {
             null,
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            null
+            null,
+            randomUser()
         );
     }
 
@@ -366,6 +372,15 @@ public class TestHelpers {
             throw new RuntimeException();
         }
         return new Feature(randomAlphaOfLength(5), featureName, enabled, testAggregation);
+    }
+
+    public static User randomUser() {
+        return new User(
+            randomAlphaOfLength(8),
+            ImmutableList.of(randomAlphaOfLength(10)),
+            ImmutableList.of("all_access"),
+            ImmutableList.of("attribute=test")
+        );
     }
 
     public static <S, T> void assertFailWith(Class<S> clazz, Callable<T> callable) throws Exception {
@@ -449,7 +464,8 @@ public class TestHelpers {
             enabledTime,
             disabledTime,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            60L
+            60L,
+            randomUser()
         );
     }
 

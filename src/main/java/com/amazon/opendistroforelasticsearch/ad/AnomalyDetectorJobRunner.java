@@ -381,7 +381,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                                 job.getEnabledTime(),
                                 Instant.now(),
                                 Instant.now(),
-                                job.getLockDurationSeconds()
+                                job.getLockDurationSeconds(),
+                                job.getUser()
                             );
                             IndexRequest indexRequest = new IndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
                                 .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)

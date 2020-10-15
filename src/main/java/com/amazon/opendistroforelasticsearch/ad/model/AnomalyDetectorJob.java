@@ -31,6 +31,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
@@ -64,6 +65,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
     private static final String IS_ENABLED_FIELD = "enabled";
     private static final String ENABLED_TIME_FIELD = "enabled_time";
     private static final String DISABLED_TIME_FIELD = "disabled_time";
+    public static final String USER_FIELD = "user";
 
     private final String name;
     private final Schedule schedule;
@@ -73,6 +75,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
     private final Instant disabledTime;
     private final Instant lastUpdateTime;
     private final Long lockDurationSeconds;
+    private final User user;
 
     public AnomalyDetectorJob(
         String name,
@@ -82,7 +85,8 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         Instant enabledTime,
         Instant disabledTime,
         Instant lastUpdateTime,
-        Long lockDurationSeconds
+        Long lockDurationSeconds,
+        User user
     ) {
         this.name = name;
         this.schedule = schedule;
@@ -92,6 +96,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         this.disabledTime = disabledTime;
         this.lastUpdateTime = lastUpdateTime;
         this.lockDurationSeconds = lockDurationSeconds;
+        this.user = user;
     }
 
     public AnomalyDetectorJob(StreamInput input) throws IOException {
@@ -107,6 +112,11 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         disabledTime = input.readInstant();
         lastUpdateTime = input.readInstant();
         lockDurationSeconds = input.readLong();
+        if (input.readBoolean()) {
+            user = new User(input);
+        } else {
+            user = null;
+        }
     }
 
     @Override
@@ -122,6 +132,9 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
             .field(LOCK_DURATION_SECONDS, lockDurationSeconds);
         if (disabledTime != null) {
             xContentBuilder.field(DISABLED_TIME_FIELD, disabledTime.toEpochMilli());
+        }
+        if (user != null) {
+            xContentBuilder.field(USER_FIELD, user);
         }
         return xContentBuilder.endObject();
     }
@@ -140,6 +153,12 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         output.writeInstant(disabledTime);
         output.writeInstant(lastUpdateTime);
         output.writeLong(lockDurationSeconds);
+        if (user != null) {
+            output.writeBoolean(true); // user exists
+            user.writeTo(output);
+        } else {
+            output.writeBoolean(false); // user does not exist
+        }
     }
 
     public static AnomalyDetectorJob parse(XContentParser parser) throws IOException {
@@ -152,6 +171,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         Instant disabledTime = null;
         Instant lastUpdateTime = null;
         Long lockDurationSeconds = DEFAULT_AD_JOB_LOC_DURATION_SECONDS;
+        User user = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -183,6 +203,9 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
                 case LOCK_DURATION_SECONDS:
                     lockDurationSeconds = parser.longValue();
                     break;
+                case USER_FIELD:
+                    user = User.parse(parser);
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -196,7 +219,8 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
             enabledTime,
             disabledTime,
             lastUpdateTime,
-            lockDurationSeconds
+            lockDurationSeconds,
+            user
         );
     }
 
@@ -257,5 +281,9 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
     @Override
     public Long getLockDurationSeconds() {
         return lockDurationSeconds;
+    }
+
+    public User getUser() {
+        return user;
     }
 }

@@ -204,7 +204,7 @@ public class MemoryTracker {
      * Bytes to remove to keep AD memory usage within the limit
      * @return bytes to remove
      */
-    public long memoryToShed() {
+    public synchronized long memoryToShed() {
         return totalMemoryBytes - heapLimitBytes;
     }
 
@@ -234,12 +234,13 @@ public class MemoryTracker {
      * @param origin Origin
      * @param totalBytes total bytes from recomputing
      * @param reservedBytes reserved bytes from recomputing
+     * @return whether memory adjusted due to mismatch
      */
-    public synchronized void syncMemoryState(Origin origin, long totalBytes, long reservedBytes) {
+    public synchronized boolean syncMemoryState(Origin origin, long totalBytes, long reservedBytes) {
         long recordedTotalBytes = totalMemoryBytesByOrigin.getOrDefault(origin, 0L);
         long recordedReservedBytes = reservedMemoryBytesByOrigin.getOrDefault(origin, 0L);
         if (totalBytes == recordedTotalBytes && reservedBytes == recordedReservedBytes) {
-            return;
+            return false;
         }
         LOG
             .info(
@@ -261,5 +262,6 @@ public class MemoryTracker {
         long totalDiff = totalBytes - recordedTotalBytes;
         totalMemoryBytesByOrigin.put(origin, totalBytes);
         totalMemoryBytes += totalDiff;
+        return true;
     }
 }

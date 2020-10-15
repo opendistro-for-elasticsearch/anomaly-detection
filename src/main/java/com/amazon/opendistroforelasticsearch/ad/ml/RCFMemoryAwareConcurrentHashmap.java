@@ -21,6 +21,13 @@ import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker.Origin;
 import com.amazon.randomcutforest.RandomCutForest;
 
+/**
+ * A customized ConcurrentHashMap that can automatically consume and release memory.
+ * This enables minimum change to our single-entity code as we just have to replace
+ * the map implementation.
+ *
+ * Note: this is mainly used for single-entity detectors.
+ */
 public class RCFMemoryAwareConcurrentHashmap<K> extends ConcurrentHashMap<K, ModelState<RandomCutForest>> {
     private final MemoryTracker memoryTracker;
 
@@ -30,12 +37,12 @@ public class RCFMemoryAwareConcurrentHashmap<K> extends ConcurrentHashMap<K, Mod
 
     @Override
     public ModelState<RandomCutForest> remove(Object key) {
-        ModelState<RandomCutForest> deletedModeState = super.remove(key);
-        if (deletedModeState != null && deletedModeState.getModel() != null) {
-            long memoryToShed = memoryTracker.estimateModelSize(deletedModeState.getModel());
+        ModelState<RandomCutForest> deletedModelState = super.remove(key);
+        if (deletedModelState != null && deletedModelState.getModel() != null) {
+            long memoryToShed = memoryTracker.estimateModelSize(deletedModelState.getModel());
             memoryTracker.releaseMemory(memoryToShed, true, Origin.SINGLE_ENTITY_DETECTOR);
         }
-        return deletedModeState;
+        return deletedModelState;
     }
 
     @Override

@@ -27,4 +27,6 @@ public class CommonMessageAttributes {
     public static final String CONFIDENCE_JSON_KEY = "confidence";
     public static final String ANOMALY_GRADE_JSON_KEY = "anomalyGrade";
     public static final String QUEUE_JSON_KEY = "queue";
+    public static final String START_JSON_KEY = "start";
+    public static final String END_JSON_KEY = "end";
 }

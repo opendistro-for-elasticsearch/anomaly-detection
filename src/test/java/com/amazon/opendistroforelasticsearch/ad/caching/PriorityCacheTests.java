@@ -64,7 +64,7 @@ public class PriorityCacheTests extends ESTestCase {
     private static final Logger LOG = LogManager.getLogger(PriorityCacheTests.class);
 
     String modelId1, modelId2, modelId3, modelId4;
-    CacheProvider cacheProvider;
+    EntityCache cacheProvider;
     CheckpointDao checkpoint;
     MemoryTracker memoryTracker;
     ModelManager modelManager;
@@ -129,10 +129,12 @@ public class PriorityCacheTests extends ESTestCase {
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             numMinSamples,
             settings,
-            threadPool
+            threadPool,
+            // put a large value since my tests uses a lot of permits in a burst manner
+            2000
         );
 
-        cacheProvider = new CacheProvider(cache);
+        cacheProvider = new CacheProvider(cache).get();
 
         memoryPerEntity = 81920L;
         when(memoryTracker.estimateModelSize(any(AnomalyDetector.class), anyInt())).thenReturn(memoryPerEntity);
@@ -465,6 +467,6 @@ public class PriorityCacheTests extends ESTestCase {
             return;
         }
 
-        assertTrue(Boolean.FALSE);
+        assertTrue(false);
     }
 }

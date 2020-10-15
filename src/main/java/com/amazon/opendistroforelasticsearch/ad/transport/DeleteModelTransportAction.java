@@ -111,7 +111,7 @@ public class DeleteModelTransportAction extends
         // delete transport state
         transportStateManager.clear(adID);
 
-        cache.clear(adID);
+        cache.get().clear(adID);
 
         LOG.info("Finished deleting {}", adID);
         return new DeleteModelNodeResponse(clusterService.localNode());

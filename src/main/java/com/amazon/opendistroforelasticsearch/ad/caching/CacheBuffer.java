@@ -131,7 +131,7 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
     private final Duration modelTtl;
     private final String detectorId;
     private Instant lastUsedTime;
-    private final int decayConstant;
+    private final int DECAY_CONSTANT;
     private final long reservedBytes;
 
     public CacheBuffer(
@@ -160,7 +160,7 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
         this.modelTtl = modelTtl;
         this.detectorId = detectorId;
         this.lastUsedTime = clock.instant();
-        this.decayConstant = 3;
+        this.DECAY_CONSTANT = 3;
         this.reservedBytes = memoryConsumptionPerEntity * minimumCapacity;
     }
 
@@ -200,7 +200,7 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
      */
     private long computeWeightedCountIncrement() {
         long periods = (clock.instant().getEpochSecond() - landmarkSecs) / intervalSecs;
-        return periods >> decayConstant;
+        return periods >> DECAY_CONSTANT;
     }
 
     /**
@@ -211,7 +211,7 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
     public Entry<String, Float> getMinimumPriority() {
         PriorityNode smallest = priorityList.first();
         long periods = (clock.instant().getEpochSecond() - landmarkSecs) / intervalSecs;
-        float detectorWeight = periods >> decayConstant;
+        float detectorWeight = periods >> DECAY_CONSTANT;
         return new SimpleImmutableEntry<>(smallest.key, smallest.priority - detectorWeight);
     }
 

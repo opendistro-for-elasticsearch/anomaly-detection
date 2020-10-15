@@ -15,9 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.caching;
 
-import com.amazon.opendistroforelasticsearch.ad.ml.EntityModel;
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import org.elasticsearch.common.inject.Provider;
 
 /**
  * A wrapper to call concrete implementation of caching.  Used in transport
@@ -25,50 +23,15 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
  * requires a concrete class as input.
  *
  */
-public class CacheProvider implements EntityCache {
-    private EntityCache delegate;
+public class CacheProvider implements Provider<EntityCache> {
+    private EntityCache cache;
 
-    public CacheProvider(EntityCache delegate) {
-        this.delegate = delegate;
+    public CacheProvider(EntityCache cache) {
+        this.cache = cache;
     }
 
     @Override
-    public ModelState<EntityModel> get(String modelId, AnomalyDetector detector, double[] datapoint, String entityName) {
-        return delegate.get(modelId, detector, datapoint, entityName);
-    }
-
-    @Override
-    public void maintenance() {
-        delegate.maintenance();
-    }
-
-    @Override
-    public void clear(String detectorId) {
-        delegate.clear(detectorId);
-    }
-
-    @Override
-    public int getActiveEntities(String detector) {
-        return delegate.getActiveEntities(detector);
-    }
-
-    @Override
-    public boolean isActive(String detectorId, String entityId) {
-        return delegate.isActive(detectorId, entityId);
-    }
-
-    @Override
-    public long getTotalUpdates(String detectorId) {
-        return delegate.getTotalUpdates(detectorId);
-    }
-
-    @Override
-    public long getTotalUpdates(String detectorId, String entityId) {
-        return delegate.getTotalUpdates(detectorId, entityId);
-    }
-
-    @Override
-    public int getTotalActiveEntities() {
-        return delegate.getTotalActiveEntities();
+    public EntityCache get() {
+        return cache;
     }
 }

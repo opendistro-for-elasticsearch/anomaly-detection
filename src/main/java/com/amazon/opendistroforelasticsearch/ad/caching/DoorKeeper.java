@@ -71,7 +71,7 @@ public class DoorKeeper implements MaintenanceState, ExpiringState {
     public void maintenance() {
         if (bloomFilter == null || lastMaintenanceTime.plus(resetInterval).isBefore(clock.instant())) {
             bloomFilter = BloomFilter.create(Funnels.stringFunnel(Charsets.US_ASCII), expectedInsertions, fpp);
-            lastMaintenanceTime = Instant.now();
+            lastMaintenanceTime = clock.instant();
         }
     }
 

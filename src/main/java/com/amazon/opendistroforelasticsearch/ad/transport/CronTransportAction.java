@@ -97,7 +97,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         // for single-entity detector
         modelManager.maintenance();
         // for multi-entity detector
-        cacheProvider.maintenance();
+        cacheProvider.get().maintenance();
 
         // delete unused buffered shingle data
         featureManager.maintenance();

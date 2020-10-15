@@ -35,12 +35,12 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.util.Throwables;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.AbstractRunnable;
-import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -58,6 +58,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.util.concurrent.RateLimiter;
 
 public class PriorityCache implements EntityCache {
     private final Logger LOG = LogManager.getLogger(PriorityCache.class);
@@ -81,6 +82,7 @@ public class PriorityCache implements EntityCache {
     private ThreadPool threadPool;
     private Random random;
     private AbstractRunnable clearMemoryRunnable;
+    private final RateLimiter cacheMissRateHandlingLimiter;
 
     public PriorityCache(
         CheckpointDao checkpointDao,
@@ -95,7 +97,8 @@ public class PriorityCache implements EntityCache {
         Duration modelTtl,
         int numMinSamples,
         Settings settings,
-        ThreadPool threadPool
+        ThreadPool threadPool,
+        int cacheMissRateHandlingLimiter
     ) {
         this.checkpointDao = checkpointDao;
         this.dedicatedCacheSize = dedicatedCacheSize;
@@ -131,6 +134,8 @@ public class PriorityCache implements EntityCache {
                 LOG.error("Fail to clear up memory taken by CacheBuffer.  Will retry during maintenance.");
             }
         };
+
+        this.cacheMissRateHandlingLimiter = RateLimiter.create(cacheMissRateHandlingLimiter);
     }
 
     @Override
@@ -140,7 +145,7 @@ public class PriorityCache implements EntityCache {
         ModelState<EntityModel> modelState = buffer.get(modelId);
         try {
             // during maintenance period, stop putting new entries
-            if (modelState == null && maintenanceLock.tryLock()) {
+            if (modelState == null) {
                 DoorKeeper doorKeeper = doorKeepers
                     .computeIfAbsent(
                         detectorId,
@@ -184,10 +189,13 @@ public class PriorityCache implements EntityCache {
                     // query limit is 1k by default. We also do this in hourly maintenance window no matter what.
                     tryClearUpMemory();
                 }
-                if (hostIfPossible(buffer, detectorId, modelId, entityName, detector, state, priority)) {
+                if (maintenanceLock.tryLock()
+                    && cacheMissRateHandlingLimiter.tryAcquire()
+                    && hostIfPossible(buffer, detectorId, modelId, entityName, detector, state, priority)) {
                     addSample(state, datapoint);
                     inActiveEntities.invalidate(modelId);
                 } else {
+                    // put to inactive cache if we cannot host or get the lock or get rate permits
                     // only keep weights in inactive cache to keep it small.
                     // It can be dangerous to exceed a few dozen MBs, especially
                     // in small heap machine like t2.
@@ -280,12 +288,12 @@ public class PriorityCache implements EntityCache {
                     modelId,
                     ActionListener
                         .wrap(checkpoint -> modelManager.processEntityCheckpoint(checkpoint, modelId, entityName, state), exception -> {
-                            if (exception instanceof IndexNotFoundException) {
+                            Throwable cause = Throwables.getRootCause(exception);
+                            if (cause instanceof IndexNotFoundException) {
                                 modelManager.processEntityCheckpoint(Optional.empty(), modelId, entityName, state);
-                            } else if (exception instanceof EsRejectedExecutionException
-                                || exception instanceof RejectedExecutionException) {
+                            } else if (cause instanceof RejectedExecutionException) {
                                 LOG.error("too many requests");
-                                lastThrottledRestoreTime = Instant.now();
+                                lastThrottledRestoreTime = clock.instant();
                             } else {
                                 LOG.error("Fail to restore models for " + modelId, exception);
                             }

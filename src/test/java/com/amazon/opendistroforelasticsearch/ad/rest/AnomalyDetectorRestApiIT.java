@@ -100,6 +100,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomIntBetween(1, 2000),
             randomUiMetadata(),
             randomInt(),
+            null,
             null
         );
 
@@ -182,7 +183,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
-            detector.getLastUpdateTime()
+            detector.getLastUpdateTime(),
+            null
         );
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
@@ -242,7 +244,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector1.getShingleSize(),
             detector1.getUiMetadata(),
             detector1.getSchemaVersion(),
-            detector1.getLastUpdateTime()
+            detector1.getLastUpdateTime(),
+            null
         );
 
         TestHelpers
@@ -278,7 +281,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
-            Instant.now()
+            Instant.now(),
+            null
         );
 
         TestHelpers
@@ -320,7 +324,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
-            detector.getLastUpdateTime()
+            detector.getLastUpdateTime(),
+            null
         );
 
         deleteIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
@@ -702,7 +707,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
-            detector.getLastUpdateTime()
+            detector.getLastUpdateTime(),
+            null
         );
 
         TestHelpers

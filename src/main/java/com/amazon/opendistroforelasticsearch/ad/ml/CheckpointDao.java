@@ -304,7 +304,9 @@ public class CheckpointDao {
     /**
      * Prepare bulking the input model state to the checkpoint index.
      * We don't save checkpoints within checkpointInterval again, except this
-     * is from cold start.
+     * is from cold start. This method will update the input state's last
+     *  checkpoint time if the checkpoint is staged (ready to be written in the
+     *  next batch).
      * @param modelState Model state
      * @param modelId Model Id
      * @param coldStart whether the checkpoint comes from cold start

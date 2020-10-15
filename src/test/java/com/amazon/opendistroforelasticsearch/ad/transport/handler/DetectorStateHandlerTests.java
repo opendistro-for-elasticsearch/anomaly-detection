@@ -36,10 +36,10 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
-import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler.ErrorStrategy;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
@@ -52,7 +52,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
     private Client client;
     private String error = "Stopped due to blah";
     private IndexUtils indexUtils;
-    private TransportStateManager stateManager;
+    private NodeStateManager stateManager;
 
     @Override
     public void setUp() throws Exception {
@@ -67,7 +67,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
         indexUtils = mock(IndexUtils.class);
         ClusterService clusterService = mock(ClusterService.class);
         ThreadPool threadPool = mock(ThreadPool.class);
-        stateManager = mock(TransportStateManager.class);
+        stateManager = mock(NodeStateManager.class);
         detectorStateHandler = new DetectionStateHandler(
             client,
             settings,
@@ -145,7 +145,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
     }
 
     public void testUpdateWithFirstChange() {
-        when(stateManager.getLastDetectionError(anyString())).thenReturn(TransportStateManager.NO_ERROR);
+        when(stateManager.getLastDetectionError(anyString())).thenReturn(NodeStateManager.NO_ERROR);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             @SuppressWarnings("unchecked")

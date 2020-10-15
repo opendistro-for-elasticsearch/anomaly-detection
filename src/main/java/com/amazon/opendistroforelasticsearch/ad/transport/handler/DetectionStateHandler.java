@@ -39,8 +39,8 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
-import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.google.common.base.Objects;
@@ -79,7 +79,7 @@ public class DetectionStateHandler extends AnomalyIndexHandler<DetectorInternalS
 
     private static final Logger LOG = LogManager.getLogger(DetectionStateHandler.class);
     private NamedXContentRegistry xContentRegistry;
-    private TransportStateManager adStateManager;
+    private NodeStateManager adStateManager;
 
     public DetectionStateHandler(
         Client client,
@@ -91,7 +91,7 @@ public class DetectionStateHandler extends AnomalyIndexHandler<DetectorInternalS
         IndexUtils indexUtils,
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
-        TransportStateManager adStateManager
+        NodeStateManager adStateManager
     ) {
         super(
             client,
@@ -100,11 +100,11 @@ public class DetectionStateHandler extends AnomalyIndexHandler<DetectorInternalS
             DetectorInternalState.DETECTOR_STATE_INDEX,
             createIndex,
             indexExists,
-            true,
             clientUtil,
             indexUtils,
             clusterService
         );
+        this.fixedDoc = true;
         this.xContentRegistry = xContentRegistry;
         this.adStateManager = adStateManager;
     }

@@ -49,25 +49,37 @@ import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 
 public class AnomalyIndexHandler<T extends ToXContentObject> {
     private static final Logger LOG = LogManager.getLogger(AnomalyIndexHandler.class);
-
-    static final String CANNOT_SAVE_ERR_MSG = "Cannot save %s due to write block.";
     static final String FAIL_TO_SAVE_ERR_MSG = "Fail to save %s: ";
-    static final String RETRY_SAVING_ERR_MSG = "Retry in saving %s: ";
     static final String SUCCESS_SAVING_MSG = "Succeed in saving %s";
+    static final String CANNOT_SAVE_ERR_MSG = "Cannot save %s due to write block.";
+    static final String RETRY_SAVING_ERR_MSG = "Retry in saving %s: ";
 
     protected final Client client;
 
-    private final ThreadPool threadPool;
-    private final BackoffPolicy savingBackoffPolicy;
+    protected final ThreadPool threadPool;
+    protected final BackoffPolicy savingBackoffPolicy;
     protected final String indexName;
-    private final Consumer<ActionListener<CreateIndexResponse>> createIndex;
-    private final BooleanSupplier indexExists;
-    // whether save to a specific doc id or not
-    private final boolean fixedDoc;
+    protected final Consumer<ActionListener<CreateIndexResponse>> createIndex;
+    protected final BooleanSupplier indexExists;
+    // whether save to a specific doc id or not. False by default.
+    protected boolean fixedDoc;
     protected final ClientUtil clientUtil;
-    private final IndexUtils indexUtils;
-    private final ClusterService clusterService;
+    protected final IndexUtils indexUtils;
+    protected final ClusterService clusterService;
 
+    /**
+     * Abstract class for index operation.
+     *
+     * @param client client to Elasticsearch query
+     * @param settings accessor for node settings.
+     * @param threadPool used to invoke specific threadpool to execute
+     * @param indexName name of index to save to
+     * @param createIndex functional interface to create the index to save to
+     * @param indexExists funcitonal interface to find out if the index exists
+     * @param clientUtil client wrapper
+     * @param indexUtils Index util classes
+     * @param clusterService accessor to ES cluster service
+     */
     public AnomalyIndexHandler(
         Client client,
         Settings settings,
@@ -75,7 +87,6 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         String indexName,
         Consumer<ActionListener<CreateIndexResponse>> createIndex,
         BooleanSupplier indexExists,
-        boolean fixedDoc,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
         ClusterService clusterService
@@ -90,10 +101,20 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         this.indexName = indexName;
         this.createIndex = createIndex;
         this.indexExists = indexExists;
-        this.fixedDoc = fixedDoc;
+        this.fixedDoc = false;
         this.clientUtil = clientUtil;
         this.indexUtils = indexUtils;
         this.clusterService = clusterService;
+    }
+
+    /**
+     * Since the constructor needs to provide injected value and Guice does not allow Boolean to be there
+     * (claiming it does not know how to instantiate it), caller needs to manually set it to true if
+     * it want to save to a specific doc.
+     * @param fixedDoc whether to save to a specific doc Id
+     */
+    public void setFixedDoc(boolean fixedDoc) {
+        this.fixedDoc = fixedDoc;
     }
 
     public void index(T toSave, String detectorId) {
@@ -133,7 +154,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         if (response.isAcknowledged()) {
             save(toSave, detectorId);
         } else {
-            throw new AnomalyDetectionException(detectorId, "Creating %s with mappings call not acknowledged.");
+            throw new AnomalyDetectionException(detectorId, String.format("Creating %s with mappings call not acknowledged.", indexName));
         }
     }
 

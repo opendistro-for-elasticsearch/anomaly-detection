@@ -39,8 +39,8 @@ public class RCFMemoryAwareConcurrentHashmap<K> extends ConcurrentHashMap<K, Mod
     public ModelState<RandomCutForest> remove(Object key) {
         ModelState<RandomCutForest> deletedModelState = super.remove(key);
         if (deletedModelState != null && deletedModelState.getModel() != null) {
-            long memoryToShed = memoryTracker.estimateModelSize(deletedModelState.getModel());
-            memoryTracker.releaseMemory(memoryToShed, true, Origin.SINGLE_ENTITY_DETECTOR);
+            long memoryToRelease = memoryTracker.estimateModelSize(deletedModelState.getModel());
+            memoryTracker.releaseMemory(memoryToRelease, true, Origin.SINGLE_ENTITY_DETECTOR);
         }
         return deletedModelState;
     }
@@ -49,8 +49,8 @@ public class RCFMemoryAwareConcurrentHashmap<K> extends ConcurrentHashMap<K, Mod
     public ModelState<RandomCutForest> put(K key, ModelState<RandomCutForest> value) {
         ModelState<RandomCutForest> previousAssociatedState = super.put(key, value);
         if (value != null && value.getModel() != null) {
-            long memoryToShed = memoryTracker.estimateModelSize(value.getModel());
-            memoryTracker.consumeMemory(memoryToShed, true, Origin.SINGLE_ENTITY_DETECTOR);
+            long memoryToConsume = memoryTracker.estimateModelSize(value.getModel());
+            memoryTracker.consumeMemory(memoryToConsume, true, Origin.SINGLE_ENTITY_DETECTOR);
         }
         return previousAssociatedState;
     }

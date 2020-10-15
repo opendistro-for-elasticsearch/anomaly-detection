@@ -23,7 +23,6 @@ import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
@@ -37,12 +36,12 @@ import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.util.Throwables;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ThreadedActionListener;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
@@ -209,10 +208,11 @@ public class EntityColdStarter {
                     logger.info("Cannot get training data for {}", modelId);
                 }
             }, exception -> {
-                if (exception instanceof EsRejectedExecutionException || exception instanceof RejectedExecutionException) {
+                Throwable cause = Throwables.getRootCause(exception);
+                if (cause instanceof RejectedExecutionException) {
                     logger.error("too many requests");
                     lastThrottledColdStartTime = Instant.now();
-                } else if (exception instanceof AnomalyDetectionException) {
+                } else if (cause instanceof AnomalyDetectionException || exception instanceof AnomalyDetectionException) {
                     // e.g., cannot find anomaly detector
                     nodeStateManager.setLastColdStartException(detectorId, (AnomalyDetectionException) exception);
                 } else {
@@ -276,7 +276,9 @@ public class EntityColdStarter {
         }
 
         EntityModel model = entityState.getModel();
-        assert (model != null);
+        if (model == null) {
+            model = new EntityModel(modelId, new ArrayDeque<>(), null, null);
+        }
         model.setRcf(rcf);
         double[] joinedScores = new double[totalLength];
 
@@ -465,11 +467,8 @@ public class EntityColdStarter {
     ) {
         long bucketSize = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
         int numBuckets = (int) Math.floor((endMilli - startMilli) / (double) bucketSize);
-        int numStrides = (int) Math.ceil(numBuckets / (double) stride);
         // adjust if numStrides is more than the max samples
-        if (maxTrainSamples - 1 < numStrides) {
-            numStrides = maxTrainSamples - 1;
-        }
+        int numStrides = Math.min((int) Math.floor(numBuckets / (double) stride), maxTrainSamples);
         List<Entry<Long, Long>> sampleRanges = Stream
             .iterate(endMilli, i -> i - stride * bucketSize)
             .limit(numStrides)
@@ -546,6 +545,5 @@ public class EntityColdStarter {
         }
         // save to checkpoint
         checkpointDao.write(entityState, modelId, true);
-
     }
 }

@@ -68,7 +68,7 @@ public class ThresholdResultTests extends ESTestCase {
         ThresholdResultTransportAction action = new ThresholdResultTransportAction(mock(ActionFilters.class), transportService, manager);
         doAnswer(invocation -> {
             ActionListener<ThresholdingResult> listener = invocation.getArgument(3);
-            listener.onResponse(new ThresholdingResult(0, 1.0d));
+            listener.onResponse(new ThresholdingResult(0, 1.0d, 0.2));
             return null;
         }).when(manager).getThresholdingResult(any(String.class), any(String.class), anyDouble(), any(ActionListener.class));
 

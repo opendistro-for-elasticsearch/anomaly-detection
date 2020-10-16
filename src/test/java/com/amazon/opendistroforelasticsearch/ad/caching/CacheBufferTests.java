@@ -98,9 +98,9 @@ public class CacheBufferTests extends ESTestCase {
         assertEquals(modelId3, cacheBuffer.get(modelId3).getModelId());
         removalCandidate = cacheBuffer.getMinimumPriority();
         assertEquals(modelId1, removalCandidate.getKey());
-        cacheBuffer.remove();
-        cacheBuffer.put(modelId4, MLUtil.randomModelState(initialPriority, modelId4));
+        cacheBuffer.remove(modelId1);
         assertEquals(null, cacheBuffer.get(modelId1));
+        cacheBuffer.put(modelId4, MLUtil.randomModelState(initialPriority, modelId4));
         assertEquals(modelId3, cacheBuffer.get(modelId3).getModelId());
         assertEquals(modelId4, cacheBuffer.get(modelId4).getModelId());
     }

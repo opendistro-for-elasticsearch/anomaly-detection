@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -104,11 +105,18 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
 
         @Override
         public int compare(PriorityNode priority, PriorityNode priority2) {
-            int cmp = Float.compare(priority.priority, priority2.priority);
-            if (cmp == 0) {
-                cmp = priority.key.compareTo(priority2.key);
-            }
-            return cmp;
+          int equality = priority.key.compareTo(priority2.key);
+          if (equality == 0) {
+              // this is consistent with PriorityNode's equals method
+              return 0;
+          }
+          // if not equal, first check priority
+          int cmp = Float.compare(priority.priority, priority2.priority);
+          if (cmp == 0) {
+              // if priority is equal, use lexicographical order of key
+              cmp = equality;
+          }
+          return cmp;
         }
     }
 
@@ -302,7 +310,7 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
         // The removed one loses references and soon GC will collect it.
         // We have memory tracking correction to fix incorrect memory usage record.
         // put: not a problem as it is unlikely we are removing and putting the same thing
-        PriorityNode smallest = priorityList.pollFirst();
+        PriorityNode smallest = priorityList.first();
         if (smallest != null) {
             remove(smallest.key);
         }
@@ -316,6 +324,8 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
      * is no associated ModelState for the key
      */
     public ModelState<EntityModel> remove(String keyToRemove) {
+        // remove if the key matches; priority does not matter
+        priorityList.remove(new PriorityNode(keyToRemove, 0));
         // if shared cache is empty, we are using reserved memory
         boolean reserved = sharedCacheEmpty();
 
@@ -405,7 +415,6 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
                     // We have memory tracking correction to fix incorrect memory usage record.
                     // put: not a problem as we are unlikely to maintain an entry that's not
                     // already in the cache
-                    priorityList.remove(new PriorityNode(entityId, modelState.getPriority()));
                     remove(entityId);
                 }
             } catch (Exception e) {

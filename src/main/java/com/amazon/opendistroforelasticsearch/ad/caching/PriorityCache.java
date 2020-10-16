@@ -82,7 +82,7 @@ public class PriorityCache implements EntityCache {
     private ThreadPool threadPool;
     private Random random;
     private AbstractRunnable clearMemoryRunnable;
-    private final RateLimiter cacheMissRateHandlingLimiter;
+    private final RateLimiter cacheMissHandlingLimiter;
 
     public PriorityCache(
         CheckpointDao checkpointDao,
@@ -135,7 +135,7 @@ public class PriorityCache implements EntityCache {
             }
         };
 
-        this.cacheMissRateHandlingLimiter = RateLimiter.create(cacheMissRateHandlingLimiter);
+        this.cacheMissHandlingLimiter = RateLimiter.create(cacheMissRateHandlingLimiter);
     }
 
     @Override
@@ -169,6 +169,24 @@ public class PriorityCache implements EntityCache {
                 ModelState<EntityModel> state = inActiveEntities.getIfPresent(modelId);
 
                 // compute updated priority
+                // We don’t want to admit the latest entity for correctness by throwing out a
+                // hot entity.  We have a priority (time-decayed count) sensitive to
+                // the number of hits, length of time, and sampling interval. Examples:
+                // 1) an entity from a 5-minute interval detector that is hit 5 times in the
+                // past 25 minutes should have an equal chance of using the cache along with
+                // an entity from a 1-minute interval detector that is hit 5 times in the past
+                // 5 minutes.
+                // 2) It might be the case that the frequency of entities changes dynamically
+                // during run-time. For example, entity A showed up for the first 500 times,
+                // but entity B showed up for the next 500 times. Our priority should give
+                // entity B higher priority than entity A as time goes by.
+                // 3) Entity A will have a higher priority than entity B if A runs
+                // for a longer time given other things are equal.
+                //
+                // We ensure fairness by using periods instead of absolute duration.  Entity A
+                // accessed once three intervals ago should have the same priority with entity B
+                // accessed once three periods ago, though they belong to  detectors of different
+                // intervals.
                 float priority = 0;
                 if (state != null) {
                     priority = state.getPriority();
@@ -183,14 +201,15 @@ public class PriorityCache implements EntityCache {
                     state = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
                 }
 
-                if (random.nextInt(1000) == 1) {
-                    // clear up memory with 1/1000 probability since this operation is costly, but we have to do it from time to time.
-                    // e.g., we need to adjust shared entity memory size if some reserved memory gets allocated. Use 1000 since our
-                    // query limit is 1k by default. We also do this in hourly maintenance window no matter what.
+                if (random.nextInt(10_000) == 1) {
+                    // clear up memory with 1/10000 probability since this operation is costly, but we have to do it from time to time.
+                    // e.g., we need to adjust shared entity memory size if some reserved memory gets allocated. Use 10_000 since our
+                    // query limit is 1k by default and we can have 10 detectors: 10 * 1k. We also do this in hourly maintenance window no
+                    // matter what.
                     tryClearUpMemory();
                 }
                 if (maintenanceLock.tryLock()
-                    && cacheMissRateHandlingLimiter.tryAcquire()
+                    && cacheMissHandlingLimiter.tryAcquire()
                     && hostIfPossible(buffer, detectorId, modelId, entityName, detector, state, priority)) {
                     addSample(state, datapoint);
                     inActiveEntities.invalidate(modelId);
@@ -292,7 +311,7 @@ public class PriorityCache implements EntityCache {
                             if (cause instanceof IndexNotFoundException) {
                                 modelManager.processEntityCheckpoint(Optional.empty(), modelId, entityName, state);
                             } else if (cause instanceof RejectedExecutionException) {
-                                LOG.error("too many requests");
+                                LOG.error("too many get AD model checkpoint requests");
                                 lastThrottledRestoreTime = clock.instant();
                             } else {
                                 LOG.error("Fail to restore models for " + modelId, exception);
@@ -334,6 +353,7 @@ public class PriorityCache implements EntityCache {
      * We can have race conditions when multiple threads try to evaluate this
      * function. The result is that we can have multiple threads thinks they
      * can replace entities in the cache.
+     *
      *
      * @param originBuffer the CacheBuffer that the entity belongs to (with the same detector Id)
      * @param candicatePriority the candidate entity's priority

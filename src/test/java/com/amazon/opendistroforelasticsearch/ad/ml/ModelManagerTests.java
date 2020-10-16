@@ -1188,4 +1188,10 @@ public class ModelManagerTests {
     public void getPreviewResults_throwIllegalArgument_forInvalidInput() {
         modelManager.getPreviewResults(new double[0][0]);
     }
+
+    @Test
+    public void getEmptyState() {
+        assertEquals(new ThresholdingResult(0, 0, 0),
+            modelManager.getAnomalyResultForEntity("", new double[] {}, "", null, ""));
+    }
 }

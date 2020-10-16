@@ -439,6 +439,13 @@ public class PriorityCache implements EntityCache {
         memoryTracker.syncMemoryState(Origin.MULTI_ENTITY_DETECTOR, reserved + shared, reserved);
     }
 
+    /**
+     * Maintain active entity's cache and door keepers.
+     *
+     * inActiveEntities is a Guava's LRU cache. The data structure itself is
+     * gonna evict items if they are inactive for 3 days or its maximum size
+     * reached (1 million entries)
+     */
     @Override
     public void maintenance() {
         // clean up memory if we allocate more memory than we should

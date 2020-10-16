@@ -53,6 +53,7 @@ import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.node.NodeClosedException;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.transport.ActionNotFoundTransportException;
 import org.elasticsearch.transport.ConnectTransportException;
 import org.elasticsearch.transport.NodeNotConnectedException;
 import org.elasticsearch.transport.ReceiveTimeoutTransportException;
@@ -1025,7 +1026,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
             Throwable cause = ExceptionsHelper.unwrapCause(e);
-            if (hasConnectionIssue(cause)) {
+            // in case of connection issue or the other node has no multi-entity
+            // transport actions (e.g., blue green deployment)
+            if (hasConnectionIssue(cause) || cause instanceof ActionNotFoundTransportException) {
                 handleConnectionException(nodeId);
             }
             LOG.error(new ParameterizedMessage("Cannot send entities' features to {} for {}", nodeId, adID), e);

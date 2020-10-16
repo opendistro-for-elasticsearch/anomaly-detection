@@ -36,9 +36,11 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
@@ -441,37 +443,65 @@ public class PriorityCacheTests extends ESTestCase {
         verify(threadPool, times(1)).schedule(any(), any(), any());
     }
 
-    public void testFailedConcurrentMaintenance() {
+    class FailedCleanRunnable implements Runnable {
+        CountDownLatch singalThreadToStart;
+
+        FailedCleanRunnable(CountDownLatch countDown) {
+            this.singalThreadToStart = countDown;
+        }
+
+        @Override
+        public void run() {
+            try {
+                cacheProvider.maintenance();
+            } catch (ElasticsearchException e) {
+                singalThreadToStart.countDown();
+            }
+        }
+    }
+
+    public void testFailedConcurrentMaintenance() throws InterruptedException {
         setUpConcurrentMaintenance();
-        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        final CountDownLatch scheduleCountDown = new CountDownLatch(1);
+        final CountDownLatch scheduledThreadCountDown = new CountDownLatch(1);
 
         doThrow(NullPointerException.class).when(memoryTracker).releaseMemory(anyLong(), anyBoolean(), any(MemoryTracker.Origin.class));
 
         doAnswer(invovacation -> {
-            inProgressLatch.await(100, TimeUnit.SECONDS);
+            scheduleCountDown.await(100, TimeUnit.SECONDS);
             return null;
         }).when(memoryTracker).syncMemoryState(any(MemoryTracker.Origin.class), anyLong(), anyLong());
 
+        AtomicReference<Runnable> runnable = new AtomicReference<Runnable>();
         doAnswer(invocation -> {
-            inProgressLatch.countDown();
             Object[] args = invocation.getArguments();
-            Runnable runnable = (Runnable) args[0];
-            runnable.run();
+            runnable.set((Runnable) args[0]);
+            scheduleCountDown.countDown();
             return mock(ScheduledCancellable.class);
         }).when(threadPool).schedule(any(), any(), any());
 
-        // both maintenance call will be blocked until schedule gets called
-
         try {
             // both maintenance call will be blocked until schedule gets called
-            new Thread(new CleanRunnable()).start();
+            new Thread(new FailedCleanRunnable(scheduledThreadCountDown)).start();
 
             cacheProvider.maintenance();
-        } catch (NullPointerException e) {
-            // we should return here
-            return;
+        } catch (ElasticsearchException e) {
+            scheduledThreadCountDown.countDown();
         }
 
-        assertTrue(false);
+        scheduledThreadCountDown.await(100, TimeUnit.SECONDS);
+
+        // first thread finishes and throw exception
+        assertTrue(runnable.get() != null);
+        try {
+            // invoke second thread's runnable object
+            runnable.get().run();
+        } catch (Exception e2) {
+            // runnable will log a line and return. It won't cause any exception.
+            assertTrue(false);
+            return;
+        }
+        // we should return here
+        return;
     }
 }

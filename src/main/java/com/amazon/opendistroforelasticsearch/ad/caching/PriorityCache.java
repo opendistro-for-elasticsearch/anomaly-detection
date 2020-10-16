@@ -36,12 +36,12 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.Throwables;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.TransportActions;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.AbstractRunnable;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -82,7 +82,6 @@ public class PriorityCache implements EntityCache {
     private int coolDownMinutes;
     private ThreadPool threadPool;
     private Random random;
-    private AbstractRunnable clearMemoryRunnable;
     private final RateLimiter cacheMissHandlingLimiter;
 
     public PriorityCache(
@@ -124,17 +123,6 @@ public class PriorityCache implements EntityCache {
         this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
         this.threadPool = threadPool;
         this.random = new Random(42);
-        this.clearMemoryRunnable = new AbstractRunnable() {
-            @Override
-            protected void doRun() throws Exception {
-                tryClearUpMemory();
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                LOG.error("Fail to clear up memory taken by CacheBuffer.  Will retry during maintenance.");
-            }
-        };
 
         this.cacheMissHandlingLimiter = RateLimiter.create(cacheMissRateHandlingLimiter);
     }
@@ -380,12 +368,13 @@ public class PriorityCache implements EntityCache {
             if (maintenanceLock.tryLock()) {
                 clearMemory();
             } else {
-                threadPool
-                    .schedule(
-                        () -> clearMemoryRunnable.run(),
-                        new TimeValue(random.nextInt(90), TimeUnit.SECONDS),
-                        AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
-                    );
+                threadPool.schedule(() -> {
+                    try {
+                        tryClearUpMemory();
+                    } catch (Exception e) {
+                        LOG.error("Fail to clear up memory taken by CacheBuffer.  Will retry during maintenance.");
+                    }
+                }, new TimeValue(random.nextInt(90), TimeUnit.SECONDS), AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);
             }
         } finally {
             if (maintenanceLock.isHeldByCurrentThread()) {
@@ -445,29 +434,35 @@ public class PriorityCache implements EntityCache {
      */
     @Override
     public void maintenance() {
-        // clean up memory if we allocate more memory than we should
-        tryClearUpMemory();
-        activeEnities.entrySet().stream().forEach(cacheBufferEntry -> {
-            String detectorId = cacheBufferEntry.getKey();
-            CacheBuffer cacheBuffer = cacheBufferEntry.getValue();
-            // remove expired cache buffer
-            if (cacheBuffer.expired(modelTtl)) {
-                activeEnities.remove(detectorId);
-                cacheBuffer.clear();
-            } else {
-                cacheBuffer.maintenance();
-            }
-        });
-        checkpointDao.flush();
-        doorKeepers.entrySet().stream().forEach(doorKeeperEntry -> {
-            String detectorId = doorKeeperEntry.getKey();
-            DoorKeeper doorKeeper = doorKeeperEntry.getValue();
-            if (doorKeeper.expired(modelTtl)) {
-                doorKeepers.remove(detectorId);
-            } else {
-                doorKeeper.maintenance();
-            }
-        });
+        try {
+            // clean up memory if we allocate more memory than we should
+            tryClearUpMemory();
+            activeEnities.entrySet().stream().forEach(cacheBufferEntry -> {
+                String detectorId = cacheBufferEntry.getKey();
+                CacheBuffer cacheBuffer = cacheBufferEntry.getValue();
+                // remove expired cache buffer
+                if (cacheBuffer.expired(modelTtl)) {
+                    activeEnities.remove(detectorId);
+                    cacheBuffer.clear();
+                } else {
+                    cacheBuffer.maintenance();
+                }
+            });
+            checkpointDao.flush();
+            doorKeepers.entrySet().stream().forEach(doorKeeperEntry -> {
+                String detectorId = doorKeeperEntry.getKey();
+                DoorKeeper doorKeeper = doorKeeperEntry.getValue();
+                if (doorKeeper.expired(modelTtl)) {
+                    doorKeepers.remove(detectorId);
+                } else {
+                    doorKeeper.maintenance();
+                }
+            });
+        } catch (Exception e) {
+            // will be thrown to ES's transport broadcast handler
+            throw new ElasticsearchException("Fail to maintain cache", e);
+        }
+
     }
 
     /**

@@ -22,6 +22,7 @@ import static org.elasticsearch.search.aggregations.AggregatorFactories.VALID_AG
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -35,6 +36,7 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.RangeQueryBuilder;
+import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregatorFactories;
 import org.elasticsearch.search.aggregations.BaseAggregationBuilder;
@@ -44,6 +46,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
+import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 
 /**
  * Parsing utility functions.
@@ -340,5 +343,51 @@ public final class ParseUtils {
         }
 
         return internalSearchSourceBuilder.toString();
+    }
+
+    public static SearchSourceBuilder generateEntityColdStartQuery(
+        AnomalyDetector detector,
+        List<Entry<Long, Long>> ranges,
+        String entityName,
+        NamedXContentRegistry xContentRegistry
+    ) throws IOException {
+
+        TermQueryBuilder term = new TermQueryBuilder(detector.getCategoryField().get(0), entityName);
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().filter(detector.getFilterQuery()).filter(term);
+
+        DateRangeAggregationBuilder dateRangeBuilder = dateRange("date_range").field(detector.getTimeField()).format("epoch_millis");
+        for (Entry<Long, Long> range : ranges) {
+            dateRangeBuilder.addRange(range.getKey(), range.getValue());
+        }
+
+        if (detector.getFeatureAttributes() != null) {
+            for (Feature feature : detector.getFeatureAttributes()) {
+                AggregatorFactories.Builder internalAgg = parseAggregators(
+                    feature.getAggregation().toString(),
+                    xContentRegistry,
+                    feature.getId()
+                );
+                dateRangeBuilder.subAggregation(internalAgg.getAggregatorFactories().iterator().next());
+            }
+        }
+
+        return new SearchSourceBuilder().query(internalFilterQuery).size(0).aggregation(dateRangeBuilder);
+    }
+
+    /**
+     * Map feature data to its Id and name
+     * @param currentFeature Feature data
+     * @param detector Detector Config object
+     * @return a list of feature data with Id and name
+     */
+    public static List<FeatureData> getFeatureData(double[] currentFeature, AnomalyDetector detector) {
+        List<String> featureIds = detector.getEnabledFeatureIds();
+        List<String> featureNames = detector.getEnabledFeatureNames();
+        int featureLen = featureIds.size();
+        List<FeatureData> featureData = new ArrayList<>();
+        for (int i = 0; i < featureLen; i++) {
+            featureData.add(new FeatureData(featureIds.get(i), featureNames.get(i), currentFeature[i]));
+        }
+        return featureData;
     }
 }

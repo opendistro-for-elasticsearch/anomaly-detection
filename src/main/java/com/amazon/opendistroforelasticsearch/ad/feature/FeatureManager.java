@@ -45,16 +45,16 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ThreadedActionListener;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import com.amazon.opendistroforelasticsearch.ad.CleanState;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 
 /**
  * A facade managing feature data operations and buffers.
  */
-public class FeatureManager {
+public class FeatureManager implements CleanState {
 
     private static final Logger logger = LogManager.getLogger(FeatureManager.class);
 
@@ -151,7 +151,7 @@ public class FeatureManager {
             .computeIfAbsent(detector.getDetectorId(), id -> new ArrayDeque<>(shingleSize));
 
         // To allow for small time variations/delays in running the detector.
-        long maxTimeDifference = getDetectorIntervalInMilliseconds(detector) / 2;
+        long maxTimeDifference = detector.getDetectorIntervalInMilliseconds() / 2;
         Map<Long, Entry<Long, Optional<double[]>>> featuresMap = getNearbyPointsForShingle(detector, shingle, endTime, maxTimeDifference)
             .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 
@@ -180,7 +180,7 @@ public class FeatureManager {
         Map<Long, Entry<Long, Optional<double[]>>> featuresMap,
         long endTime
     ) {
-        long intervalMilli = getDetectorIntervalInMilliseconds(detector);
+        long intervalMilli = detector.getDetectorIntervalInMilliseconds();
         int shingleSize = detector.getShingleSize();
         return getFullShingleEndTimes(endTime, intervalMilli, shingleSize)
             .filter(time -> !featuresMap.containsKey(time))
@@ -215,7 +215,7 @@ public class FeatureManager {
         ActionListener<SinglePointFeatures> listener
     ) {
         shingle.clear();
-        getFullShingleEndTimes(endTime, getDetectorIntervalInMilliseconds(detector), detector.getShingleSize())
+        getFullShingleEndTimes(endTime, detector.getDetectorIntervalInMilliseconds(), detector.getShingleSize())
             .mapToObj(time -> featuresMap.getOrDefault(time, new SimpleImmutableEntry<>(time, Optional.empty())))
             .forEach(e -> shingle.add(e));
 
@@ -250,7 +250,7 @@ public class FeatureManager {
         double[][] result = null;
         if (filteredShingle.size() >= shingleSize - getMaxMissingPoints(shingleSize)) {
             // Imputes missing data points with the values of neighboring data points.
-            long maxMillisecondsDifference = maxNeighborDistance * getDetectorIntervalInMilliseconds(detector);
+            long maxMillisecondsDifference = maxNeighborDistance * detector.getDetectorIntervalInMilliseconds();
             result = getNearbyPointsForShingle(detector, filteredShingle, endTime, maxMillisecondsDifference)
                 .map(e -> e.getValue().getValue().orElse(null))
                 .filter(d -> d != null)
@@ -279,7 +279,7 @@ public class FeatureManager {
         long endTime,
         long maxMillisecondsDifference
     ) {
-        long intervalMilli = getDetectorIntervalInMilliseconds(detector);
+        long intervalMilli = detector.getDetectorIntervalInMilliseconds();
         int shingleSize = detector.getShingleSize();
         TreeMap<Long, Optional<double[]>> search = new TreeMap<>(
             shingle.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue))
@@ -294,10 +294,6 @@ public class FeatureManager {
                 .filter(e -> Math.abs(t - e.getKey()) < maxMillisecondsDifference)
                 .map(e -> new SimpleImmutableEntry<>(t, e));
         }).filter(Optional::isPresent).map(Optional::get);
-    }
-
-    private long getDetectorIntervalInMilliseconds(AnomalyDetector detector) {
-        return ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
     }
 
     private LongStream getFullShingleEndTimes(long endTime, long intervalMilli, int shingleSize) {
@@ -411,16 +407,12 @@ public class FeatureManager {
     }
 
     private List<Entry<Long, Long>> getColdStartSampleRanges(AnomalyDetector detector, long endMillis) {
-        long interval = getDetectionIntervalInMillis(detector);
+        long interval = detector.getDetectorIntervalInMilliseconds();
         int numSamples = Math.max((int) (Duration.ofHours(this.trainSampleTimeRangeInHours).toMillis() / interval), this.minTrainSamples);
         return IntStream
             .rangeClosed(1, numSamples)
             .mapToObj(i -> new SimpleImmutableEntry<>(endMillis - (numSamples - i + 1) * interval, endMillis - (numSamples - i) * interval))
             .collect(Collectors.toList());
-    }
-
-    private long getDetectionIntervalInMillis(AnomalyDetector detector) {
-        return ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
     }
 
     /**
@@ -453,6 +445,7 @@ public class FeatureManager {
      *
      * @param detectorId ID of the detector
      */
+    @Override
     public void clear(String detectorId) {
         detectorIdsToTimeShingles.remove(detectorId);
     }
@@ -524,7 +517,7 @@ public class FeatureManager {
     private Entry<List<Entry<Long, Long>>, Integer> getSampleRanges(AnomalyDetector detector, long startMilli, long endMilli) {
         long start = truncateToMinute(startMilli);
         long end = truncateToMinute(endMilli);
-        long bucketSize = getDetectorIntervalInMilliseconds(detector);
+        long bucketSize = detector.getDetectorIntervalInMilliseconds();
         int numBuckets = (int) Math.floor((end - start) / (double) bucketSize);
         int numSamples = (int) Math.max(Math.min(numBuckets * previewSampleRate, maxPreviewSamples), 1);
         int stride = (int) Math.max(1, Math.floor((double) numBuckets / numSamples));
@@ -604,7 +597,7 @@ public class FeatureManager {
         return unprocessedAndProcessed;
     }
 
-    private double[][] transpose(double[][] matrix) {
+    public double[][] transpose(double[][] matrix) {
         return createRealMatrix(matrix).transpose().getData();
     }
 

@@ -29,7 +29,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 
-import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
@@ -44,25 +43,25 @@ import org.elasticsearch.client.ClusterAdminClient;
 import org.elasticsearch.client.IndicesAdminClient;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.ClusterState;
-import org.elasticsearch.cluster.metadata.AliasMetadata;
-import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.metadata.Metadata;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
-public class RolloverTests extends ESTestCase {
+public class RolloverTests extends AbstractADTest {
     private AnomalyDetectionIndices adIndices;
     private IndicesAdminClient indicesClient;
     private ClusterAdminClient clusterAdminClient;
     private ClusterName clusterName;
     private ClusterState clusterState;
     private ClusterService clusterService;
+    private long defaultMaxDocs;
 
     @Override
     public void setUp() throws Exception {
@@ -80,7 +79,8 @@ public class RolloverTests extends ESTestCase {
                             .asList(
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS,
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
-                                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD
+                                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
+                                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS
                             )
                     )
                 )
@@ -95,7 +95,9 @@ public class RolloverTests extends ESTestCase {
         when(client.admin()).thenReturn(adminClient);
         when(adminClient.indices()).thenReturn(indicesClient);
 
-        adIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings);
+        DiscoveryNodeFilterer nodeFilter = mock(DiscoveryNodeFilterer.class);
+
+        adIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings, nodeFilter);
 
         clusterAdminClient = mock(ClusterAdminClient.class);
         when(adminClient.cluster()).thenReturn(clusterAdminClient);
@@ -108,23 +110,8 @@ public class RolloverTests extends ESTestCase {
             listener.onResponse(new ClusterStateResponse(clusterName, clusterState, true));
             return null;
         }).when(clusterAdminClient).state(any(), any());
-    }
 
-    private IndexMetadata indexMeta(String name, long creationDate, String... aliases) {
-        IndexMetadata.Builder builder = IndexMetadata
-            .builder(name)
-            .settings(
-                Settings
-                    .builder()
-                    .put("index.number_of_shards", 1)
-                    .put("index.number_of_replicas", 1)
-                    .put("index.version.created", Version.CURRENT.id)
-            );
-        builder.creationDate(creationDate);
-        for (String alias : aliases) {
-            builder.putAlias(AliasMetadata.builder(alias).build());
-        }
-        return builder.build();
+        defaultMaxDocs = AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS.getDefault(Settings.EMPTY);
     }
 
     private void assertRolloverRequest(RolloverRequest request) {
@@ -132,11 +119,11 @@ public class RolloverTests extends ESTestCase {
 
         Map<String, Condition<?>> conditions = request.getConditions();
         assertEquals(1, conditions.size());
-        assertEquals(new MaxDocsCondition(9000000L), conditions.get(MaxDocsCondition.NAME));
+        assertEquals(new MaxDocsCondition(defaultMaxDocs), conditions.get(MaxDocsCondition.NAME));
 
         CreateIndexRequest createIndexRequest = request.getCreateIndexRequest();
         assertEquals(AnomalyDetectionIndices.AD_RESULT_HISTORY_INDEX_PATTERN, createIndexRequest.index());
-        assertTrue(createIndexRequest.mappings().get(AnomalyDetectionIndices.MAPPING_TYPE).contains("data_start_time"));
+        assertTrue(createIndexRequest.mappings().get(CommonName.MAPPING_TYPE).contains("data_start_time"));
     }
 
     public void testNotRolledOver() {
@@ -172,11 +159,11 @@ public class RolloverTests extends ESTestCase {
 
             Map<String, Condition<?>> conditions = request.getConditions();
             assertEquals(1, conditions.size());
-            assertEquals(new MaxDocsCondition(9000000L), conditions.get(MaxDocsCondition.NAME));
+            assertEquals(new MaxDocsCondition(defaultMaxDocs), conditions.get(MaxDocsCondition.NAME));
 
             CreateIndexRequest createIndexRequest = request.getCreateIndexRequest();
             assertEquals(AnomalyDetectionIndices.AD_RESULT_HISTORY_INDEX_PATTERN, createIndexRequest.index());
-            assertTrue(createIndexRequest.mappings().get(AnomalyDetectionIndices.MAPPING_TYPE).contains("data_start_time"));
+            assertTrue(createIndexRequest.mappings().get(CommonName.MAPPING_TYPE).contains("data_start_time"));
             listener.onResponse(new RolloverResponse(null, null, Collections.emptyMap(), request.isDryRun(), true, true, true));
             return null;
         }).when(indicesClient).rolloverIndex(any(), any());
@@ -211,11 +198,11 @@ public class RolloverTests extends ESTestCase {
 
             Map<String, Condition<?>> conditions = request.getConditions();
             assertEquals(1, conditions.size());
-            assertEquals(new MaxDocsCondition(9000000L), conditions.get(MaxDocsCondition.NAME));
+            assertEquals(new MaxDocsCondition(defaultMaxDocs), conditions.get(MaxDocsCondition.NAME));
 
             CreateIndexRequest createIndexRequest = request.getCreateIndexRequest();
             assertEquals(AnomalyDetectionIndices.AD_RESULT_HISTORY_INDEX_PATTERN, createIndexRequest.index());
-            assertTrue(createIndexRequest.mappings().get(AnomalyDetectionIndices.MAPPING_TYPE).contains("data_start_time"));
+            assertTrue(createIndexRequest.mappings().get(CommonName.MAPPING_TYPE).contains("data_start_time"));
             listener.onResponse(new RolloverResponse(null, null, Collections.emptyMap(), request.isDryRun(), true, true, true));
             return null;
         }).when(indicesClient).rolloverIndex(any(), any());

@@ -423,6 +423,14 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         String detectorId = jobParameter.getName();
         detectorEndRunExceptionCount.remove(detectorId);
         try {
+            // skipping writing to the result index if not necessary
+            // For a single-entity detector, the result is not useful if error is null
+            // and rcf score (thus anomaly grade/confidence) is null.
+            // For a multi-entity detector, we don't need to save on the detector level.
+            // We always return 0 rcf score if there is no error.
+            if (response.getAnomalyScore() <= 0 && response.getError() == null) {
+                return;
+            }
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) ((AnomalyDetectorJob) jobParameter).getWindowDelay();
             Instant dataStartTime = detectionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
             Instant dataEndTime = executionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());

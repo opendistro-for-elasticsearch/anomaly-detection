@@ -15,27 +15,35 @@
 
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.amazon.opendistroforelasticsearch.ad.ExpiringState;
+
 /**
  * A ML model and states such as usage.
  */
-public class ModelState<T> {
+public class ModelState<T> implements ExpiringState {
 
     public static String MODEL_ID_KEY = "model_id";
     public static String DETECTOR_ID_KEY = "detector_id";
     public static String MODEL_TYPE_KEY = "model_type";
     public static String LAST_USED_TIME_KEY = "last_used_time";
     public static String LAST_CHECKPOINT_TIME_KEY = "last_checkpoint_time";
+    public static String PRIORITY = "priority";
 
     private T model;
     private String modelId;
     private String detectorId;
     private String modelType;
+    // time when the ML model was used last time
     private Instant lastUsedTime;
     private Instant lastCheckpointTime;
+    private Clock clock;
+    private float priority;
 
     /**
      * Constructor.
@@ -44,15 +52,41 @@ public class ModelState<T> {
      * @param modelId Id of model partition
      * @param detectorId Id of detector this model partition is used for
      * @param modelType type of model
-     * @param lastUsedTime time when the ML model was used last time
+     * @param clock UTC clock
+     * @param priority Priority of the model state.  Used in multi-entity detectors' cache.
      */
-    public ModelState(T model, String modelId, String detectorId, String modelType, Instant lastUsedTime) {
+    public ModelState(T model, String modelId, String detectorId, String modelType, Clock clock, float priority) {
         this.model = model;
         this.modelId = modelId;
         this.detectorId = detectorId;
         this.modelType = modelType;
-        this.lastUsedTime = lastUsedTime;
+        this.lastUsedTime = clock.instant();
+        // this is inaccurate until we find the last checkpoint time from disk
         this.lastCheckpointTime = Instant.MIN;
+        this.clock = clock;
+        this.priority = priority;
+    }
+
+    /**
+     * Create state with zero priority. Used in single-entity detector.
+     *
+     * @param <T> Model object's type
+     * @param model The actual model object
+     * @param modelId Model Id
+     * @param detectorId Detector Id
+     * @param modelType Model type like RCF model
+     * @param clock UTC clock
+     *
+     * @return the created model state
+     */
+    public static <T> ModelState<T> createSingleEntityModelState(
+        T model,
+        String modelId,
+        String detectorId,
+        String modelType,
+        Clock clock
+    ) {
+        return new ModelState<>(model, modelId, detectorId, modelType, clock, 0f);
     }
 
     /**
@@ -62,6 +96,10 @@ public class ModelState<T> {
      */
     public T getModel() {
         return this.model;
+    }
+
+    public void setModel(T model) {
+        this.model = model;
     }
 
     /**
@@ -128,6 +166,18 @@ public class ModelState<T> {
     }
 
     /**
+     * Returns priority of the ModelState
+     * @return the priority
+     */
+    public float getPriority() {
+        return priority;
+    }
+
+    public void setPriority(float priority) {
+        this.priority = priority;
+    }
+
+    /**
      * Gets the Model State as a map
      *
      * @return Map of ModelStates
@@ -140,7 +190,13 @@ public class ModelState<T> {
                 put(MODEL_TYPE_KEY, modelType);
                 put(LAST_USED_TIME_KEY, lastUsedTime);
                 put(LAST_CHECKPOINT_TIME_KEY, lastCheckpointTime);
+                put(PRIORITY, priority);
             }
         };
+    }
+
+    @Override
+    public boolean expired(Duration stateTtl) {
+        return expired(lastUsedTime, stateTtl, clock.instant());
     }
 }

@@ -25,8 +25,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.action.ActionListener;
@@ -53,6 +55,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
@@ -88,6 +91,12 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
     private ThreadPool context;
 
     private IndexUtils indexUtil;
+
+    @Mock
+    private NodeStateManager nodeStateManager;
+
+    @Mock
+    private Clock clock;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -141,7 +150,6 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
-            false,
             clientUtil,
             indexUtil,
             clusterService
@@ -179,7 +187,6 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
-            false,
             clientUtil,
             indexUtil,
             clusterService
@@ -199,7 +206,6 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
-            false,
             clientUtil,
             indexUtil,
             clusterService
@@ -221,7 +227,6 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
-            false,
             clientUtil,
             indexUtil,
             clusterService
@@ -300,7 +305,6 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
             anomalyDetectionIndices::doesAnomalyResultIndexExist,
-            false,
             clientUtil,
             indexUtil,
             clusterService
@@ -308,7 +312,7 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
 
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
 
-        backoffLatch.await();
+        backoffLatch.await(1, TimeUnit.MINUTES);
     }
 
     @SuppressWarnings("unchecked")
@@ -324,5 +328,4 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
         }).when(anomalyDetectionIndices).initAnomalyResultIndexDirectly(any());
         when(anomalyDetectionIndices.doesAnomalyResultIndexExist()).thenReturn(anomalyResultIndexExists);
     }
-
 }

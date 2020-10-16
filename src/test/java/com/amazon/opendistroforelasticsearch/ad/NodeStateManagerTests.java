@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.ad.transport;
+package com.amazon.opendistroforelasticsearch.ad;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -30,6 +30,8 @@ import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import org.elasticsearch.action.ActionListener;
@@ -46,16 +48,15 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.After;
 import org.junit.Before;
 
-import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelPartitioner;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import com.google.common.collect.ImmutableMap;
 
-public class TransportStateManagerTests extends ESTestCase {
-    private TransportStateManager stateManager;
-    private ModelManager modelManager;
+public class NodeStateManagerTests extends ESTestCase {
+    private NodeStateManager stateManager;
+    private ModelPartitioner modelPartitioner;
     private Client client;
     private ClientUtil clientUtil;
     private Clock clock;
@@ -78,8 +79,8 @@ public class TransportStateManagerTests extends ESTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        modelManager = mock(ModelManager.class);
-        when(modelManager.getPartitionedForestSizes(any(AnomalyDetector.class))).thenReturn(new SimpleImmutableEntry<>(2, 20));
+        modelPartitioner = mock(ModelPartitioner.class);
+        when(modelPartitioner.getPartitionedForestSizes(any(AnomalyDetector.class))).thenReturn(new SimpleImmutableEntry<>(2, 20));
         client = mock(Client.class);
         settings = Settings
             .builder()
@@ -92,7 +93,7 @@ public class TransportStateManagerTests extends ESTestCase {
         throttler = new Throttler(clock);
 
         clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, mock(ThreadPool.class));
-        stateManager = new TransportStateManager(client, xContentRegistry(), modelManager, settings, clientUtil, clock, duration);
+        stateManager = new NodeStateManager(client, xContentRegistry(), settings, clientUtil, clock, duration, modelPartitioner);
 
         checkpointResponse = mock(GetResponse.class);
     }
@@ -102,7 +103,7 @@ public class TransportStateManagerTests extends ESTestCase {
     public void tearDown() throws Exception {
         super.tearDown();
         stateManager = null;
-        modelManager = null;
+        modelPartitioner = null;
         client = null;
         clientUtil = null;
         detectorToCheck = null;
@@ -110,7 +111,7 @@ public class TransportStateManagerTests extends ESTestCase {
 
     @SuppressWarnings("unchecked")
     private String setupDetector() throws IOException {
-        detectorToCheck = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
+        detectorToCheck = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null, true);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -170,12 +171,12 @@ public class TransportStateManagerTests extends ESTestCase {
         }
 
         // the 2nd call should directly fetch cached result
-        verify(modelManager, times(1)).getPartitionedForestSizes(any());
+        verify(modelPartitioner, times(1)).getPartitionedForestSizes(any());
     }
 
     public void testGetLastError() throws IOException, InterruptedException {
         String error = "blah";
-        assertEquals(TransportStateManager.NO_ERROR, stateManager.getLastDetectionError(adId));
+        assertEquals(NodeStateManager.NO_ERROR, stateManager.getLastDetectionError(adId));
         stateManager.setLastDetectionError(adId, error);
         assertEquals(error, stateManager.getLastDetectionError(adId));
     }
@@ -207,14 +208,14 @@ public class TransportStateManagerTests extends ESTestCase {
     }
 
     public void testHasRunningQuery() throws IOException {
-        stateManager = new TransportStateManager(
+        stateManager = new NodeStateManager(
             client,
             xContentRegistry(),
-            modelManager,
             settings,
             new ClientUtil(settings, client, throttler, context),
             clock,
-            duration
+            duration,
+            modelPartitioner
         );
 
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);
@@ -224,13 +225,17 @@ public class TransportStateManagerTests extends ESTestCase {
         assertTrue(stateManager.hasRunningQuery(detector));
     }
 
-    public void testGetAnomalyDetector() throws IOException {
+    public void testGetAnomalyDetector() throws IOException, InterruptedException {
         String detectorId = setupDetector();
-        stateManager
-            .getAnomalyDetector(
-                detectorId,
-                ActionListener.wrap(asDetector -> { assertEquals(detectorToCheck, asDetector.get()); }, exception -> assertTrue(false))
-            );
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        stateManager.getAnomalyDetector(detectorId, ActionListener.wrap(asDetector -> {
+            assertEquals(detectorToCheck, asDetector.get());
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue(false);
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     public void getCheckpointTestTemplate(boolean exists) throws IOException {
@@ -288,7 +293,7 @@ public class TransportStateManagerTests extends ESTestCase {
 
     public void testColdStartRunning() {
         assertTrue(!stateManager.isColdStartRunning(adId));
-        stateManager.setColdStartRunning(adId, true);
+        stateManager.markColdStartRunning(adId);
         assertTrue(stateManager.isColdStartRunning(adId));
     }
 }

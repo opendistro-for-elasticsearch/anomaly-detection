@@ -95,6 +95,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             TestHelpers.randomUiMetadata(),
             randomInt(),
             null,
+            null,
             TestHelpers.randomUser()
         );
 
@@ -178,6 +179,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
+            null,
             detector.getUser()
         );
 
@@ -239,6 +241,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector1.getUiMetadata(),
             detector1.getSchemaVersion(),
             detector1.getLastUpdateTime(),
+            null,
             detector1.getUser()
         );
 
@@ -276,6 +279,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
             Instant.now(),
+            null,
             detector.getUser()
         );
 
@@ -319,6 +323,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
+            null,
             detector.getUser()
         );
 
@@ -702,6 +707,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
+            null,
             detector.getUser()
         );
 

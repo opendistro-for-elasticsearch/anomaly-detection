@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 
@@ -123,6 +124,7 @@ public class TestHelpers {
     public static final String AD_BASE_PREVIEW_URI = "/_opendistro/_anomaly_detection/detectors/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_opendistro/_anomaly_detection/stats";
     private static final Logger logger = LogManager.getLogger(TestHelpers.class);
+    public static final Random random = new Random(42);
 
     public static Response makeRequest(
         RestClient client,
@@ -220,7 +222,7 @@ public class TestHelpers {
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
             ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
-            ImmutableList.of(randomFeature()),
+            ImmutableList.of(randomFeature(true)),
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
@@ -276,6 +278,11 @@ public class TestHelpers {
     }
 
     public static AnomalyDetector randomAnomalyDetectorWithInterval(TimeConfiguration interval) throws IOException {
+        return randomAnomalyDetectorWithInterval(interval, false);
+    }
+
+    public static AnomalyDetector randomAnomalyDetectorWithInterval(TimeConfiguration interval, boolean hcDetector) throws IOException {
+        List<String> categoryField = hcDetector ? ImmutableList.of(randomAlphaOfLength(5)) : null;
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),

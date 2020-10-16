@@ -23,18 +23,19 @@ import java.util.Locale;
 import org.elasticsearch.common.ParsingException;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
-import org.elasticsearch.test.ESTestCase;
 
+import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class AnomalyDetectorTests extends ESTestCase {
+public class AnomalyDetectorTests extends AbstractADTest {
 
     public void testParseAnomalyDetector() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), Instant.now());
         String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        LOG.info(detectorString);
         detectorString = detectorString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
@@ -139,6 +140,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     null,
                     1,
                     Instant.now(),
+                    null,
                     TestHelpers.randomUser()
                 )
             );
@@ -163,6 +165,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     null,
                     1,
                     Instant.now(),
+                    null,
                     TestHelpers.randomUser()
                 )
             );
@@ -187,6 +190,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     null,
                     1,
                     Instant.now(),
+                    null,
                     TestHelpers.randomUser()
                 )
             );
@@ -211,6 +215,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     null,
                     1,
                     Instant.now(),
+                    null,
                     TestHelpers.randomUser()
                 )
             );
@@ -235,6 +240,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     null,
                     1,
                     Instant.now(),
+                    null,
                     TestHelpers.randomUser()
                 )
             );
@@ -259,6 +265,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     null,
                     1,
                     Instant.now(),
+                    null,
                     TestHelpers.randomUser()
                 )
             );
@@ -283,6 +290,7 @@ public class AnomalyDetectorTests extends ESTestCase {
                     null,
                     1,
                     Instant.now(),
+                    null,
                     TestHelpers.randomUser()
                 )
             );
@@ -319,6 +327,7 @@ public class AnomalyDetectorTests extends ESTestCase {
             null,
             1,
             Instant.now(),
+            null,
             TestHelpers.randomUser()
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
@@ -340,6 +349,7 @@ public class AnomalyDetectorTests extends ESTestCase {
             null,
             1,
             Instant.now(),
+            null,
             TestHelpers.randomUser()
         );
         assertEquals((int) anomalyDetector.getShingleSize(), AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);

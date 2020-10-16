@@ -61,6 +61,7 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectio
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelPartitioner;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -74,6 +75,7 @@ public class RCFPollingTests extends AbstractADTest {
     private HashRing hashRing;
     private TransportAddress transportAddress1;
     private ModelManager manager;
+    private ModelPartitioner modelPartitioner;
     private TransportService transportService;
     private PlainActionFuture<RCFPollingResponse> future;
     private RCFPollingTransportAction action;
@@ -96,6 +98,7 @@ public class RCFPollingTests extends AbstractADTest {
             node.transportService,
             Settings.EMPTY,
             manager,
+            modelPartitioner,
             hashRing,
             node.clusterService
         );
@@ -121,7 +124,8 @@ public class RCFPollingTests extends AbstractADTest {
         future = new PlainActionFuture<>();
 
         request = new RCFPollingRequest(detectorId);
-        when(manager.getRcfModelId(any(String.class), anyInt())).thenReturn(model0Id);
+        modelPartitioner = mock(ModelPartitioner.class);
+        when(modelPartitioner.getRcfModelId(any(String.class), anyInt())).thenReturn(model0Id);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -187,6 +191,7 @@ public class RCFPollingTests extends AbstractADTest {
             transportService,
             Settings.EMPTY,
             manager,
+            modelPartitioner,
             hashRing,
             clusterService
         );
@@ -197,13 +202,14 @@ public class RCFPollingTests extends AbstractADTest {
     }
 
     public void testNoNodeFoundForModel() {
-        when(manager.getRcfModelId(any(String.class), anyInt())).thenReturn(model0Id);
+        when(modelPartitioner.getRcfModelId(any(String.class), anyInt())).thenReturn(model0Id);
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.empty());
         action = new RCFPollingTransportAction(
             mock(ActionFilters.class),
             transportService,
             Settings.EMPTY,
             manager,
+            modelPartitioner,
             hashRing,
             clusterService
         );
@@ -291,6 +297,7 @@ public class RCFPollingTests extends AbstractADTest {
                 realTransportService,
                 Settings.EMPTY,
                 manager,
+                modelPartitioner,
                 hashRing,
                 clusterService
             );
@@ -318,6 +325,7 @@ public class RCFPollingTests extends AbstractADTest {
                 realTransportService,
                 Settings.EMPTY,
                 manager,
+                modelPartitioner,
                 hashRing,
                 clusterService
             );

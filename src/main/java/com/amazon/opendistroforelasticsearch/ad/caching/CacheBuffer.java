@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -105,18 +104,18 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
 
         @Override
         public int compare(PriorityNode priority, PriorityNode priority2) {
-          int equality = priority.key.compareTo(priority2.key);
-          if (equality == 0) {
-              // this is consistent with PriorityNode's equals method
-              return 0;
-          }
-          // if not equal, first check priority
-          int cmp = Float.compare(priority.priority, priority2.priority);
-          if (cmp == 0) {
-              // if priority is equal, use lexicographical order of key
-              cmp = equality;
-          }
-          return cmp;
+            int equality = priority.key.compareTo(priority2.key);
+            if (equality == 0) {
+                // this is consistent with PriorityNode's equals method
+                return 0;
+            }
+            // if not equal, first check priority
+            int cmp = Float.compare(priority.priority, priority2.priority);
+            if (cmp == 0) {
+                // if priority is equal, use lexicographical order of key
+                cmp = equality;
+            }
+            return cmp;
         }
     }
 
@@ -176,17 +175,17 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
      * Update step at period t_k:
      * new priority = old priority + log(1+e^{\log(g(t_k-L))-old priority}) where g(n) = e^{0.125n},
      * and n is the period.
-     * @param entityId model Id
+     * @param entityModelId model Id
      */
-    private void update(String entityId) {
-        PriorityNode node = key2Priority.computeIfAbsent(entityId, k -> new PriorityNode(entityId, 0f));
+    private void update(String entityModelId) {
+        PriorityNode node = key2Priority.computeIfAbsent(entityModelId, k -> new PriorityNode(entityModelId, 0f));
         // reposition this node
         this.priorityList.remove(node);
         node.priority = getUpdatedPriority(node.priority);
         this.priorityList.add(node);
 
         Instant now = clock.instant();
-        items.get(entityId).setLastUsedTime(now);
+        items.get(entityModelId).setLastUsedTime(now);
         lastUsedTime = now;
     }
 
@@ -225,10 +224,10 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
 
     /**
      * Insert the model state associated with a model Id to the cache
-     * @param entityId the model Id
+     * @param entityModelId the model Id
      * @param value the ModelState
      */
-    public void put(String entityId, ModelState<EntityModel> value) {
+    public void put(String entityModelId, ModelState<EntityModel> value) {
         // race conditions can happen between the put and one of the following operations:
         // remove: not a problem as it is unlikely we are removing and putting the same thing
         // maintenance: not a problem as we are unlikely to maintain an entry that's not
@@ -237,23 +236,23 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
         // The newly added one loses references and soon GC will collect it.
         // We have memory tracking correction to fix incorrect memory usage record.
         // put from other threads: not a problem as the entry is associated with
-        // entityId and our put is idempotent
-        put(entityId, value, value.getPriority());
+        // entityModelId and our put is idempotent
+        put(entityModelId, value, value.getPriority());
     }
 
     /**
     * Insert the model state associated with a model Id to the cache.  Update priority.
-    * @param entityId the model Id
+    * @param entityModelId the model Id
     * @param value the ModelState
     * @param priority the priority
     */
-    private void put(String entityId, ModelState<EntityModel> value, float priority) {
-        ModelState<EntityModel> contentNode = items.get(entityId);
+    private void put(String entityModelId, ModelState<EntityModel> value, float priority) {
+        ModelState<EntityModel> contentNode = items.get(entityModelId);
         if (contentNode == null) {
-            PriorityNode node = new PriorityNode(entityId, priority);
-            key2Priority.put(entityId, node);
+            PriorityNode node = new PriorityNode(entityModelId, priority);
+            key2Priority.put(entityModelId, node);
             priorityList.add(node);
-            items.put(entityId, value);
+            items.put(entityModelId, value);
             Instant now = clock.instant();
             value.setLastUsedTime(now);
             lastUsedTime = now;
@@ -264,8 +263,8 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
                 memoryTracker.consumeMemory(memoryConsumptionPerEntity, false, Origin.MULTI_ENTITY_DETECTOR);
             }
         } else {
-            update(entityId);
-            items.put(entityId, value);
+            update(entityModelId);
+            items.put(entityModelId, value);
         }
     }
 
@@ -381,18 +380,18 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
 
     /**
      * Replace the smallest priority entity with the input entity
-     * @param entityId the Model Id
+     * @param entityModelId the Model Id
      * @param value the model State
      */
-    public void replace(String entityId, ModelState<EntityModel> value) {
+    public void replace(String entityModelId, ModelState<EntityModel> value) {
         remove();
-        put(entityId, value);
+        put(entityModelId, value);
     }
 
     @Override
     public void maintenance() {
         items.entrySet().stream().forEach(entry -> {
-            String entityId = entry.getKey();
+            String entityModelId = entry.getKey();
             try {
                 ModelState<EntityModel> modelState = entry.getValue();
                 Instant now = clock.instant();
@@ -404,7 +403,7 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
                 // As we are gonna retry serializing either when the entity is
                 // evicted out of cache or during the next maintenance period,
                 // don't do anything when the exception happens.
-                checkpointDao.write(modelState, entityId);
+                checkpointDao.write(modelState, entityModelId);
 
                 if (modelState.getLastUsedTime().plus(modelTtl).isBefore(now)) {
                     // race conditions can happen between the put and one of the following operations:
@@ -415,10 +414,10 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
                     // We have memory tracking correction to fix incorrect memory usage record.
                     // put: not a problem as we are unlikely to maintain an entry that's not
                     // already in the cache
-                    remove(entityId);
+                    remove(entityModelId);
                 }
             } catch (Exception e) {
-                LOG.warn("Failed to finish maintenance for model id " + entityId, e);
+                LOG.warn("Failed to finish maintenance for model id " + entityModelId, e);
             }
         });
     }
@@ -433,28 +432,28 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
 
     /**
      *
-     * @param entityId Model Id
+     * @param entityModelId Model Id
      * @return Whether the model is active or not
      */
-    public boolean isActive(String entityId) {
-        return items.containsKey(entityId);
+    public boolean isActive(String entityModelId) {
+        return items.containsKey(entityModelId);
     }
 
     /**
      *
      * @return Get the model of highest priority entity
      */
-    public Optional<String> getHighestPriorityEntityId() {
+    public Optional<String> getHighestPriorityEntityModelId() {
         return Optional.of(priorityList).map(list -> list.last()).map(node -> node.key);
     }
 
     /**
      *
-     * @param entityId entity Id
+     * @param entityModelId entity Id
      * @return Get the model of an entity
      */
-    public Optional<EntityModel> getModel(String entityId) {
-        return Optional.of(items).map(map -> map.get(entityId)).map(state -> state.getModel());
+    public Optional<EntityModel> getModel(String entityModelId) {
+        return Optional.of(items).map(map -> map.get(entityModelId)).map(state -> state.getModel());
     }
 
     /**
@@ -465,11 +464,13 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
         // not a problem as we are releasing memory in MemoryTracker.
         // The newly added one loses references and soon GC will collect it.
         // We have memory tracking correction to fix incorrect memory usage record.
-
         memoryTracker.releaseMemory(getReservedBytes(), true, Origin.MULTI_ENTITY_DETECTOR);
         if (!sharedCacheEmpty()) {
             memoryTracker.releaseMemory(getBytesInSharedCache(), false, Origin.MULTI_ENTITY_DETECTOR);
         }
+        items.clear();
+        key2Priority.clear();
+        priorityList.clear();
     }
 
     /**

@@ -422,9 +422,6 @@ public class PriorityCacheTests extends ESTestCase {
 
         doAnswer(invocation -> {
             inProgressLatch.countDown();
-            Object[] args = invocation.getArguments();
-            Runnable runnable = (Runnable) args[0];
-            runnable.run();
             return mock(ScheduledCancellable.class);
         }).when(threadPool).schedule(any(), any(), any());
 

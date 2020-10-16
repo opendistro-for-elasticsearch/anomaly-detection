@@ -126,7 +126,7 @@ public class PriorityCache implements EntityCache {
         this.clearMemoryRunnable = new AbstractRunnable() {
             @Override
             protected void doRun() throws Exception {
-                clearMemory();
+                tryClearUpMemory();
             }
 
             @Override
@@ -170,7 +170,7 @@ public class PriorityCache implements EntityCache {
 
                 // compute updated priority
                 // We don’t want to admit the latest entity for correctness by throwing out a
-                // hot entity.  We have a priority (time-decayed count) sensitive to
+                // hot entity. We have a priority (time-decayed count) sensitive to
                 // the number of hits, length of time, and sampling interval. Examples:
                 // 1) an entity from a 5-minute interval detector that is hit 5 times in the
                 // past 25 minutes should have an equal chance of using the cache along with
@@ -183,9 +183,9 @@ public class PriorityCache implements EntityCache {
                 // 3) Entity A will have a higher priority than entity B if A runs
                 // for a longer time given other things are equal.
                 //
-                // We ensure fairness by using periods instead of absolute duration.  Entity A
+                // We ensure fairness by using periods instead of absolute duration. Entity A
                 // accessed once three intervals ago should have the same priority with entity B
-                // accessed once three periods ago, though they belong to  detectors of different
+                // accessed once three periods ago, though they belong to detectors of different
                 // intervals.
                 float priority = 0;
                 if (state != null) {
@@ -274,8 +274,8 @@ public class PriorityCache implements EntityCache {
             // returns null and only the first one succeeds.
             Entry<CacheBuffer, String> bufferToRemoveEntity = canReplaceInSharedCache(buffer, priority);
             CacheBuffer bufferToRemove = bufferToRemoveEntity.getKey();
-            String entityId = bufferToRemoveEntity.getValue();
-            if (bufferToRemove != null && bufferToRemove.remove(entityId) != null) {
+            String entityModelId = bufferToRemoveEntity.getValue();
+            if (bufferToRemove != null && bufferToRemove.remove(entityModelId) != null) {
                 buffer.put(modelId, state);
             } else {
                 return false;
@@ -362,7 +362,7 @@ public class PriorityCache implements EntityCache {
     private Entry<CacheBuffer, String> canReplaceInSharedCache(CacheBuffer originBuffer, float candicatePriority) {
         CacheBuffer minPriorityBuffer = null;
         float minPriority = Float.MAX_VALUE;
-        String minPriorityEntityId = null;
+        String minPriorityEntityModelId = null;
         for (Map.Entry<String, CacheBuffer> entry : activeEnities.entrySet()) {
             CacheBuffer buffer = entry.getValue();
             if (buffer != originBuffer && buffer.canRemove()) {
@@ -371,11 +371,11 @@ public class PriorityCache implements EntityCache {
                 if (candicatePriority > priority && priority < minPriority) {
                     minPriority = priority;
                     minPriorityBuffer = buffer;
-                    minPriorityEntityId = priorityEntry.getKey();
+                    minPriorityEntityModelId = priorityEntry.getKey();
                 }
             }
         }
-        return new SimpleImmutableEntry<>(minPriorityBuffer, minPriorityEntityId);
+        return new SimpleImmutableEntry<>(minPriorityBuffer, minPriorityEntityModelId);
     }
 
     private void tryClearUpMemory() {
@@ -402,7 +402,7 @@ public class PriorityCache implements EntityCache {
         long memoryToShed = memoryTracker.memoryToShed();
         float minPriority = Float.MAX_VALUE;
         CacheBuffer minPriorityBuffer = null;
-        String minPriorityEntityId = null;
+        String minPriorityEntityModelId = null;
         while (memoryToShed > 0) {
             for (Map.Entry<String, CacheBuffer> entry : activeEnities.entrySet()) {
                 CacheBuffer buffer = entry.getValue();
@@ -411,11 +411,11 @@ public class PriorityCache implements EntityCache {
                 if (buffer.canRemove() && priority < minPriority) {
                     minPriority = priority;
                     minPriorityBuffer = buffer;
-                    minPriorityEntityId = priorityEntry.getKey();
+                    minPriorityEntityModelId = priorityEntry.getKey();
                 }
             }
             if (minPriorityBuffer != null) {
-                minPriorityBuffer.remove(minPriorityEntityId);
+                minPriorityBuffer.remove(minPriorityEntityModelId);
                 long memoryReleased = minPriorityBuffer.getMemoryConsumptionPerEntity();
                 memoryTracker.releaseMemory(memoryReleased, false, Origin.MULTI_ENTITY_DETECTOR);
                 memoryToShed -= memoryReleased;
@@ -501,14 +501,14 @@ public class PriorityCache implements EntityCache {
     /**
      * Whether an entity is active or not
      * @param detectorId The Id of the detector that an entity belongs to
-     * @param entityId Entity Id
+     * @param entityModelId Entity's Model Id
      * @return Whether an entity is active or not
      */
     @Override
-    public boolean isActive(String detectorId, String entityId) {
+    public boolean isActive(String detectorId, String entityModelId) {
         CacheBuffer cacheBuffer = activeEnities.get(detectorId);
         if (cacheBuffer != null) {
-            return cacheBuffer.isActive(entityId);
+            return cacheBuffer.isActive(entityModelId);
         }
         return false;
     }
@@ -518,17 +518,17 @@ public class PriorityCache implements EntityCache {
         return Optional
             .of(activeEnities)
             .map(entities -> entities.get(detectorId))
-            .map(buffer -> buffer.getHighestPriorityEntityId())
-            .map(entityIdOptional -> entityIdOptional.get())
-            .map(entityId -> getTotalUpdates(detectorId, entityId))
+            .map(buffer -> buffer.getHighestPriorityEntityModelId())
+            .map(entityModelIdOptional -> entityModelIdOptional.get())
+            .map(entityModelId -> getTotalUpdates(detectorId, entityModelId))
             .orElse(0L);
     }
 
     @Override
-    public long getTotalUpdates(String detectorId, String entityId) {
+    public long getTotalUpdates(String detectorId, String entityModelId) {
         CacheBuffer cacheBuffer = activeEnities.get(detectorId);
         if (cacheBuffer != null) {
-            Optional<EntityModel> modelOptional = cacheBuffer.getModel(entityId);
+            Optional<EntityModel> modelOptional = cacheBuffer.getModel(entityModelId);
             // TODO: make it work for shingles. samples.size() is not the real shingle
             long accumulatedShingles = modelOptional
                 .map(model -> model.getRcf())

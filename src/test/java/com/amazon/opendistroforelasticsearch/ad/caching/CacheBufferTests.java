@@ -154,7 +154,7 @@ public class CacheBufferTests extends ESTestCase {
         cacheBuffer.replace(modelId3, MLUtil.randomModelState(initialPriority, modelId3));
         assertTrue(cacheBuffer.isActive(modelId2));
         assertTrue(cacheBuffer.isActive(modelId3));
-        assertEquals(modelId3, cacheBuffer.getHighestPriorityEntityId().get());
+        assertEquals(modelId3, cacheBuffer.getHighestPriorityEntityModelId().get());
         assertEquals(2, cacheBuffer.getActiveEntities());
     }
 

@@ -165,7 +165,7 @@ public class IndexAnomalyDetectorActionHandler {
      *
      * @throws IOException IOException from {@link AnomalyDetectionIndices#initAnomalyDetectorIndexIfAbsent(ActionListener)}
      */
-    public void start() throws IOException {
+    private void start() throws IOException {
         if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist()) {
             logger.info("AnomalyDetector Indices do not exist");
             anomalyDetectionIndices
@@ -178,15 +178,19 @@ public class IndexAnomalyDetectorActionHandler {
         }
     }
 
+    /**
+     * Check User security and start to process creating/updating anomaly detector request.
+     * Check if anomaly detector index exist first, if not, will create first.
+     *
+     * @throws IOException IOException from {@link AnomalyDetectionIndices#initAnomalyDetectorIndexIfAbsent(ActionListener)}
+     */
     public void resolveUserAndStart() throws IOException {
         if (authHeader == null) {
-            logger.info("resolveUserAndStart authHeader is null, Starting to create detector");
             // Auth Header is empty when 1. Security is disabled. 2. When user is super-admin
             // User is null for older detectors
             start();
         } else {
-            logger.info("resolveUserAndStart authHeader exists, Getting user information");
-            // Security is enabled and filter is enabled
+            // Security is enabled and store user context
             Request authRequest = new AuthUserRequestBuilder(authHeader).build();
             restClient.performRequestAsync(authRequest, new ResponseListener() {
                 @Override
@@ -194,8 +198,6 @@ public class IndexAnomalyDetectorActionHandler {
                     try {
                         User user = new User(response);
                         anomalyDetector.setUser(user);
-                        logger.info("resolveUserAndStart authHeader exists, Getting user information User: ", user.getName());
-
                         start();
                     } catch (IOException e) {
                         listener.onFailure(e);

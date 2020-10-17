@@ -174,45 +174,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.user = user;
     }
 
-    // TODO: remove after complete code merges. Created to not to touch too
-    // many places in one PR.
-    public AnomalyDetector(
-        String detectorId,
-        Long version,
-        String name,
-        String description,
-        String timeField,
-        List<String> indices,
-        List<Feature> features,
-        QueryBuilder filterQuery,
-        TimeConfiguration detectionInterval,
-        TimeConfiguration windowDelay,
-        Integer shingleSize,
-        Map<String, Object> uiMetadata,
-        Integer schemaVersion,
-        Instant lastUpdateTime,
-        User user
-    ) {
-        this(
-            detectorId,
-            version,
-            name,
-            description,
-            timeField,
-            indices,
-            features,
-            filterQuery,
-            detectionInterval,
-            windowDelay,
-            shingleSize,
-            uiMetadata,
-            schemaVersion,
-            lastUpdateTime,
-            null,
-            user
-        );
-    }
-
     public AnomalyDetector(StreamInput input) throws IOException {
         detectorId = input.readString();
         version = input.readLong();

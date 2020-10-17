@@ -120,6 +120,8 @@ public class IndexAnomalyDetectorActionHandler {
      * @param maxAnomalyFeatures      max features allowed per detector
      * @param method                  Rest Method type
      * @param xContentRegistry        Registry which is used for XContentParser
+     * @oaram restClient              RestClient used to talk to Security Plugin
+     * @param authHeader              User context
      */
     public IndexAnomalyDetectorActionHandler(
         ClusterService clusterService,

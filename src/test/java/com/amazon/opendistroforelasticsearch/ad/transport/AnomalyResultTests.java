@@ -236,7 +236,6 @@ public class AnomalyResultTests extends AbstractADTest {
         adCircuitBreakerService = mock(ADCircuitBreakerService.class);
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
-        // client = mock(Client.class);
         ThreadPool threadPool = mock(ThreadPool.class);
         client = mock(Client.class);
         ThreadContext threadContext = new ThreadContext(Settings.EMPTY);

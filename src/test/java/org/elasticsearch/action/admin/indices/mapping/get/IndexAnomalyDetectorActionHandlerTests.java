@@ -180,7 +180,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             mock(RestClient.class),
-            "authHeader"
+            null
         );
     }
 
@@ -234,10 +234,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             mock(RestClient.class),
-            "authHeader"
+            null
         );
 
-        handler.start();
+        handler.resolveUserAndStart();
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
         verify(clientMock, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
@@ -297,12 +297,12 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             mock(RestClient.class),
-            "authHeader"
+            null
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
 
-        handler.start();
+        handler.resolveUserAndStart();
 
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
@@ -373,12 +373,12 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             mock(RestClient.class),
-            "authHeader"
+            null
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
 
-        handler.start();
+        handler.resolveUserAndStart();
 
         verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
@@ -466,12 +466,12 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             RestRequest.Method.PUT,
             xContentRegistry(),
             mock(RestClient.class),
-            "authHeader"
+            null
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
 
-        handler.start();
+        handler.resolveUserAndStart();
 
         verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
@@ -518,7 +518,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             return null;
         }).when(clientMock).search(any(SearchRequest.class), any());
 
-        handler.start();
+        handler.resolveUserAndStart();
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
         verify(clientMock, times(1)).search(any(SearchRequest.class), any());

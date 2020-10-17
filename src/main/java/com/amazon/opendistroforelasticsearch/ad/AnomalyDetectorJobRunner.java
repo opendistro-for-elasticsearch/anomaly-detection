@@ -24,9 +24,12 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
+import com.amazon.opendistroforelasticsearch.commons.InjectSecurity;
+import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -166,9 +169,9 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 log.warn("Can't get lock for AD job: " + detectorId);
             }
         };
-
         ExecutorService executor = threadPool.executor(AD_THREAD_POOL_NAME);
         executor.submit(runnable);
+
     }
 
     /**
@@ -201,7 +204,27 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             return;
         }
 
-        try {
+        /*
+         * We need to handle 3 cases:
+         * 1. Detectors created by older versions and never updated. These detectors wont have User details in the
+         * detector object. `detector.user` will be null. Insert `all_access, AmazonES_all_access` role.
+         * 2. Detectors are created when security plugin is disabled, these will have empty User object.
+         * (`detector.user.name`, `detector.user.roles` are empty )
+         * 3. Detectors are created when security plugin is enabled, these will have an User object.
+         */
+        String user;
+        List<String> roles;
+        if (((AnomalyDetectorJob) jobParameter).getUser() == null) {
+            user = "";
+            roles = settings.getAsList("", ImmutableList.of("all_access", "AmazonES_all_access"));
+        } else {
+            user = ((AnomalyDetectorJob) jobParameter).getUser().getName();
+            roles = ((AnomalyDetectorJob) jobParameter).getUser().getRoles();
+        }
+
+        try (InjectSecurity injectSecurity = new InjectSecurity(detectorId, settings, client.threadPool().getThreadContext())) {
+            // Injecting user role to verify if the user has permissions for our API.
+            injectSecurity.inject(user, roles);
             AnomalyResultRequest request = new AnomalyResultRequest(
                 detectorId,
                 detectionStartTime.toEpochMilli(),

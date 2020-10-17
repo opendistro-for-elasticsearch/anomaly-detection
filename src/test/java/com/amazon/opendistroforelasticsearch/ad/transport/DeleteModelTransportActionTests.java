@@ -46,6 +46,9 @@ import org.junit.Before;
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
+import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
+import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
@@ -69,18 +72,22 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
 
         TransportService transportService = mock(TransportService.class);
         ActionFilters actionFilters = mock(ActionFilters.class);
-        TransportStateManager tarnsportStatemanager = mock(TransportStateManager.class);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         ModelManager modelManager = mock(ModelManager.class);
         FeatureManager featureManager = mock(FeatureManager.class);
+        CacheProvider cacheProvider = mock(CacheProvider.class);
+        EntityCache entityCache = mock(EntityCache.class);
+        when(cacheProvider.get()).thenReturn(entityCache);
 
         action = new DeleteModelTransportAction(
             threadPool,
             clusterService,
             transportService,
             actionFilters,
-            tarnsportStatemanager,
+            nodeStateManager,
             modelManager,
-            featureManager
+            featureManager,
+            cacheProvider
         );
     }
 

@@ -34,6 +34,7 @@ import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
 
@@ -42,6 +43,7 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
 
     private AnomalyDetectionIndices indices;
     private Settings settings;
+    private DiscoveryNodeFilterer nodeFilter;
 
     // help register setting using AnomalyDetectorPlugin.getSettings. Otherwise, AnomalyDetectionIndices's constructor would fail due to
     // unregistered settings like AD_RESULT_HISTORY_MAX_DOCS.
@@ -60,7 +62,9 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
             .put("opendistro.anomaly_detection.request_timeout", TimeValue.timeValueSeconds(10))
             .build();
 
-        indices = new AnomalyDetectionIndices(client(), clusterService(), client().threadPool(), settings);
+        nodeFilter = new DiscoveryNodeFilterer(clusterService());
+
+        indices = new AnomalyDetectionIndices(client(), clusterService(), client().threadPool(), settings, nodeFilter);
     }
 
     public void testAnomalyDetectorIndexNotExists() {

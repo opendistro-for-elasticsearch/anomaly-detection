@@ -67,7 +67,6 @@ import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInter
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
-import com.amazon.opendistroforelasticsearch.ad.transport.TransportStateManager;
 import com.amazon.opendistroforelasticsearch.ad.util.ArrayEqMatcher;
 
 @RunWith(JUnitParamsRunner.class)
@@ -100,9 +99,6 @@ public class FeatureManagerTests {
     private Clock clock;
 
     @Mock
-    private TransportStateManager stateManager;
-
-    @Mock
     private ThreadPool threadPool;
 
     private FeatureManager featureManager;
@@ -125,8 +121,8 @@ public class FeatureManagerTests {
         when(detector.getDetectorId()).thenReturn("id");
         when(detector.getShingleSize()).thenReturn(shingleSize);
         IntervalTimeConfiguration detectorIntervalTimeConfig = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
-        when(detector.getDetectionInterval()).thenReturn(detectorIntervalTimeConfig);
         intervalInMilliseconds = detectorIntervalTimeConfig.toDuration().toMillis();
+        when(detector.getDetectorIntervalInMilliseconds()).thenReturn(intervalInMilliseconds);
 
         Interpolator interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
 
@@ -216,7 +212,8 @@ public class FeatureManagerTests {
         List<Optional<double[]>> samples,
         double[][] expected
     ) throws Exception {
-        when(detector.getDetectionInterval()).thenReturn(new IntervalTimeConfiguration(15, ChronoUnit.MINUTES));
+        long detectionInterval = (new IntervalTimeConfiguration(15, ChronoUnit.MINUTES)).toDuration().toMillis();
+        when(detector.getDetectorIntervalInMilliseconds()).thenReturn(detectionInterval);
         when(detector.getShingleSize()).thenReturn(4);
         doAnswer(invocation -> {
             ActionListener<Optional<Long>> listener = invocation.getArgument(1);
@@ -447,8 +444,8 @@ public class FeatureManagerTests {
         throws IOException {
         long start = 0L;
         long end = 240_000L;
-        IntervalTimeConfiguration detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
-        when(detector.getDetectionInterval()).thenReturn(detectionInterval);
+        long detectionInterval = (new IntervalTimeConfiguration(1, ChronoUnit.MINUTES)).toDuration().toMillis();
+        when(detector.getDetectorIntervalInMilliseconds()).thenReturn(detectionInterval);
 
         List<Entry<Long, Long>> sampleRanges = Arrays.asList(new SimpleEntry<>(0L, 60_000L), new SimpleEntry<>(120_000L, 180_000L));
         doAnswer(invocation -> {

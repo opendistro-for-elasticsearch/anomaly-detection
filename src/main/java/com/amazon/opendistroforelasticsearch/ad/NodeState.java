@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.ad.transport;
+package com.amazon.opendistroforelasticsearch.ad;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -27,7 +27,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
  * Storing intermediate state during the execution of transport action
  *
  */
-public class TransportState {
+public class NodeState implements ExpiringState {
     private String detectorId;
     // detector definition
     private AnomalyDetector detectorDef;
@@ -35,8 +35,8 @@ public class TransportState {
     private int partitonNumber;
     // checkpoint fetch time
     private Instant lastAccessTime;
-    // last detection error. Used by DetectorStateHandler to check if the error for a
-    // detector has changed or not. If changed, trigger indexing.
+    // last detection error recorded in result index. Used by DetectorStateHandler
+    // to check if the error for a detector has changed or not. If changed, trigger indexing.
     private Optional<String> lastDetectionError;
     // last training error. Used to save cold start error by a concurrent cold start thread.
     private Optional<AnomalyDetectionException> lastColdStartException;
@@ -47,7 +47,7 @@ public class TransportState {
     // cold start running flag to prevent concurrent cold start
     private boolean coldStartRunning;
 
-    public TransportState(String detectorId, Clock clock) {
+    public NodeState(String detectorId, Clock clock) {
         this.detectorId = detectorId;
         this.detectorDef = null;
         this.partitonNumber = -1;
@@ -182,7 +182,8 @@ public class TransportState {
      * @param stateTtl time to leave for the state
      * @return whether the transport state is expired
      */
+    @Override
     public boolean expired(Duration stateTtl) {
-        return lastAccessTime.plus(stateTtl).isBefore(clock.instant());
+        return expired(lastAccessTime, stateTtl, clock.instant());
     }
 }

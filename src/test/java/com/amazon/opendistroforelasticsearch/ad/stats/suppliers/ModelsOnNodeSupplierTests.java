@@ -56,16 +56,10 @@ public class ModelsOnNodeSupplierTests extends ESTestCase {
         expectedResults = new ArrayList<>(
             Arrays
                 .asList(
-                    new ModelState<>(rcf, "rcf-model-1", "detector-1", ModelManager.ModelType.RCF.getName(), clock.instant()),
-                    new ModelState<>(thresholdingModel, "thr-model-1", "detector-1", ModelManager.ModelType.RCF.getName(), clock.instant()),
-                    new ModelState<>(rcf, "rcf-model-2", "detector-2", ModelManager.ModelType.THRESHOLD.getName(), clock.instant()),
-                    new ModelState<>(
-                        thresholdingModel,
-                        "thr-model-2",
-                        "detector-2",
-                        ModelManager.ModelType.THRESHOLD.getName(),
-                        clock.instant()
-                    )
+                    new ModelState<>(rcf, "rcf-model-1", "detector-1", ModelManager.ModelType.RCF.getName(), clock, 0f),
+                    new ModelState<>(thresholdingModel, "thr-model-1", "detector-1", ModelManager.ModelType.RCF.getName(), clock, 0f),
+                    new ModelState<>(rcf, "rcf-model-2", "detector-2", ModelManager.ModelType.THRESHOLD.getName(), clock, 0f),
+                    new ModelState<>(thresholdingModel, "thr-model-2", "detector-2", ModelManager.ModelType.THRESHOLD.getName(), clock, 0f)
                 )
         );
 

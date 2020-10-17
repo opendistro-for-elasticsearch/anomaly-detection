@@ -1,0 +1,18 @@
+{
+  "dynamic": true,
+  "_meta": {
+    "schema_version": 1
+  },
+  "properties": {
+    "detectorId": {
+      "type": "keyword"
+    },
+    "model": {
+      "type": "text"
+    },
+    "timestamp": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    }
+  }
+}

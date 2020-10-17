@@ -141,12 +141,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         channel = mock(ActionListener.class);
 
-        // final RestRequest restRequest = createRestRequest(Method.POST);
-
-        // when(channel.request()).thenReturn(restRequest);
-        // when(channel.newErrorBuilder()).thenReturn(JsonXContent.contentBuilder());
-        // when(channel.detailedErrorsEnabled()).thenReturn(true);
-
         anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
         when(anomalyDetectionIndices.doesAnomalyDetectorIndexExist()).thenReturn(true);
 
@@ -202,7 +196,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             IllegalArgumentException.class,
             () -> TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a", "b"))
         );
-        ;
     }
 
     @SuppressWarnings("unchecked")

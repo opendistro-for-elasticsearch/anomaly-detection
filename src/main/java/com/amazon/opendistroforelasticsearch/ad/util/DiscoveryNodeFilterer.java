@@ -62,6 +62,14 @@ public class DiscoveryNodeFilterer {
     }
 
     /**
+     *
+     * @return the number of eligible data nodes
+     */
+    public int getNumberOfEligibleDataNodes() {
+        return getEligibleDataNodes().length;
+    }
+
+    /**
      * @param node a discovery node
      * @return whether we should use this node for AD
      */

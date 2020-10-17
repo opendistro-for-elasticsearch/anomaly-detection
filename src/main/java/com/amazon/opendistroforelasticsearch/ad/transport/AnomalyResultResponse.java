@@ -65,10 +65,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         int size = in.readVInt();
         features = new ArrayList<FeatureData>();
         for (int i = 0; i < size; i++) {
-            String featureId = in.readString();
-            String featureName = in.readString();
-            double featureValue = in.readDouble();
-            features.add(new FeatureData(featureId, featureName, featureValue));
+            features.add(new FeatureData(in));
         }
         error = in.readOptionalString();
     }
@@ -100,9 +97,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         out.writeDouble(anomalyScore);
         out.writeVInt(features.size());
         for (FeatureData feature : features) {
-            out.writeString(feature.getFeatureId());
-            out.writeString(feature.getFeatureName());
-            out.writeDouble(feature.getData());
+            feature.writeTo(out);
         }
         if (error != null) {
             out.writeBoolean(true);

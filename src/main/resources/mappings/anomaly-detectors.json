@@ -140,6 +140,9 @@
           }
         }
       }
+    },
+    "category_field": {
+      "type": "keyword"
     }
   }
 }

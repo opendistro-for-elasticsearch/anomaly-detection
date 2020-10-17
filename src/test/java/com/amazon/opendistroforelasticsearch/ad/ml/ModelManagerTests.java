@@ -19,7 +19,7 @@ import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -56,6 +57,7 @@ import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.monitor.jvm.JvmService;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,8 +71,12 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
+import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
+import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.rcf.CombinedRcfResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
@@ -106,6 +112,15 @@ public class ModelManagerTests {
     @Mock
     private Clock clock;
 
+    @Mock
+    private FeatureManager featureManager;
+
+    @Mock
+    private EntityColdStarter entityColdStarter;
+
+    @Mock
+    private EntityCache cache;
+
     private Gson gson;
 
     private double modelDesiredSizePercentage;
@@ -125,11 +140,14 @@ public class ModelManagerTests {
     private int minPreviewSize;
     private Duration modelTtl;
     private Duration checkpointInterval;
-
     private RandomCutForest rcf;
+    private ModelPartitioner modelPartitioner;
 
     @Mock
     private HybridThresholdingModel hybridThresholdingModel;
+
+    @Mock
+    private ThreadPool threadPool;
 
     private String detectorId;
     private String modelId;
@@ -152,6 +170,7 @@ public class ModelManagerTests {
 
     @Mock
     private ActionListener<ThresholdingResult> thresholdResultListener;
+    private MemoryTracker memoryTracker;
 
     @Before
     public void setup() {
@@ -194,19 +213,31 @@ public class ModelManagerTests {
 
         settings = Settings.builder().put("opendistro.anomaly_detection.model_max_size_percent", modelMaxSizePercentage).build();
         ClusterSettings clusterSettings = PowerMockito.mock(ClusterSettings.class);
-
         clusterService = new ClusterService(settings, clusterSettings, null);
+        MemoryTracker memoryTracker = new MemoryTracker(
+            jvmService,
+            modelMaxSizePercentage,
+            modelDesiredSizePercentage,
+            clusterService,
+            numSamples
+        );
+
+        ExecutorService executorService = mock(ExecutorService.class);
+        when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(executorService).execute(any(Runnable.class));
+
+        modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
 
         modelManager = spy(
             new ModelManager(
-                nodeFilter,
-                jvmService,
                 rcfSerde,
                 checkpointDao,
                 gson,
                 clock,
-                modelDesiredSizePercentage,
-                modelMaxSizePercentage,
                 numTrees,
                 numSamples,
                 rcfTimeDecay,
@@ -221,7 +252,10 @@ public class ModelManagerTests {
                 minPreviewSize,
                 modelTtl,
                 checkpointInterval,
-                clusterService
+                entityColdStarter,
+                modelPartitioner,
+                featureManager,
+                memoryTracker
             )
         );
 
@@ -355,11 +389,18 @@ public class ModelManagerTests {
         ImmutableOpenMap<String, DiscoveryNode> dataNodes,
         Entry<Integer, Integer> expected
     ) {
-        when(modelManager.estimateModelSize(rcf)).thenReturn(totalModelSize);
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
+        MemoryTracker memoryTracker = spy(
+            new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, numSamples)
+        );
+
+        when(memoryTracker.estimateModelSize(rcf)).thenReturn(totalModelSize);
+
+        modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
+
         when(nodeFilter.getEligibleDataNodes()).thenReturn(dataNodes.values().toArray(DiscoveryNode.class));
 
-        assertEquals(expected, modelManager.getPartitionedForestSizes(rcf, "id"));
+        assertEquals(expected, modelPartitioner.getPartitionedForestSizes(rcf, "id"));
     }
 
     private Object[] getPartitionedForestSizesLimitExceededData() {
@@ -378,11 +419,16 @@ public class ModelManagerTests {
         long heapSize,
         ImmutableOpenMap<String, DiscoveryNode> dataNodes
     ) {
-        when(modelManager.estimateModelSize(rcf)).thenReturn(totalModelSize);
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
+        MemoryTracker memoryTracker = spy(
+            new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, numSamples)
+        );
+        when(memoryTracker.estimateModelSize(rcf)).thenReturn(totalModelSize);
+        modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
+
         when(nodeFilter.getEligibleDataNodes()).thenReturn(dataNodes.values().toArray(DiscoveryNode.class));
 
-        modelManager.getPartitionedForestSizes(rcf, "id");
+        modelPartitioner.getPartitionedForestSizes(rcf, "id");
     }
 
     private Object[] estimateModelSizeData() {
@@ -393,7 +439,7 @@ public class ModelManagerTests {
 
     @Parameters(method = "estimateModelSizeData")
     public void estimateModelSize_returnExpected(RandomCutForest rcf, long expectedSize) {
-        assertEquals(expectedSize, modelManager.estimateModelSize(rcf));
+        assertEquals(expectedSize, memoryTracker.estimateModelSize(rcf));
     }
 
     @Test
@@ -455,9 +501,46 @@ public class ModelManagerTests {
             return null;
         }).when(checkpointDao).getModelCheckpoint(eq(rcfModelId), any(ActionListener.class));
         when(rcfSerde.fromJson(checkpoint)).thenReturn(rcf);
+
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(1_000L);
+        MemoryTracker memoryTracker = new MemoryTracker(
+            jvmService,
+            modelMaxSizePercentage,
+            modelDesiredSizePercentage,
+            clusterService,
+            numSamples
+        );
 
         ActionListener<RcfResult> listener = mock(ActionListener.class);
+
+        // use new memoryTracker
+        modelManager = spy(
+            new ModelManager(
+                rcfSerde,
+                checkpointDao,
+                gson,
+                clock,
+                numTrees,
+                numSamples,
+                rcfTimeDecay,
+                numMinSamples,
+                thresholdMinPvalue,
+                thresholdMaxRankError,
+                thresholdMaxScore,
+                thresholdNumLogNormalQuantiles,
+                thresholdDownsamples,
+                thresholdMaxSamples,
+                thresholdingModelClass,
+                minPreviewSize,
+                modelTtl,
+                checkpointInterval,
+                entityColdStarter,
+                modelPartitioner,
+                featureManager,
+                memoryTracker
+            )
+        );
+
         modelManager.getRcfResult(detectorId, rcfModelId, new double[0], listener);
 
         verify(listener).onFailure(any(LimitExceededException.class));
@@ -482,7 +565,7 @@ public class ModelManagerTests {
         ActionListener<ThresholdingResult> listener = mock(ActionListener.class);
         modelManager.getThresholdingResult(detectorId, thresholdModelId, score, listener);
 
-        ThresholdingResult expected = new ThresholdingResult(grade, confidence);
+        ThresholdingResult expected = new ThresholdingResult(grade, confidence, score);
         verify(listener).onResponse(eq(expected));
 
         listener = mock(ActionListener.class);
@@ -720,12 +803,12 @@ public class ModelManagerTests {
     @Test
     public void trainModel_putTrainedModels() {
         double[][] trainData = new Random().doubles().limit(100).mapToObj(d -> new double[] { d }).toArray(double[][]::new);
-        doReturn(new SimpleEntry<>(1, 10)).when(modelManager).getPartitionedForestSizes(anyObject(), anyObject());
+        doReturn(new SimpleEntry<>(1, 10)).when(modelPartitioner).getPartitionedForestSizes(anyObject(), anyObject());
         doReturn(asList("feature1")).when(anomalyDetector).getEnabledFeatureIds();
         modelManager.trainModel(anomalyDetector, trainData);
 
-        verify(checkpointDao).putModelCheckpoint(eq(modelManager.getRcfModelId(anomalyDetector.getDetectorId(), 0)), anyObject());
-        verify(checkpointDao).putModelCheckpoint(eq(modelManager.getThresholdModelId(anomalyDetector.getDetectorId())), anyObject());
+        verify(checkpointDao).putModelCheckpoint(eq(modelPartitioner.getRcfModelId(anomalyDetector.getDetectorId(), 0)), anyObject());
+        verify(checkpointDao).putModelCheckpoint(eq(modelPartitioner.getThresholdModelId(anomalyDetector.getDetectorId())), anyObject());
     }
 
     private Object[] trainModelIllegalArgumentData() {
@@ -742,7 +825,7 @@ public class ModelManagerTests {
     @SuppressWarnings("unchecked")
     public void trainModel_returnExpectedToListener_putCheckpoints() {
         double[][] trainData = new Random().doubles().limit(100).mapToObj(d -> new double[] { d }).toArray(double[][]::new);
-        doReturn(new SimpleEntry<>(2, 10)).when(modelManager).getPartitionedForestSizes(anyObject(), anyObject());
+        doReturn(new SimpleEntry<>(2, 10)).when(modelPartitioner).getPartitionedForestSizes(anyObject(), anyObject());
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(2);
             listener.onResponse(null);
@@ -769,7 +852,7 @@ public class ModelManagerTests {
     @Test
     @SuppressWarnings("unchecked")
     public void trainModel_throwLimitExceededToListener_whenLimitExceed() {
-        doThrow(new LimitExceededException(null, null)).when(modelManager).getPartitionedForestSizes(anyObject(), anyObject());
+        doThrow(new LimitExceededException(null, null)).when(modelPartitioner).getPartitionedForestSizes(anyObject(), anyObject());
 
         ActionListener<Void> listener = mock(ActionListener.class);
         modelManager.trainModel(anomalyDetector, new double[][] { { 0 } }, listener);
@@ -779,14 +862,14 @@ public class ModelManagerTests {
 
     @Test
     public void getRcfModelId_returnNonEmptyString() {
-        String rcfModelId = modelManager.getRcfModelId(anomalyDetector.getDetectorId(), 0);
+        String rcfModelId = modelPartitioner.getRcfModelId(anomalyDetector.getDetectorId(), 0);
 
         assertFalse(rcfModelId.isEmpty());
     }
 
     @Test
     public void getThresholdModelId_returnNonEmptyString() {
-        String thresholdModelId = modelManager.getThresholdModelId(anomalyDetector.getDetectorId());
+        String thresholdModelId = modelPartitioner.getThresholdModelId(anomalyDetector.getDetectorId());
 
         assertFalse(thresholdModelId.isEmpty());
     }

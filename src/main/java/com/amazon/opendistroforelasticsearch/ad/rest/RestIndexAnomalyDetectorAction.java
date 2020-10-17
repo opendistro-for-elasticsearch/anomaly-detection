@@ -57,6 +57,7 @@ import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorRequest;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse;
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -124,6 +125,7 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
             ? WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
             : WriteRequest.RefreshPolicy.IMMEDIATE;
         RestRequest.Method method = request.getHttpRequest().method();
+        String authHeader = request.header(ConfigConstants.AUTHORIZATION);
 
         IndexAnomalyDetectorRequest indexAnomalyDetectorRequest = new IndexAnomalyDetectorRequest(
             detectorId,
@@ -135,7 +137,8 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
             requestTimeout,
             maxSingleEntityDetectors,
             maxMultiEntityDetectors,
-            maxAnomalyFeatures
+            maxAnomalyFeatures,
+            authHeader
         );
 
         return channel -> client

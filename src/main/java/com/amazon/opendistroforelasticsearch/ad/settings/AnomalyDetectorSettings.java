@@ -147,6 +147,9 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
+    public static final Setting<Boolean> FILTER_BY_BACKEND_ROLES = Setting
+        .boolSetting("opendistro.anomaly_detection.filter_by_backend_roles", false, Setting.Property.NodeScope, Setting.Property.Dynamic);
+
     public static final String ANOMALY_DETECTORS_INDEX_MAPPING_FILE = "mappings/anomaly-detectors.json";
     public static final String ANOMALY_DETECTOR_JOBS_INDEX_MAPPING_FILE = "mappings/anomaly-detector-jobs.json";
     public static final String ANOMALY_RESULTS_INDEX_MAPPING_FILE = "mappings/anomaly-results.json";

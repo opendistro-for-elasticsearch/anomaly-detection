@@ -39,6 +39,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.common.CheckedConsumer;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.rest.BytesRestResponse;
@@ -102,16 +103,20 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         boolean all = request.isAll();
         boolean returnJob = request.isReturnJob();
 
-        if (!Strings.isEmpty(typesStr) || rawPath.endsWith(PROFILE) || rawPath.endsWith(PROFILE + "/")) {
-            profileRunner.profile(detectorID, getProfileActionListener(listener, detectorID), getProfilesToCollect(typesStr, all));
-        } else {
-            MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorID).version(version);
-            MultiGetRequest multiGetRequest = new MultiGetRequest().add(adItem);
-            if (returnJob) {
-                MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(ANOMALY_DETECTOR_JOB_INDEX, detectorID).version(version);
-                multiGetRequest.add(adJobItem);
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            if (!Strings.isEmpty(typesStr) || rawPath.endsWith(PROFILE) || rawPath.endsWith(PROFILE + "/")) {
+                profileRunner.profile(detectorID, getProfileActionListener(listener, detectorID), getProfilesToCollect(typesStr, all));
+            } else {
+                MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorID).version(version);
+                MultiGetRequest multiGetRequest = new MultiGetRequest().add(adItem);
+                if (returnJob) {
+                    MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(ANOMALY_DETECTOR_JOB_INDEX, detectorID).version(version);
+                    multiGetRequest.add(adJobItem);
+                }
+                client.multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, detectorID));
             }
-            client.multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, detectorID));
+        } catch (Exception e) {
+            LOG.error(e);
         }
     }
 

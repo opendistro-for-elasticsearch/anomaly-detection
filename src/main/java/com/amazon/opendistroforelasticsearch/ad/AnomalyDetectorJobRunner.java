@@ -59,6 +59,7 @@ import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTransport
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter;
@@ -426,6 +427,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) ((AnomalyDetectorJob) jobParameter).getWindowDelay();
             Instant dataStartTime = detectionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
             Instant dataEndTime = executionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
+            User user = ((AnomalyDetectorJob) jobParameter).getUser();
 
             if (response.getError() != null) {
                 log.info("Anomaly result action run successfully for {} with error {}", detectorId, response.getError());
@@ -440,7 +442,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 dataEndTime,
                 executionStartTime,
                 Instant.now(),
-                response.getError()
+                response.getError(),
+                user
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
             detectionStateHandler.saveError(response.getError(), detectorId);
@@ -484,6 +487,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) ((AnomalyDetectorJob) jobParameter).getWindowDelay();
             Instant dataStartTime = detectionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
             Instant dataEndTime = executionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
+            User user = ((AnomalyDetectorJob) jobParameter).getUser();
 
             AnomalyResult anomalyResult = new AnomalyResult(
                 detectorId,
@@ -495,7 +499,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 dataEndTime,
                 executionStartTime,
                 Instant.now(),
-                errorMessage
+                errorMessage,
+                user
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
             detectionStateHandler.saveError(errorMessage, detectorId);

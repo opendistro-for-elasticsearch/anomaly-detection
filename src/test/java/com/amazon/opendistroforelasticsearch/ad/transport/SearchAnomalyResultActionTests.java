@@ -16,6 +16,12 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 
 import org.apache.lucene.index.IndexNotFoundException;
 import org.elasticsearch.action.ActionListener;
@@ -23,27 +29,52 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.ActionFilters;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
+import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
 public class SearchAnomalyResultActionTests extends ESIntegTestCase {
     private SearchAnomalyResultTransportAction action;
     private Task task;
     private ActionListener<SearchResponse> response;
+    private ClusterService clusterService;
+    private Client client;
 
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        action = new SearchAnomalyResultTransportAction(mock(Settings.class), mock(TransportService.class), clusterService(), mock(ActionFilters.class), client(), mock(RestClient.class));
+        clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        ThreadPool threadPool = mock(ThreadPool.class);
+        client = mock(Client.class);
+        ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
+        when(client.threadPool()).thenReturn(threadPool);
+        when(client.threadPool().getThreadContext()).thenReturn(threadContext);
+        action = new SearchAnomalyResultTransportAction(
+            Settings.EMPTY,
+            mock(TransportService.class),
+            clusterService,
+            mock(ActionFilters.class),
+            client,
+            mock(RestClient.class)
+        );
         task = mock(Task.class);
         response = new ActionListener<SearchResponse>() {
             @Override

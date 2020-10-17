@@ -23,8 +23,6 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 import java.io.IOException;
 import java.util.List;
 
-import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyRequest;
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionType;
@@ -50,6 +48,8 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyRequest;
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import com.google.common.collect.ImmutableList;
 
 /**

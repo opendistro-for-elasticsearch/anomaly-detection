@@ -35,7 +35,9 @@ import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
 
+@ThreadLeakScope(ThreadLeakScope.Scope.NONE)
 public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
 
     private AnomalyDetectionIndices indices;

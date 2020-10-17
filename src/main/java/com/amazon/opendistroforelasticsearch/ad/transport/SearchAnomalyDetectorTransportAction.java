@@ -15,9 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
-import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder;
-import com.amazon.opendistroforelasticsearch.commons.authuser.User;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+
+import java.io.IOException;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -31,25 +34,31 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.TermsQueryBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
-import java.io.IOException;
-
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 public class SearchAnomalyDetectorTransportAction extends HandledTransportAction<SearchAnomalyRequest, SearchResponse> {
+    private final Logger logger = LogManager.getLogger(SearchAnomalyDetectorTransportAction.class);
 
     private final Client client;
     private final RestClient restClient;
     private volatile Boolean filterEnabled;
 
     @Inject
-    public SearchAnomalyDetectorTransportAction(Settings settings, TransportService transportService, ClusterService clusterService, ActionFilters actionFilters, Client client, RestClient restClient) {
+    public SearchAnomalyDetectorTransportAction(
+        Settings settings,
+        TransportService transportService,
+        ClusterService clusterService,
+        ActionFilters actionFilters,
+        Client client,
+        RestClient restClient
+    ) {
         super(SearchAnomalyDetectorAction.NAME, transportService, actionFilters, SearchAnomalyRequest::new);
         this.client = client;
         this.restClient = restClient;
@@ -59,13 +68,10 @@ public class SearchAnomalyDetectorTransportAction extends HandledTransportAction
 
     @Override
     protected void doExecute(Task task, SearchAnomalyRequest request, ActionListener<SearchResponse> listener) {
-        client.threadPool().getThreadContext().stashContext();
-        try {
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             validateRole(request, listener);
         } catch (Exception e) {
             logger.error(e);
-        } finally {
-            client.threadPool().getThreadContext().stashContext().close();
         }
     }
 
@@ -86,7 +92,7 @@ public class SearchAnomalyDetectorTransportAction extends HandledTransportAction
                 public void onSuccess(Response response) {
                     try {
                         User user = new User(response);
-                        addFilter(user, request.getSearchRequest().source(), "user.backend_roles");
+                        RestHandlerUtils.addFilter(user, request.getSearchRequest().source(), "user.backend_roles");
                         logger.info("Filtering result by " + user.getBackendRoles());
                         search(request.getSearchRequest(), listener);
                     } catch (IOException e) {
@@ -114,12 +120,5 @@ public class SearchAnomalyDetectorTransportAction extends HandledTransportAction
                 listener.onFailure(e);
             }
         });
-    }
-
-    //TODO vemsarat@ move it to a common place
-    private void addFilter(User user, SearchSourceBuilder searchSourceBuilder, String fieldName) {
-        TermsQueryBuilder filterBackendRoles = QueryBuilders.termsQuery(fieldName, user.getBackendRoles());
-        BoolQueryBuilder queryBuilder = (BoolQueryBuilder) searchSourceBuilder.query();
-        searchSourceBuilder.query(queryBuilder.filter(filterBackendRoles));
     }
 }

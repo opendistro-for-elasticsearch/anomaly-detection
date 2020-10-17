@@ -34,6 +34,7 @@ import org.elasticsearch.common.xcontent.XContentParser;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.base.Objects;
 
 /**
@@ -60,6 +61,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public static final String EXECUTION_END_TIME_FIELD = "execution_end_time";
     public static final String ERROR_FIELD = "error";
     public static final String ENTITY_FIELD = "entity";
+    public static final String USER_FIELD = "user";
 
     private final String detectorId;
     private final Double anomalyScore;
@@ -72,6 +74,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     private final Instant executionEndTime;
     private final String error;
     private final List<Entity> entity;
+    private User user;
 
     public AnomalyResult(
         String detectorId,
@@ -83,7 +86,8 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Instant dataEndTime,
         Instant executionStartTime,
         Instant executionEndTime,
-        String error
+        String error,
+        User user
     ) {
         this(
             detectorId,
@@ -96,7 +100,8 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             executionStartTime,
             executionEndTime,
             error,
-            null
+            null,
+            user
         );
     }
 
@@ -111,7 +116,8 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Instant executionStartTime,
         Instant executionEndTime,
         String error,
-        List<Entity> entity
+        List<Entity> entity,
+        User user
     ) {
         this.detectorId = detectorId;
         this.anomalyScore = anomalyScore;
@@ -124,6 +130,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.executionEndTime = executionEndTime;
         this.error = error;
         this.entity = entity;
+        this.user = user;
     }
 
     public AnomalyResult(StreamInput input) throws IOException {
@@ -145,6 +152,11 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.entity = new ArrayList<Entity>(entitySize);
         for (int i = 0; i < entitySize; i++) {
             entity.add(new Entity(input));
+        }
+        if (input.readBoolean()) {
+            this.user = new User(input);
+        } else {
+            user = null;
         }
     }
 
@@ -182,6 +194,9 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         if (entity != null) {
             xContentBuilder.field(ENTITY_FIELD, entity.toArray());
         }
+        if (user != null) {
+            xContentBuilder.field(USER_FIELD, user);
+        }
         return xContentBuilder.endObject();
     }
 
@@ -197,6 +212,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Instant executionEndTime = null;
         String error = null;
         List<Entity> entityList = null;
+        User user = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -244,6 +260,9 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                         entityList.add(Entity.parse(parser));
                     }
                     break;
+                case USER_FIELD:
+                    user = User.parse(parser);
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -260,7 +279,8 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             executionStartTime,
             executionEndTime,
             error,
-            entityList
+            entityList,
+            user
         );
     }
 
@@ -384,6 +404,12 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         out.writeVInt(entity.size());
         for (Entity entityItem : entity) {
             entityItem.writeTo(out);
+        }
+        if (user != null) {
+            out.writeBoolean(true); // user exists
+            user.writeTo(out);
+        } else {
+            out.writeBoolean(false); // user does not exist
         }
     }
 }

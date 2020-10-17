@@ -30,7 +30,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder;
 import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
@@ -144,6 +143,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import com.amazon.opendistroforelasticsearch.ad.util.ThrowingConsumerWrapper;
+import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner;
@@ -298,7 +298,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         try {
             this.restClient = new SecureRestClientBuilder(settings, environment.configFile()).build();
         } catch (IOException e) {
-            //TODO vemsarat
             e.printStackTrace();
         }
 

@@ -76,6 +76,7 @@ import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.Index;
@@ -229,7 +230,12 @@ public class AnomalyResultTests extends AbstractADTest {
         adCircuitBreakerService = mock(ADCircuitBreakerService.class);
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
+        // client = mock(Client.class);
+        ThreadPool threadPool = mock(ThreadPool.class);
         client = mock(Client.class);
+        ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
+        when(client.threadPool()).thenReturn(threadPool);
+        when(client.threadPool().getThreadContext()).thenReturn(threadContext);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 2);
@@ -314,6 +320,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -429,6 +436,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             realTransportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -501,6 +509,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -535,6 +544,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -631,6 +641,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             realTransportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -667,6 +678,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -731,6 +743,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             exceptionTransportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -796,6 +809,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             muteStateManager,
             featureQuery,
             normalModelManager,
@@ -828,6 +842,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -980,6 +995,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1041,6 +1057,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1075,6 +1092,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1115,6 +1133,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1155,6 +1174,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1202,6 +1222,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1285,6 +1306,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1329,6 +1351,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1360,6 +1383,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1415,6 +1439,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
+            client,
             stateManager,
             featureQuery,
             normalModelManager,

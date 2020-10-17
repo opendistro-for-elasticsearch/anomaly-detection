@@ -45,6 +45,7 @@ import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.ClusterState;
@@ -183,7 +184,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry()
+            xContentRegistry(),
+            mock(RestClient.class),
+            "authHeader"
         );
     }
 
@@ -236,7 +239,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry()
+            xContentRegistry(),
+            mock(RestClient.class),
+            "authHeader"
         );
 
         handler.start();
@@ -297,7 +302,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry()
+            xContentRegistry(),
+            mock(RestClient.class),
+            "authHeader"
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -371,7 +378,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry()
+            xContentRegistry(),
+            mock(RestClient.class),
+            "authHeader"
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -462,7 +471,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             RestRequest.Method.PUT,
-            xContentRegistry()
+            xContentRegistry(),
+            mock(RestClient.class),
+            "authHeader"
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);

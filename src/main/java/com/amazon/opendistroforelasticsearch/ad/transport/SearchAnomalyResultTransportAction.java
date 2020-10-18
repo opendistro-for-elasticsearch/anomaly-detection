@@ -72,6 +72,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
             validateRole(request, listener);
         } catch (Exception e) {
             logger.error(e);
+            listener.onFailure(e);
         }
     }
 
@@ -93,7 +94,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
                     try {
                         User user = new User(response);
                         RestHandlerUtils.addFilter(user, request.getSearchRequest().source(), "user.backend_roles");
-                        logger.info("Filtering result by " + user.getBackendRoles());
+                        logger.debug("Filtering result by " + user.getBackendRoles());
                         search(request.getSearchRequest(), listener);
                     } catch (IOException e) {
                         listener.onFailure(e);

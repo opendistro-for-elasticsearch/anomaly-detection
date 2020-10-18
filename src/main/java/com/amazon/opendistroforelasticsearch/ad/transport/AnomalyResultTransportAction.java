@@ -241,6 +241,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
         } catch (Exception e) {
             LOG.error(e);
+            listener.onFailure(e);
         }
     }
 

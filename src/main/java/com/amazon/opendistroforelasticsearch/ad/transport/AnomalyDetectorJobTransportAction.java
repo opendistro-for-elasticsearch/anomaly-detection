@@ -91,6 +91,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
             }
         } catch (IOException e) {
             logger.error(e);
+            listener.onFailure(e);
         }
     }
 }

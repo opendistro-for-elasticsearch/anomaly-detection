@@ -100,6 +100,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
             indexAnomalyDetectorActionHandler.resolveUserAndStart();
         } catch (Exception e) {
             LOG.error(e);
+            listener.onFailure(e);
         }
     }
 }

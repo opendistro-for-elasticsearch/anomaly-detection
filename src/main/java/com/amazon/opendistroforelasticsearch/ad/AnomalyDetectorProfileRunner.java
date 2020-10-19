@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.CATEGORY_FIELD_LIMIT;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -158,7 +159,7 @@ public class AnomalyDetectorProfileRunner {
 
                     if (profilesToCollect.contains(ProfileName.ERROR)) {
                         GetRequest getStateRequest = new GetRequest(DetectorInternalState.DETECTOR_STATE_INDEX, detectorId);
-                        client.get(getStateRequest, onGetDetectorState(listener, detectorId, enabledTimeMs));// +1
+                        client.get(getStateRequest, onGetDetectorState(listener, detectorId, enabledTimeMs));
                     }
 
                     GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
@@ -258,8 +259,11 @@ public class AnomalyDetectorProfileRunner {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
                     AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId);
                     List<String> categoryField = detector.getCategoryField();
-                    if (categoryField == null || categoryField.size() != 1) {
-                        listener.onResponse(new EntityProfile(categoryField.get(0), entityValue, false));
+                    if (categoryField == null || categoryField.size() == 0) {
+                        listener.onFailure(new InvalidParameterException("This is not a high cardinality detector"));
+                    } else if (categoryField.size() > CATEGORY_FIELD_LIMIT) {
+                        listener
+                            .onFailure(new InvalidParameterException("We don't support more category fields than " + CATEGORY_FIELD_LIMIT));
                     } else {
                         EntityProfileRequest request = new EntityProfileRequest(detectorId, entityValue);
                         client

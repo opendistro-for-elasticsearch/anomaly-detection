@@ -287,25 +287,37 @@ public class IndexAnomalyDetectorActionHandler {
             // example getMappingsResponse:
             // GetFieldMappingsResponse{mappings={server-metrics={_doc={service=FieldMappingMetadata{fullName='service',
             // source=org.elasticsearch.common.bytes.BytesArray@7ba87dbd}}}}}
+            // for nested field, it would be
+            // GetFieldMappingsResponse{mappings={server-metrics={_doc={host_nest.host2=FieldMappingMetadata{fullName='host_nest.host2',
+            // source=org.elasticsearch.common.bytes.BytesArray@8fb4de08}}}}}
             boolean foundField = false;
             Map<String, Map<String, Map<String, FieldMappingMetadata>>> mappingsByIndex = getMappingsResponse.mappings();
 
             for (Map<String, Map<String, FieldMappingMetadata>> mappingsByType : mappingsByIndex.values()) {
                 for (Map<String, FieldMappingMetadata> mappingsByField : mappingsByType.values()) {
                     for (Map.Entry<String, FieldMappingMetadata> field2Metadata : mappingsByField.entrySet()) {
+                        // example output:
+                        // host_nest.host2=FieldMappingMetadata{fullName='host_nest.host2',
+                        // source=org.elasticsearch.common.bytes.BytesArray@8fb4de08}
                         FieldMappingMetadata fieldMetadata = field2Metadata.getValue();
 
                         if (fieldMetadata != null) {
-                            Object metadata = fieldMetadata.sourceAsMap().get(categoryField0);
-                            if (metadata != null && metadata instanceof Map) {
-                                foundField = true;
-                                Map<String, Object> metadataMap = (Map<String, Object>) metadata;
-                                String typeName = (String) metadataMap.get(CommonName.TYPE);
-                                if (!typeName.equals(CommonName.KEYWORD_TYPE) && !typeName.equals(CommonName.IP_TYPE)) {
-                                    listener.onFailure(new IllegalArgumentException(CATEGORICAL_FIELD_TYPE_ERR_MSG));
-                                    return;
+                            // sourceAsMap returns sth like {host2={type=keyword}} with host2 being a nested field
+                            Map<String, Object> fieldMap = fieldMetadata.sourceAsMap();
+                            if (fieldMap != null) {
+                                for (Object type : fieldMap.values()) {
+                                    if (type != null && type instanceof Map) {
+                                        foundField = true;
+                                        Map<String, Object> metadataMap = (Map<String, Object>) type;
+                                        String typeName = (String) metadataMap.get(CommonName.TYPE);
+                                        if (!typeName.equals(CommonName.KEYWORD_TYPE) && !typeName.equals(CommonName.IP_TYPE)) {
+                                            listener.onFailure(new IllegalArgumentException(CATEGORICAL_FIELD_TYPE_ERR_MSG));
+                                            return;
+                                        }
+                                    }
                                 }
                             }
+
                         }
                     }
                 }

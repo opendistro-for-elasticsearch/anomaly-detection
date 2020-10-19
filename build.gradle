@@ -44,7 +44,7 @@ repositories {
 }
 
 ext {
-    opendistroVersion = '1.10.1'
+    opendistroVersion = '1.11.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
@@ -307,7 +307,7 @@ checkstyle {
 dependencies {
     compile "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.10.1.1"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.11.0.0"
     // Will be moved to Maven Depedency when https://github.com/opendistro-for-elasticsearch/common-utils repo publishes a release
     compile files('libs/common-utils-1.10.1.0.jar')
     compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'

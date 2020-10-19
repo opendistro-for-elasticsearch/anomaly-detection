@@ -69,7 +69,8 @@ public class ProfileTransportActionTests extends ESIntegTestCase {
             mock(TransportService.class),
             mock(ActionFilters.class),
             modelManager,
-            featureManager
+            featureManager,
+            null
         );
 
         profilesToRetrieve = new HashSet<ProfileName>();
@@ -81,7 +82,7 @@ public class ProfileTransportActionTests extends ESIntegTestCase {
         DiscoveryNode node = clusterService().localNode();
         ProfileRequest profileRequest = new ProfileRequest(detectorId, profilesToRetrieve, node);
 
-        ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(node, new HashMap<>(), shingleSize);
+        ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(node, new HashMap<>(), shingleSize, 0, 0);
         List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1);
         List<FailedNodeException> failures = new ArrayList<>();
 

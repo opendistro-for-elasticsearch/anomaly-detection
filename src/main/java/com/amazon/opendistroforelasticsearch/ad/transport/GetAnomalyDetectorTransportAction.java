@@ -99,11 +99,30 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         Long version = request.getVersion();
         String typesStr = request.getTypeStr();
         String rawPath = request.getRawPath();
+        String entityValue = request.getEntityValue();
         boolean all = request.isAll();
         boolean returnJob = request.isReturnJob();
 
         if (!Strings.isEmpty(typesStr) || rawPath.endsWith(PROFILE) || rawPath.endsWith(PROFILE + "/")) {
-            profileRunner.profile(detectorID, getProfileActionListener(listener, detectorID), getProfilesToCollect(typesStr, all));
+            if (entityValue != null) {
+                profileRunner
+                    .profileEntity(
+                        detectorID,
+                        entityValue,
+                        ActionListener
+                            .wrap(
+                                profile -> {
+                                    listener
+                                        .onResponse(
+                                            new GetAnomalyDetectorResponse(0, null, 0, 0, null, null, false, null, null, profile, true)
+                                        );
+                                },
+                                e -> listener.onFailure(e)
+                            )
+                    );
+            } else {
+                profileRunner.profile(detectorID, getProfileActionListener(listener, detectorID), getProfilesToCollect(typesStr, all));
+            }
         } else {
             MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorID).version(version);
             MultiGetRequest multiGetRequest = new MultiGetRequest().add(adItem);
@@ -186,6 +205,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                             returnJob,
                             RestStatus.OK,
                             null,
+                            null,
                             false
                         )
                     );
@@ -205,7 +225,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         return ActionListener.wrap(new CheckedConsumer<DetectorProfile, Exception>() {
             @Override
             public void accept(DetectorProfile profile) throws Exception {
-                listener.onResponse(new GetAnomalyDetectorResponse(0, null, 0, 0, null, null, false, null, profile, true));
+                listener.onResponse(new GetAnomalyDetectorResponse(0, null, 0, 0, null, null, false, null, profile, null, true));
             }
         }, exception -> { listener.onFailure(exception); });
     }

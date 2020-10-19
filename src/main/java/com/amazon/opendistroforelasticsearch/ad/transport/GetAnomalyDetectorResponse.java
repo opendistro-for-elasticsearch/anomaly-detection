@@ -27,9 +27,12 @@ import org.elasticsearch.rest.RestStatus;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
+import com.amazon.opendistroforelasticsearch.ad.model.EntityProfile;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 
 public class GetAnomalyDetectorResponse extends ActionResponse implements ToXContentObject {
+    public static final String DETECTOR_PROFILE = "detectorProfile";
+    public static final String ENTITY_PROFILE = "entityProfile";
     private long version;
     private String id;
     private long primaryTerm;
@@ -37,7 +40,8 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
     private AnomalyDetector detector;
     private AnomalyDetectorJob adJob;
     private RestStatus restStatus;
-    private DetectorProfile profile;
+    private DetectorProfile detectorProfile;
+    private EntityProfile entityProfile;
     private boolean profileResponse;
     private boolean returnJob;
 
@@ -45,9 +49,15 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
         super(in);
         profileResponse = in.readBoolean();
         if (profileResponse) {
-            profile = new DetectorProfile(in);
+            String profileType = in.readString();
+            if (DETECTOR_PROFILE.equals(profileType)) {
+                detectorProfile = new DetectorProfile(in);
+            } else {
+                entityProfile = new EntityProfile(in);
+            }
+
         } else {
-            profile = null;
+            detectorProfile = null;
             id = in.readString();
             version = in.readLong();
             primaryTerm = in.readLong();
@@ -72,7 +82,8 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
         AnomalyDetectorJob adJob,
         boolean returnJob,
         RestStatus restStatus,
-        DetectorProfile profile,
+        DetectorProfile detectorProfile,
+        EntityProfile entityProfile,
         boolean profileResponse
     ) {
         this.version = version;
@@ -87,7 +98,8 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
         } else {
             this.adJob = null;
         }
-        this.profile = profile;
+        this.detectorProfile = detectorProfile;
+        this.entityProfile = entityProfile;
         this.profileResponse = profileResponse;
     }
 
@@ -95,7 +107,13 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
     public void writeTo(StreamOutput out) throws IOException {
         if (profileResponse) {
             out.writeBoolean(true); // profileResponse is true
-            profile.writeTo(out);
+            if (detectorProfile != null) {
+                out.writeString(DETECTOR_PROFILE);
+                detectorProfile.writeTo(out);
+            } else if (entityProfile != null) {
+                out.writeString(ENTITY_PROFILE);
+                entityProfile.writeTo(out);
+            }
         } else {
             out.writeBoolean(false); // profileResponse is false
             out.writeString(id);
@@ -116,7 +134,11 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         if (profileResponse) {
-            profile.toXContent(builder, params);
+            if (detectorProfile != null) {
+                detectorProfile.toXContent(builder, params);
+            } else {
+                entityProfile.toXContent(builder, params);
+            }
         } else {
             builder.startObject();
             builder.field(RestHandlerUtils._ID, id);

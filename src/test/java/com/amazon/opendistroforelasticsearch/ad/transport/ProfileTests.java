@@ -45,6 +45,7 @@ import org.junit.Test;
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.ModelProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
 import com.google.gson.JsonArray;
@@ -135,7 +136,7 @@ public class ProfileTests extends ESTestCase {
     public void testProfileNodeResponse() throws IOException, JsonPathNotFoundException {
 
         // Test serialization
-        ProfileNodeResponse profileNodeResponse = new ProfileNodeResponse(discoveryNode1, modelSizeMap1, shingleSize);
+        ProfileNodeResponse profileNodeResponse = new ProfileNodeResponse(discoveryNode1, modelSizeMap1, shingleSize, 0, 0);
         BytesStreamOutput output = new BytesStreamOutput();
         profileNodeResponse.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
@@ -156,11 +157,7 @@ public class ProfileTests extends ESTestCase {
             );
         }
 
-        assertEquals(
-            "toXContent has the wrong shingle size",
-            JsonDeserializer.getIntValue(json, ProfileNodeResponse.SHINGLE_SIZE),
-            shingleSize
-        );
+        assertEquals("toXContent has the wrong shingle size", JsonDeserializer.getIntValue(json, CommonName.SHINGLE_SIZE), shingleSize);
     }
 
     @Test
@@ -186,8 +183,8 @@ public class ProfileTests extends ESTestCase {
     @Test
     public void testProfileResponse() throws IOException, JsonPathNotFoundException {
 
-        ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(discoveryNode1, modelSizeMap1, shingleSize);
-        ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(discoveryNode2, modelSizeMap2, -1);
+        ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(discoveryNode1, modelSizeMap1, shingleSize, 0, 0);
+        ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(discoveryNode2, modelSizeMap2, -1, 0, 0);
         List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2);
         List<FailedNodeException> failures = Collections.emptyList();
         ProfileResponse profileResponse = new ProfileResponse(new ClusterName(clusterName), profileNodeResponses, failures);

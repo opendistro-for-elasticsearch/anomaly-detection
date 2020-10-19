@@ -31,6 +31,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
@@ -165,6 +167,8 @@ import com.google.gson.Gson;
  * Entry point of AD plugin.
  */
 public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, ScriptPlugin, JobSchedulerExtension, SystemIndexPlugin {
+
+    private static final Logger LOG = LogManager.getLogger(AnomalyDetectorPlugin.class);
 
     public static final String AD_BASE_URI = "/_opendistro/_anomaly_detection";
     public static final String AD_BASE_DETECTORS_URI = AD_BASE_URI + "/detectors";
@@ -316,7 +320,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         try {
             this.restClient = new SecureRestClientBuilder(settings, environment.configFile()).build();
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error(e);
         }
 
         MemoryTracker memoryTracker = new MemoryTracker(

@@ -35,11 +35,14 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermsQueryBuilder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
-import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
@@ -93,7 +96,7 @@ public class SearchAnomalyDetectorTransportAction extends HandledTransportAction
                 public void onSuccess(Response response) {
                     try {
                         User user = new User(response);
-                        RestHandlerUtils.addFilter(user, request.getSearchRequest().source(), "user.backend_roles");
+                        addFilter(user, request.getSearchRequest().source(), "user.backend_roles");
                         logger.debug("Filtering result by " + user.getBackendRoles());
                         search(request.getSearchRequest(), listener);
                     } catch (IOException e) {
@@ -121,5 +124,15 @@ public class SearchAnomalyDetectorTransportAction extends HandledTransportAction
                 listener.onFailure(e);
             }
         });
+    }
+
+    private void addFilter(User user, SearchSourceBuilder searchSourceBuilder, String fieldName) {
+        TermsQueryBuilder filterBackendRoles = QueryBuilders.termsQuery(fieldName, user.getBackendRoles());
+        // For search detector queries, non BoolQuery is only used to find if the new detector name being created is
+        // unique, which does not need a user filter.
+        if (searchSourceBuilder.query() instanceof BoolQueryBuilder) {
+            BoolQueryBuilder queryBuilder = (BoolQueryBuilder) searchSourceBuilder.query();
+            searchSourceBuilder.query(queryBuilder.filter(filterBackendRoles));
+        }
     }
 }

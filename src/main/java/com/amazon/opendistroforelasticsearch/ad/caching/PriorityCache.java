@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.caching;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -82,7 +83,7 @@ public class PriorityCache implements EntityCache {
     private int coolDownMinutes;
     private ThreadPool threadPool;
     private Random random;
-    private final RateLimiter cacheMissHandlingLimiter;
+    private RateLimiter cacheMissHandlingLimiter;
 
     public PriorityCache(
         CheckpointDao checkpointDao,
@@ -125,6 +126,9 @@ public class PriorityCache implements EntityCache {
         this.random = new Random(42);
 
         this.cacheMissHandlingLimiter = RateLimiter.create(cacheMissRateHandlingLimiter);
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(MAX_CACHE_MISS_HANDLING_PER_SECOND, it -> this.cacheMissHandlingLimiter = RateLimiter.create(it));
     }
 
     @Override

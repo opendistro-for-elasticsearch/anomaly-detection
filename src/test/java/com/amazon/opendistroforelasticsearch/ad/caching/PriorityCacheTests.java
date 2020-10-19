@@ -32,6 +32,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
@@ -43,6 +45,7 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
 import org.elasticsearch.index.IndexNotFoundException;
@@ -114,6 +117,12 @@ public class PriorityCacheTests extends ESTestCase {
 
         clusterService = mock(ClusterService.class);
         settings = Settings.EMPTY;
+        ClusterSettings clusterSettings = new ClusterSettings(
+            settings,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
         threadPool = mock(ThreadPool.class);
         dedicatedCacheSize = 1;
         numMinSamples = 3;

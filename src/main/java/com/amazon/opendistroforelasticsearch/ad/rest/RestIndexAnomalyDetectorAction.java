@@ -51,7 +51,6 @@ import org.elasticsearch.rest.action.RestResponseListener;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorAction;
@@ -77,8 +76,7 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
 
     public RestIndexAnomalyDetectorAction(
         Settings settings,
-        ClusterService clusterService,
-        AnomalyDetectionIndices anomalyDetectionIndices
+        ClusterService clusterService
     ) {
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         this.detectionInterval = DETECTION_INTERVAL.get(settings);

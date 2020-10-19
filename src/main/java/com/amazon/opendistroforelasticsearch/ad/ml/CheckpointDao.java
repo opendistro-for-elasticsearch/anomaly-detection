@@ -60,6 +60,7 @@ import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.index.reindex.ScrollableHitSource;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.indices.ADIndex;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.util.BulkUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
@@ -342,6 +343,7 @@ public class CheckpointDao {
                 source.put(DETECTOR_ID, modelState.getDetectorId());
                 source.put(FIELD_MODEL, serializedModel);
                 source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
+                source.put(CommonName.SCHEMA_VERSION_FIELD, indexUtil.getSchemaVersion(ADIndex.CHECKPOINT));
                 requests.add(new IndexRequest(indexName).id(modelId).source(source));
                 modelState.setLastCheckpointTime(clock.instant());
                 if (requests.size() >= maxBulkRequestSize) {

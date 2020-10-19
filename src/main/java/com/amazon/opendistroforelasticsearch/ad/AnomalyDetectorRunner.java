@@ -28,6 +28,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
 import com.amazon.opendistroforelasticsearch.ad.feature.Features;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
@@ -158,7 +159,8 @@ public final class AnomalyDetectorRunner {
                         null,
                         null,
                         entity,
-                        detector.getUser()
+                        detector.getUser(),
+                        CommonValue.NO_SCHEMA_VERSION
                     );
                 } else {
                     result = new AnomalyResult(
@@ -173,7 +175,8 @@ public final class AnomalyDetectorRunner {
                         null,
                         null,
                         entity,
-                        detector.getUser()
+                        detector.getUser(),
+                        CommonValue.NO_SCHEMA_VERSION
                     );
                 }
 

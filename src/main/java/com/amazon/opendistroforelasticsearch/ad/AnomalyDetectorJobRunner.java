@@ -47,6 +47,8 @@ import org.elasticsearch.threadpool.ThreadPool;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.InternalFailure;
+import com.amazon.opendistroforelasticsearch.ad.indices.ADIndex;
+import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
@@ -82,6 +84,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
     private ConcurrentHashMap<String, Integer> detectorEndRunExceptionCount;
     private DetectionStateHandler detectionStateHandler;
+    private AnomalyDetectionIndices indexUtil;
 
     public static AnomalyDetectorJobRunner getJobRunnerInstance() {
         if (INSTANCE != null) {
@@ -124,6 +127,10 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
 
     public void setDetectionStateHandler(DetectionStateHandler detectionStateHandler) {
         this.detectionStateHandler = detectionStateHandler;
+    }
+
+    public void setIndexUtil(AnomalyDetectionIndices indexUtil) {
+        this.indexUtil = indexUtil;
     }
 
     @Override
@@ -202,6 +209,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         }
 
         try {
+            indexUtil.updateMappingIfNecessary();
             AnomalyResultRequest request = new AnomalyResultRequest(
                 detectorId,
                 detectionStartTime.toEpochMilli(),
@@ -451,7 +459,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 executionStartTime,
                 Instant.now(),
                 response.getError(),
-                user
+                user,
+                indexUtil.getSchemaVersion(ADIndex.RESULT)
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
             detectionStateHandler.saveError(response.getError(), detectorId);
@@ -508,7 +517,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 executionStartTime,
                 Instant.now(),
                 errorMessage,
-                user
+                user,
+                indexUtil.getSchemaVersion(ADIndex.RESULT)
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
             detectionStateHandler.saveError(errorMessage, detectorId);

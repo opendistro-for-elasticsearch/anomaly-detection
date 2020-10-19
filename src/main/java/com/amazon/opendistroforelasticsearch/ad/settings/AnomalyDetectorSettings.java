@@ -303,5 +303,13 @@ public final class AnomalyDetectorSettings {
     // for 1m interval. if the max entity number is 3000 per node, it will need around 30m to get all of them cached
     // Thus, for 5m internval, it will need 2.5 hours to cache all of them. for 1hour interval, it will be 30hours.
     // but for 1 day interval, it will be 30 days.
-    public static int MAX_CACHE_HANDLING_PER_SECOND = 100;
+    public static Setting<Integer> MAX_CACHE_MISS_HANDLING_PER_SECOND = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.max_cache_miss_handling_per_second",
+            100,
+            0,
+            1000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 }

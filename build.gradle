@@ -272,6 +272,7 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.transport.EntityProfileRequest',
         'com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener',
         'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorRequest',
+        'com.amazon.opendistroforelasticsearch.ad.util.ThrowingSupplierWrapper',
 ]
 
 jacocoTestCoverageVerification {

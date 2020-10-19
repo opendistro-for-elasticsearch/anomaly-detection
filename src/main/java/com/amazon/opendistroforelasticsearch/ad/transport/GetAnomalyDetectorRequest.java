@@ -30,6 +30,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
     private String typeStr;
     private String rawPath;
     private boolean all;
+    private String entityValue;
 
     public GetAnomalyDetectorRequest(StreamInput in) throws IOException {
         super(in);
@@ -39,9 +40,20 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         typeStr = in.readString();
         rawPath = in.readString();
         all = in.readBoolean();
+        if (in.readBoolean()) {
+            entityValue = in.readString();
+        }
     }
 
-    public GetAnomalyDetectorRequest(String detectorID, long version, boolean returnJob, String typeStr, String rawPath, boolean all)
+    public GetAnomalyDetectorRequest(
+        String detectorID,
+        long version,
+        boolean returnJob,
+        String typeStr,
+        String rawPath,
+        boolean all,
+        String entityValue
+    )
         throws IOException {
         super();
         this.detectorID = detectorID;
@@ -50,6 +62,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         this.typeStr = typeStr;
         this.rawPath = rawPath;
         this.all = all;
+        this.entityValue = entityValue;
     }
 
     public String getDetectorID() {
@@ -76,6 +89,10 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         return all;
     }
 
+    public String getEntityValue() {
+        return entityValue;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
@@ -85,6 +102,12 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         out.writeString(typeStr);
         out.writeString(rawPath);
         out.writeBoolean(all);
+        if (this.entityValue != null) {
+            out.writeBoolean(true);
+            out.writeString(entityValue);
+        } else {
+            out.writeBoolean(false);
+        }
     }
 
     @Override

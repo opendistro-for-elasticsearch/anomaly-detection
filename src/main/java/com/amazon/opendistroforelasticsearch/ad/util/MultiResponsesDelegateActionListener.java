@@ -36,7 +36,7 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
 
     private final ActionListener<T> delegate;
     private final AtomicInteger collectedResponseCount;
-    private final int maxResponseCount;
+    private final AtomicInteger maxResponseCount;
     // save responses from multiple requests
     private final List<T> savedResponses;
     private List<String> exceptions;
@@ -45,7 +45,7 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
     public MultiResponsesDelegateActionListener(ActionListener<T> delegate, int maxResponseCount, String finalErrorMsg) {
         this.delegate = delegate;
         this.collectedResponseCount = new AtomicInteger(0);
-        this.maxResponseCount = maxResponseCount;
+        this.maxResponseCount = new AtomicInteger(maxResponseCount);
         this.savedResponses = Collections.synchronizedList(new ArrayList<T>());
         this.exceptions = Collections.synchronizedList(new ArrayList<String>());
         this.finalErrorMsg = finalErrorMsg;
@@ -59,7 +59,7 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
             }
         } finally {
             // If expectedResponseCount == 0 , collectedResponseCount.incrementAndGet() will be greater than expectedResponseCount
-            if (collectedResponseCount.incrementAndGet() >= maxResponseCount) {
+            if (collectedResponseCount.incrementAndGet() >= maxResponseCount.get()) {
                 finish();
             }
         }
@@ -74,7 +74,7 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
         } finally {
             // no matter the asynchronous request is a failure or success, we need to increment the count.
             // We need finally here to increment the count when there is a failure.
-            if (collectedResponseCount.incrementAndGet() >= maxResponseCount) {
+            if (collectedResponseCount.incrementAndGet() >= maxResponseCount.get()) {
                 finish();
             }
         }
@@ -110,5 +110,9 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
 
     public void respondImmediately(T o) {
         this.delegate.onResponse(o);
+    }
+
+    public void compareAndSetMaxResponseCount(int oldValue, int newValue) {
+        this.maxResponseCount.compareAndSet(oldValue, newValue);
     }
 }

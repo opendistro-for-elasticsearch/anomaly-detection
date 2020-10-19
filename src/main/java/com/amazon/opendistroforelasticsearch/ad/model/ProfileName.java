@@ -28,7 +28,9 @@ public enum ProfileName {
     SHINGLE_SIZE(CommonName.SHINGLE_SIZE),
     TOTAL_SIZE_IN_BYTES(CommonName.TOTAL_SIZE_IN_BYTES),
     MODELS(CommonName.MODELS),
-    INIT_PROGRESS(CommonName.INIT_PROGRESS);
+    INIT_PROGRESS(CommonName.INIT_PROGRESS),
+    TOTAL_ENTITIES(CommonName.TOTAL_ENTITIES),
+    ACTIVE_ENTITIES(CommonName.ACTIVE_ENTITIES);
 
     private String name;
 
@@ -61,6 +63,10 @@ public enum ProfileName {
                 return MODELS;
             case CommonName.INIT_PROGRESS:
                 return INIT_PROGRESS;
+            case CommonName.TOTAL_ENTITIES:
+                return TOTAL_ENTITIES;
+            case CommonName.ACTIVE_ENTITIES:
+                return ACTIVE_ENTITIES;
             default:
                 throw new IllegalArgumentException("Unsupported profile types");
         }

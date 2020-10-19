@@ -57,6 +57,7 @@ public final class RestHandlerUtils {
     public static final String STOP_JOB = "_stop";
     public static final String PROFILE = "_profile";
     public static final String TYPE = "type";
+    public static final String ENTITY = "entity";
     public static final ToXContent.MapParams XCONTENT_WITH_TYPE = new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
 
     private static final String KIBANA_USER_AGENT = "Kibana";

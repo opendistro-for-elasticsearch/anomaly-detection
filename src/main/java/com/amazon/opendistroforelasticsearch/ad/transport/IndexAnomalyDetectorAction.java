@@ -19,7 +19,7 @@ import org.elasticsearch.action.ActionType;
 
 public class IndexAnomalyDetectorAction extends ActionType<IndexAnomalyDetectorResponse> {
     public static final IndexAnomalyDetectorAction INSTANCE = new IndexAnomalyDetectorAction();
-    //External Action which used for public facing RestAPIs.
+    // External Action which used for public facing RestAPIs.
     public static final String NAME = "cluster:admin/opendistro/ad/detector/write";
 
     private IndexAnomalyDetectorAction() {

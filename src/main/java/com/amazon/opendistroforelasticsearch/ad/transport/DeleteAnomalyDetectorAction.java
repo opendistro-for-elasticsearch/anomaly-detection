@@ -20,7 +20,7 @@ import org.elasticsearch.action.delete.DeleteResponse;
 
 public class DeleteAnomalyDetectorAction extends ActionType<DeleteResponse> {
     public static final DeleteAnomalyDetectorAction INSTANCE = new DeleteAnomalyDetectorAction();
-    //External Action which used for public facing RestAPIs.
+    // External Action which used for public facing RestAPIs.
     public static final String NAME = "cluster:admin/opendistro/ad/detector/delete";
 
     private DeleteAnomalyDetectorAction() {

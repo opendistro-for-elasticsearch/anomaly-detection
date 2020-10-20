@@ -20,7 +20,7 @@ import org.elasticsearch.action.search.SearchResponse;
 
 public class SearchAnomalyResultAction extends ActionType<SearchResponse> {
     public static final SearchAnomalyResultAction INSTANCE = new SearchAnomalyResultAction();
-    //External Action which used for public facing RestAPIs.
+    // External Action which used for public facing RestAPIs.
     public static final String NAME = "cluster:admin/opendistro/ad/result/search";
 
     private SearchAnomalyResultAction() {

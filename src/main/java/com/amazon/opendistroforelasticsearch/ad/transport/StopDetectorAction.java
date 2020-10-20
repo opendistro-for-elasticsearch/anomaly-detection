@@ -19,7 +19,7 @@ import org.elasticsearch.action.ActionType;
 
 public class StopDetectorAction extends ActionType<StopDetectorResponse> {
     public static final StopDetectorAction INSTANCE = new StopDetectorAction();
-    //Internal Action which is not used for public facing RestAPIs.
+    // Internal Action which is not used for public facing RestAPIs.
     public static final String NAME = "cluster:admin/opendistro/adinternal/detector/stop";
 
     private StopDetectorAction() {

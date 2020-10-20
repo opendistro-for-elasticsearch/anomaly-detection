@@ -66,6 +66,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
 
     @Override
     protected void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> listener) {
+        anomalyDetectionIndices.updateMappingIfNecessary();
         String detectorId = request.getDetectorID();
         long seqNo = request.getSeqNo();
         long primaryTerm = request.getPrimaryTerm();

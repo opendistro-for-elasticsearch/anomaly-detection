@@ -583,7 +583,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         );
 
         for (ADIndex adIndex : updates) {
-            logger.info(new ParameterizedMessage("Chceck [{}]'s mapping", adIndex.getIndexName()));
+            logger.info(new ParameterizedMessage("Check [{}]'s mapping", adIndex.getIndexName()));
             shouldUpdateIndex(adIndex, ActionListener.wrap(shouldUpdate -> {
                 if (shouldUpdate) {
                     adminClient

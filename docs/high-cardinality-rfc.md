@@ -24,4 +24,4 @@ Supporting high cardinality with multiple entities definitely takes more resourc
 
 ## Providing Feedback
 
-If you have comments or feedback on our plans for Multi Entity support for Anomaly Detection, please comment on the [original GitHub issue](https://github.com/opendistro-for-elasticsearch/anomaly-detection/issues/xxx) in this project to discuss.
+If you have comments or feedback on our plans for Multi Entity support for Anomaly Detection, please comment on the [original GitHub issue](https://github.com/opendistro-for-elasticsearch/anomaly-detection/issues/282) in this project to discuss.

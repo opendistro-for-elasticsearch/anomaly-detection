@@ -15,13 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.support.master.AcknowledgedResponse;
 
 public class EntityResultAction extends ActionType<AcknowledgedResponse> {
     public static final EntityResultAction INSTANCE = new EntityResultAction();
     // Internal Action which is not used for public facing RestAPIs.
-    public static final String NAME = "cluster:admin/opendistro/adinternal/entity/result";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "entity/result";
 
     private EntityResultAction() {
         super(NAME, AcknowledgedResponse::new);

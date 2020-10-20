@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.common.settings.Settings;
@@ -24,7 +25,7 @@ public class ADResultBulkAction extends ActionType<BulkResponse> {
 
     public static final ADResultBulkAction INSTANCE = new ADResultBulkAction();
     // Internal Action which is not used for public facing RestAPIs.
-    public static final String NAME = "cluster:admin/opendistro/adinternal/write/bulk";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "write/bulk";
 
     private ADResultBulkAction() {
         super(NAME, BulkResponse::new);

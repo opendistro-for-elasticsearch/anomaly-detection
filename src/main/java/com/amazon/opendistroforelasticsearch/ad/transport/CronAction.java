@@ -15,11 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
 
 public class CronAction extends ActionType<CronResponse> {
     public static final CronAction INSTANCE = new CronAction();
-    public static final String NAME = "cluster:admin/ad/cron";
+    // Internal Action which is not used for public facing RestAPIs.
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "cron";
 
     private CronAction() {
         super(NAME, CronResponse::new);

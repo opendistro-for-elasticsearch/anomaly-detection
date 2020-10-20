@@ -15,13 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.search.SearchResponse;
 
 public class SearchAnomalyResultAction extends ActionType<SearchResponse> {
     public static final SearchAnomalyResultAction INSTANCE = new SearchAnomalyResultAction();
     // External Action which used for public facing RestAPIs.
-    public static final String NAME = "cluster:admin/opendistro/ad/result/search";
+    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "result/search";
 
     private SearchAnomalyResultAction() {
         super(NAME, SearchResponse::new);

@@ -15,13 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.delete.DeleteResponse;
 
 public class DeleteAnomalyDetectorAction extends ActionType<DeleteResponse> {
     public static final DeleteAnomalyDetectorAction INSTANCE = new DeleteAnomalyDetectorAction();
     // External Action which used for public facing RestAPIs.
-    public static final String NAME = "cluster:admin/opendistro/ad/detector/delete";
+    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/delete";
 
     private DeleteAnomalyDetectorAction() {
         super(NAME, DeleteResponse::new);

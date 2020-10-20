@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
 
 /**
@@ -24,7 +25,7 @@ public class ADStatsNodesAction extends ActionType<ADStatsNodesResponse> {
 
     public static final ADStatsNodesAction INSTANCE = new ADStatsNodesAction();
     // Internal Action which is not used for public facing RestAPIs.
-    public static final String NAME = "cluster:admin/opendistro/adinternal/stats/nodes";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "stats/nodes";
 
     /**
      * Constructor

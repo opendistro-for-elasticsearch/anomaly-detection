@@ -15,12 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
 
 public class RCFResultAction extends ActionType<RCFResultResponse> {
     public static final RCFResultAction INSTANCE = new RCFResultAction();
     // Internal Action which is not used for public facing RestAPIs.
-    public static final String NAME = "cluster:admin/opendistro/adinternal/rcf/result";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "rcf/result";
 
     private RCFResultAction() {
         super(NAME, RCFResultResponse::new);

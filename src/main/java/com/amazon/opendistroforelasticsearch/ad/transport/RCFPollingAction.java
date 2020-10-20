@@ -15,11 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
 
 public class RCFPollingAction extends ActionType<RCFPollingResponse> {
     public static final RCFPollingAction INSTANCE = new RCFPollingAction();
-    public static final String NAME = "cluster:admin/ad/rcfpolling";
+    // Internal Action which is not used for public facing RestAPIs.
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "rcfpolling";
 
     private RCFPollingAction() {
         super(NAME, RCFPollingResponse::new);

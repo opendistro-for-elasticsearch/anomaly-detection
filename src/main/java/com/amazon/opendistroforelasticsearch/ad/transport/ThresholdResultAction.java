@@ -15,12 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
 
 public class ThresholdResultAction extends ActionType<ThresholdResultResponse> {
     public static final ThresholdResultAction INSTANCE = new ThresholdResultAction();
     // Internal Action which is not used for public facing RestAPIs.
-    public static final String NAME = "cluster:admin/opendistro/adinternal/threshold/result";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "threshold/result";
 
     private ThresholdResultAction() {
         super(NAME, ThresholdResultResponse::new);

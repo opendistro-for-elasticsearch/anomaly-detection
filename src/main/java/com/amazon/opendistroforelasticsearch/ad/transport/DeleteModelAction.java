@@ -15,13 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
+
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class DeleteModelAction extends ActionType<DeleteModelResponse> {
     public static final DeleteModelAction INSTANCE = new DeleteModelAction();
     // Internal Action which is not used for public facing RestAPIs.
-    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "model/delete";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "model/delete";
 
     private DeleteModelAction() {
         super(NAME, DeleteModelResponse::new);

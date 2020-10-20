@@ -15,8 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
+
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class AnomalyResultAction extends ActionType<AnomalyResultResponse> {
     public static final AnomalyResultAction INSTANCE = new AnomalyResultAction();

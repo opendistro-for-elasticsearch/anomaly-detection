@@ -15,9 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.delete.DeleteResponse;
+
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class DeleteAnomalyDetectorAction extends ActionType<DeleteResponse> {
     public static final DeleteAnomalyDetectorAction INSTANCE = new DeleteAnomalyDetectorAction();

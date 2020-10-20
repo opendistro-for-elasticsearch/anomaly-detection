@@ -15,11 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.transport.TransportRequestOptions;
+
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class ADResultBulkAction extends ActionType<BulkResponse> {
 

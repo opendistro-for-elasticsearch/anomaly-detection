@@ -22,16 +22,29 @@ Compatible with Elasticsearch 7.9.1
 * Verifying multi-entity detectors ([#240](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/240))
 * Selectively store anomaly results when index pressure is high ([#241](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/241))
 * Adding User support for Detector and DetectorJob ([#251](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/251))
+* Added User support for background job and API Transport Actions ([#272](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/272))
+* suppport HC detector in profile api ([#274](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/274))
+* Auto flush checkpoint queue if too many are waiting ([#279](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/279))
+
+### Bug fixes
+
+* Fix nested field issue ([#277](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/277))
+* Upgrade mapping ([#278](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/278))
+
 
 ### Infrastructure
 
 * Ignoring flaky test ([#255](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/255))
+* Adding common-utils dependency from Maven ([#280](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/280))
+
 
 ### Documentation
 
 * CLI: Update Display Strings ([#231](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/231))
+* Add release notes for 1.11.0.0 ([#276](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/276))
+
 
 ### Maintenance
 
 * upgrade rcf libaries ([#239](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/239))
-
+* bump ad plugin version to 1.11.0 ([#275](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/275))

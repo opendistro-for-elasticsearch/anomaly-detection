@@ -19,7 +19,8 @@ import org.elasticsearch.action.ActionType;
 
 public class ThresholdResultAction extends ActionType<ThresholdResultResponse> {
     public static final ThresholdResultAction INSTANCE = new ThresholdResultAction();
-    public static final String NAME = "cluster:admin/ad/theshold/result";
+    //Internal Action which is not used for public facing RestAPIs.
+    public static final String NAME = "cluster:admin/opendistro/adinternal/threshold/result";
 
     private ThresholdResultAction() {
         super(NAME, ThresholdResultResponse::new);

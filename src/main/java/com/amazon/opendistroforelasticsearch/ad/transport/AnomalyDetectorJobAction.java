@@ -19,6 +19,7 @@ import org.elasticsearch.action.ActionType;
 
 public class AnomalyDetectorJobAction extends ActionType<AnomalyDetectorJobResponse> {
     public static final AnomalyDetectorJobAction INSTANCE = new AnomalyDetectorJobAction();
+    //External Action which used for public facing RestAPIs.
     public static final String NAME = "cluster:admin/opendistro/ad/detector/jobmanagement";
 
     private AnomalyDetectorJobAction() {

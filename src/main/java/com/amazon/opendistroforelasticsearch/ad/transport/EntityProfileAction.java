@@ -19,7 +19,8 @@ import org.elasticsearch.action.ActionType;
 
 public class EntityProfileAction extends ActionType<EntityProfileResponse> {
     public static final EntityProfileAction INSTANCE = new EntityProfileAction();
-    public static final String NAME = "cluster:admin/opendistro/ad/detectors/profile/entity";
+    //Internal Action which is not used for public facing RestAPIs.
+    public static final String NAME = "cluster:admin/opendistro/adinternal/detectors/profile/entity";
 
     private EntityProfileAction() {
         super(NAME, EntityProfileResponse::new);

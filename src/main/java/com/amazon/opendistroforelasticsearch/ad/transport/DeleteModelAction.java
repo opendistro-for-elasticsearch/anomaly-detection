@@ -19,7 +19,8 @@ import org.elasticsearch.action.ActionType;
 
 public class DeleteModelAction extends ActionType<DeleteModelResponse> {
     public static final DeleteModelAction INSTANCE = new DeleteModelAction();
-    public static final String NAME = "cluster:admin/ad/model/delete";
+    //Internal Action which is not used for public facing RestAPIs.
+    public static final String NAME = "cluster:admin/opendistro/adinternal/model/delete";
 
     private DeleteModelAction() {
         super(NAME, DeleteModelResponse::new);

@@ -23,7 +23,8 @@ import org.elasticsearch.action.ActionType;
 public class ADStatsNodesAction extends ActionType<ADStatsNodesResponse> {
 
     public static final ADStatsNodesAction INSTANCE = new ADStatsNodesAction();
-    public static final String NAME = "cluster:admin/ad/stats/nodes";
+    //Internal Action which is not used for public facing RestAPIs.
+    public static final String NAME = "cluster:admin/opendistro/adinternal/stats/nodes";
 
     /**
      * Constructor

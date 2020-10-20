@@ -23,7 +23,8 @@ import org.elasticsearch.transport.TransportRequestOptions;
 public class ADResultBulkAction extends ActionType<BulkResponse> {
 
     public static final ADResultBulkAction INSTANCE = new ADResultBulkAction();
-    public static final String NAME = "cluster:admin/ad/write/bulk";
+    //Internal Action which is not used for public facing RestAPIs.
+    public static final String NAME = "cluster:admin/opendistro/adinternal/write/bulk";
 
     private ADResultBulkAction() {
         super(NAME, BulkResponse::new);

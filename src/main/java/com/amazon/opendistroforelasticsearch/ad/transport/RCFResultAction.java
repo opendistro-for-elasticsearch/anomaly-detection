@@ -19,7 +19,8 @@ import org.elasticsearch.action.ActionType;
 
 public class RCFResultAction extends ActionType<RCFResultResponse> {
     public static final RCFResultAction INSTANCE = new RCFResultAction();
-    public static final String NAME = "cluster:admin/ad/rcf/result";
+    //Internal Action which is not used for public facing RestAPIs.
+    public static final String NAME = "cluster:admin/opendistro/adinternal/rcf/result";
 
     private RCFResultAction() {
         super(NAME, RCFResultResponse::new);

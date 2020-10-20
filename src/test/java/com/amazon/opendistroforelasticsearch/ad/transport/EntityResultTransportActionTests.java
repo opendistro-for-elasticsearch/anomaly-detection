@@ -65,6 +65,8 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoun
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
+import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
 import com.amazon.opendistroforelasticsearch.ad.ml.EntityModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
@@ -162,6 +164,9 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         clock = mock(Clock.class);
         when(clock.instant()).thenReturn(Instant.now());
 
+        AnomalyDetectionIndices indexUtil = mock(AnomalyDetectionIndices.class);
+        when(indexUtil.getSchemaVersion(any())).thenReturn(CommonValue.NO_SCHEMA_VERSION);
+
         entityResult = new EntityResultTransportAction(
             actionFilters,
             transportService,
@@ -172,7 +177,8 @@ public class EntityResultTransportActionTests extends AbstractADTest {
             provider,
             stateManager,
             settings,
-            clock
+            clock,
+            indexUtil
         );
 
         // timeout in 60 seconds

@@ -47,6 +47,8 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.base.Objects;
@@ -71,7 +73,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private static final String NAME_FIELD = "name";
     private static final String DESCRIPTION_FIELD = "description";
     private static final String TIMEFIELD_FIELD = "time_field";
-    private static final String SCHEMA_VERSION_FIELD = "schema_version";
     private static final String INDICES_FIELD = "indices";
     private static final String FILTER_QUERY_FIELD = "filter_query";
     private static final String FEATURE_ATTRIBUTES_FIELD = "feature_attributes";
@@ -254,7 +255,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             .field(DETECTION_INTERVAL_FIELD, detectionInterval)
             .field(WINDOW_DELAY_FIELD, windowDelay)
             .field(SHINGLE_SIZE_FIELD, shingleSize)
-            .field(SCHEMA_VERSION_FIELD, schemaVersion);
+            .field(CommonName.SCHEMA_VERSION_FIELD, schemaVersion);
 
         if (featureAttributes != null) {
             xContentBuilder.field(FEATURE_ATTRIBUTES_FIELD, featureAttributes.toArray());
@@ -334,7 +335,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             : new IntervalTimeConfiguration(defaultDetectionWindowDelay.getSeconds(), ChronoUnit.SECONDS);
         Integer shingleSize = null;
         List<Feature> features = new ArrayList<>();
-        int schemaVersion = 0;
+        Integer schemaVersion = CommonValue.NO_SCHEMA_VERSION;
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = null;
         User user = null;
@@ -365,7 +366,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 case UI_METADATA_FIELD:
                     uiMetadata = parser.map();
                     break;
-                case SCHEMA_VERSION_FIELD:
+                case CommonName.SCHEMA_VERSION_FIELD:
                     schemaVersion = parser.intValue();
                     break;
                 case FILTER_QUERY_FIELD:

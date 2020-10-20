@@ -112,6 +112,9 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Mock
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
 
+    @Mock
+    private AnomalyDetectionIndices indexUtil;
+
     private DetectionStateHandler detectorStateHandler;
 
     @BeforeClass
@@ -165,6 +168,8 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
             stateManager
         );
         runner.setDetectionStateHandler(detectorStateHandler);
+
+        runner.setIndexUtil(indexUtil);
 
         lockService = new LockService(client, clusterService);
         doReturn(lockService).when(context).getLockService();

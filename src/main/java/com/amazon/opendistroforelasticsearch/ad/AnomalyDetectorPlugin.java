@@ -227,13 +227,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
         jobRunner.setDetectionStateHandler(detectorStateHandler);
         jobRunner.setSettings(settings);
+        jobRunner.setIndexUtil(anomalyDetectionIndices);
 
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction();
-        RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(
-            settings,
-            clusterService,
-            anomalyDetectionIndices
-        );
+        RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(settings, clusterService);
         RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction();
         RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction();
         RestDeleteAnomalyDetectorAction deleteAnomalyDetectorAction = new RestDeleteAnomalyDetectorAction();
@@ -432,7 +429,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.NUM_MIN_SAMPLES,
             settings,
             threadPool,
-            AnomalyDetectorSettings.MAX_CACHE_HANDLING_PER_SECOND
+            AnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND.get(settings)
         );
 
         CacheProvider cacheProvider = new CacheProvider(cache);
@@ -582,7 +579,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
                 AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT,
                 AnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
-                AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES
+                AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
+                AnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND
             );
         return unmodifiableList(Stream.concat(enabledSetting.stream(), systemSetting.stream()).collect(Collectors.toList()));
     }

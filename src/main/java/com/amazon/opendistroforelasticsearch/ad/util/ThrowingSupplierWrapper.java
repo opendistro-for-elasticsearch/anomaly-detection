@@ -15,24 +15,24 @@
 
 package com.amazon.opendistroforelasticsearch.ad.util;
 
-import java.util.function.Consumer;
+import java.util.function.Supplier;
 
-public class ThrowingConsumerWrapper {
+public class ThrowingSupplierWrapper {
     /**
-     * Utility method to use a method throwing checked exception inside a function
-     *  that does not throw the corresponding checked exception.  This happens
-     *  when we are in a ES function that we have no control over its signature.
+     * Utility method to use a method throwing checked exception inside a place
+     *  that does not allow throwing the corresponding checked exception (e.g.,
+     *  enum initialization).
      * Convert the checked exception thrown by by throwingConsumer to a RuntimeException
      * so that the compiler won't complain.
-     * @param <T> the method's parameter type
-     * @param throwingConsumer the method reference that can throw checked exception
+     * @param <T> the method's return type
+     * @param throwingSupplier the method reference that can throw checked exception
      * @return converted method reference
      */
-    public static <T> Consumer<T> throwingConsumerWrapper(ThrowingConsumer<T, Exception> throwingConsumer) {
+    public static <T> Supplier<T> throwingSupplierWrapper(ThrowingSupplier<T, Exception> throwingSupplier) {
 
-        return i -> {
+        return () -> {
             try {
-                throwingConsumer.accept(i);
+                return throwingSupplier.get();
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }

@@ -1,7 +1,7 @@
 {
   "dynamic": false,
   "_meta": {
-    "schema_version": 1
+    "schema_version": 2
   },
   "properties": {
     "detector_id": {
@@ -96,6 +96,9 @@
           "type": "keyword"
         }
       }
+    },
+    "schema_version": {
+      "type": "integer"
     }
   }
 }

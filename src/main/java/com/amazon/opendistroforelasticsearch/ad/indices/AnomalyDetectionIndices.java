@@ -28,9 +28,14 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import java.io.IOException;
 import java.net.URL;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -38,19 +43,27 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
+import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest;
+import org.elasticsearch.action.support.GroupedActionListener;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.AdminClient;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.LocalNodeMasterListener;
+import org.elasticsearch.cluster.metadata.AliasMetadata;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.common.xcontent.XContentParser.Token;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.threadpool.Scheduler;
@@ -58,11 +71,13 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 
@@ -78,6 +93,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     // The index name pattern to query all AD result, history and current AD result
     public static final String ALL_AD_RESULTS_INDEX_PATTERN = ".opendistro-anomaly-results*";
 
+    private static final String META = "_meta";
+    private static final String SCHEMA_VERSION = "schema_version";
+
     private ClusterService clusterService;
     private final AdminClient adminClient;
     private final ThreadPool threadPool;
@@ -90,6 +108,24 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     private DiscoveryNodeFilterer nodeFilter;
     private int maxPrimaryShards;
+    // keep track of whether the mapping version is up-to-date
+    private EnumMap<ADIndex, IndexState> indexStates;
+    // whether all index have the correct mappings
+    private boolean allUpdated;
+    // we only want one update at a time
+    private final AtomicBoolean updateRunning;
+
+    class IndexState {
+        // keep track of whether the mapping version is up-to-date
+        private Boolean updated;
+        // record schema version reading from the mapping file
+        private Integer schemaVersion;
+
+        IndexState(ADIndex index) {
+            this.updated = false;
+            this.schemaVersion = parseSchemaVersion(index.getMapping());
+        }
+    }
 
     /**
      * Constructor function
@@ -118,6 +154,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
         this.nodeFilter = nodeFilter;
 
+        this.indexStates = new EnumMap<ADIndex, IndexState>(ADIndex.class);
+
+        this.allUpdated = false;
+        this.updateRunning = new AtomicBoolean(false);
+
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS, it -> historyMaxDocs = it);
 
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
@@ -137,7 +178,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return anomaly detector index mapping
      * @throws IOException IOException if mapping file can't be read correctly
      */
-    private String getAnomalyDetectorMappings() throws IOException {
+    public static String getAnomalyDetectorMappings() throws IOException {
         URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(ANOMALY_DETECTORS_INDEX_MAPPING_FILE);
         return Resources.toString(url, Charsets.UTF_8);
     }
@@ -148,7 +189,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return anomaly result index mapping
      * @throws IOException IOException if mapping file can't be read correctly
      */
-    private String getAnomalyResultMappings() throws IOException {
+    public static String getAnomalyResultMappings() throws IOException {
         URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(ANOMALY_RESULTS_INDEX_MAPPING_FILE);
         return Resources.toString(url, Charsets.UTF_8);
     }
@@ -159,7 +200,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return anomaly detector job index mapping
      * @throws IOException IOException if mapping file can't be read correctly
      */
-    private String getAnomalyDetectorJobMappings() throws IOException {
+    public static String getAnomalyDetectorJobMappings() throws IOException {
         URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(ANOMALY_DETECTOR_JOBS_INDEX_MAPPING_FILE);
         return Resources.toString(url, Charsets.UTF_8);
     }
@@ -170,7 +211,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return anomaly detector state index mapping
      * @throws IOException IOException if mapping file can't be read correctly
      */
-    private String getDetectorStateMappings() throws IOException {
+    public static String getDetectorStateMappings() throws IOException {
         URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(ANOMALY_DETECTION_STATE_INDEX_MAPPING_FILE);
         return Resources.toString(url, Charsets.UTF_8);
     }
@@ -181,7 +222,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return checkpoint index mapping
      * @throws IOException IOException if mapping file can't be read correctly
      */
-    private String getCheckpointMappings() throws IOException {
+    public static String getCheckpointMappings() throws IOException {
         URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(CHECKPOINT_INDEX_MAPPING_FILE);
         return Resources.toString(url, Charsets.UTF_8);
     }
@@ -232,6 +273,39 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     }
 
     /**
+     * Index exists or not
+     * @param clusterServiceAccessor Cluster service
+     * @param name Index name
+     * @return true if the index exists
+     */
+    public static boolean doesIndexExists(ClusterService clusterServiceAccessor, String name) {
+        return clusterServiceAccessor.state().getRoutingTable().hasIndex(name);
+    }
+
+    /**
+     * Alias exists or not
+     * @param clusterServiceAccessor Cluster service
+     * @param alias Alias name
+     * @return true if the alias exists
+     */
+    public static boolean doesAliasExists(ClusterService clusterServiceAccessor, String alias) {
+        return clusterServiceAccessor.state().metadata().hasAlias(alias);
+    }
+
+    private ActionListener<CreateIndexResponse> markMappingUpToDate(ADIndex index, ActionListener<CreateIndexResponse> followingListener) {
+        return ActionListener.wrap(createdResponse -> {
+            if (createdResponse.isAcknowledged()) {
+                IndexState indexStatetate = indexStates.computeIfAbsent(index, IndexState::new);
+                if (Boolean.FALSE.equals(indexStatetate.updated)) {
+                    indexStatetate.updated = Boolean.TRUE;
+                    logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", index.getIndexName()));
+                }
+            }
+            followingListener.onResponse(createdResponse);
+        }, exception -> followingListener.onFailure(exception));
+    }
+
+    /**
      * Create anomaly detector index if not exist.
      *
      * @param actionListener action called after create index
@@ -252,7 +326,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     public void initAnomalyDetectorIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
         CreateIndexRequest request = new CreateIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
             .mapping(AnomalyDetector.TYPE, getAnomalyDetectorMappings(), XContentType.JSON);
-        adminClient.indices().create(request, actionListener);
+        adminClient.indices().create(request, markMappingUpToDate(ADIndex.CONFIG, actionListener));
     }
 
     /**
@@ -295,7 +369,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             .mapping(CommonName.MAPPING_TYPE, mapping, XContentType.JSON)
             .alias(new Alias(CommonName.ANOMALY_RESULT_INDEX_ALIAS));
         choosePrimaryShards(request);
-        adminClient.indices().create(request, actionListener);
+        adminClient.indices().create(request, markMappingUpToDate(ADIndex.RESULT, actionListener));
     }
 
     /**
@@ -309,7 +383,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
             .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON);
         choosePrimaryShards(request);
-        adminClient.indices().create(request, actionListener);
+        adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
     }
 
     /**
@@ -321,7 +395,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     public void initDetectorStateIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
         CreateIndexRequest request = new CreateIndexRequest(DetectorInternalState.DETECTOR_STATE_INDEX)
             .mapping(AnomalyDetector.TYPE, getDetectorStateMappings(), XContentType.JSON);
-        adminClient.indices().create(request, actionListener);
+        adminClient.indices().create(request, markMappingUpToDate(ADIndex.STATE, actionListener));
     }
 
     /**
@@ -340,7 +414,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         CreateIndexRequest request = new CreateIndexRequest(CommonName.CHECKPOINT_INDEX_NAME)
             .mapping(CommonName.MAPPING_TYPE, mapping, XContentType.JSON);
         choosePrimaryShards(request);
-        adminClient.indices().create(request, actionListener);
+        adminClient.indices().create(request, markMappingUpToDate(ADIndex.CHECKPOINT, actionListener));
     }
 
     @Override
@@ -404,6 +478,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 logger
                     .warn("{} not rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());
             } else {
+                IndexState indexStatetate = indexStates.computeIfAbsent(ADIndex.RESULT, IndexState::new);
+                indexStatetate.updated = true;
                 logger.info("{} rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());
                 deleteOldHistoryIndices();
             }
@@ -476,5 +552,197 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 }
             }));
         }
+    }
+
+    /**
+     * Update mapping if schema version changes.
+     */
+    public void updateMappingIfNecessary() {
+        if (allUpdated || updateRunning.get()) {
+            return;
+        }
+
+        updateRunning.set(true);
+
+        List<ADIndex> updates = new ArrayList<>();
+        for (ADIndex index : ADIndex.values()) {
+            Boolean updated = indexStates.computeIfAbsent(index, IndexState::new).updated;
+            if (Boolean.FALSE.equals(updated)) {
+                updates.add(index);
+            }
+        }
+        if (updates.size() == 0) {
+            allUpdated = true;
+            updateRunning.set(false);
+            return;
+        }
+
+        final GroupedActionListener<Void> conglomerateListeneer = new GroupedActionListener<>(
+            ActionListener.wrap(r -> updateRunning.set(false), exception -> logger.error("Fail to updatea all mappings")),
+            updates.size()
+        );
+
+        for (ADIndex adIndex : updates) {
+            logger.info(new ParameterizedMessage("Check [{}]'s mapping", adIndex.getIndexName()));
+            shouldUpdateIndex(adIndex, ActionListener.wrap(shouldUpdate -> {
+                if (shouldUpdate) {
+                    adminClient
+                        .indices()
+                        .putMapping(
+                            new PutMappingRequest()
+                                .indices(adIndex.getIndexName())
+                                .type(CommonName.MAPPING_TYPE)
+                                .source(adIndex.getMapping(), XContentType.JSON),
+                            ActionListener.wrap(putMappingResponse -> {
+                                if (putMappingResponse.isAcknowledged()) {
+                                    logger.info(new ParameterizedMessage("Succeeded in updating [{}]'s mapping", adIndex.getIndexName()));
+                                    markMappingUpdated(adIndex);
+                                } else {
+                                    logger.error(new ParameterizedMessage("Fail to update [{}]'s mapping", adIndex.getIndexName()));
+                                }
+                                conglomerateListeneer.onResponse(null);
+                            }, exception -> {
+                                logger.error(new ParameterizedMessage("Fail to update [{}]'s mapping", adIndex.getIndexName()), exception);
+                                conglomerateListeneer.onFailure(exception);
+                            })
+                        );
+                } else {
+                    // index does not exist or the version is already up-to-date.
+                    // When creating index, new mappings will be used.
+                    // We don't need to update it.
+                    logger.info(new ParameterizedMessage("We don't need to update [{}]'s mapping", adIndex.getIndexName()));
+                    markMappingUpdated(adIndex);
+                    conglomerateListeneer.onResponse(null);
+                }
+            }, exception -> {
+                logger
+                    .error(
+                        new ParameterizedMessage("Fail to check whether we should update [{}]'s mapping", adIndex.getIndexName()),
+                        exception
+                    );
+                conglomerateListeneer.onFailure(exception);
+            }));
+
+        }
+    }
+
+    private void markMappingUpdated(ADIndex adIndex) {
+        IndexState indexState = indexStates.computeIfAbsent(adIndex, IndexState::new);
+        if (Boolean.FALSE.equals(indexState.updated)) {
+            indexState.updated = Boolean.TRUE;
+            logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", adIndex.getIndexName()));
+        }
+    }
+
+    private void shouldUpdateIndex(ADIndex index, ActionListener<Boolean> thenDo) {
+        boolean exists = false;
+        if (index.isAlias()) {
+            exists = AnomalyDetectionIndices.doesAliasExists(clusterService, index.getIndexName());
+        } else {
+            exists = AnomalyDetectionIndices.doesIndexExists(clusterService, index.getIndexName());
+        }
+        if (false == exists) {
+            thenDo.onResponse(Boolean.FALSE);
+            return;
+        }
+
+        Integer newVersion = indexStates.computeIfAbsent(index, IndexState::new).schemaVersion;
+        if (index.isAlias()) {
+            GetAliasesRequest getAliasRequest = new GetAliasesRequest()
+                .aliases(index.getIndexName())
+                .indicesOptions(IndicesOptions.lenientExpandOpenHidden());
+            adminClient.indices().getAliases(getAliasRequest, ActionListener.wrap(getAliasResponse -> {
+                String concreteIndex = null;
+                for (ObjectObjectCursor<String, List<AliasMetadata>> entry : getAliasResponse.getAliases()) {
+                    if (false == entry.value.isEmpty()) {
+                        // we assume the alias map to one concrete index, thus we can return after finding one
+                        concreteIndex = entry.key;
+                        break;
+                    }
+                }
+                shouldUpdateConcreteIndex(concreteIndex, newVersion, thenDo);
+            }, exception -> logger.error(new ParameterizedMessage("Fail to get [{}]'s alias", index.getIndexName()), exception)));
+        } else {
+            shouldUpdateConcreteIndex(index.getIndexName(), newVersion, thenDo);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void shouldUpdateConcreteIndex(String concreteIndex, Integer newVersion, ActionListener<Boolean> thenDo) {
+        IndexMetadata indexMeataData = clusterService.state().getMetadata().indices().get(concreteIndex);
+        if (indexMeataData == null) {
+            thenDo.onResponse(Boolean.FALSE);
+            return;
+        }
+        Integer oldVersion = CommonValue.NO_SCHEMA_VERSION;
+
+        Map<String, Object> indexMapping = indexMeataData.mapping().getSourceAsMap();
+        Object meta = indexMapping.get(META);
+        if (meta != null && meta instanceof Map) {
+            Map<String, Object> metaMapping = (Map<String, Object>) meta;
+            Object schemaVersion = metaMapping.get(CommonName.SCHEMA_VERSION_FIELD);
+            if (schemaVersion instanceof Integer) {
+                oldVersion = (Integer) schemaVersion;
+            }
+        }
+        thenDo.onResponse(newVersion > oldVersion);
+    }
+
+    private static Integer parseSchemaVersion(String mapping) {
+        try {
+            XContentParser xcp = XContentType.JSON
+                .xContent()
+                .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, mapping);
+
+            while (!xcp.isClosed()) {
+                Token token = xcp.currentToken();
+                if (token != null && token != XContentParser.Token.END_OBJECT && token != XContentParser.Token.START_OBJECT) {
+                    if (xcp.currentName() != META) {
+                        xcp.nextToken();
+                        xcp.skipChildren();
+                    } else {
+                        while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+                            if (xcp.currentName().equals(SCHEMA_VERSION)) {
+
+                                Integer version = xcp.intValue();
+                                if (version < 0) {
+                                    version = CommonValue.NO_SCHEMA_VERSION;
+                                }
+                                return version;
+                            } else {
+                                xcp.nextToken();
+                            }
+                        }
+
+                    }
+                }
+                xcp.nextToken();
+            }
+            return CommonValue.NO_SCHEMA_VERSION;
+        } catch (Exception e) {
+            // since this method is called in the constructor that is called by AnomalyDetectorPlugin.createComponents,
+            // we cannot throw checked exception
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     *
+     * @param index Index metadata
+     * @return The schema version of the given Index
+     */
+    public int getSchemaVersion(ADIndex index) {
+        IndexState indexState = this.indexStates.computeIfAbsent(index, IndexState::new);
+        return indexState.schemaVersion;
+    }
+
+    /**
+     *
+     * @param index Index metadata
+     * @return Whether the given index's mapping is up-to-date
+     */
+    public Boolean isUpdated(ADIndex index) {
+        IndexState indexState = this.indexStates.computeIfAbsent(index, IndexState::new);
+        return indexState.updated;
     }
 }

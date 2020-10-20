@@ -51,7 +51,6 @@ import org.elasticsearch.rest.action.RestResponseListener;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorAction;
@@ -75,11 +74,7 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
     private volatile Integer maxMultiEntityDetectors;
     private volatile Integer maxAnomalyFeatures;
 
-    public RestIndexAnomalyDetectorAction(
-        Settings settings,
-        ClusterService clusterService,
-        AnomalyDetectionIndices anomalyDetectionIndices
-    ) {
+    public RestIndexAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         this.detectionInterval = DETECTION_INTERVAL.get(settings);
         this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(settings);

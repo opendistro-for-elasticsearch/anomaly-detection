@@ -42,6 +42,8 @@ import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.indices.ADIndex;
+import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
 import com.amazon.opendistroforelasticsearch.ad.ml.EntityModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
@@ -65,6 +67,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     private final NodeStateManager stateManager;
     private final int coolDownMinutes;
     private final Clock clock;
+    private AnomalyDetectionIndices indexUtil;
 
     @Inject
     public EntityResultTransportAction(
@@ -77,7 +80,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         CacheProvider entityCache,
         NodeStateManager stateManager,
         Settings settings,
-        Clock clock
+        Clock clock,
+        AnomalyDetectionIndices indexUtil
     ) {
         super(EntityResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
         this.manager = manager;
@@ -88,6 +92,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         this.stateManager = stateManager;
         this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
         this.clock = clock;
+        this.indexUtil = indexUtil;
     }
 
     @Override
@@ -166,7 +171,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                                 Instant.now(),
                                 null,
                                 Arrays.asList(new Entity(categoricalField, entityName)),
-                                detector.getUser()
+                                detector.getUser(),
+                                indexUtil.getSchemaVersion(ADIndex.RESULT)
                             )
                         );
                 }

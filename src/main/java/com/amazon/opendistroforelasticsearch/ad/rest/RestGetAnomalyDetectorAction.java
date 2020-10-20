@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.ENTITY;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PROFILE;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.TYPE;
 
@@ -60,6 +61,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         }
         String detectorId = request.param(DETECTOR_ID);
         String typesStr = request.param(TYPE);
+        String entityValue = request.param(ENTITY);
         String rawPath = request.rawPath();
         boolean returnJob = request.paramAsBoolean("job", false);
         boolean all = request.paramAsBoolean("_all", false);
@@ -69,7 +71,8 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
             returnJob,
             typesStr,
             rawPath,
-            all
+            all,
+            entityValue
         );
 
         return channel -> client

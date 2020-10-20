@@ -51,10 +51,10 @@ public interface EntityCache extends MaintenanceState, CleanState {
     /**
      * Whether an entity is active or not
      * @param detectorId The Id of the detector that an entity belongs to
-     * @param entityId Entity Id
+     * @param entityModelId Entity model Id
      * @return Whether an entity is active or not
      */
-    boolean isActive(String detectorId, String entityId);
+    boolean isActive(String detectorId, String entityModelId);
 
     /**
      * Get total updates of detector's most active entity's RCF model.
@@ -68,8 +68,8 @@ public interface EntityCache extends MaintenanceState, CleanState {
      * Get RCF model total updates of specific entity
      *
      * @param detectorId detector id
-     * @param entityId  entity id
+     * @param entityModelId  entity model id
      * @return RCF model total updates of specific entity
      */
-    long getTotalUpdates(String detectorId, String entityId);
+    long getTotalUpdates(String detectorId, String entityModelId);
 }

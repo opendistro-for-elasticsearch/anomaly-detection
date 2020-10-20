@@ -74,10 +74,7 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
     private volatile Integer maxMultiEntityDetectors;
     private volatile Integer maxAnomalyFeatures;
 
-    public RestIndexAnomalyDetectorAction(
-        Settings settings,
-        ClusterService clusterService
-    ) {
+    public RestIndexAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         this.detectionInterval = DETECTION_INTERVAL.get(settings);
         this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(settings);

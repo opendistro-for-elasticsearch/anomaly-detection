@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.feature;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DEFAULT_ENTITIES_FOR_PREVIEW;
 import static java.util.Arrays.asList;
 import static java.util.Optional.empty;
 import static java.util.Optional.ofNullable;
@@ -153,7 +154,8 @@ public class FeatureManagerTests {
                 maxPreviewSamples,
                 featureBufferTtl,
                 threadPool,
-                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+                DEFAULT_ENTITIES_FOR_PREVIEW
             )
         );
     }
@@ -247,7 +249,8 @@ public class FeatureManagerTests {
                 maxPreviewSamples,
                 featureBufferTtl,
                 threadPool,
-                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+                DEFAULT_ENTITIES_FOR_PREVIEW
             )
         );
         featureManager.getColdStartData(detector, listener);

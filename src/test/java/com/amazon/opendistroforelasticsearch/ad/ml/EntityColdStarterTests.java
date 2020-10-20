@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DEFAULT_ENTITIES_FOR_PREVIEW;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -139,7 +140,8 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             threadPool,
-            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+            DEFAULT_ENTITIES_FOR_PREVIEW
         );
 
         entityColdStarter = new EntityColdStarter(

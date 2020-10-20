@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW;
 import static java.util.Collections.unmodifiableList;
 
 import java.security.AccessController;
@@ -348,7 +349,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             threadPool,
-            AD_THREAD_POOL_NAME
+            AD_THREAD_POOL_NAME,
+            MAX_ENTITIES_FOR_PREVIEW.get(settings)
         );
 
         EntityColdStarter entityColdStarter = new EntityColdStarter(

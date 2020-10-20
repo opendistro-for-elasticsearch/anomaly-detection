@@ -58,7 +58,6 @@ import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 public class FeatureManager implements CleanState {
 
     private static final Logger logger = LogManager.getLogger(FeatureManager.class);
-    private static final int DEFAULT_PREVIEW_ENTITIES = 30;
 
     // Each anomaly detector has a queue of data points with timestamps (in epoch milliseconds).
     private final Map<String, ArrayDeque<Entry<Long, Optional<double[]>>>> detectorIdsToTimeShingles;
@@ -78,6 +77,7 @@ public class FeatureManager implements CleanState {
     private final Duration featureBufferTtl;
     private final ThreadPool threadPool;
     private final String adThreadPoolName;
+    private final int maxEntitiesForPreview;
 
     /**
      * Constructor with dependencies and configuration.
@@ -111,7 +111,8 @@ public class FeatureManager implements CleanState {
         int maxPreviewSamples,
         Duration featureBufferTtl,
         ThreadPool threadPool,
-        String adThreadPoolName
+        String adThreadPoolName,
+        int maxEntitiesForPreview
     ) {
         this.searchFeatureDao = searchFeatureDao;
         this.interpolator = interpolator;
@@ -129,6 +130,7 @@ public class FeatureManager implements CleanState {
         this.detectorIdsToTimeShingles = new ConcurrentHashMap<>();
         this.threadPool = threadPool;
         this.adThreadPoolName = adThreadPoolName;
+        this.maxEntitiesForPreview = maxEntitiesForPreview;
     }
 
     /**
@@ -481,7 +483,7 @@ public class FeatureManager implements CleanState {
      * @param listener onResponse is called when entities are found
      */
     public void getPreviewEntities(AnomalyDetector detector, long startTime, long endTime, ActionListener<List<Entity>> listener) {
-        searchFeatureDao.getHighestCountEntities(detector, startTime, endTime, DEFAULT_PREVIEW_ENTITIES, listener);
+        searchFeatureDao.getHighestCountEntities(detector, startTime, endTime, maxEntitiesForPreview, listener);
     }
 
     /**
@@ -506,6 +508,7 @@ public class FeatureManager implements CleanState {
         long endMilli,
         ActionListener<Features> listener
     ) throws IOException {
+        // TODO refactor this common lines so that these code can be run for 1 time for all entities
         Entry<List<Entry<Long, Long>>, Integer> sampleRangeResults = getSampleRanges(detector, startMilli, endMilli);
         List<Entry<Long, Long>> sampleRanges = sampleRangeResults.getKey();
         int stride = sampleRangeResults.getValue();

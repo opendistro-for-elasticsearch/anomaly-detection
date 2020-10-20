@@ -41,13 +41,13 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
     private final List<T> savedResponses;
     private List<String> exceptions;
     private String finalErrorMsg;
-    private final boolean forceReturn;
+    private final boolean returnOnPartialResults;
 
     public MultiResponsesDelegateActionListener(
         ActionListener<T> delegate,
         int maxResponseCount,
         String finalErrorMsg,
-        boolean forceReturn
+        boolean returnOnPartialResults
     ) {
         this.delegate = delegate;
         this.collectedResponseCount = new AtomicInteger(0);
@@ -55,7 +55,7 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
         this.savedResponses = Collections.synchronizedList(new ArrayList<T>());
         this.exceptions = Collections.synchronizedList(new ArrayList<String>());
         this.finalErrorMsg = finalErrorMsg;
-        this.forceReturn = forceReturn;
+        this.returnOnPartialResults = returnOnPartialResults;
     }
 
     @Override
@@ -88,7 +88,10 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
     }
 
     private void finish() {
-        if (this.forceReturn || this.exceptions.size() == 0) {
+        if (this.returnOnPartialResults || this.exceptions.size() == 0) {
+            if (this.exceptions.size() > 0) {
+                LOG.error(String.format("Although returning result, there exists exceptions: %s", this.exceptions));
+            }
             handleSavedResponses();
         } else {
             this.delegate.onFailure(new RuntimeException(String.format(Locale.ROOT, finalErrorMsg + " Exceptions: %s", exceptions)));

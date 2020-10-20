@@ -45,6 +45,7 @@ import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.ClusterState;
@@ -177,7 +178,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry()
+            xContentRegistry(),
+            mock(RestClient.class),
+            null
         );
     }
 
@@ -229,10 +232,12 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry()
+            xContentRegistry(),
+            mock(RestClient.class),
+            null
         );
 
-        handler.start();
+        handler.resolveUserAndStart();
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
         verify(clientMock, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
@@ -290,12 +295,14 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry()
+            xContentRegistry(),
+            mock(RestClient.class),
+            null
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
 
-        handler.start();
+        handler.resolveUserAndStart();
 
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
@@ -364,12 +371,14 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry()
+            xContentRegistry(),
+            mock(RestClient.class),
+            null
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
 
-        handler.start();
+        handler.resolveUserAndStart();
 
         verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
@@ -455,12 +464,14 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             RestRequest.Method.PUT,
-            xContentRegistry()
+            xContentRegistry(),
+            mock(RestClient.class),
+            null
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
 
-        handler.start();
+        handler.resolveUserAndStart();
 
         verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
@@ -507,7 +518,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             return null;
         }).when(clientMock).search(any(SearchRequest.class), any());
 
-        handler.start();
+        handler.resolveUserAndStart();
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
         verify(clientMock, times(1)).search(any(SearchRequest.class), any());

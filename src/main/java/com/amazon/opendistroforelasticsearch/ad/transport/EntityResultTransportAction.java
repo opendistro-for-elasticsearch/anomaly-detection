@@ -93,7 +93,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     @Override
     protected void doExecute(Task task, EntityResultRequest request, ActionListener<AcknowledgedResponse> listener) {
         if (adCircuitBreakerService.isOpen()) {
-            listener.onFailure(new LimitExceededException(request.getDetectorId(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
+            listener
+                .onFailure(new LimitExceededException(request.getDetectorId(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
             return;
         }
 
@@ -164,7 +165,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                                 executionStartTime,
                                 Instant.now(),
                                 null,
-                                Arrays.asList(new Entity(categoricalField, entityName))
+                                Arrays.asList(new Entity(categoricalField, entityName)),
+                                detector.getUser()
                             )
                         );
                 }

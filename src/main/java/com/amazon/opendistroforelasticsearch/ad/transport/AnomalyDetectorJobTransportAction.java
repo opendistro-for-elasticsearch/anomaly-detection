@@ -19,6 +19,8 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 
 import java.io.IOException;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
@@ -26,6 +28,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
@@ -35,6 +38,7 @@ import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetecto
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 
 public class AnomalyDetectorJobTransportAction extends HandledTransportAction<AnomalyDetectorJobRequest, AnomalyDetectorJobResponse> {
+    private final Logger logger = LogManager.getLogger(AnomalyDetectorJobTransportAction.class);
 
     private final Client client;
     private final Settings settings;
@@ -65,17 +69,21 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         String rawPath = request.getRawPath();
         TimeValue requestTimeout = REQUEST_TIMEOUT.get(settings);
 
-        IndexAnomalyDetectorJobActionHandler handler = new IndexAnomalyDetectorJobActionHandler(
-            client,
-            listener,
-            anomalyDetectionIndices,
-            detectorId,
-            seqNo,
-            primaryTerm,
-            requestTimeout,
-            xContentRegistry
-        );
-        try {
+        // By the time request reaches here, the user permissions are validated by Security plugin.
+        // Since the detectorID is provided, this can only happen if User is part of a role which has access
+        // to the detector. This is filtered by our Search Detector API.
+
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            IndexAnomalyDetectorJobActionHandler handler = new IndexAnomalyDetectorJobActionHandler(
+                client,
+                listener,
+                anomalyDetectionIndices,
+                detectorId,
+                seqNo,
+                primaryTerm,
+                requestTimeout,
+                xContentRegistry
+            );
             if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
                 handler.startAnomalyDetectorJob();
             } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
@@ -83,6 +91,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
             }
         } catch (IOException e) {
             logger.error(e);
+            listener.onFailure(e);
         }
     }
 }

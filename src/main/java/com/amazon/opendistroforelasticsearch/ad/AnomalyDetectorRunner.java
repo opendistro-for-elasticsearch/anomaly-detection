@@ -157,7 +157,8 @@ public final class AnomalyDetectorRunner {
                         null,
                         null,
                         null,
-                        entity
+                        entity,
+                        detector.getUser()
                     );
                 } else {
                     result = new AnomalyResult(
@@ -171,7 +172,8 @@ public final class AnomalyDetectorRunner {
                         null,
                         null,
                         null,
-                        entity
+                        entity,
+                        detector.getUser()
                     );
                 }
 

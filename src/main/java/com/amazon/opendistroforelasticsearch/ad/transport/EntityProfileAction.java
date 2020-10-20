@@ -17,19 +17,12 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import org.elasticsearch.action.ActionType;
 
-/**
- * Profile transport action
- */
-public class ProfileAction extends ActionType<ProfileResponse> {
+public class EntityProfileAction extends ActionType<EntityProfileResponse> {
+    public static final EntityProfileAction INSTANCE = new EntityProfileAction();
+    public static final String NAME = "cluster:admin/opendistro/ad/detectors/profile/entity";
 
-    public static final ProfileAction INSTANCE = new ProfileAction();
-    public static final String NAME = "cluster:admin/opendistro/ad/detectors/profile";
-
-    /**
-     * Constructor
-     */
-    private ProfileAction() {
-        super(NAME, ProfileResponse::new);
+    private EntityProfileAction() {
+        super(NAME, EntityProfileResponse::new);
     }
 
 }

@@ -28,6 +28,8 @@ public enum StatNames {
     ANOMALY_DETECTORS_INDEX_STATUS("anomaly_detectors_index_status"),
     ANOMALY_RESULTS_INDEX_STATUS("anomaly_results_index_status"),
     MODELS_CHECKPOINT_INDEX_STATUS("models_checkpoint_index_status"),
+    ANOMALY_DETECTION_JOB_INDEX_STATUS("anomaly_detection_job_index_status"),
+    ANOMALY_DETECTION_STATE_STATUS("anomaly_detection_state_status"),
     MODEL_INFORMATION("models");
 
     private String name;

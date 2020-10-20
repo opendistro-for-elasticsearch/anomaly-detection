@@ -45,6 +45,10 @@ import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.action.support.replication.ReplicationResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.Response;
+import org.elasticsearch.client.ResponseListener;
+import org.elasticsearch.client.RestClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
@@ -61,6 +65,8 @@ import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 /**
  * Anomaly detector REST action handler to process POST/PUT request.
@@ -93,6 +99,8 @@ public class IndexAnomalyDetectorActionHandler {
     private final Client client;
     private final NamedXContentRegistry xContentRegistry;
     private final ActionListener<IndexAnomalyDetectorResponse> listener;
+    private final RestClient restClient;
+    private final String authHeader;
 
     /**
      * Constructor function.
@@ -112,6 +120,8 @@ public class IndexAnomalyDetectorActionHandler {
      * @param maxAnomalyFeatures      max features allowed per detector
      * @param method                  Rest Method type
      * @param xContentRegistry        Registry which is used for XContentParser
+     * @param restClient              RestClient used to talk to Security Plugin
+     * @param authHeader              User context
      */
     public IndexAnomalyDetectorActionHandler(
         ClusterService clusterService,
@@ -128,7 +138,9 @@ public class IndexAnomalyDetectorActionHandler {
         Integer maxMultiEntityAnomalyDetectors,
         Integer maxAnomalyFeatures,
         RestRequest.Method method,
-        NamedXContentRegistry xContentRegistry
+        NamedXContentRegistry xContentRegistry,
+        RestClient restClient,
+        String authHeader
     ) {
         this.clusterService = clusterService;
         this.client = client;
@@ -145,6 +157,8 @@ public class IndexAnomalyDetectorActionHandler {
         this.maxAnomalyFeatures = maxAnomalyFeatures;
         this.method = method;
         this.xContentRegistry = xContentRegistry;
+        this.restClient = restClient;
+        this.authHeader = authHeader;
     }
 
     /**
@@ -153,7 +167,7 @@ public class IndexAnomalyDetectorActionHandler {
      *
      * @throws IOException IOException from {@link AnomalyDetectionIndices#initAnomalyDetectorIndexIfAbsent(ActionListener)}
      */
-    public void start() throws IOException {
+    private void start() throws IOException {
         if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist()) {
             logger.info("AnomalyDetector Indices do not exist");
             anomalyDetectionIndices
@@ -163,6 +177,40 @@ public class IndexAnomalyDetectorActionHandler {
         } else {
             logger.info("AnomalyDetector Indices do exist, calling prepareAnomalyDetectorIndexing");
             prepareAnomalyDetectorIndexing();
+        }
+    }
+
+    /**
+     * Check User security and start to process creating/updating anomaly detector request.
+     * Check if anomaly detector index exist first, if not, will create first.
+     *
+     * @throws IOException IOException from {@link AnomalyDetectionIndices#initAnomalyDetectorIndexIfAbsent(ActionListener)}
+     */
+    public void resolveUserAndStart() throws IOException {
+        if (authHeader == null) {
+            // Auth Header is empty when 1. Security is disabled. 2. When user is super-admin
+            // User is null for older detectors
+            start();
+        } else {
+            // Security is enabled and store user context
+            Request authRequest = new AuthUserRequestBuilder(authHeader).build();
+            restClient.performRequestAsync(authRequest, new ResponseListener() {
+                @Override
+                public void onSuccess(Response response) {
+                    try {
+                        User user = new User(response);
+                        anomalyDetector.setUser(user);
+                        start();
+                    } catch (IOException e) {
+                        listener.onFailure(e);
+                    }
+                }
+
+                @Override
+                public void onFailure(Exception exception) {
+                    listener.onFailure(exception);
+                }
+            });
         }
     }
 
@@ -287,25 +335,37 @@ public class IndexAnomalyDetectorActionHandler {
             // example getMappingsResponse:
             // GetFieldMappingsResponse{mappings={server-metrics={_doc={service=FieldMappingMetadata{fullName='service',
             // source=org.elasticsearch.common.bytes.BytesArray@7ba87dbd}}}}}
+            // for nested field, it would be
+            // GetFieldMappingsResponse{mappings={server-metrics={_doc={host_nest.host2=FieldMappingMetadata{fullName='host_nest.host2',
+            // source=org.elasticsearch.common.bytes.BytesArray@8fb4de08}}}}}
             boolean foundField = false;
             Map<String, Map<String, Map<String, FieldMappingMetadata>>> mappingsByIndex = getMappingsResponse.mappings();
 
             for (Map<String, Map<String, FieldMappingMetadata>> mappingsByType : mappingsByIndex.values()) {
                 for (Map<String, FieldMappingMetadata> mappingsByField : mappingsByType.values()) {
                     for (Map.Entry<String, FieldMappingMetadata> field2Metadata : mappingsByField.entrySet()) {
+                        // example output:
+                        // host_nest.host2=FieldMappingMetadata{fullName='host_nest.host2',
+                        // source=org.elasticsearch.common.bytes.BytesArray@8fb4de08}
                         FieldMappingMetadata fieldMetadata = field2Metadata.getValue();
 
                         if (fieldMetadata != null) {
-                            Object metadata = fieldMetadata.sourceAsMap().get(categoryField0);
-                            if (metadata != null && metadata instanceof Map) {
-                                foundField = true;
-                                Map<String, Object> metadataMap = (Map<String, Object>) metadata;
-                                String typeName = (String) metadataMap.get(CommonName.TYPE);
-                                if (!typeName.equals(CommonName.KEYWORD_TYPE) && !typeName.equals(CommonName.IP_TYPE)) {
-                                    listener.onFailure(new IllegalArgumentException(CATEGORICAL_FIELD_TYPE_ERR_MSG));
-                                    return;
+                            // sourceAsMap returns sth like {host2={type=keyword}} with host2 being a nested field
+                            Map<String, Object> fieldMap = fieldMetadata.sourceAsMap();
+                            if (fieldMap != null) {
+                                for (Object type : fieldMap.values()) {
+                                    if (type != null && type instanceof Map) {
+                                        foundField = true;
+                                        Map<String, Object> metadataMap = (Map<String, Object>) type;
+                                        String typeName = (String) metadataMap.get(CommonName.TYPE);
+                                        if (!typeName.equals(CommonName.KEYWORD_TYPE) && !typeName.equals(CommonName.IP_TYPE)) {
+                                            listener.onFailure(new IllegalArgumentException(CATEGORICAL_FIELD_TYPE_ERR_MSG));
+                                            return;
+                                        }
+                                    }
                                 }
                             }
+
                         }
                     }
                 }

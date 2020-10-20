@@ -62,13 +62,21 @@ public class GetAnomalyDetectorTransportActionTests extends ESIntegTestCase {
     @Test
     public void testGetTransportAction() throws IOException {
         MultiGetResponse mockResponse = Mockito.mock(MultiGetResponse.class);
-        GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest("1234", 4321, false, "nonempty", "", false);
+        GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest(
+            "1234",
+            4321,
+            false,
+            "nonempty",
+            "",
+            false,
+            null
+        );
         action.doExecute(task, getAnomalyDetectorRequest, response);
     }
 
     @Test
     public void testGetTransportActionWithReturnJob() throws IOException {
-        GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest("1234", 4321, true, "", "abcd", false);
+        GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest("1234", 4321, true, "", "abcd", false, null);
         action.doExecute(task, getAnomalyDetectorRequest, response);
     }
 

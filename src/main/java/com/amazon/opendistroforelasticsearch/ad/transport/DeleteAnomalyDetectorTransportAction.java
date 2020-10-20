@@ -35,6 +35,7 @@ import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.IndexNotFoundException;
@@ -74,24 +75,32 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
         String detectorId = request.getDetectorID();
         LOG.info("Delete anomaly detector job {}", detectorId);
 
-        getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener));
+        // By the time request reaches here, the user permissions are validated by Security plugin.
+        // Since the detectorID is provided, this can only happen if User is part of a role which has access
+        // to the detector. This is filtered by our Search Detector API.
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener));
 
-        DeleteRequest deleteRequest = new DeleteRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId)
-            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-        client.delete(deleteRequest, ActionListener.wrap(response -> {
-            if (response.getResult() == DocWriteResponse.Result.DELETED || response.getResult() == DocWriteResponse.Result.NOT_FOUND) {
-                deleteDetectorStateDoc(detectorId, listener);
-            } else {
-                LOG.error("Fail to delete anomaly detector job {}", detectorId);
-            }
-        }, exception -> {
-            if (exception instanceof IndexNotFoundException) {
-                deleteDetectorStateDoc(detectorId, listener);
-            } else {
-                LOG.error("Failed to delete anomaly detector job", exception);
-                listener.onFailure(exception);
-            }
-        }));
+            DeleteRequest deleteRequest = new DeleteRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId)
+                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+            client.delete(deleteRequest, ActionListener.wrap(response -> {
+                if (response.getResult() == DocWriteResponse.Result.DELETED || response.getResult() == DocWriteResponse.Result.NOT_FOUND) {
+                    deleteDetectorStateDoc(detectorId, listener);
+                } else {
+                    LOG.error("Fail to delete anomaly detector job {}", detectorId);
+                }
+            }, exception -> {
+                if (exception instanceof IndexNotFoundException) {
+                    deleteDetectorStateDoc(detectorId, listener);
+                } else {
+                    LOG.error("Failed to delete anomaly detector job", exception);
+                    listener.onFailure(exception);
+                }
+            }));
+        } catch (Exception e) {
+            LOG.error(e);
+            listener.onFailure(e);
+        }
     }
 
     private void deleteAnomalyDetectorJobDoc(String detectorId, ActionListener<DeleteResponse> listener) {

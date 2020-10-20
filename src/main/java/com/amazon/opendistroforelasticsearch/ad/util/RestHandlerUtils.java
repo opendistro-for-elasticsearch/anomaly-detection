@@ -28,12 +28,17 @@ import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestRequest;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.collect.ImmutableMap;
 
 /**
@@ -57,6 +62,7 @@ public final class RestHandlerUtils {
     public static final String STOP_JOB = "_stop";
     public static final String PROFILE = "_profile";
     public static final String TYPE = "type";
+    public static final String ENTITY = "entity";
     public static final ToXContent.MapParams XCONTENT_WITH_TYPE = new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
 
     private static final String KIBANA_USER_AGENT = "Kibana";
@@ -99,6 +105,14 @@ public final class RestHandlerUtils {
             return validateFeatures(anomalyDetector.getFeatureAttributes());
         }
         return null;
+    }
+
+    public static void addFilter(User user, SearchSourceBuilder searchSourceBuilder, String fieldName) {
+        TermsQueryBuilder filterBackendRoles = QueryBuilders.termsQuery(fieldName, user.getBackendRoles());
+        if (searchSourceBuilder.query() instanceof BoolQueryBuilder) {
+            BoolQueryBuilder queryBuilder = (BoolQueryBuilder) searchSourceBuilder.query();
+            searchSourceBuilder.query(queryBuilder.filter(filterBackendRoles));
+        }
     }
 
     private static String validateFeatures(List<Feature> features) {

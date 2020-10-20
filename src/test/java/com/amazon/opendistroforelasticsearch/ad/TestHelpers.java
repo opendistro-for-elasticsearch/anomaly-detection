@@ -434,7 +434,8 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            error
+            error,
+            randomUser()
         );
     }
 
@@ -454,7 +455,8 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             error,
-            Arrays.asList(new Entity(randomAlphaOfLength(5), randomAlphaOfLength(5)))
+            Arrays.asList(new Entity(randomAlphaOfLength(5), randomAlphaOfLength(5))),
+            randomUser()
         );
     }
 

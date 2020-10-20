@@ -22,10 +22,12 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.client.RestClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.tasks.Task;
@@ -38,6 +40,7 @@ import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetecto
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);
     private final Client client;
+    private final RestClient restClient;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
@@ -47,6 +50,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         TransportService transportService,
         ActionFilters actionFilters,
         Client client,
+        RestClient restClient,
         ClusterService clusterService,
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
@@ -57,6 +61,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         this.clusterService = clusterService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.xContentRegistry = xContentRegistry;
+        this.restClient = restClient;
     }
 
     @Override
@@ -72,27 +77,30 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Integer maxMultiEntityAnomalyDetectors = request.getMaxMultiEntityAnomalyDetectors();
         Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
 
-        IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
-            clusterService,
-            client,
-            listener,
-            anomalyDetectionIndices,
-            detectorId,
-            seqNo,
-            primaryTerm,
-            refreshPolicy,
-            detector,
-            requestTimeout,
-            maxSingleEntityAnomalyDetectors,
-            maxMultiEntityAnomalyDetectors,
-            maxAnomalyFeatures,
-            method,
-            xContentRegistry
-        );
-        try {
-            indexAnomalyDetectorActionHandler.start();
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
+                clusterService,
+                client,
+                listener,
+                anomalyDetectionIndices,
+                detectorId,
+                seqNo,
+                primaryTerm,
+                refreshPolicy,
+                detector,
+                requestTimeout,
+                maxSingleEntityAnomalyDetectors,
+                maxMultiEntityAnomalyDetectors,
+                maxAnomalyFeatures,
+                method,
+                xContentRegistry,
+                restClient,
+                request.getAuthHeader()
+            );
+            indexAnomalyDetectorActionHandler.resolveUserAndStart();
         } catch (Exception e) {
             LOG.error(e);
+            listener.onFailure(e);
         }
     }
 }

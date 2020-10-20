@@ -27,7 +27,6 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.HashMap;
 
-import com.amazon.opendistroforelasticsearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.component.LifecycleListener;
@@ -37,6 +36,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
@@ -63,7 +63,7 @@ public class MasterEventListenerTests extends AbstractADTest {
         when(threadPool.scheduleWithFixedDelay(any(HourlyCron.class), any(TimeValue.class), any(String.class)))
             .thenReturn(hourlyCancellable);
         when(threadPool.scheduleWithFixedDelay(any(ModelCheckpointIndexRetention.class), any(TimeValue.class), any(String.class)))
-                .thenReturn(checkpointIndexRetentionCancellable);
+            .thenReturn(checkpointIndexRetentionCancellable);
         client = mock(Client.class);
         clock = mock(Clock.class);
         clientUtil = mock(ClientUtil.class);

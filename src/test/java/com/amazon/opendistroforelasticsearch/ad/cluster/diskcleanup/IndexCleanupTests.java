@@ -12,10 +12,16 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
 package com.amazon.opendistroforelasticsearch.ad.cluster.diskcleanup;
 
-import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
-import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.stats.CommonStats;
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse;
@@ -31,12 +37,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 
 public class IndexCleanupTests extends AbstractADTest {
 
@@ -75,9 +77,7 @@ public class IndexCleanupTests extends AbstractADTest {
         MockitoAnnotations.initMocks(this);
         when(clusterService.state().getRoutingTable().hasIndex(anyString())).thenReturn(true);
         indexCleanup = new IndexCleanup(client, clientUtil, clusterService);
-        when(indicesStatsResponse.getShards()).thenReturn(new ShardStats[]{
-                shardStats
-        });
+        when(indicesStatsResponse.getShards()).thenReturn(new ShardStats[] { shardStats });
         when(shardStats.getStats()).thenReturn(commonStats);
         when(commonStats.getStore()).thenReturn(storeStats);
         when(client.admin().indices()).thenReturn(indicesAdminClient);
@@ -97,19 +97,23 @@ public class IndexCleanupTests extends AbstractADTest {
 
     public void testDeleteDocsBasedOnShardSizeWithCleanupNeededAsTrue() throws Exception {
         long maxShardSize = 1000;
-        when(storeStats.getSizeInBytes()).thenReturn(maxShardSize +1 );
-        indexCleanup.deleteDocsBasedOnShardSize("indexname", maxShardSize, null,
-                ActionListener.wrap(result -> {
-                    assertTrue(result);
-                    verify(clientUtil).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
-                }, exception -> {throw new RuntimeException(exception);}));
+        when(storeStats.getSizeInBytes()).thenReturn(maxShardSize + 1);
+        indexCleanup.deleteDocsBasedOnShardSize("indexname", maxShardSize, null, ActionListener.wrap(result -> {
+            assertTrue(result);
+            verify(clientUtil).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
+        }, exception -> { throw new RuntimeException(exception); }));
     }
 
     public void testDeleteDocsBasedOnShardSizeWithCleanupNeededAsFalse() throws Exception {
         long maxShardSize = 1000;
         when(storeStats.getSizeInBytes()).thenReturn(maxShardSize - 1);
-        indexCleanup.deleteDocsBasedOnShardSize("indexname", maxShardSize, null,
-                ActionListener.wrap(Assert::assertFalse, exception -> {throw new RuntimeException(exception);}));
+        indexCleanup
+            .deleteDocsBasedOnShardSize(
+                "indexname",
+                maxShardSize,
+                null,
+                ActionListener.wrap(Assert::assertFalse, exception -> { throw new RuntimeException(exception); })
+            );
     }
 
     public void testDeleteDocsBasedOnShardSizeIndexNotExisted() throws Exception {

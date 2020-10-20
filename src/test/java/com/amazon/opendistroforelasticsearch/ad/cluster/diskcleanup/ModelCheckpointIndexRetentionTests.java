@@ -12,19 +12,8 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
 package com.amazon.opendistroforelasticsearch.ad.cluster.diskcleanup;
-
-import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
-import org.elasticsearch.action.ActionListener;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
-import java.time.Clock;
-import java.time.Duration;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -32,6 +21,19 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+
+import java.time.Clock;
+import java.time.Duration;
+
+import org.elasticsearch.action.ActionListener;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 
 public class ModelCheckpointIndexRetentionTests extends AbstractADTest {
 
@@ -76,8 +78,8 @@ public class ModelCheckpointIndexRetentionTests extends AbstractADTest {
         }).when(indexCleanup).deleteDocsBasedOnShardSize(eq(CommonName.CHECKPOINT_INDEX_NAME), eq(50 * 1024 * 1024 * 1024L), any(), any());
 
         modelCheckpointIndexRetention.run();
-        verify(indexCleanup, times(2)).deleteDocsBasedOnShardSize(eq(CommonName.CHECKPOINT_INDEX_NAME),
-                eq(50 * 1024 * 1024 * 1024L), any(), any());
+        verify(indexCleanup, times(2))
+            .deleteDocsBasedOnShardSize(eq(CommonName.CHECKPOINT_INDEX_NAME), eq(50 * 1024 * 1024 * 1024L), any(), any());
         verify(indexCleanup).deleteDocsByQuery(eq(CommonName.CHECKPOINT_INDEX_NAME), any(), any());
     }
 

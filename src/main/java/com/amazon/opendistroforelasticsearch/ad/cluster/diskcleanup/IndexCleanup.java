@@ -15,7 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.ad.cluster.diskcleanup;
 
-import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import java.util.Arrays;
+import java.util.Objects;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -31,8 +33,7 @@ import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.index.store.StoreStats;
 
-import java.util.Arrays;
-import java.util.Objects;
+import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 
 /**
  * Clean up the old docs for indices.
@@ -57,8 +58,12 @@ public class IndexCleanup {
      * @param queryForDeleteByQueryRequest query request
      * @param listener action listener
      */
-    public void deleteDocsBasedOnShardSize(String indexName, long maxShardSize, QueryBuilder queryForDeleteByQueryRequest,
-                                           ActionListener<Boolean> listener) {
+    public void deleteDocsBasedOnShardSize(
+        String indexName,
+        long maxShardSize,
+        QueryBuilder queryForDeleteByQueryRequest,
+        ActionListener<Boolean> listener
+    ) {
 
         if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
             LOG.debug("skip as the index:{} doesn't exist", indexName);
@@ -66,8 +71,9 @@ public class IndexCleanup {
         }
 
         ActionListener<IndicesStatsResponse> indicesStatsResponseListener = ActionListener.wrap(indicesStatsResponse -> {
-            //Check if any shard size is bigger than maxShardSize
-            boolean cleanupNeeded = Arrays.stream(indicesStatsResponse.getShards())
+            // Check if any shard size is bigger than maxShardSize
+            boolean cleanupNeeded = Arrays
+                .stream(indicesStatsResponse.getShards())
                 .map(ShardStats::getStats)
                 .filter(Objects::nonNull)
                 .map(CommonStats::getStore)
@@ -76,8 +82,11 @@ public class IndexCleanup {
                 .anyMatch(size -> size > maxShardSize);
 
             if (cleanupNeeded) {
-                deleteDocsByQuery(indexName, queryForDeleteByQueryRequest,
-                        ActionListener.wrap(r -> listener.onResponse(true), listener::onFailure));
+                deleteDocsByQuery(
+                    indexName,
+                    queryForDeleteByQueryRequest,
+                    ActionListener.wrap(r -> listener.onResponse(true), listener::onFailure)
+                );
             } else {
                 listener.onResponse(false);
             }
@@ -103,19 +112,10 @@ public class IndexCleanup {
         DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(indexName)
             .setQuery(queryForDeleteByQueryRequest)
             .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
-        clientUtil
-            .execute(
-                DeleteByQueryAction.INSTANCE,
-                deleteRequest,
-                ActionListener
-                    .wrap(
-                        response -> {
-                            // if 0 docs get deleted, it means our query cannot find any matching doc
-                            LOG.info("{} docs are deleted for index:{}", response.getDeleted(), indexName);
-                            listener.onResponse(response.getDeleted());
-                        },
-                            listener::onFailure
-                    )
-            );
+        clientUtil.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(response -> {
+            // if 0 docs get deleted, it means our query cannot find any matching doc
+            LOG.info("{} docs are deleted for index:{}", response.getDeleted(), indexName);
+            listener.onResponse(response.getDeleted());
+        }, listener::onFailure));
     }
 }

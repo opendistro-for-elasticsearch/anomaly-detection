@@ -77,7 +77,6 @@ public class FeatureManager implements CleanState {
     private final Duration featureBufferTtl;
     private final ThreadPool threadPool;
     private final String adThreadPoolName;
-    private final int maxEntitiesForPreview;
 
     /**
      * Constructor with dependencies and configuration.
@@ -111,8 +110,7 @@ public class FeatureManager implements CleanState {
         int maxPreviewSamples,
         Duration featureBufferTtl,
         ThreadPool threadPool,
-        String adThreadPoolName,
-        int maxEntitiesForPreview
+        String adThreadPoolName
     ) {
         this.searchFeatureDao = searchFeatureDao;
         this.interpolator = interpolator;
@@ -130,7 +128,6 @@ public class FeatureManager implements CleanState {
         this.detectorIdsToTimeShingles = new ConcurrentHashMap<>();
         this.threadPool = threadPool;
         this.adThreadPoolName = adThreadPoolName;
-        this.maxEntitiesForPreview = maxEntitiesForPreview;
     }
 
     /**
@@ -483,7 +480,7 @@ public class FeatureManager implements CleanState {
      * @param listener onResponse is called when entities are found
      */
     public void getPreviewEntities(AnomalyDetector detector, long startTime, long endTime, ActionListener<List<Entity>> listener) {
-        searchFeatureDao.getHighestCountEntities(detector, startTime, endTime, maxEntitiesForPreview, listener);
+        searchFeatureDao.getHighestCountEntities(detector, startTime, endTime, listener);
     }
 
     /**

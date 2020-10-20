@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.feature;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY;
 import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
 
@@ -93,6 +94,7 @@ public class SearchFeatureDao {
     private final ClientUtil clientUtil;
     private ThreadPool threadPool;
     private int maxEntitiesPerQuery;
+    private int maxEntitiesForPreview;
 
     /**
      * Constructor injection.
@@ -121,6 +123,8 @@ public class SearchFeatureDao {
         this.threadPool = threadPool;
         this.maxEntitiesPerQuery = MAX_ENTITIES_PER_QUERY.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_PER_QUERY, it -> maxEntitiesPerQuery = it);
+        this.maxEntitiesForPreview = MAX_ENTITIES_FOR_PREVIEW.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> maxEntitiesForPreview = it);
     }
 
     /**
@@ -174,16 +178,9 @@ public class SearchFeatureDao {
      * @param detector detector config
      * @param startTime start time of time range
      * @param endTime end time of time range
-     * @param size number of entities of highest count
      * @param listener listener to return back the entities
      */
-    public void getHighestCountEntities(
-        AnomalyDetector detector,
-        long startTime,
-        long endTime,
-        int size,
-        ActionListener<List<Entity>> listener
-    ) {
+    public void getHighestCountEntities(AnomalyDetector detector, long startTime, long endTime, ActionListener<List<Entity>> listener) {
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(detector.getTimeField())
             .from(startTime)
             .to(endTime)
@@ -191,10 +188,13 @@ public class SearchFeatureDao {
             .includeLower(true)
             .includeUpper(false);
 
-        BoolQueryBuilder dateRangeQuery = QueryBuilders.boolQuery().filter(rangeQuery);
-        TermsAggregationBuilder termsAgg = AggregationBuilders.terms(AGG_NAME_TERM).field(detector.getCategoryField().get(0)).size(size);
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery().filter(rangeQuery).filter(detector.getFilterQuery());
+        TermsAggregationBuilder termsAgg = AggregationBuilders
+            .terms(AGG_NAME_TERM)
+            .field(detector.getCategoryField().get(0))
+            .size(maxEntitiesForPreview);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .query(dateRangeQuery)
+            .query(boolQueryBuilder)
             .aggregation(termsAgg)
             .trackTotalHits(false)
             .size(0);

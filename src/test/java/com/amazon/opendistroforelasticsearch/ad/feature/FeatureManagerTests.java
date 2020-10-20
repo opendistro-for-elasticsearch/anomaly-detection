@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.ad.feature;
 
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.DEFAULT_ENTITIES_FOR_PREVIEW;
 import static java.util.Arrays.asList;
 import static java.util.Optional.empty;
 import static java.util.Optional.ofNullable;
@@ -23,7 +22,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.argThat;
@@ -154,8 +152,7 @@ public class FeatureManagerTests {
                 maxPreviewSamples,
                 featureBufferTtl,
                 threadPool,
-                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
-                DEFAULT_ENTITIES_FOR_PREVIEW
+                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
             )
         );
     }
@@ -249,8 +246,7 @@ public class FeatureManagerTests {
                 maxPreviewSamples,
                 featureBufferTtl,
                 threadPool,
-                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
-                DEFAULT_ENTITIES_FOR_PREVIEW
+                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
             )
         );
         featureManager.getColdStartData(detector, listener);
@@ -566,10 +562,10 @@ public class FeatureManagerTests {
         Entity entity2 = new Entity("fieldName", "value2");
         List<Entity> entities = asList(entity1, entity2);
         doAnswer(invocation -> {
-            ActionListener<List<Entity>> listener = invocation.getArgument(4);
+            ActionListener<List<Entity>> listener = invocation.getArgument(3);
             listener.onResponse(entities);
             return null;
-        }).when(searchFeatureDao).getHighestCountEntities(any(), anyLong(), anyLong(), anyInt(), any());
+        }).when(searchFeatureDao).getHighestCountEntities(any(), anyLong(), anyLong(), any());
 
         ActionListener<List<Entity>> listener = mock(ActionListener.class);
 

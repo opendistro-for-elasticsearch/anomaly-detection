@@ -210,7 +210,12 @@ public class SearchFeatureDaoTests {
         Settings settings = Settings.EMPTY;
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY)))
+            Collections
+                .unmodifiableSet(
+                    new HashSet<>(
+                        Arrays.asList(AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY, AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW)
+                    )
+                )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
@@ -999,7 +1004,7 @@ public class SearchFeatureDaoTests {
         when(detector.getCategoryField()).thenReturn(Collections.singletonList("fieldName"));
         ActionListener<List<Entity>> listener = mock(ActionListener.class);
 
-        searchFeatureDao.getHighestCountEntities(detector, 10L, 20L, 30, listener);
+        searchFeatureDao.getHighestCountEntities(detector, 10L, 20L, listener);
 
         ArgumentCaptor<List<Entity>> captor = ArgumentCaptor.forClass(List.class);
         verify(listener).onResponse(captor.capture());

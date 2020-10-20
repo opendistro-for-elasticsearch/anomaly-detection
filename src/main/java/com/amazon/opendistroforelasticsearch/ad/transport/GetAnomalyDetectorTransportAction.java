@@ -106,34 +106,34 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             if (!Strings.isEmpty(typesStr) || rawPath.endsWith(PROFILE) || rawPath.endsWith(PROFILE + "/")) {
-              if (entityValue != null) {
-                  profileRunner
-                      .profileEntity(
-                          detectorID,
-                          entityValue,
-                          ActionListener
-                              .wrap(
-                                  profile -> {
-                                      listener
-                                          .onResponse(
-                                              new GetAnomalyDetectorResponse(0, null, 0, 0, null, null, false, null, null, profile, true)
-                                          );
-                                  },
-                                  e -> listener.onFailure(e)
-                              )
-                      );
-              } else {
-                  profileRunner.profile(detectorID, getProfileActionListener(listener, detectorID), getProfilesToCollect(typesStr, all));
-              }
-          } else {
-              MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorID).version(version);
-              MultiGetRequest multiGetRequest = new MultiGetRequest().add(adItem);
-              if (returnJob) {
-                  MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(ANOMALY_DETECTOR_JOB_INDEX, detectorID).version(version);
-                  multiGetRequest.add(adJobItem);
-              }
-              client.multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, detectorID));
-          }            
+                if (entityValue != null) {
+                    profileRunner
+                        .profileEntity(
+                            detectorID,
+                            entityValue,
+                            ActionListener
+                                .wrap(
+                                    profile -> {
+                                        listener
+                                            .onResponse(
+                                                new GetAnomalyDetectorResponse(0, null, 0, 0, null, null, false, null, null, profile, true)
+                                            );
+                                    },
+                                    e -> listener.onFailure(e)
+                                )
+                        );
+                } else {
+                    profileRunner.profile(detectorID, getProfileActionListener(listener, detectorID), getProfilesToCollect(typesStr, all));
+                }
+            } else {
+                MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorID).version(version);
+                MultiGetRequest multiGetRequest = new MultiGetRequest().add(adItem);
+                if (returnJob) {
+                    MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(ANOMALY_DETECTOR_JOB_INDEX, detectorID).version(version);
+                    multiGetRequest.add(adJobItem);
+                }
+                client.multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, detectorID));
+            }
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);

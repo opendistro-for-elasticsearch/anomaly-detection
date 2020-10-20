@@ -112,7 +112,8 @@ public final class AnomalyDetectorRunner {
                         Instant.ofEpochMilli(timeRange.getValue()),
                         null,
                         null,
-                        null
+                        null,
+                        detector.getUser()
                     );
                 } else {
                     result = new AnomalyResult(
@@ -125,7 +126,8 @@ public final class AnomalyDetectorRunner {
                         Instant.ofEpochMilli(timeRange.getValue()),
                         null,
                         null,
-                        null
+                        null,
+                        detector.getUser()
                     );
                 }
 

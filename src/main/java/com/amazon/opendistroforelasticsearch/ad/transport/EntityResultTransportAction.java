@@ -165,7 +165,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                                 executionStartTime,
                                 Instant.now(),
                                 null,
-                                Arrays.asList(new Entity(categoricalField, entityName))
+                                Arrays.asList(new Entity(categoricalField, entityName)),
+                                detector.getUser()
                             )
                         );
                 }

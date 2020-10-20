@@ -39,6 +39,7 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
     private Integer maxSingleEntityAnomalyDetectors;
     private Integer maxMultiEntityAnomalyDetectors;
     private Integer maxAnomalyFeatures;
+    private String authHeader;
 
     public IndexAnomalyDetectorRequest(StreamInput in) throws IOException {
         super(in);
@@ -52,6 +53,7 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         maxSingleEntityAnomalyDetectors = in.readInt();
         maxMultiEntityAnomalyDetectors = in.readInt();
         maxAnomalyFeatures = in.readInt();
+        authHeader = in.readOptionalString();
     }
 
     public IndexAnomalyDetectorRequest(
@@ -64,7 +66,8 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         TimeValue requestTimeout,
         Integer maxSingleEntityAnomalyDetectors,
         Integer maxMultiEntityAnomalyDetectors,
-        Integer maxAnomalyFeatures
+        Integer maxAnomalyFeatures,
+        String authHeader
     ) {
         super();
         this.detectorID = detectorID;
@@ -77,6 +80,7 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         this.maxSingleEntityAnomalyDetectors = maxSingleEntityAnomalyDetectors;
         this.maxMultiEntityAnomalyDetectors = maxMultiEntityAnomalyDetectors;
         this.maxAnomalyFeatures = maxAnomalyFeatures;
+        this.authHeader = authHeader;
     }
 
     public String getDetectorID() {
@@ -119,6 +123,10 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         return maxAnomalyFeatures;
     }
 
+    public String getAuthHeader() {
+        return authHeader;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
@@ -132,6 +140,7 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         out.writeInt(maxSingleEntityAnomalyDetectors);
         out.writeInt(maxMultiEntityAnomalyDetectors);
         out.writeInt(maxAnomalyFeatures);
+        out.writeOptionalString(authHeader);
     }
 
     @Override

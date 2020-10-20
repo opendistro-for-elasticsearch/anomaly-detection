@@ -40,6 +40,7 @@ import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.action.support.ThreadedActionListener;
 import org.elasticsearch.action.support.master.AcknowledgedResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.block.ClusterBlockLevel;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
@@ -49,6 +50,7 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.node.NodeClosedException;
 import org.elasticsearch.tasks.Task;
@@ -115,6 +117,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final ADStats adStats;
     private final ADCircuitBreakerService adCircuitBreakerService;
     private final ThreadPool threadPool;
+    private final Client client;
     private final SearchFeatureDao searchFeatureDao;
 
     @Inject
@@ -122,6 +125,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         ActionFilters actionFilters,
         TransportService transportService,
         Settings settings,
+        Client client,
         NodeStateManager manager,
         FeatureManager featureManager,
         ModelManager modelManager,
@@ -136,6 +140,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     ) {
         super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);
         this.transportService = transportService;
+        this.client = client;
         this.stateManager = manager;
         this.featureManager = featureManager;
         this.modelPartitioner = modelPartitioner;
@@ -207,31 +212,36 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      */
     @Override
     protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<AnomalyResultResponse> listener) {
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
 
-        AnomalyResultRequest request = AnomalyResultRequest.fromActionRequest(actionRequest);
-        ActionListener<AnomalyResultResponse> original = listener;
-        listener = ActionListener.wrap(original::onResponse, e -> {
-            adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-            original.onFailure(e);
-        });
+            AnomalyResultRequest request = AnomalyResultRequest.fromActionRequest(actionRequest);
+            ActionListener<AnomalyResultResponse> original = listener;
+            listener = ActionListener.wrap(original::onResponse, e -> {
+                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                original.onFailure(e);
+            });
 
-        String adID = request.getAdID();
+            String adID = request.getAdID();
 
-        if (!EnabledSetting.isADPluginEnabled()) {
-            throw new EndRunException(adID, CommonErrorMessages.DISABLED_ERR_MSG, true);
-        }
+            if (!EnabledSetting.isADPluginEnabled()) {
+                throw new EndRunException(adID, CommonErrorMessages.DISABLED_ERR_MSG, true);
+            }
 
-        adStats.getStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
+            adStats.getStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
 
-        if (adCircuitBreakerService.isOpen()) {
-            listener.onFailure(new LimitExceededException(adID, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
-            return;
-        }
+            if (adCircuitBreakerService.isOpen()) {
+                listener.onFailure(new LimitExceededException(adID, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
+                return;
+            }
 
-        try {
-            stateManager.getAnomalyDetector(adID, onGetDetector(listener, adID, request));
-        } catch (Exception ex) {
-            handleExecuteException(ex, listener, adID);
+            try {
+                stateManager.getAnomalyDetector(adID, onGetDetector(listener, adID, request));
+            } catch (Exception ex) {
+                handleExecuteException(ex, listener, adID);
+            }
+        } catch (Exception e) {
+            LOG.error(e);
+            listener.onFailure(e);
         }
     }
 

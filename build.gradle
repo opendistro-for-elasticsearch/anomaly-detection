@@ -326,7 +326,6 @@ dependencies {
     compile 'software.amazon.randomcutforest:randomcutforest-serialization-json:1.0'
     compile "org.elasticsearch.client:elasticsearch-rest-client:${es_version}"
 
-
     compile "org.jacoco:org.jacoco.agent:0.8.5"
     compile ("org.jacoco:org.jacoco.ant:0.8.5") {
         exclude group: 'org.ow2.asm', module: 'asm-commons'

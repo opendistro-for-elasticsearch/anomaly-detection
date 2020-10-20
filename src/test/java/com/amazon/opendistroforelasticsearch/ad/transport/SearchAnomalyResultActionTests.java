@@ -16,6 +16,12 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 
 import org.apache.lucene.index.IndexNotFoundException;
 import org.elasticsearch.action.ActionListener;
@@ -23,25 +29,53 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.ActionFilters;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+
 public class SearchAnomalyResultActionTests extends ESIntegTestCase {
     private SearchAnomalyResultTransportAction action;
     private Task task;
     private ActionListener<SearchResponse> response;
+    private ClusterService clusterService;
+    private Client client;
 
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        action = new SearchAnomalyResultTransportAction(mock(TransportService.class), mock(ActionFilters.class), client());
+        clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        ThreadPool threadPool = mock(ThreadPool.class);
+        client = mock(Client.class);
+        ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
+        when(client.threadPool()).thenReturn(threadPool);
+        when(client.threadPool().getThreadContext()).thenReturn(threadContext);
+        action = new SearchAnomalyResultTransportAction(
+            Settings.EMPTY,
+            mock(TransportService.class),
+            clusterService,
+            mock(ActionFilters.class),
+            client,
+            mock(RestClient.class)
+        );
         task = mock(Task.class);
         response = new ActionListener<SearchResponse>() {
             @Override
@@ -59,13 +93,14 @@ public class SearchAnomalyResultActionTests extends ESIntegTestCase {
     // Ignoring this test as this is flaky.
     @Ignore
     @Test
-    public void testSearchResponse() {
+    public void testSearchResponse() throws IOException {
         // Will call response.onResponse as Index exists
         Settings indexSettings = Settings.builder().put("index.number_of_shards", 5).put("index.number_of_replicas", 1).build();
         CreateIndexRequest indexRequest = new CreateIndexRequest("my-test-index", indexSettings);
         client().admin().indices().create(indexRequest).actionGet();
         SearchRequest searchRequest = new SearchRequest("my-test-index");
-        action.doExecute(task, searchRequest, response);
+        SearchAnomalyRequest searchAnomalyRequest = new SearchAnomalyRequest(searchRequest, "authHeader");
+        action.doExecute(task, searchAnomalyRequest, response);
     }
 
     @Test
@@ -75,9 +110,10 @@ public class SearchAnomalyResultActionTests extends ESIntegTestCase {
     }
 
     @Test
-    public void testNoIndex() {
+    public void testNoIndex() throws IOException {
         // No Index, will call response.onFailure
         SearchRequest searchRequest = new SearchRequest("my-test-index");
-        action.doExecute(task, searchRequest, response);
+        SearchAnomalyRequest searchAnomalyRequest = new SearchAnomalyRequest(searchRequest, "authHeader");
+        action.doExecute(task, searchAnomalyRequest, response);
     }
 }

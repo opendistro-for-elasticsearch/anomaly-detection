@@ -256,9 +256,7 @@ public class IndexAnomalyDetectorActionHandler {
         try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
             AnomalyDetector existingDetector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
-            List<String> categoryField = existingDetector.getCategoryField();
-            if ((categoryField == null || categoryField.size() == 0)
-                && (this.anomalyDetector.getCategoryField() != null && !this.anomalyDetector.getCategoryField().isEmpty())) {
+            if (!hasCategoryField(existingDetector) && hasCategoryField(this.anomalyDetector)) {
                 validateAgainstExistingMultiEntityAnomalyDetector(detectorId);
             } else {
                 validateCategoricalField(detectorId);
@@ -269,6 +267,10 @@ public class IndexAnomalyDetectorActionHandler {
             listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
         }
 
+    }
+
+    private boolean hasCategoryField(AnomalyDetector detector) {
+        return detector.getCategoryField() != null && !detector.getCategoryField().isEmpty();
     }
 
     private void validateAgainstExistingMultiEntityAnomalyDetector(String detectorId) {

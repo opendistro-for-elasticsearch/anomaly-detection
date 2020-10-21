@@ -111,7 +111,8 @@ public class IndexCleanup {
     public void deleteDocsByQuery(String indexName, QueryBuilder queryForDeleteByQueryRequest, ActionListener<Long> listener) {
         DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(indexName)
             .setQuery(queryForDeleteByQueryRequest)
-            .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
+            .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN)
+            .setRefresh(true);
         clientUtil.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(response -> {
             // if 0 docs get deleted, it means our query cannot find any matching doc
             LOG.info("{} docs are deleted for index:{}", response.getDeleted(), indexName);

@@ -17,9 +17,12 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import org.elasticsearch.action.ActionType;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
+
 public class IndexAnomalyDetectorAction extends ActionType<IndexAnomalyDetectorResponse> {
+    // External Action which used for public facing RestAPIs.
+    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/write";
     public static final IndexAnomalyDetectorAction INSTANCE = new IndexAnomalyDetectorAction();
-    public static final String NAME = "cluster:admin/opendistro/ad/detector/write";
 
     private IndexAnomalyDetectorAction() {
         super(NAME, IndexAnomalyDetectorResponse::new);

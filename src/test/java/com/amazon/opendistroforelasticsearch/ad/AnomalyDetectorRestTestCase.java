@@ -242,25 +242,25 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
 
     public Response getSearchDetectorCount() throws IOException {
         return TestHelpers
-                .makeRequest(
-                        client(),
-                        "GET",
-                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.COUNT,
-                        null,
-                        "",
-                        ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-                );
+            .makeRequest(
+                client(),
+                "GET",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.COUNT,
+                null,
+                "",
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
     }
 
     public Response getSearchDetectorMatch(String name) throws IOException {
         return TestHelpers
-                .makeRequest(
-                        client(),
-                        "GET",
-                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.MATCH,
-                        ImmutableMap.of("name",name),
-                        "",
-                        ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-                );
+            .makeRequest(
+                client(),
+                "GET",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.MATCH,
+                ImmutableMap.of("name", name),
+                "",
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
     }
 }

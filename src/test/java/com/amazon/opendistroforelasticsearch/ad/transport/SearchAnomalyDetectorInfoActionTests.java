@@ -79,11 +79,6 @@ public class SearchAnomalyDetectorInfoActionTests extends ESIntegTestCase {
     }
 
     @Test
-    public void testSearchCountWithIndex() throws IOException {
-
-    }
-
-    @Test
     public void testSearchInfoAction() {
         Assert.assertNotNull(SearchAnomalyDetectorInfoAction.INSTANCE.name());
         Assert.assertEquals(SearchAnomalyDetectorInfoAction.INSTANCE.name(), SearchAnomalyDetectorInfoAction.NAME);

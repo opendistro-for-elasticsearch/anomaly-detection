@@ -1061,7 +1061,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
                 if (nodeCount == responseCount.incrementAndGet()) {
-                    handleEntityException();
+                    handleEntityResponses();
                 }
             }
         }
@@ -1080,12 +1080,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
                 if (nodeCount == responseCount.incrementAndGet()) {
-                    handleEntityException();
+                    handleEntityResponses();
                 }
             }
         }
 
-        private void handleEntityException() {
+        private void handleEntityResponses() {
             if (failure.get() != null) {
                 listener.onFailure(failure.get());
             } else if (ackResponses.isEmpty()) {

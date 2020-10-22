@@ -24,9 +24,9 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class ADResultBulkAction extends ActionType<BulkResponse> {
 
-    public static final ADResultBulkAction INSTANCE = new ADResultBulkAction();
     // Internal Action which is not used for public facing RestAPIs.
     public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "write/bulk";
+    public static final ADResultBulkAction INSTANCE = new ADResultBulkAction();
 
     private ADResultBulkAction() {
         super(NAME, BulkResponse::new);

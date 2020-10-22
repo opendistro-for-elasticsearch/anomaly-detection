@@ -21,9 +21,9 @@ import org.elasticsearch.action.delete.DeleteResponse;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class DeleteAnomalyDetectorAction extends ActionType<DeleteResponse> {
-    public static final DeleteAnomalyDetectorAction INSTANCE = new DeleteAnomalyDetectorAction();
     // External Action which used for public facing RestAPIs.
     public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/delete";
+    public static final DeleteAnomalyDetectorAction INSTANCE = new DeleteAnomalyDetectorAction();
 
     private DeleteAnomalyDetectorAction() {
         super(NAME, DeleteResponse::new);

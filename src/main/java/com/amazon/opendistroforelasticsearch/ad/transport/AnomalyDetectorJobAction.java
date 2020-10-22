@@ -20,9 +20,9 @@ import org.elasticsearch.action.ActionType;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class AnomalyDetectorJobAction extends ActionType<AnomalyDetectorJobResponse> {
-    public static final AnomalyDetectorJobAction INSTANCE = new AnomalyDetectorJobAction();
     // External Action which used for public facing RestAPIs.
     public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/jobmanagement";
+    public static final AnomalyDetectorJobAction INSTANCE = new AnomalyDetectorJobAction();
 
     private AnomalyDetectorJobAction() {
         super(NAME, AnomalyDetectorJobResponse::new);

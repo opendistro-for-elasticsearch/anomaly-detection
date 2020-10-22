@@ -20,9 +20,9 @@ import org.elasticsearch.action.ActionType;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class AnomalyResultAction extends ActionType<AnomalyResultResponse> {
-    public static final AnomalyResultAction INSTANCE = new AnomalyResultAction();
     // External Action which used for public facing RestAPIs.
     public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/run";
+    public static final AnomalyResultAction INSTANCE = new AnomalyResultAction();
 
     private AnomalyResultAction() {
         super(NAME, AnomalyResultResponse::new);

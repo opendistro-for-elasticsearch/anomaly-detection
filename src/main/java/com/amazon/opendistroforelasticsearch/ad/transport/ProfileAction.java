@@ -23,10 +23,9 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
  * Profile transport action
  */
 public class ProfileAction extends ActionType<ProfileResponse> {
-
-    public static final ProfileAction INSTANCE = new ProfileAction();
     // Internal Action which is not used for public facing RestAPIs.
     public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detectors/profile";
+    public static final ProfileAction INSTANCE = new ProfileAction();
 
     /**
      * Constructor

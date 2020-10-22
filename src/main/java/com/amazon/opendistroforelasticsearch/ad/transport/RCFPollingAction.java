@@ -20,9 +20,9 @@ import org.elasticsearch.action.ActionType;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class RCFPollingAction extends ActionType<RCFPollingResponse> {
-    public static final RCFPollingAction INSTANCE = new RCFPollingAction();
     // Internal Action which is not used for public facing RestAPIs.
     public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "rcfpolling";
+    public static final RCFPollingAction INSTANCE = new RCFPollingAction();
 
     private RCFPollingAction() {
         super(NAME, RCFPollingResponse::new);

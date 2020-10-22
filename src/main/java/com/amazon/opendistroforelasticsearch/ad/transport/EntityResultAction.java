@@ -21,9 +21,9 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class EntityResultAction extends ActionType<AcknowledgedResponse> {
-    public static final EntityResultAction INSTANCE = new EntityResultAction();
     // Internal Action which is not used for public facing RestAPIs.
     public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "entity/result";
+    public static final EntityResultAction INSTANCE = new EntityResultAction();
 
     private EntityResultAction() {
         super(NAME, AcknowledgedResponse::new);

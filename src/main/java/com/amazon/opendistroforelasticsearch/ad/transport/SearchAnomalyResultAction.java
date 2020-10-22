@@ -21,9 +21,9 @@ import org.elasticsearch.action.search.SearchResponse;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class SearchAnomalyResultAction extends ActionType<SearchResponse> {
-    public static final SearchAnomalyResultAction INSTANCE = new SearchAnomalyResultAction();
     // External Action which used for public facing RestAPIs.
     public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "result/search";
+    public static final SearchAnomalyResultAction INSTANCE = new SearchAnomalyResultAction();
 
     private SearchAnomalyResultAction() {
         super(NAME, SearchResponse::new);

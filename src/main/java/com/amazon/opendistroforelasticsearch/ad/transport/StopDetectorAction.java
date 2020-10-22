@@ -20,9 +20,9 @@ import org.elasticsearch.action.ActionType;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class StopDetectorAction extends ActionType<StopDetectorResponse> {
-    public static final StopDetectorAction INSTANCE = new StopDetectorAction();
     // Internal Action which is not used for public facing RestAPIs.
     public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detector/stop";
+    public static final StopDetectorAction INSTANCE = new StopDetectorAction();
 
     private StopDetectorAction() {
         super(NAME, StopDetectorResponse::new);

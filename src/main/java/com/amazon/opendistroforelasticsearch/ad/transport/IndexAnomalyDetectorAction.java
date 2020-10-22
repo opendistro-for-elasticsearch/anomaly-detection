@@ -20,9 +20,9 @@ import org.elasticsearch.action.ActionType;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class IndexAnomalyDetectorAction extends ActionType<IndexAnomalyDetectorResponse> {
-    public static final IndexAnomalyDetectorAction INSTANCE = new IndexAnomalyDetectorAction();
     // External Action which used for public facing RestAPIs.
     public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/write";
+    public static final IndexAnomalyDetectorAction INSTANCE = new IndexAnomalyDetectorAction();
 
     private IndexAnomalyDetectorAction() {
         super(NAME, IndexAnomalyDetectorResponse::new);

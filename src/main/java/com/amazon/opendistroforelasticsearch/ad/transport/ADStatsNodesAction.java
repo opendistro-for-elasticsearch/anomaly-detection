@@ -24,9 +24,9 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
  */
 public class ADStatsNodesAction extends ActionType<ADStatsNodesResponse> {
 
-    public static final ADStatsNodesAction INSTANCE = new ADStatsNodesAction();
     // Internal Action which is not used for public facing RestAPIs.
     public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "stats/nodes";
+    public static final ADStatsNodesAction INSTANCE = new ADStatsNodesAction();
 
     /**
      * Constructor

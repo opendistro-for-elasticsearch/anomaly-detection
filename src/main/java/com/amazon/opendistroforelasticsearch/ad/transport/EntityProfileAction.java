@@ -20,9 +20,9 @@ import org.elasticsearch.action.ActionType;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class EntityProfileAction extends ActionType<EntityProfileResponse> {
-    public static final EntityProfileAction INSTANCE = new EntityProfileAction();
     // Internal Action which is not used for public facing RestAPIs.
     public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detectors/profile/entity";
+    public static final EntityProfileAction INSTANCE = new EntityProfileAction();
 
     private EntityProfileAction() {
         super(NAME, EntityProfileResponse::new);

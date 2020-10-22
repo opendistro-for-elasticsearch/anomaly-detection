@@ -20,10 +20,13 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.transport.TransportRequestOptions;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
+
 public class ADResultBulkAction extends ActionType<BulkResponse> {
 
+    // Internal Action which is not used for public facing RestAPIs.
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "write/bulk";
     public static final ADResultBulkAction INSTANCE = new ADResultBulkAction();
-    public static final String NAME = "cluster:admin/ad/write/bulk";
 
     private ADResultBulkAction() {
         super(NAME, BulkResponse::new);

@@ -18,4 +18,6 @@ package com.amazon.opendistroforelasticsearch.ad.constant;
 public class CommonValue {
     // unknown or no schema version
     public static Integer NO_SCHEMA_VERSION = 0;
+    public static String INTERNAL_ACTION_PREFIX = "cluster:admin/opendistro/adinternal/";
+    public static String EXTERNAL_ACTION_PREFIX = "cluster:admin/opendistro/ad/";
 }

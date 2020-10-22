@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -53,6 +54,7 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -245,31 +247,52 @@ public class IndexAnomalyDetectorActionHandler {
             );
     }
 
-    private void onGetAnomalyDetectorResponse(GetResponse response) throws IOException {
+    private void onGetAnomalyDetectorResponse(GetResponse response) {
         if (!response.isExists()) {
             listener
                 .onFailure(new ElasticsearchStatusException("AnomalyDetector is not found with id: " + detectorId, RestStatus.NOT_FOUND));
             return;
         }
+        try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+            AnomalyDetector existingDetector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
+            if (!hasCategoryField(existingDetector) && hasCategoryField(this.anomalyDetector)) {
+                validateAgainstExistingMultiEntityAnomalyDetector(detectorId);
+            } else {
+                validateCategoricalField(detectorId);
+            }
+        } catch (IOException e) {
+            String message = "Failed to parse anomaly detector " + detectorId;
+            logger.error(message, e);
+            listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+        }
 
-        validateCategoricalField(detectorId);
+    }
+
+    private boolean hasCategoryField(AnomalyDetector detector) {
+        return detector.getCategoryField() != null && !detector.getCategoryField().isEmpty();
+    }
+
+    private void validateAgainstExistingMultiEntityAnomalyDetector(String detectorId) {
+        QueryBuilder query = QueryBuilders.boolQuery().filter(QueryBuilders.existsQuery(AnomalyDetector.CATEGORY_FIELD));
+
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
+
+        SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
+
+        client
+            .search(
+                searchRequest,
+                ActionListener
+                    .wrap(response -> onSearchMultiEntityAdResponse(response, detectorId), exception -> listener.onFailure(exception))
+            );
     }
 
     private void createAnomalyDetector() {
         try {
             List<String> categoricalFields = anomalyDetector.getCategoryField();
             if (categoricalFields != null && categoricalFields.size() > 0) {
-                QueryBuilder query = QueryBuilders.boolQuery().filter(QueryBuilders.existsQuery(AnomalyDetector.CATEGORY_FIELD));
-
-                SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
-
-                SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
-
-                client
-                    .search(
-                        searchRequest,
-                        ActionListener.wrap(response -> onSearchMultiEntityAdResponse(response), exception -> listener.onFailure(exception))
-                    );
+                validateAgainstExistingMultiEntityAnomalyDetector(null);
             } else {
                 QueryBuilder query = QueryBuilders.matchAllQuery();
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
@@ -298,13 +321,13 @@ public class IndexAnomalyDetectorActionHandler {
         }
     }
 
-    private void onSearchMultiEntityAdResponse(SearchResponse response) throws IOException {
+    private void onSearchMultiEntityAdResponse(SearchResponse response, String detectorId) throws IOException {
         if (response.getHits().getTotalHits().value >= maxMultiEntityAnomalyDetectors) {
             String errorMsg = EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG + maxMultiEntityAnomalyDetectors;
             logger.error(errorMsg);
             listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
-            validateCategoricalField(null);
+            validateCategoricalField(detectorId);
         }
     }
 

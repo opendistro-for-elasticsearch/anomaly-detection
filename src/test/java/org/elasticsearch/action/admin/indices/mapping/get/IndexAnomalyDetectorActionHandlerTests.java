@@ -311,7 +311,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    private void testValidTypeTepmlate(String filedTypeName) throws IOException {
+    private void testValidTypeTemplate(String filedTypeName) throws IOException {
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
 
@@ -388,15 +388,15 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     }
 
     public void testIpField() throws IOException {
-        testValidTypeTepmlate(CommonName.IP_TYPE);
+        testValidTypeTemplate(CommonName.IP_TYPE);
     }
 
     public void testKeywordField() throws IOException {
-        testValidTypeTepmlate(CommonName.KEYWORD_TYPE);
+        testValidTypeTemplate(CommonName.KEYWORD_TYPE);
     }
 
     @SuppressWarnings("unchecked")
-    private void testUpdateTepmlate(String fieldTypeName) throws IOException {
+    private void testUpdateTemplate(String fieldTypeName) throws IOException {
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
 
@@ -404,8 +404,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         int totalHits = 9;
         when(detectorResponse.getHits()).thenReturn(createSearchHits(totalHits));
 
-        GetResponse getDetectorResponse = mock(GetResponse.class);
-        when(getDetectorResponse.isExists()).thenReturn(true);
+        GetResponse getDetectorResponse = TestHelpers
+            .createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
 
         SearchResponse userIndexResponse = mock(SearchResponse.class);
         int userIndexHits = 0;
@@ -485,15 +485,15 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     }
 
     public void testUpdateIpField() throws IOException {
-        testUpdateTepmlate(CommonName.IP_TYPE);
+        testUpdateTemplate(CommonName.IP_TYPE);
     }
 
     public void testUpdateKeywordField() throws IOException {
-        testUpdateTepmlate(CommonName.KEYWORD_TYPE);
+        testUpdateTemplate(CommonName.KEYWORD_TYPE);
     }
 
     public void testUpdateTextField() throws IOException {
-        testUpdateTepmlate(TEXT_FIELD_TYPE);
+        testUpdateTemplate(TEXT_FIELD_TYPE);
     }
 
     @SuppressWarnings("unchecked")
@@ -526,5 +526,152 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         Exception value = response.getValue();
         assertTrue(value instanceof IllegalArgumentException);
         assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testTenMultiEntityDetectorsUpdateSingleEntityAdToMulti() throws IOException {
+        int totalHits = 10;
+        AnomalyDetector existingDetector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, null);
+        GetResponse getDetectorResponse = TestHelpers
+            .createGetResponse(existingDetector, existingDetector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+
+        SearchResponse searchResponse = mock(SearchResponse.class);
+        when(searchResponse.getHits()).thenReturn(createSearchHits(totalHits));
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+
+            assertTrue(args[0] instanceof SearchRequest);
+            assertTrue(args[1] instanceof ActionListener);
+
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+
+            listener.onResponse(searchResponse);
+
+            return null;
+        }).when(clientMock).search(any(SearchRequest.class), any());
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+
+            assertTrue(args[0] instanceof GetRequest);
+            assertTrue(args[1] instanceof ActionListener);
+
+            ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
+
+            listener.onResponse(getDetectorResponse);
+
+            return null;
+        }).when(clientMock).get(any(GetRequest.class), any());
+
+        ClusterName clusterName = new ClusterName("test");
+        ClusterState clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
+        when(clusterService.state()).thenReturn(clusterState);
+
+        handler = new IndexAnomalyDetectorActionHandler(
+            clusterService,
+            clientMock,
+            channel,
+            anomalyDetectionIndices,
+            detectorId,
+            seqNo,
+            primaryTerm,
+            refreshPolicy,
+            detector,
+            requestTimeout,
+            maxSingleEntityAnomalyDetectors,
+            maxMultiEntityAnomalyDetectors,
+            maxAnomalyFeatures,
+            RestRequest.Method.PUT,
+            xContentRegistry(),
+            mock(RestClient.class),
+            null
+        );
+
+        handler.resolveUserAndStart();
+
+        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
+        verify(clientMock, times(1)).search(any(SearchRequest.class), any());
+        verify(clientMock, times(1)).get(any(GetRequest.class), any());
+        verify(channel).onFailure(response.capture());
+        Exception value = response.getValue();
+        assertTrue(value instanceof IllegalArgumentException);
+        assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testTenMultiEntityDetectorsUpdateExistingMultiEntityAd() throws IOException {
+        int totalHits = 10;
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a"));
+        GetResponse getDetectorResponse = TestHelpers
+            .createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+
+        SearchResponse searchResponse = mock(SearchResponse.class);
+        when(searchResponse.getHits()).thenReturn(createSearchHits(totalHits));
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+
+            assertTrue(args[0] instanceof SearchRequest);
+            assertTrue(args[1] instanceof ActionListener);
+
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+
+            listener.onResponse(searchResponse);
+
+            return null;
+        }).when(clientMock).search(any(SearchRequest.class), any());
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+
+            assertTrue(args[0] instanceof GetRequest);
+            assertTrue(args[1] instanceof ActionListener);
+
+            ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
+
+            listener.onResponse(getDetectorResponse);
+
+            return null;
+        }).when(clientMock).get(any(GetRequest.class), any());
+
+        ClusterName clusterName = new ClusterName("test");
+        ClusterState clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
+        when(clusterService.state()).thenReturn(clusterState);
+
+        handler = new IndexAnomalyDetectorActionHandler(
+            clusterService,
+            clientMock,
+            channel,
+            anomalyDetectionIndices,
+            detectorId,
+            seqNo,
+            primaryTerm,
+            refreshPolicy,
+            detector,
+            requestTimeout,
+            maxSingleEntityAnomalyDetectors,
+            maxMultiEntityAnomalyDetectors,
+            maxAnomalyFeatures,
+            RestRequest.Method.PUT,
+            xContentRegistry(),
+            mock(RestClient.class),
+            null
+        );
+
+        handler.resolveUserAndStart();
+
+        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
+        verify(clientMock, times(0)).search(any(SearchRequest.class), any());
+        verify(clientMock, times(1)).get(any(GetRequest.class), any());
+        verify(channel).onFailure(response.capture());
+        Exception value = response.getValue();
+        // make sure execution passes all necessary checks
+        assertTrue(value instanceof IllegalStateException);
+        assertTrue(value.getMessage().contains("NodeClient has not been initialized"));
     }
 }

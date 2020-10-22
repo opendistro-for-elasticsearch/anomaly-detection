@@ -28,6 +28,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
+import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -81,7 +82,14 @@ public class SearchAnomalyDetectorInfoTransportAction extends
 
                     @Override
                     public void onFailure(Exception e) {
-                        listener.onFailure(e);
+                        if (e.getClass() == IndexNotFoundException.class) {
+                            // Anomaly Detectors index does not exist
+                            // Could be that user is creating first detector
+                            SearchAnomalyDetectorInfoResponse response = new SearchAnomalyDetectorInfoResponse(0, false);
+                            listener.onResponse(response);
+                        } else {
+                            listener.onFailure(e);
+                        }
                     }
                 });
             } else {
@@ -94,18 +102,21 @@ public class SearchAnomalyDetectorInfoTransportAction extends
                     @Override
                     public void onResponse(SearchResponse searchResponse) {
                         boolean nameExists = false;
-                        if (searchResponse.getHits().getTotalHits().value > 0) {
-                            nameExists = true;
-                        } else {
-                            nameExists = false;
-                        }
+                        nameExists = searchResponse.getHits().getTotalHits().value > 0;
                         SearchAnomalyDetectorInfoResponse response = new SearchAnomalyDetectorInfoResponse(0, nameExists);
                         listener.onResponse(response);
                     }
 
                     @Override
                     public void onFailure(Exception e) {
-                        listener.onFailure(e);
+                        if (e.getClass() == IndexNotFoundException.class) {
+                            // Anomaly Detectors index does not exist
+                            // Could be that user is creating first detector
+                            SearchAnomalyDetectorInfoResponse response = new SearchAnomalyDetectorInfoResponse(0, false);
+                            listener.onResponse(response);
+                        } else {
+                            listener.onFailure(e);
+                        }
                     }
                 });
             }

@@ -19,7 +19,6 @@ import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 
-import org.apache.lucene.index.IndexNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
@@ -54,26 +53,27 @@ public class SearchAnomalyDetectorInfoActionTests extends ESIntegTestCase {
         response = new ActionListener<SearchAnomalyDetectorInfoResponse>() {
             @Override
             public void onResponse(SearchAnomalyDetectorInfoResponse response) {
-                Assert.assertTrue(true);
+                Assert.assertEquals(response.getCount(), 0);
+                Assert.assertEquals(response.isNameExists(), false);
             }
 
             @Override
             public void onFailure(Exception e) {
-                Assert.assertFalse(IndexNotFoundException.class == e.getClass());
+                Assert.assertTrue(true);
             }
         };
     }
 
     @Test
     public void testSearchCount() throws IOException {
-        // Anomaly Detectors index will not exist, onFailure will be called
+        // Anomaly Detectors index will not exist, onResponse will be called
         SearchAnomalyDetectorInfoRequest request = new SearchAnomalyDetectorInfoRequest(null, "count");
         action.doExecute(task, request, response);
     }
 
     @Test
     public void testSearchMatch() throws IOException {
-        // Anomaly Detectors index will not exist, onFailure will be called
+        // Anomaly Detectors index will not exist, onResponse will be called
         SearchAnomalyDetectorInfoRequest request = new SearchAnomalyDetectorInfoRequest("testDetector", "match");
         action.doExecute(task, request, response);
     }

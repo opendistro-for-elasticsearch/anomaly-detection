@@ -1040,4 +1040,42 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Response profileResponse = getDetectorProfile(detector.getDetectorId(), true, "/models/");
         assertEquals("Incorrect profile status", RestStatus.OK, restStatus(profileResponse));
     }
+
+    public void testSearchAnomalyDetectorCountNoIndex() throws Exception {
+        Response countResponse = getSearchDetectorCount();
+        Map<String, Object> responseMap = entityAsMap(countResponse);
+        Integer count = (Integer) responseMap.get("count");
+        assertEquals((long) count, 0);
+    }
+
+    public void testSearchAnomalyDetectorCount() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        Response countResponse = getSearchDetectorCount();
+        Map<String, Object> responseMap = entityAsMap(countResponse);
+        Integer count = (Integer) responseMap.get("count");
+        assertEquals((long) count, 1);
+    }
+
+    public void testSearchAnomalyDetectorMatchNoIndex() throws Exception {
+        Response matchResponse = getSearchDetectorMatch("name");
+        Map<String, Object> responseMap = entityAsMap(matchResponse);
+        boolean nameExists = (boolean) responseMap.get("match");
+        assertEquals(nameExists, false);
+    }
+
+    public void testSearchAnomalyDetectorNoMatch() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        Response matchResponse = getSearchDetectorMatch(detector.getName());
+        Map<String, Object> responseMap = entityAsMap(matchResponse);
+        boolean nameExists = (boolean) responseMap.get("match");
+        assertEquals(nameExists, true);
+    }
+
+    public void testSearchAnomalyDetectorMatch() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        Response matchResponse = getSearchDetectorMatch(detector.getName() + "newDetector");
+        Map<String, Object> responseMap = entityAsMap(matchResponse);
+        boolean nameExists = (boolean) responseMap.get("match");
+        assertEquals(nameExists, false);
+    }
 }

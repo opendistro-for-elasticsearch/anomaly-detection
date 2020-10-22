@@ -1025,7 +1025,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private AtomicInteger responseCount;
         private int nodeCount;
         private ActionListener<AnomalyResultResponse> listener;
-        private ClientException clientException;
         private List<AcknowledgedResponse> ackResponses;
         private AtomicReference<AnomalyDetectionException> failure;
 
@@ -1043,7 +1042,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.nodeCount = nodeCount;
             this.failure = failure;
             this.listener = listener;
-            this.clientException = null;
             this.ackResponses = new ArrayList<>();
         }
 

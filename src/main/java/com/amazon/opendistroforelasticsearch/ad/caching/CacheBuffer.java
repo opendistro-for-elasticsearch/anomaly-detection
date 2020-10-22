@@ -20,10 +20,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -524,5 +526,9 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
 
     public String getDetectorId() {
         return detectorId;
+    }
+
+    public List<ModelState<?>> getAllModels() {
+        return items.values().stream().collect(Collectors.toList());
     }
 }

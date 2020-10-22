@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.caching;
 
+import java.util.List;
+
 import com.amazon.opendistroforelasticsearch.ad.CleanState;
 import com.amazon.opendistroforelasticsearch.ad.MaintenanceState;
 import com.amazon.opendistroforelasticsearch.ad.ml.EntityModel;
@@ -72,4 +74,11 @@ public interface EntityCache extends MaintenanceState, CleanState {
      * @return RCF model total updates of specific entity
      */
     long getTotalUpdates(String detectorId, String entityModelId);
+
+    /**
+     * Gets modelStates of all model hosted on a node
+     *
+     * @return list of modelStates
+     */
+    List<ModelState<?>> getAllModels();
 }

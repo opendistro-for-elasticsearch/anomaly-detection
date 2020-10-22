@@ -23,6 +23,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -553,5 +555,17 @@ public class PriorityCache implements EntityCache {
         AtomicInteger total = new AtomicInteger();
         activeEnities.values().stream().forEach(cacheBuffer -> { total.addAndGet(cacheBuffer.getActiveEntities()); });
         return total.get();
+    }
+
+    /**
+     * Gets modelStates of all model hosted on a node
+     *
+     * @return list of modelStates
+     */
+    @Override
+    public List<ModelState<?>> getAllModels() {
+        List<ModelState<?>> states = new ArrayList<>();
+        activeEnities.values().stream().forEach(cacheBuffer -> states.addAll(cacheBuffer.getAllModels()));
+        return states;
     }
 }

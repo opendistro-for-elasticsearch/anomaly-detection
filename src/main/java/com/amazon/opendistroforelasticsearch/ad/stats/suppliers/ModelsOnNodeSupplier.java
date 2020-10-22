@@ -27,7 +27,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 
 /**
@@ -35,6 +37,7 @@ import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
  */
 public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>> {
     private ModelManager modelManager;
+    private CacheProvider cache;
 
     /**
      * Set that contains the model stats that should be exposed.
@@ -45,16 +48,18 @@ public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>>
      * Constructor
      *
      * @param modelManager object that manages the model partitions hosted on the node
+     * @param cache object that manages multi-entity detectors' models
      */
-    public ModelsOnNodeSupplier(ModelManager modelManager) {
+    public ModelsOnNodeSupplier(ModelManager modelManager, CacheProvider cache) {
         this.modelManager = modelManager;
+        this.cache = cache;
     }
 
     @Override
     public List<Map<String, Object>> get() {
         List<Map<String, Object>> values = new ArrayList<>();
-        modelManager
-            .getAllModels()
+        Stream
+            .concat(modelManager.getAllModels().stream(), cache.get().getAllModels().stream())
             .forEach(
                 modelState -> values
                     .add(

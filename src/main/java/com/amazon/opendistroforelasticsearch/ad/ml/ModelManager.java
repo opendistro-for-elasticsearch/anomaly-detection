@@ -20,6 +20,7 @@ import java.security.PrivilegedAction;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -1022,7 +1023,9 @@ public class ModelManager {
             modelState.setLastCheckpointTime(clock.instant().minus(checkpointInterval));
         }
 
-        assert (modelState.getModel() != null);
+        if (modelState.getModel() == null) {
+            modelState.setModel(new EntityModel(modelId, new ArrayDeque<>(), null, null));
+        }
         maybeTrainBeforeScore(modelState, entityName);
     }
 

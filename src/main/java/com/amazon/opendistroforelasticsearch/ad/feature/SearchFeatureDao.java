@@ -812,8 +812,8 @@ public class SearchFeatureDao {
                     new ThreadedActionListener<>(logger, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, termsListener, false)
                 );
 
-        } catch (IOException e) {
-            throw new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true);
+        } catch (Exception e) {
+            throw new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, false);
         }
     }
 

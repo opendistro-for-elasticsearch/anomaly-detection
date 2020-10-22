@@ -34,6 +34,11 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import test.com.amazon.opendistroforelasticsearch.ad.util.MLUtil;
+
+import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
+import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
+import com.amazon.opendistroforelasticsearch.ad.ml.EntityModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
@@ -58,6 +63,9 @@ public class ADStatsTests extends ESTestCase {
     @Mock
     private ModelManager modelManager;
 
+    @Mock
+    private CacheProvider cacheProvider;
+
     @Before
     public void setup() {
         MockitoAnnotations.initMocks(this);
@@ -76,6 +84,15 @@ public class ADStatsTests extends ESTestCase {
         );
 
         when(modelManager.getAllModels()).thenReturn(modelsInformation);
+
+        ModelState<EntityModel> entityModel1 = MLUtil.randomNonEmptyModelState();
+        ModelState<EntityModel> entityModel2 = MLUtil.randomNonEmptyModelState();
+
+        List<ModelState<?>> entityModelsInformation = new ArrayList<>(Arrays.asList(entityModel1, entityModel2));
+        EntityCache cache = mock(EntityCache.class);
+        when(cacheProvider.get()).thenReturn(cache);
+        when(cache.getAllModels()).thenReturn(entityModelsInformation);
+
         IndexUtils indexUtils = mock(IndexUtils.class);
 
         when(indexUtils.getIndexHealthStatus(anyString())).thenReturn("yellow");
@@ -90,7 +107,7 @@ public class ADStatsTests extends ESTestCase {
         statsMap = new HashMap<String, ADStat<?>>() {
             {
                 put(nodeStatName1, new ADStat<>(false, new CounterSupplier()));
-                put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager)));
+                put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider)));
                 put(clusterStatName1, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index1")));
                 put(clusterStatName2, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index2")));
             }

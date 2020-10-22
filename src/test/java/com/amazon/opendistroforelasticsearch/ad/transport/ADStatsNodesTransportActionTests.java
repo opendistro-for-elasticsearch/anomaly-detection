@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.util.Arrays;
@@ -34,6 +35,8 @@ import org.elasticsearch.transport.TransportService;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
+import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
@@ -69,6 +72,9 @@ public class ADStatsNodesTransportActionTests extends ESIntegTestCase {
             indexNameResolver
         );
         ModelManager modelManager = mock(ModelManager.class);
+        CacheProvider cacheProvider = mock(CacheProvider.class);
+        EntityCache cache = mock(EntityCache.class);
+        when(cacheProvider.get()).thenReturn(cache);
 
         clusterStatName1 = "clusterStat1";
         clusterStatName2 = "clusterStat2";
@@ -78,7 +84,7 @@ public class ADStatsNodesTransportActionTests extends ESIntegTestCase {
         statsMap = new HashMap<String, ADStat<?>>() {
             {
                 put(nodeStatName1, new ADStat<>(false, new CounterSupplier()));
-                put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager)));
+                put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider)));
                 put(clusterStatName1, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index1")));
                 put(clusterStatName2, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index2")));
             }

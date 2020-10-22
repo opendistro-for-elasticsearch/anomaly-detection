@@ -38,6 +38,7 @@ import com.amazon.randomcutforest.RandomCutForest;
  */
 public class MLUtil {
     private static Random random = new Random(42);
+    private static int minSampleSize = AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 
     private static String randomString(int targetStringLength) {
         int leftLimit = 97; // letter 'a'
@@ -58,54 +59,79 @@ public class MLUtil {
     }
 
     public static ModelState<EntityModel> randomModelState() {
-        return randomModelState(random.nextBoolean(), random.nextFloat(), randomString(15));
+        return randomModelState(random.nextBoolean(), random.nextFloat(), randomString(15), random.nextInt(minSampleSize));
     }
 
-    public static ModelState<EntityModel> randomModelState(boolean fullModel, float priority, String modelId) {
+    public static ModelState<EntityModel> randomModelState(boolean fullModel, float priority, String modelId, int sampleSize) {
         String detectorId = randomString(5);
-        Queue<double[]> samples = createQueueSamples(random.nextInt(128));
         EntityModel model = null;
         if (fullModel) {
-            RandomCutForest rcf = RandomCutForest
-                .builder()
-                .dimensions(1)
-                .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
-                .numberOfTrees(AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES)
-                .lambda(AnomalyDetectorSettings.TIME_DECAY)
-                .outputAfter(AnomalyDetectorSettings.NUM_MIN_SAMPLES)
-                .parallelExecutionEnabled(false)
-                .build();
-            int numDataPoints = random.nextInt(1000) + AnomalyDetectorSettings.NUM_MIN_SAMPLES;
-            double[] scores = new double[numDataPoints];
-            for (int j = 0; j < numDataPoints; j++) {
-                double[] dataPoint = new double[] { random.nextDouble() };
-                scores[j] = rcf.getAnomalyScore(dataPoint);
-                rcf.update(dataPoint);
-            }
-
-            double[] nonZeroScores = DoubleStream.of(scores).filter(score -> score > 0).toArray();
-            ThresholdingModel threshold = new HybridThresholdingModel(
-                AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-                AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-                AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
-                AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-                AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
-                AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES
-            );
-            threshold.train(nonZeroScores);
-            model = new EntityModel(modelId, samples, rcf, threshold);
+            model = createNonEmptyModel(modelId, sampleSize);
         } else {
-            model = new EntityModel(modelId, samples, null, null);
+            model = createEmptyModel(modelId, sampleSize);
         }
 
         return new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), Clock.systemUTC(), priority);
     }
 
     public static ModelState<EntityModel> randomNonEmptyModelState() {
-        return randomModelState(true, random.nextFloat(), randomString(15));
+        return randomModelState(true, random.nextFloat(), randomString(15), random.nextInt(minSampleSize));
+    }
+
+    public static ModelState<EntityModel> randomEmptyModelState() {
+        return randomModelState(false, random.nextFloat(), randomString(15), random.nextInt(minSampleSize));
     }
 
     public static ModelState<EntityModel> randomModelState(float priority, String modelId) {
-        return randomModelState(random.nextBoolean(), priority, modelId);
+        return randomModelState(random.nextBoolean(), priority, modelId, random.nextInt(minSampleSize));
+    }
+
+    public static ModelState<EntityModel> randomModelStateWithSample(boolean fullModel, int sampleSize) {
+        return randomModelState(fullModel, random.nextFloat(), randomString(15), sampleSize);
+    }
+
+    public static EntityModel createEmptyModel(String modelId, int sampleSize) {
+        Queue<double[]> samples = createQueueSamples(sampleSize);
+        return new EntityModel(modelId, samples, null, null);
+    }
+
+    public static EntityModel createEmptyModel(String modelId) {
+        return createEmptyModel(modelId, random.nextInt(minSampleSize));
+    }
+
+    public static EntityModel createNonEmptyModel(String modelId, int sampleSize) {
+        Queue<double[]> samples = createQueueSamples(sampleSize);
+        RandomCutForest rcf = RandomCutForest
+            .builder()
+            .dimensions(1)
+            .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
+            .numberOfTrees(AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES)
+            .lambda(AnomalyDetectorSettings.TIME_DECAY)
+            .outputAfter(AnomalyDetectorSettings.NUM_MIN_SAMPLES)
+            .parallelExecutionEnabled(false)
+            .build();
+        int numDataPoints = random.nextInt(1000) + AnomalyDetectorSettings.NUM_MIN_SAMPLES;
+        double[] scores = new double[numDataPoints];
+        for (int j = 0; j < numDataPoints; j++) {
+            double[] dataPoint = new double[] { random.nextDouble() };
+            scores[j] = rcf.getAnomalyScore(dataPoint);
+            rcf.update(dataPoint);
+        }
+
+        double[] nonZeroScores = DoubleStream.of(scores).filter(score -> score > 0).toArray();
+        ThresholdingModel threshold = new HybridThresholdingModel(
+            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
+            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
+            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
+            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
+            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES
+        );
+        threshold.train(nonZeroScores);
+        return new EntityModel(modelId, samples, rcf, threshold);
+    }
+
+    public static EntityModel createNonEmptyModel(String modelId) {
+        return createNonEmptyModel(modelId, random.nextInt(minSampleSize));
     }
 }

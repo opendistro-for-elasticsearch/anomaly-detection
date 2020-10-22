@@ -226,7 +226,7 @@ public class TestHelpers {
             ImmutableList.of(randomFeature(true)),
             randomQuery(),
             randomIntervalTimeConfiguration(),
-            randomIntervalTimeConfiguration(),
+            new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
             randomIntBetween(1, 2000),
             null,
             randomInt(),

@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
 import static com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier.MODEL_STATE_STAT_KEYS;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -24,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
@@ -31,6 +33,11 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import test.com.amazon.opendistroforelasticsearch.ad.util.MLUtil;
+
+import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
+import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
+import com.amazon.opendistroforelasticsearch.ad.ml.EntityModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
@@ -41,9 +48,13 @@ public class ModelsOnNodeSupplierTests extends ESTestCase {
     private HybridThresholdingModel thresholdingModel;
     private List<ModelState<?>> expectedResults;
     private Clock clock;
+    private List<ModelState<?>> entityModelsInformation;
 
     @Mock
     private ModelManager modelManager;
+
+    @Mock
+    private CacheProvider cacheProvider;
 
     @Before
     public void setup() {
@@ -64,16 +75,24 @@ public class ModelsOnNodeSupplierTests extends ESTestCase {
         );
 
         when(modelManager.getAllModels()).thenReturn(expectedResults);
+
+        ModelState<EntityModel> entityModel1 = MLUtil.randomNonEmptyModelState();
+        ModelState<EntityModel> entityModel2 = MLUtil.randomNonEmptyModelState();
+
+        entityModelsInformation = new ArrayList<>(Arrays.asList(entityModel1, entityModel2));
+        EntityCache cache = mock(EntityCache.class);
+        when(cacheProvider.get()).thenReturn(cache);
+        when(cache.getAllModels()).thenReturn(entityModelsInformation);
     }
 
     @Test
     public void testGet() {
-        ModelsOnNodeSupplier modelsOnNodeSupplier = new ModelsOnNodeSupplier(modelManager);
+        ModelsOnNodeSupplier modelsOnNodeSupplier = new ModelsOnNodeSupplier(modelManager, cacheProvider);
         List<Map<String, Object>> results = modelsOnNodeSupplier.get();
         assertEquals(
             "get fails to return correct result",
-            expectedResults
-                .stream()
+            Stream
+                .concat(expectedResults.stream(), entityModelsInformation.stream())
                 .map(
                     modelState -> modelState
                         .getModelStateAsMap()

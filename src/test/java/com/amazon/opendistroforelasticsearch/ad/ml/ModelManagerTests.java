@@ -71,6 +71,8 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
+import test.com.amazon.opendistroforelasticsearch.ad.util.MLUtil;
+
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
 import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
@@ -164,6 +166,7 @@ public class ModelManagerTests {
     private double[] attribution;
     private double[] point;
     private DiVector attributionVec;
+    private String entityName;
 
     @Mock
     private ActionListener<RcfResult> rcfResultListener;
@@ -171,6 +174,7 @@ public class ModelManagerTests {
     @Mock
     private ActionListener<ThresholdingResult> thresholdResultListener;
     private MemoryTracker memoryTracker;
+    private Instant now;
 
     @Before
     public void setup() {
@@ -232,6 +236,9 @@ public class ModelManagerTests {
 
         modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
 
+        now = Instant.now();
+        when(clock.instant()).thenReturn(now);
+
         modelManager = spy(
             new ModelManager(
                 rcfSerde,
@@ -284,6 +291,8 @@ public class ModelManagerTests {
             listener.onResponse(Optional.of(failCheckpoint));
             return null;
         }).when(checkpointDao).getModelCheckpoint(eq(failModelId), any(ActionListener.class));
+
+        entityName = "1.0.2.3";
     }
 
     private Object[] getDetectorIdForModelIdData() {
@@ -1187,5 +1196,57 @@ public class ModelManagerTests {
     @Test(expected = IllegalArgumentException.class)
     public void getPreviewResults_throwIllegalArgument_forInvalidInput() {
         modelManager.getPreviewResults(new double[0][0]);
+    }
+
+    @Test
+    public void getNullState() {
+        assertEquals(new ThresholdingResult(0, 0, 0), modelManager.getAnomalyResultForEntity("", new double[] {}, "", null, ""));
+    }
+
+    @Test
+    public void getEmptyStateFullSamples() {
+        ModelState<EntityModel> state = MLUtil.randomModelStateWithSample(false, numMinSamples);
+        assertEquals(
+            new ThresholdingResult(0, 0, 0),
+            modelManager.getAnomalyResultForEntity(detectorId, new double[] { -1 }, entityName, state, modelId)
+        );
+        assertEquals(numMinSamples, state.getModel().getSamples().size());
+    }
+
+    @Test
+    public void getEmptyStateNotFullSamples() {
+        ModelState<EntityModel> state = MLUtil.randomModelStateWithSample(false, numMinSamples - 1);
+        assertEquals(
+            new ThresholdingResult(0, 0, 0),
+            modelManager.getAnomalyResultForEntity(detectorId, new double[] { -1 }, entityName, state, modelId)
+        );
+        assertEquals(numMinSamples, state.getModel().getSamples().size());
+    }
+
+    @Test
+    public void scoreSamples() {
+        ModelState<EntityModel> state = MLUtil.randomNonEmptyModelState();
+        modelManager.getAnomalyResultForEntity(detectorId, new double[] { -1 }, entityName, state, modelId);
+        assertEquals(0, state.getModel().getSamples().size());
+        assertEquals(now, state.getLastUsedTime());
+    }
+
+    @Test
+    public void processEmptyCheckpoint() {
+        ModelState<EntityModel> modelState = MLUtil.randomModelStateWithSample(false, numMinSamples - 1);
+        modelManager.processEntityCheckpoint(Optional.empty(), modelId, entityName, modelState);
+        assertEquals(now.minus(checkpointInterval), modelState.getLastCheckpointTime());
+    }
+
+    @Test
+    public void processNonEmptyCheckpoint() {
+        EntityModel model = MLUtil.createNonEmptyModel(modelId);
+        ModelState<EntityModel> modelState = MLUtil.randomModelStateWithSample(false, numMinSamples);
+        Instant checkpointTime = Instant.ofEpochMilli(1000);
+        modelManager
+            .processEntityCheckpoint(Optional.of(new SimpleImmutableEntry<>(model, checkpointTime)), modelId, entityName, modelState);
+        assertEquals(checkpointTime, modelState.getLastCheckpointTime());
+        assertEquals(0, modelState.getModel().getSamples().size());
+        assertEquals(now, modelState.getLastUsedTime());
     }
 }

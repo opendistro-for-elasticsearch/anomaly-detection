@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -104,6 +105,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         .getExceptionName(new LimitExceededException("", ""));
     static final String NULL_RESPONSE = "Received null response from";
     static final String BUG_RESPONSE = "We might have bugs.";
+    static final String TROUBLE_QUERYING_ERR_MSG = "Having trouble querying data: ";
+    static final String NO_ACK_ERR = "no acknowledgements from model hosting nodes.";
 
     private final TransportService transportService;
     private final NodeStateManager stateManager;
@@ -213,7 +216,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     @Override
     protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<AnomalyResultResponse> listener) {
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-
             AnomalyResultRequest request = AnomalyResultRequest.fromActionRequest(actionRequest);
             ActionListener<AnomalyResultResponse> original = listener;
             listener = ActionListener.wrap(original::onResponse, e -> {
@@ -233,7 +235,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 listener.onFailure(new LimitExceededException(adID, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
                 return;
             }
-
             try {
                 stateManager.getAnomalyDetector(adID, onGetDetector(listener, adID, request));
             } catch (Exception ex) {
@@ -297,7 +298,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                 )
                             );
                     } else {
-                        entityFeatures
+                        Set<Entry<DiscoveryNode, Map<String, double[]>>> node2Entities = entityFeatures
                             .entrySet()
                             .stream()
                             .collect(
@@ -307,26 +308,29 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                         Collectors.toMap(Entry::getKey, Entry::getValue)
                                     )
                             )
-                            .entrySet()
-                            .stream()
-                            .forEach(nodeEntity -> {
-                                DiscoveryNode node = nodeEntity.getKey();
-                                transportService
-                                    .sendRequest(
-                                        node,
-                                        EntityResultAction.NAME,
-                                        new EntityResultRequest(adID, nodeEntity.getValue(), dataStartTime, dataEndTime),
-                                        this.option,
-                                        new ActionListenerResponseHandler<>(
-                                            new EntityResultListener(node.getId(), adID),
-                                            AcknowledgedResponse::new,
-                                            ThreadPool.Names.SAME
-                                        )
-                                    );
-                            });
+                            .entrySet();
+
+                        int nodeCount = node2Entities.size();
+                        AtomicInteger responseCount = new AtomicInteger();
+
+                        final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<>();
+                        node2Entities.stream().forEach(nodeEntity -> {
+                            DiscoveryNode node = nodeEntity.getKey();
+                            transportService
+                                .sendRequest(
+                                    node,
+                                    EntityResultAction.NAME,
+                                    new EntityResultRequest(adID, nodeEntity.getValue(), dataStartTime, dataEndTime),
+                                    this.option,
+                                    new ActionListenerResponseHandler<>(
+                                        new EntityResultListener(node.getId(), adID, responseCount, nodeCount, failure, listener),
+                                        AcknowledgedResponse::new,
+                                        ThreadPool.Names.SAME
+                                    )
+                                );
+                        });
                     }
 
-                    listener.onResponse(new AnomalyResultResponse(0, 0, 0, new ArrayList<FeatureData>()));
                 }, exception -> handleFailure(exception, listener, adID));
 
                 threadPool
@@ -482,7 +486,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
     private void handleFailure(Exception exception, ActionListener<AnomalyResultResponse> listener, String adID) {
         if (exception instanceof IndexNotFoundException) {
-            listener.onFailure(new EndRunException(adID, "Having trouble querying data: " + exception.getMessage(), true));
+            listener.onFailure(new EndRunException(adID, TROUBLE_QUERYING_ERR_MSG + exception.getMessage(), true));
         } else if (exception instanceof EndRunException) {
             // invalid feature query
             listener.onFailure(exception);
@@ -555,7 +559,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
             failure.set(new ResourceNotFoundException(adID, causeException.getMessage()));
         } else if (ExceptionUtil.isException(causeException, LimitExceededException.class, LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE)) {
-            failure.set(new LimitExceededException(adID, causeException.getMessage()));
+            failure.set(new LimitExceededException(adID, causeException.getMessage(), false));
         } else if (causeException instanceof ElasticsearchTimeoutException) {
             // we can have ElasticsearchTimeoutException when a node tries to load RCF or
             // threshold model
@@ -787,7 +791,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     }
 
     private void handlePredictionFailure(Exception e, String adID, String nodeID, AtomicReference<AnomalyDetectionException> failure) {
-        LOG.error(new ParameterizedMessage("Received an error from node {} while fetching anomaly grade for {}", nodeID, adID), e);
+        LOG.error(new ParameterizedMessage("Received an error from node {} while doing model inference for {}", nodeID, adID), e);
         if (e == null) {
             return;
         }
@@ -801,6 +805,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
     /**
      * Check if the input exception indicates connection issues.
+     * During blue-green deployment, we may see ActionNotFoundTransportException.
+     * Count that as connection issue and isolate that node if it continues to happen.
      *
      * @param e exception
      * @return true if we get disconnected from the node or the node is not in the
@@ -811,7 +817,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             || e instanceof NodeClosedException
             || e instanceof ReceiveTimeoutTransportException
             || e instanceof NodeNotConnectedException
-            || e instanceof ConnectException;
+            || e instanceof ConnectException
+            || e instanceof ActionNotFoundTransportException;
     }
 
     private void handleConnectionException(String node) {
@@ -1015,18 +1022,45 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     class EntityResultListener implements ActionListener<AcknowledgedResponse> {
         private String nodeId;
         private final String adID;
+        private AtomicInteger responseCount;
+        private int nodeCount;
+        private ActionListener<AnomalyResultResponse> listener;
+        private List<AcknowledgedResponse> ackResponses;
+        private AtomicReference<AnomalyDetectionException> failure;
 
-        EntityResultListener(String nodeId, String adID) {
+        EntityResultListener(
+            String nodeId,
+            String adID,
+            AtomicInteger responseCount,
+            int nodeCount,
+            AtomicReference<AnomalyDetectionException> failure,
+            ActionListener<AnomalyResultResponse> listener
+        ) {
             this.nodeId = nodeId;
             this.adID = adID;
+            this.responseCount = responseCount;
+            this.nodeCount = nodeCount;
+            this.failure = failure;
+            this.listener = listener;
+            this.ackResponses = new ArrayList<>();
         }
 
         @Override
         public void onResponse(AcknowledgedResponse response) {
-            stateManager.resetBackpressureCounter(nodeId);
-            if (response.isAcknowledged() == false) {
-                LOG.error("Cannot send entities' features to {} for {}", nodeId, adID);
-                stateManager.addPressure(nodeId);
+            try {
+                stateManager.resetBackpressureCounter(nodeId);
+                if (response.isAcknowledged() == false) {
+                    LOG.error("Cannot send entities' features to {} for {}", nodeId, adID);
+                    stateManager.addPressure(nodeId);
+                } else {
+                    ackResponses.add(response);
+                }
+            } catch (Exception ex) {
+                LOG.error("Unexpected exception: {} for {}", ex, adID);
+            } finally {
+                if (nodeCount == responseCount.incrementAndGet()) {
+                    handleEntityResponses();
+                }
             }
         }
 
@@ -1035,13 +1069,28 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             if (e == null) {
                 return;
             }
-            Throwable cause = ExceptionsHelper.unwrapCause(e);
-            // in case of connection issue or the other node has no multi-entity
-            // transport actions (e.g., blue green deployment)
-            if (hasConnectionIssue(cause) || cause instanceof ActionNotFoundTransportException) {
-                handleConnectionException(nodeId);
+            try {
+                LOG.error(new ParameterizedMessage("Cannot send entities' features to {} for {}", nodeId, adID), e);
+
+                handlePredictionFailure(e, adID, nodeId, failure);
+
+            } catch (Exception ex) {
+                LOG.error("Unexpected exception: {} for {}", ex, adID);
+            } finally {
+                if (nodeCount == responseCount.incrementAndGet()) {
+                    handleEntityResponses();
+                }
             }
-            LOG.error(new ParameterizedMessage("Cannot send entities' features to {} for {}", nodeId, adID), e);
+        }
+
+        private void handleEntityResponses() {
+            if (failure.get() != null) {
+                listener.onFailure(failure.get());
+            } else if (ackResponses.isEmpty()) {
+                listener.onFailure(new InternalFailure(adID, NO_ACK_ERR));
+            } else {
+                listener.onResponse(new AnomalyResultResponse(0, 0, 0, new ArrayList<FeatureData>()));
+            }
         }
     }
 }

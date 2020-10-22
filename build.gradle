@@ -261,9 +261,6 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultTransportAction*',
 
         // TODO: hc caused coverage to drop
-        //'com.amazon.opendistroforelasticsearch.ad.ml.ModelManager',
-        'com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTransportAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTransportAction.EntityResultListener',
         'com.amazon.opendistroforelasticsearch.ad.NodeStateManager',
         'com.amazon.opendistroforelasticsearch.ad.transport.handler.MultiEntityResultHandler',
         'com.amazon.opendistroforelasticsearch.ad.transport.EntityProfileTransportAction*',

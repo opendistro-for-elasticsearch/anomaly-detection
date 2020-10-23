@@ -61,6 +61,7 @@
       "type": "long"
     },
     "user": {
+      "type": "nested",
       "properties": {
         "name": {
           "type": "text",

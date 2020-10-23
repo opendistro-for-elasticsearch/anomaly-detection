@@ -517,6 +517,7 @@ public class IndexAnomalyDetectorActionHandler {
                             indexResponse.getVersion(),
                             indexResponse.getSeqNo(),
                             indexResponse.getPrimaryTerm(),
+                            detector,
                             RestStatus.CREATED
                         )
                     );

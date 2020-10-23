@@ -54,6 +54,12 @@ import com.amazon.opendistroforelasticsearch.ad.model.InitProgressProfile;
  * heap minus all of the dedicated cache consumed by single-entity and multi-entity
  * detectors.  The shared cache’s size shrinks as the dedicated cache is filled
  * up or more detectors are started.
+ *
+ * Implementation-wise, both dedicated cache and shared cache are stored in items
+ * and minimumCapacity controls the boundary. If items size is equals to or less
+ * than minimumCapacity, consider items as dedicated cache; otherwise, consider
+ * top minimumCapacity active entities (last X entities in priorityList) as in dedicated
+ * cache and all others in shared cache.
  */
 public class CacheBuffer implements ExpiringState, MaintenanceState {
     private static final Logger LOG = LogManager.getLogger(CacheBuffer.class);
@@ -299,8 +305,10 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
 
     /**
      * remove the smallest priority item.
+     * @return the associated ModelState associated with the key, or null if there
+     * is no associated ModelState for the key
      */
-    public void remove() {
+    public ModelState<EntityModel> remove() {
         // race conditions can happen between the put and one of the following operations:
         // remove from other threads: not a problem. If they remove the same item,
         // our method is idempotent. If they remove two different items,
@@ -313,8 +321,9 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
         // put: not a problem as it is unlikely we are removing and putting the same thing
         PriorityNode smallest = priorityList.first();
         if (smallest != null) {
-            remove(smallest.key);
+            return remove(smallest.key);
         }
+        return null;
     }
 
     /**
@@ -339,6 +348,11 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
                 memoryTracker.releaseMemory(memoryConsumptionPerEntity, false, Origin.MULTI_ENTITY_DETECTOR);
             }
             checkpointDao.write(valueRemoved, keyToRemove);
+        }
+
+        EntityModel modelRemoved = valueRemoved.getModel();
+        if (modelRemoved != null) {
+            modelRemoved.clear();
         }
 
         return valueRemoved;
@@ -384,10 +398,13 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
      * Replace the smallest priority entity with the input entity
      * @param entityModelId the Model Id
      * @param value the model State
+     * @return the associated ModelState associated with the key, or null if there
+     * is no associated ModelState for the key
      */
-    public void replace(String entityModelId, ModelState<EntityModel> value) {
-        remove();
+    public ModelState<EntityModel> replace(String entityModelId, ModelState<EntityModel> value) {
+        ModelState<EntityModel> replaced = remove();
         put(entityModelId, value);
+        return replaced;
     }
 
     @Override
@@ -439,6 +456,19 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
      */
     public boolean isActive(String entityModelId) {
         return items.containsKey(entityModelId);
+    }
+
+    /**
+     *
+     * @param entityModelId Model Id
+     * @return Last used time of the model
+     */
+    public long getLastUsedTime(String entityModelId) {
+        ModelState<EntityModel> state = items.get(entityModelId);
+        if (state != null) {
+            return state.getLastUsedTime().toEpochMilli();
+        }
+        return -1;
     }
 
     /**

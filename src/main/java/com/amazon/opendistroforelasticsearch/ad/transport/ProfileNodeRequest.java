@@ -22,7 +22,7 @@ import org.elasticsearch.action.support.nodes.BaseNodeRequest;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
-import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 
 /**
  *  Class representing a nodes's profile request
@@ -53,8 +53,16 @@ public class ProfileNodeRequest extends BaseNodeRequest {
      *
      * @return the set that contains the profile names marked for retrieval
      */
-    public Set<ProfileName> getProfilesToBeRetrieved() {
+    public Set<DetectorProfileName> getProfilesToBeRetrieved() {
         return request.getProfilesToBeRetrieved();
+    }
+
+    /**
+    *
+    * @return Whether this is about a multi-entity detector or not
+    */
+    public boolean isForMultiEntityDetector() {
+        return request.isForMultiEntityDetector();
     }
 
     @Override

@@ -125,8 +125,4 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
     public void respondImmediately(T o) {
         this.delegate.onResponse(o);
     }
-
-    public void compareAndSetMaxResponseCount(int oldValue, int newValue) {
-        this.maxResponseCount.compareAndSet(oldValue, newValue);
-    }
 }

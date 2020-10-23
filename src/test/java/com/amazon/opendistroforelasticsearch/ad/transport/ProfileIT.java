@@ -24,7 +24,7 @@ import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.test.ESIntegTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
-import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 
 @ESIntegTestCase.ClusterScope(transportClientRatio = 0.9)
 public class ProfileIT extends ESIntegTestCase {
@@ -40,7 +40,7 @@ public class ProfileIT extends ESIntegTestCase {
     }
 
     public void testNormalProfile() throws ExecutionException, InterruptedException {
-        ProfileRequest profileRequest = new ProfileRequest("123", new HashSet<ProfileName>());
+        ProfileRequest profileRequest = new ProfileRequest("123", new HashSet<DetectorProfileName>(), false);
 
         ProfileResponse response = client().execute(ProfileAction.INSTANCE, profileRequest).get();
         assertTrue("getting profile failed", !response.hasFailures());

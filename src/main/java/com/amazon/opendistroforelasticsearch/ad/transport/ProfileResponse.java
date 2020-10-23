@@ -63,7 +63,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         for (int i = 0; i < size; i++) {
             modelProfile[i] = new ModelProfile(in);
         }
-        shingleSize = in.readVInt();
+        shingleSize = in.readInt();
         coordinatingNode = in.readString();
         totalSizeInBytes = in.readVLong();
         activeEntities = in.readVLong();
@@ -82,6 +82,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         totalSizeInBytes = 0L;
         activeEntities = 0L;
         totalUpdates = 0L;
+        shingleSize = -1;
         List<ModelProfile> modelProfileList = new ArrayList<>();
         for (ProfileNodeResponse response : nodes) {
             String curNodeId = response.getNode().getId();
@@ -89,10 +90,13 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
                 coordinatingNode = curNodeId;
                 shingleSize = response.getShingleSize();
             }
-            for (Map.Entry<String, Long> entry : response.getModelSize().entrySet()) {
-                totalSizeInBytes += entry.getValue();
-                modelProfileList.add(new ModelProfile(entry.getKey(), entry.getValue(), curNodeId));
+            if (response.getModelSize() != null) {
+                for (Map.Entry<String, Long> entry : response.getModelSize().entrySet()) {
+                    totalSizeInBytes += entry.getValue();
+                    modelProfileList.add(new ModelProfile(entry.getKey(), entry.getValue(), curNodeId));
+                }
             }
+
             if (response.getActiveEntities() > 0) {
                 activeEntities += response.getActiveEntities();
             }
@@ -113,7 +117,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         for (ModelProfile profile : modelProfile) {
             profile.writeTo(out);
         }
-        out.writeVInt(shingleSize);
+        out.writeInt(shingleSize);
         out.writeString(coordinatingNode);
         out.writeVLong(totalSizeInBytes);
         out.writeVLong(activeEntities);

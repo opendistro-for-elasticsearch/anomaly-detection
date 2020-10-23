@@ -57,22 +57,31 @@ public class CommonName {
     public static final String SHINGLE_SIZE = "shingle_size";
     public static final String TOTAL_SIZE_IN_BYTES = "total_size_in_bytes";
     public static final String MODELS = "models";
+    public static final String MODEL = "model";
     public static final String INIT_PROGRESS = "init_progress";
 
     public static final String TOTAL_ENTITIES = "total_entities";
     public static final String ACTIVE_ENTITIES = "active_entities";
+    public static final String ENTITY_INFO = "entity_info";
+    public static final String TOTAL_UPDATES = "total_updates";
 
+    // ======================================
+    // Index mapping
+    // ======================================
     // Elastic mapping type
     public static final String MAPPING_TYPE = "_doc";
 
     // Used to fetch mapping
     public static final String TYPE = "type";
-
     public static final String KEYWORD_TYPE = "keyword";
-
     public static final String IP_TYPE = "ip";
 
-    public static final String TOTAL_UPDATES = "total_updates";
-
+    // used for updating mapping
     public static final String SCHEMA_VERSION_FIELD = "schema_version";
+
+    // ======================================
+    // Query
+    // ======================================
+    // Used in finding the max timestamp
+    public static final String AGG_NAME_MAX = "max_timefield";
 }

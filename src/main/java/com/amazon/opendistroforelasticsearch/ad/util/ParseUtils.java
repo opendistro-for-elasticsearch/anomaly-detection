@@ -26,12 +26,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.regex.Matcher;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.ParsingException;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
@@ -51,8 +53,10 @@ import org.elasticsearch.search.aggregations.AggregatorFactories;
 import org.elasticsearch.search.aggregations.BaseAggregationBuilder;
 import org.elasticsearch.search.aggregations.PipelineAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.Max;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
@@ -63,7 +67,7 @@ import com.amazon.opendistroforelasticsearch.commons.authuser.User;
  * Parsing utility functions.
  */
 public final class ParseUtils {
-    private static Logger logger = LogManager.getLogger(ParseUtils.class);
+    private static final Logger logger = LogManager.getLogger(ParseUtils.class);
 
     private ParseUtils() {}
 
@@ -444,5 +448,19 @@ public final class ParseUtils {
         String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES);
         logger.debug("Filtering result by " + userStr);
         return User.parse(userStr);
+    }
+
+    /**
+     * Parse max timestamp aggregation named CommonName.AGG_NAME_MAX
+     * @param searchResponse Search response
+     * @return max timestamp
+     */
+    public static Optional<Long> getLatestDataTime(SearchResponse searchResponse) {
+        return Optional
+            .ofNullable(searchResponse)
+            .map(SearchResponse::getAggregations)
+            .map(aggs -> aggs.asMap())
+            .map(map -> (Max) map.get(CommonName.AGG_NAME_MAX))
+            .map(agg -> (long) agg.getValue());
     }
 }

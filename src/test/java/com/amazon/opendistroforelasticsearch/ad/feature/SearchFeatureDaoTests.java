@@ -122,6 +122,7 @@ import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
@@ -236,7 +237,7 @@ public class SearchFeatureDaoTests {
         aggsMap = new HashMap<>();
         // aggsList = new ArrayList<>();
 
-        when(max.getName()).thenReturn(SearchFeatureDao.AGG_NAME_MAX);
+        when(max.getName()).thenReturn(CommonName.AGG_NAME_MAX);
         List<Aggregation> list = new ArrayList<>();
         list.add(max);
         Aggregations aggregations = new Aggregations(list);
@@ -275,12 +276,12 @@ public class SearchFeatureDaoTests {
     public void test_getLatestDataTime_returnExpectedTime_givenData() {
         // pre-conditions
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(SearchFeatureDao.AGG_NAME_MAX).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX).field(detector.getTimeField()))
             .size(0);
         searchRequest.source(searchSourceBuilder);
 
         long epochTime = 100L;
-        aggsMap.put(SearchFeatureDao.AGG_NAME_MAX, max);
+        aggsMap.put(CommonName.AGG_NAME_MAX, max);
         when(max.getValue()).thenReturn((double) epochTime);
 
         // test
@@ -294,7 +295,7 @@ public class SearchFeatureDaoTests {
     public void test_getLatestDataTime_returnEmpty_givenNoData() {
         // pre-conditions
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(SearchFeatureDao.AGG_NAME_MAX).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX).field(detector.getTimeField()))
             .size(0);
         searchRequest.source(searchSourceBuilder);
 
@@ -311,11 +312,11 @@ public class SearchFeatureDaoTests {
     @SuppressWarnings("unchecked")
     public void getLatestDataTime_returnExpectedToListener() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(SearchFeatureDao.AGG_NAME_MAX).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX).field(detector.getTimeField()))
             .size(0);
         searchRequest.source(searchSourceBuilder);
         long epochTime = 100L;
-        aggsMap.put(SearchFeatureDao.AGG_NAME_MAX, max);
+        aggsMap.put(CommonName.AGG_NAME_MAX, max);
         when(max.getValue()).thenReturn((double) epochTime);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
@@ -323,6 +324,7 @@ public class SearchFeatureDaoTests {
             return null;
         }).when(client).search(eq(searchRequest), any(ActionListener.class));
 
+        when(ParseUtils.getLatestDataTime(eq(searchResponse))).thenReturn(Optional.of(epochTime));
         ActionListener<Optional<Long>> listener = mock(ActionListener.class);
         searchFeatureDao.getLatestDataTime(detector, listener);
 

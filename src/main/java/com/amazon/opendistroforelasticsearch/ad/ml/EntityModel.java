@@ -62,4 +62,10 @@ public class EntityModel {
     public void setThreshold(ThresholdingModel threshold) {
         this.threshold = threshold;
     }
+
+    public void clear() {
+        samples.clear();
+        rcf = null;
+        threshold = null;
+    }
 }

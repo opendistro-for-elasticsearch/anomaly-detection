@@ -161,7 +161,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         if (shingleSize != -1) {
             xContentBuilder.field(CommonName.SHINGLE_SIZE, shingleSize);
         }
-        if (coordinatingNode != null) {
+        if (coordinatingNode != null && !coordinatingNode.isEmpty()) {
             xContentBuilder.field(CommonName.COORDINATING_NODE, coordinatingNode);
         }
         if (totalSizeInBytes != -1) {

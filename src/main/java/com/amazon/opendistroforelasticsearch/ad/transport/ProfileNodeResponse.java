@@ -47,7 +47,9 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
      */
     public ProfileNodeResponse(StreamInput in) throws IOException {
         super(in);
-        modelSize = in.readMap(StreamInput::readString, StreamInput::readLong);
+        if (in.readBoolean()) {
+            modelSize = in.readMap(StreamInput::readString, StreamInput::readLong);
+        }
         shingleSize = in.readInt();
         activeEntities = in.readVLong();
         totalUpdates = in.readVLong();
@@ -84,7 +86,13 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeMap(modelSize, StreamOutput::writeString, StreamOutput::writeLong);
+        if (modelSize != null) {
+            out.writeBoolean(true);
+            out.writeMap(modelSize, StreamOutput::writeString, StreamOutput::writeLong);
+        } else {
+            out.writeBoolean(false);
+        }
+
         out.writeInt(shingleSize);
         out.writeVLong(activeEntities);
         out.writeVLong(totalUpdates);

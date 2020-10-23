@@ -48,29 +48,25 @@ import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.search.SearchModule;
-import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.transport.RemoteTransportException;
 import org.junit.Before;
 import org.junit.BeforeClass;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorState;
 import com.amazon.opendistroforelasticsearch.ad.model.InitProgressProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.model.ModelProfile;
-import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileResponse;
@@ -78,17 +74,17 @@ import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingResponse;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
-public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
+public class AnomalyDetectorProfileRunnerTests extends AbstractADTest {
     private AnomalyDetectorProfileRunner runner;
     private Client client;
     private DiscoveryNodeFilterer nodeFilter;
     private AnomalyDetector detector;
     private ClusterService clusterService;
 
-    private static Set<ProfileName> stateOnly;
-    private static Set<ProfileName> stateNError;
-    private static Set<ProfileName> modelProfile;
-    private static Set<ProfileName> stateInitProgress;
+    private static Set<DetectorProfileName> stateOnly;
+    private static Set<DetectorProfileName> stateNError;
+    private static Set<DetectorProfileName> modelProfile;
+    private static Set<DetectorProfileName> stateInitProgress;
     private static String noFullShingleError = "No full shingle in current detection window";
     private static String stoppedError = "Stopped detector as job failed consecutively for more than 3 times: Having trouble querying data."
         + " Maybe all of your features have been disabled.";
@@ -115,35 +111,24 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
     private GetResponse detectorGetReponse;
     private String messaingExceptionError = "blah";
 
-    @Override
-    protected NamedXContentRegistry xContentRegistry() {
-        SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
-        List<NamedXContentRegistry.Entry> entries = searchModule.getNamedXContents();
-        entries
-            .addAll(
-                Arrays
-                    .asList(
-                        AnomalyDetector.XCONTENT_REGISTRY,
-                        AnomalyResult.XCONTENT_REGISTRY,
-                        DetectorInternalState.XCONTENT_REGISTRY,
-                        AnomalyDetectorJob.XCONTENT_REGISTRY
-                    )
-            );
-        return new NamedXContentRegistry(entries);
-    }
-
     @BeforeClass
     public static void setUpOnce() {
-        stateOnly = new HashSet<ProfileName>();
-        stateOnly.add(ProfileName.STATE);
-        stateNError = new HashSet<ProfileName>();
-        stateNError.add(ProfileName.ERROR);
-        stateNError.add(ProfileName.STATE);
-        stateInitProgress = new HashSet<ProfileName>();
-        stateInitProgress.add(ProfileName.INIT_PROGRESS);
-        stateInitProgress.add(ProfileName.STATE);
-        modelProfile = new HashSet<ProfileName>(
-            Arrays.asList(ProfileName.SHINGLE_SIZE, ProfileName.MODELS, ProfileName.COORDINATING_NODE, ProfileName.TOTAL_SIZE_IN_BYTES)
+        stateOnly = new HashSet<DetectorProfileName>();
+        stateOnly.add(DetectorProfileName.STATE);
+        stateNError = new HashSet<DetectorProfileName>();
+        stateNError.add(DetectorProfileName.ERROR);
+        stateNError.add(DetectorProfileName.STATE);
+        stateInitProgress = new HashSet<DetectorProfileName>();
+        stateInitProgress.add(DetectorProfileName.INIT_PROGRESS);
+        stateInitProgress.add(DetectorProfileName.STATE);
+        modelProfile = new HashSet<DetectorProfileName>(
+            Arrays
+                .asList(
+                    DetectorProfileName.SHINGLE_SIZE,
+                    DetectorProfileName.MODELS,
+                    DetectorProfileName.COORDINATING_NODE,
+                    DetectorProfileName.TOTAL_SIZE_IN_BYTES
+                )
         );
     }
 
@@ -292,7 +277,7 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
             assertTrue("Should not reach here", false);
             inProgressLatch.countDown();
         }, exception -> {
-            assertTrue(exception.getMessage().contains(AnomalyDetectorProfileRunner.FAIL_TO_FIND_DETECTOR_MSG));
+            assertTrue(exception.getMessage().contains(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG));
             inProgressLatch.countDown();
         }), stateNError);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
@@ -371,16 +356,16 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
         DetectorState state,
         String error,
         JobStatus jobStatus,
-        Set<ProfileName> profilesToCollect
+        Set<DetectorProfileName> profilesToCollect
     ) throws IOException,
         InterruptedException {
         setUpClientExecuteRCFPollingAction(initStatus);
         setUpClientGet(DetectorStatus.EXIST, jobStatus, initStatus, status);
         DetectorProfile.Builder builder = new DetectorProfile.Builder();
-        if (profilesToCollect.contains(ProfileName.STATE)) {
+        if (profilesToCollect.contains(DetectorProfileName.STATE)) {
             builder.state(state);
         }
-        if (profilesToCollect.contains(ProfileName.ERROR)) {
+        if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
             builder.error(error);
         }
         DetectorProfile expectedProfile = builder.build();
@@ -636,7 +621,7 @@ public class AnomalyDetectorProfileRunnerTests extends ESTestCase {
             assertTrue("Should not reach here ", false);
             inProgressLatch.countDown();
         }, exception -> {
-            assertTrue(exception.getMessage().contains(AnomalyDetectorProfileRunner.FAIL_TO_FIND_DETECTOR_MSG));
+            assertTrue(exception.getMessage().contains(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG));
             inProgressLatch.countDown();
         }), stateInitProgress);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));

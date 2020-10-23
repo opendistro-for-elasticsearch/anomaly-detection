@@ -47,6 +47,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
@@ -155,7 +156,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             throw new IllegalArgumentException("Shingle size must be a positive integer");
         }
         if (categoryFields != null && categoryFields.size() > CATEGORY_FIELD_LIMIT) {
-            throw new IllegalArgumentException("We only support filtering data by one categorical variable");
+            throw new IllegalArgumentException(CommonErrorMessages.CATEGORICAL_FIELD_NUMBER_SURPASSED + CATEGORY_FIELD_LIMIT);
         }
         this.detectorId = detectorId;
         this.version = version;
@@ -535,6 +536,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     /**
      * If the given shingle size is null, return default based on the kind of detector;
      * otherwise, return the given shingle size.
+     *
+     * TODO: need to deal with the case where customers start with single-entity detector, we set it to 8 by default;
+     * then cx update it to multi-entity detector, we would still use 8 in this case.  Kibana needs to change to
+     * give the correct shingle size.
      * @param customShingleSize Given shingle size
      * @param categoryField Used to verify if this is a multi-entity or single-entity detector
      * @return Shingle size
@@ -579,5 +584,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public boolean isMultientityDetector() {
+        return getCategoryField() != null && getCategoryField().size() > 0;
     }
 }

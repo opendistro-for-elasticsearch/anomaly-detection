@@ -264,4 +264,8 @@ public class MemoryTracker {
         totalMemoryBytes += totalDiff;
         return true;
     }
+
+    public int getThresholdModelBytes() {
+        return thresholdModelBytes;
+    }
 }

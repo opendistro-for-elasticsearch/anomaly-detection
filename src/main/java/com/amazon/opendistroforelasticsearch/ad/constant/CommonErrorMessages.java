@@ -29,4 +29,9 @@ public class CommonErrorMessages {
     public static final String ALL_FEATURES_DISABLED_ERR_MSG =
         "Having trouble querying data because all of your features have been disabled.";
     public static final String INVALID_TIMESTAMP_ERR_MSG = "timestamp is invalid";
+    public static String FAIL_TO_FIND_DETECTOR_MSG = "Fail to find detector with id: ";
+    public static String FAIL_TO_GET_PROFILE_MSG = "Fail to get profile for detector ";
+    public static String FAIL_TO_GET_TOTAL_ENTITIES = "Failed to get total entities for detector ";
+    public static String CATEGORICAL_FIELD_NUMBER_SURPASSED = "We don't support categorical fields more than ";
+    public static String EMPTY_PROFILES_COLLECT = "profiles to collect are missing or invalid";
 }

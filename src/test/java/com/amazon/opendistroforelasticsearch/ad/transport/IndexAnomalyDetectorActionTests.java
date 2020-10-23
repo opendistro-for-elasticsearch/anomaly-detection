@@ -15,8 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import java.io.IOException;
-
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.StreamInput;
@@ -35,7 +33,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest(IndexAnomalyDetectorRequest.class)
+@PrepareForTest({ IndexAnomalyDetectorRequest.class, IndexAnomalyDetectorResponse.class })
 public class IndexAnomalyDetectorActionTests {
     @Before
     public void setUp() throws Exception {
@@ -69,11 +67,14 @@ public class IndexAnomalyDetectorActionTests {
     }
 
     @Test
-    public void testIndexResponse() throws IOException {
+    public void testIndexResponse() throws Exception {
         BytesStreamOutput out = new BytesStreamOutput();
-        IndexAnomalyDetectorResponse response = new IndexAnomalyDetectorResponse("1234", 56, 78, 90, RestStatus.OK);
+        AnomalyDetector detector = Mockito.mock(AnomalyDetector.class);
+        Mockito.doNothing().when(detector).writeTo(out);
+        IndexAnomalyDetectorResponse response = new IndexAnomalyDetectorResponse("1234", 56, 78, 90, detector, RestStatus.OK);
         response.writeTo(out);
         StreamInput input = out.bytes().streamInput();
+        PowerMockito.whenNew(AnomalyDetector.class).withAnyArguments().thenReturn(detector);
         IndexAnomalyDetectorResponse newResponse = new IndexAnomalyDetectorResponse(input);
         Assert.assertEquals(response.getId(), newResponse.getId());
     }

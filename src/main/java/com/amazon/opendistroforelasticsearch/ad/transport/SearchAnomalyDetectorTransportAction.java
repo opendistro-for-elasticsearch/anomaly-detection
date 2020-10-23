@@ -21,6 +21,7 @@ import java.io.IOException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -128,11 +129,11 @@ public class SearchAnomalyDetectorTransportAction extends HandledTransportAction
 
     private void addFilter(User user, SearchSourceBuilder searchSourceBuilder, String fieldName) {
         TermsQueryBuilder filterBackendRoles = QueryBuilders.termsQuery(fieldName, user.getBackendRoles());
-        // For search detector queries, non BoolQuery is only used to find if the new detector name being created is
-        // unique, which does not need a user filter.
         if (searchSourceBuilder.query() instanceof BoolQueryBuilder) {
             BoolQueryBuilder queryBuilder = (BoolQueryBuilder) searchSourceBuilder.query();
             searchSourceBuilder.query(queryBuilder.filter(filterBackendRoles));
+        } else {
+            throw new ElasticsearchException("Search Detectors API does not support queries other than BoolQuery");
         }
     }
 }

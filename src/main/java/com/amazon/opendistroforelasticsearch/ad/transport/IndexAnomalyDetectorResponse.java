@@ -24,6 +24,7 @@ import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.rest.RestStatus;
 
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 
 public class IndexAnomalyDetectorResponse extends ActionResponse implements ToXContentObject {
@@ -31,6 +32,7 @@ public class IndexAnomalyDetectorResponse extends ActionResponse implements ToXC
     private final long version;
     private final long seqNo;
     private final long primaryTerm;
+    private final AnomalyDetector detector;
     private final RestStatus restStatus;
 
     public IndexAnomalyDetectorResponse(StreamInput in) throws IOException {
@@ -39,14 +41,23 @@ public class IndexAnomalyDetectorResponse extends ActionResponse implements ToXC
         version = in.readLong();
         seqNo = in.readLong();
         primaryTerm = in.readLong();
+        detector = new AnomalyDetector(in);
         restStatus = in.readEnum(RestStatus.class);
     }
 
-    public IndexAnomalyDetectorResponse(String id, long version, long seqNo, long primaryTerm, RestStatus restStatus) {
+    public IndexAnomalyDetectorResponse(
+        String id,
+        long version,
+        long seqNo,
+        long primaryTerm,
+        AnomalyDetector detector,
+        RestStatus restStatus
+    ) {
         this.id = id;
         this.version = version;
         this.seqNo = seqNo;
         this.primaryTerm = primaryTerm;
+        this.detector = detector;
         this.restStatus = restStatus;
     }
 
@@ -60,6 +71,7 @@ public class IndexAnomalyDetectorResponse extends ActionResponse implements ToXC
         out.writeLong(version);
         out.writeLong(seqNo);
         out.writeLong(primaryTerm);
+        detector.writeTo(out);
         out.writeEnum(restStatus);
     }
 
@@ -70,6 +82,7 @@ public class IndexAnomalyDetectorResponse extends ActionResponse implements ToXC
             .field(RestHandlerUtils._ID, id)
             .field(RestHandlerUtils._VERSION, version)
             .field(RestHandlerUtils._SEQ_NO, seqNo)
+            .field(RestHandlerUtils.ANOMALY_DETECTOR, detector)
             .field(RestHandlerUtils._PRIMARY_TERM, primaryTerm)
             .endObject();
     }

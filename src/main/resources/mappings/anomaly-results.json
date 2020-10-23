@@ -50,6 +50,7 @@
       "type": "text"
     },
     "user": {
+      "type": "nested",
       "properties": {
         "name": {
           "type": "text",

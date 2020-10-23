@@ -65,14 +65,6 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<TimeValue> AD_RESULT_ROLLOVER_PERIOD = Setting
-        .positiveTimeSetting(
-            "opendistro.anomaly_detection.ad_result_rollover_period",
-            TimeValue.timeValueHours(12),
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic
-        );
-
     public static final Setting<TimeValue> AD_RESULT_HISTORY_ROLLOVER_PERIOD = Setting
         .positiveTimeSetting(
             "opendistro.anomaly_detection.ad_result_history_rollover_period",

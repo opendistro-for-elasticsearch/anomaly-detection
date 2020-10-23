@@ -163,6 +163,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                                 .onFailure(
                                     new ElasticsearchStatusException("Can't find detector with id:  " + detectorId, RestStatus.NOT_FOUND)
                                 );
+                            return;
                         }
                         id = response.getId();
                         version = response.getResponse().getVersion();

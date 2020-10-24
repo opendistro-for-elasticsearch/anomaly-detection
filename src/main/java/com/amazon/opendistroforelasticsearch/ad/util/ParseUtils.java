@@ -430,7 +430,7 @@ public final class ParseUtils {
         } else if (query instanceof BoolQueryBuilder) {
             ((BoolQueryBuilder) query).filter(boolQueryBuilder);
         } else {
-            throw new ElasticsearchException("Search Detectors API does not support queries other than BoolQuery");
+            throw new ElasticsearchException("Search API does not support queries other than BoolQuery");
         }
         return searchSourceBuilder;
     }

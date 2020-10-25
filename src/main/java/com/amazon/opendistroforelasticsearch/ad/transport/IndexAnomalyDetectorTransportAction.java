@@ -88,23 +88,23 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         checkIndicesAndExecute(detector.getIndices(), () -> {
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
                 IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
-                        clusterService,
-                        client,
-                        listener,
-                        anomalyDetectionIndices,
-                        detectorId,
-                        seqNo,
-                        primaryTerm,
-                        refreshPolicy,
-                        detector,
-                        requestTimeout,
-                        maxSingleEntityAnomalyDetectors,
-                        maxMultiEntityAnomalyDetectors,
-                        maxAnomalyFeatures,
-                        method,
-                        xContentRegistry,
-                        restClient,
-                        request.getAuthHeader()
+                    clusterService,
+                    client,
+                    listener,
+                    anomalyDetectionIndices,
+                    detectorId,
+                    seqNo,
+                    primaryTerm,
+                    refreshPolicy,
+                    detector,
+                    requestTimeout,
+                    maxSingleEntityAnomalyDetectors,
+                    maxMultiEntityAnomalyDetectors,
+                    maxAnomalyFeatures,
+                    method,
+                    xContentRegistry,
+                    restClient,
+                    request.getAuthHeader()
                 );
                 try {
                     indexAnomalyDetectorActionHandler.resolveUserAndStart();

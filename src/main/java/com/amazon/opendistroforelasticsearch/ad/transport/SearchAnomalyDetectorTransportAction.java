@@ -16,12 +16,12 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.addUserBackendRolesFilter;
 
 import java.io.IOException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -36,10 +36,6 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.TermsQueryBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
@@ -97,7 +93,7 @@ public class SearchAnomalyDetectorTransportAction extends HandledTransportAction
                 public void onSuccess(Response response) {
                     try {
                         User user = new User(response);
-                        addFilter(user, request.getSearchRequest().source(), "user.backend_roles");
+                        addUserBackendRolesFilter(user, request.getSearchRequest().source());
                         logger.debug("Filtering result by " + user.getBackendRoles());
                         search(request.getSearchRequest(), listener);
                     } catch (IOException e) {
@@ -125,15 +121,5 @@ public class SearchAnomalyDetectorTransportAction extends HandledTransportAction
                 listener.onFailure(e);
             }
         });
-    }
-
-    private void addFilter(User user, SearchSourceBuilder searchSourceBuilder, String fieldName) {
-        TermsQueryBuilder filterBackendRoles = QueryBuilders.termsQuery(fieldName, user.getBackendRoles());
-        if (searchSourceBuilder.query() instanceof BoolQueryBuilder) {
-            BoolQueryBuilder queryBuilder = (BoolQueryBuilder) searchSourceBuilder.query();
-            searchSourceBuilder.query(queryBuilder.filter(filterBackendRoles));
-        } else {
-            throw new ElasticsearchException("Search Detectors API does not support queries other than BoolQuery");
-        }
     }
 }

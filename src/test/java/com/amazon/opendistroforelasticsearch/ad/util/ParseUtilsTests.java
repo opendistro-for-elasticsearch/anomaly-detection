@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.util;
 
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.addUserBackendRolesFilter;
+
 import java.io.IOException;
 import java.time.Instant;
 
@@ -29,6 +31,8 @@ import org.elasticsearch.test.ESTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
+import com.google.common.collect.ImmutableList;
 
 public class ParseUtilsTests extends ESTestCase {
 
@@ -105,5 +109,77 @@ public class ParseUtilsTests extends ESTestCase {
         for (Feature feature : detector.getFeatureAttributes()) {
             assertTrue(builder.contains(feature.getId()));
         }
+    }
+
+    public void testAddUserRoleFilterWithNullUser() {
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        addUserBackendRolesFilter(null, searchSourceBuilder);
+        assertEquals(
+            "{\"query\":{\"bool\":{\"must_not\":[{\"nested\":{\"query\":{\"exists\":{\"field\":\"user\",\"boost\":1.0}},"
+                + "\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],\"adjust_pure_negative\":true,"
+                + "\"boost\":1.0}}}",
+            searchSourceBuilder.toString()
+        );
+    }
+
+    public void testAddUserRoleFilterWithNullUserBackendRole() {
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        addUserBackendRolesFilter(
+            new User(randomAlphaOfLength(5), null, ImmutableList.of(randomAlphaOfLength(5)), ImmutableList.of(randomAlphaOfLength(5))),
+            searchSourceBuilder
+        );
+        assertEquals(
+            "{\"query\":{\"bool\":{\"must\":[{\"nested\":{\"query\":{\"exists\":{\"field\":\"user\",\"boost\":1.0}},"
+                + "\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],\"must_not\":[{\"nested\":"
+                + "{\"query\":{\"exists\":{\"field\":\"user.backend_roles.keyword\",\"boost\":1.0}},\"path\":\"user\",\"ignore_unmapped\""
+                + ":false,\"score_mode\":\"none\",\"boost\":1.0}}],\"adjust_pure_negative\":true,\"boost\":1.0}}}",
+            searchSourceBuilder.toString()
+        );
+    }
+
+    public void testAddUserRoleFilterWithEmptyUserBackendRole() {
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        addUserBackendRolesFilter(
+            new User(
+                randomAlphaOfLength(5),
+                ImmutableList.of(),
+                ImmutableList.of(randomAlphaOfLength(5)),
+                ImmutableList.of(randomAlphaOfLength(5))
+            ),
+            searchSourceBuilder
+        );
+        assertEquals(
+            "{\"query\":{\"bool\":{\"must\":[{\"nested\":{\"query\":{\"exists\":{\"field\":\"user\",\"boost\":1.0}},"
+                + "\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],\"must_not\":[{\"nested\":"
+                + "{\"query\":{\"exists\":{\"field\":\"user.backend_roles.keyword\",\"boost\":1.0}},\"path\":\"user\",\"ignore_unmapped\""
+                + ":false,\"score_mode\":\"none\",\"boost\":1.0}}],\"adjust_pure_negative\":true,\"boost\":1.0}}}",
+            searchSourceBuilder.toString()
+        );
+    }
+
+    public void testAddUserRoleFilterWithNormalUserBackendRole() {
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        String backendRole1 = randomAlphaOfLength(5);
+        String backendRole2 = randomAlphaOfLength(5);
+        addUserBackendRolesFilter(
+            new User(
+                randomAlphaOfLength(5),
+                ImmutableList.of(backendRole1, backendRole2),
+                ImmutableList.of(randomAlphaOfLength(5)),
+                ImmutableList.of(randomAlphaOfLength(5))
+            ),
+            searchSourceBuilder
+        );
+        assertEquals(
+            "{\"query\":{\"bool\":{\"must\":[{\"nested\":{\"query\":{\"terms\":{\"user.backend_roles.keyword\":"
+                + "[\""
+                + backendRole1
+                + "\",\""
+                + backendRole2
+                + "\"],"
+                + "\"boost\":1.0}},\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],"
+                + "\"adjust_pure_negative\":true,\"boost\":1.0}}}",
+            searchSourceBuilder.toString()
+        );
     }
 }

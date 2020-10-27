@@ -24,6 +24,7 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
@@ -61,6 +62,7 @@ import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTransport
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
+import com.amazon.opendistroforelasticsearch.commons.InjectSecurity;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel;
@@ -69,6 +71,7 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 
 /**
  * JobScheduler will call AD job runner to get anomaly result periodically
@@ -207,8 +210,29 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             );
             return;
         }
+        /*
+         * We need to handle 3 cases:
+         * 1. Detectors created by older versions and never updated. These detectors wont have User details in the
+         * detector object. `detector.user` will be null. Insert `all_access, AmazonES_all_access` role.
+         * 2. Detectors are created when security plugin is disabled, these will have empty User object.
+         * (`detector.user.name`, `detector.user.roles` are empty )
+         * 3. Detectors are created when security plugin is enabled, these will have an User object.
+         * This will inject user role and check if the user role has permissions to call the execute
+         * Anomaly Result API.
+         */
+        String user;
+        List<String> roles;
+        if (((AnomalyDetectorJob) jobParameter).getUser() == null) {
+            user = "";
+            roles = settings.getAsList("", ImmutableList.of("all_access", "AmazonES_all_access"));
+        } else {
+            user = ((AnomalyDetectorJob) jobParameter).getUser().getName();
+            roles = ((AnomalyDetectorJob) jobParameter).getUser().getRoles();
+        }
 
-        try {
+        try (InjectSecurity injectSecurity = new InjectSecurity(detectorId, settings, client.threadPool().getThreadContext())) {
+            // Injecting user role to verify if the user has permissions for our API.
+            injectSecurity.inject(user, roles);
             indexUtil.updateMappingIfNecessary();
             AnomalyResultRequest request = new AnomalyResultRequest(
                 detectorId,

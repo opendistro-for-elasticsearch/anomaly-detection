@@ -72,6 +72,9 @@ public final class AnomalyDetectorRunner {
         if (categoryField != null && !categoryField.isEmpty()) {
             featureManager.getPreviewEntities(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(entities -> {
 
+                if (entities == null || entities.isEmpty()) {
+                    listener.onResponse(Collections.emptyList());
+                }
                 ActionListener<EntityAnomalyResult> entityAnomalyResultListener = ActionListener
                     .wrap(
                         entityAnomalyResult -> { listener.onResponse(entityAnomalyResult.getAnomalyResults()); },

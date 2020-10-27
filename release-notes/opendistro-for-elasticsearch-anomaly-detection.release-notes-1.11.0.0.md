@@ -29,6 +29,9 @@ Compatible with Elasticsearch 7.9.1
 * Updating Search Detector API to reject all other queries other than BoolQuery ([#288](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/288))
 * Adding detector to Create/Update detector response ([#289](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/289))
 * set user as nested type to support exists query ([#291](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/291))
+* fix no permission when preview detector with detector id ([#294](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/294))
+* update user role filter to use nested query ([#293](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/293))
+* Injecting User role for background job ([#295](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/295))
 
 ### Bug fixes
 

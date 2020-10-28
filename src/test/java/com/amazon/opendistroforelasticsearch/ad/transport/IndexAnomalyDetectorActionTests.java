@@ -55,8 +55,7 @@ public class IndexAnomalyDetectorActionTests {
             TimeValue.timeValueSeconds(60),
             1000,
             10,
-            5,
-            "authHeader"
+            5
         );
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();

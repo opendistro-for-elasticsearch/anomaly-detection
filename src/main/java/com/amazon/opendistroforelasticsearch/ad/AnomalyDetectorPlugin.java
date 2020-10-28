@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.ad;
 
 import static java.util.Collections.unmodifiableList;
 
-import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
@@ -37,7 +36,6 @@ import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.client.RestClient;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -159,7 +157,6 @@ import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import com.amazon.opendistroforelasticsearch.ad.util.ThrowingConsumerWrapper;
-import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner;
@@ -190,7 +187,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private DiscoveryNodeFilterer nodeFilter;
     private IndexUtils indexUtils;
     private DetectionStateHandler detectorStateHandler;
-    private RestClient restClient;
 
     static {
         SpecialPermission.check();
@@ -320,12 +316,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
 
         double modelMaxSizePercent = AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings);
-
-        try {
-            this.restClient = new SecureRestClientBuilder(settings, environment.configFile()).build();
-        } catch (IOException e) {
-            LOG.error(e);
-        }
 
         MemoryTracker memoryTracker = new MemoryTracker(
             jvmService,
@@ -522,8 +512,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 multiEntityResultHandler,
                 checkpoint,
                 modelPartitioner,
-                cacheProvider,
-                restClient
+                cacheProvider
             );
     }
 

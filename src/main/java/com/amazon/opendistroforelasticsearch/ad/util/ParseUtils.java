@@ -28,8 +28,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.regex.Matcher;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.common.ParsingException;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
@@ -53,12 +56,14 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 /**
  * Parsing utility functions.
  */
 public final class ParseUtils {
+    private static Logger logger = LogManager.getLogger(ParseUtils.class);
 
     private ParseUtils() {}
 
@@ -433,5 +438,11 @@ public final class ParseUtils {
             throw new ElasticsearchException("Search API does not support queries other than BoolQuery");
         }
         return searchSourceBuilder;
+    }
+
+    public static User getUserContext(Client client) {
+        String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES);
+        logger.debug("Filtering result by " + userStr);
+        return User.parse(userStr);
     }
 }

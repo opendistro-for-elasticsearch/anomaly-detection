@@ -45,7 +45,6 @@ import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.ClusterState;
@@ -179,7 +178,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxAnomalyFeatures,
             method,
             xContentRegistry(),
-            mock(RestClient.class),
             null
         );
     }
@@ -233,11 +231,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxAnomalyFeatures,
             method,
             xContentRegistry(),
-            mock(RestClient.class),
             null
         );
 
-        handler.resolveUserAndStart();
+        handler.start();
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
         verify(clientMock, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
@@ -296,13 +293,12 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxAnomalyFeatures,
             method,
             xContentRegistry(),
-            mock(RestClient.class),
             null
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
 
-        handler.resolveUserAndStart();
+        handler.start();
 
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
@@ -372,13 +368,12 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxAnomalyFeatures,
             method,
             xContentRegistry(),
-            mock(RestClient.class),
             null
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
 
-        handler.resolveUserAndStart();
+        handler.start();
 
         verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
@@ -465,13 +460,12 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxAnomalyFeatures,
             RestRequest.Method.PUT,
             xContentRegistry(),
-            mock(RestClient.class),
             null
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
 
-        handler.resolveUserAndStart();
+        handler.start();
 
         verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
@@ -518,7 +512,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             return null;
         }).when(clientMock).search(any(SearchRequest.class), any());
 
-        handler.resolveUserAndStart();
+        handler.start();
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
         verify(clientMock, times(1)).search(any(SearchRequest.class), any());
@@ -586,11 +580,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxAnomalyFeatures,
             RestRequest.Method.PUT,
             xContentRegistry(),
-            mock(RestClient.class),
             null
         );
 
-        handler.resolveUserAndStart();
+        handler.start();
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
         verify(clientMock, times(1)).search(any(SearchRequest.class), any());
@@ -659,11 +652,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxAnomalyFeatures,
             RestRequest.Method.PUT,
             xContentRegistry(),
-            mock(RestClient.class),
             null
         );
 
-        handler.resolveUserAndStart();
+        handler.start();
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
         verify(clientMock, times(0)).search(any(SearchRequest.class), any());

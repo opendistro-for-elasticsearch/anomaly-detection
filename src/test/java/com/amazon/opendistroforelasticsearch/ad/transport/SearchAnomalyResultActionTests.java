@@ -30,7 +30,6 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.client.RestClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
@@ -73,8 +72,7 @@ public class SearchAnomalyResultActionTests extends ESIntegTestCase {
             mock(TransportService.class),
             clusterService,
             mock(ActionFilters.class),
-            client,
-            mock(RestClient.class)
+            client
         );
         task = mock(Task.class);
         response = new ActionListener<SearchResponse>() {
@@ -99,8 +97,7 @@ public class SearchAnomalyResultActionTests extends ESIntegTestCase {
         CreateIndexRequest indexRequest = new CreateIndexRequest("my-test-index", indexSettings);
         client().admin().indices().create(indexRequest).actionGet();
         SearchRequest searchRequest = new SearchRequest("my-test-index");
-        SearchAnomalyRequest searchAnomalyRequest = new SearchAnomalyRequest(searchRequest, "authHeader");
-        action.doExecute(task, searchAnomalyRequest, response);
+        action.doExecute(task, searchRequest, response);
     }
 
     @Test
@@ -113,7 +110,6 @@ public class SearchAnomalyResultActionTests extends ESIntegTestCase {
     public void testNoIndex() throws IOException {
         // No Index, will call response.onFailure
         SearchRequest searchRequest = new SearchRequest("my-test-index");
-        SearchAnomalyRequest searchAnomalyRequest = new SearchAnomalyRequest(searchRequest, "authHeader");
-        action.doExecute(task, searchAnomalyRequest, response);
+        action.doExecute(task, searchRequest, response);
     }
 }

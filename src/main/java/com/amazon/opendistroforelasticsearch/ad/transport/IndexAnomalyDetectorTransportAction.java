@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
+
 import java.io.IOException;
 import java.util.List;
 
@@ -42,7 +44,6 @@ import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
@@ -87,8 +88,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
 
         checkIndicesAndExecute(detector.getIndices(), () -> {
-            String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES);
-            user = User.parse(userStr);
+            user = getUserContext(client);
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
                 IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
                     clusterService,

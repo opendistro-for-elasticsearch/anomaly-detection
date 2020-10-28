@@ -30,6 +30,7 @@ import java.util.regex.Matcher;
 
 import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.common.ParsingException;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
@@ -53,6 +54,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 /**
@@ -433,5 +435,10 @@ public final class ParseUtils {
             throw new ElasticsearchException("Search API does not support queries other than BoolQuery");
         }
         return searchSourceBuilder;
+    }
+
+    public static User getUserContext(Client client) {
+        String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES);
+        return User.parse(userStr);
     }
 }

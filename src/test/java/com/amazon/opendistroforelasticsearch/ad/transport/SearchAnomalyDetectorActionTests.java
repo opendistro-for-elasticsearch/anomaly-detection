@@ -30,10 +30,7 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.client.RestClient;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
@@ -76,8 +73,7 @@ public class SearchAnomalyDetectorActionTests extends ESIntegTestCase {
             mock(TransportService.class),
             clusterService,
             mock(ActionFilters.class),
-            client,
-            mock(RestClient.class)
+            client
         );
         task = mock(Task.class);
         response = new ActionListener<SearchResponse>() {
@@ -102,8 +98,7 @@ public class SearchAnomalyDetectorActionTests extends ESIntegTestCase {
         CreateIndexRequest indexRequest = new CreateIndexRequest("my-test-index", indexSettings);
         client().admin().indices().create(indexRequest).actionGet();
         SearchRequest searchRequest = new SearchRequest("my-test-index");
-        SearchAnomalyRequest searchAnomalyRequest = new SearchAnomalyRequest(searchRequest, "authHeader");
-        action.doExecute(task, searchAnomalyRequest, response);
+        action.doExecute(task, searchRequest, response);
     }
 
     @Test
@@ -116,18 +111,6 @@ public class SearchAnomalyDetectorActionTests extends ESIntegTestCase {
     public void testNoIndex() throws IOException {
         // No Index, will call response.onFailure
         SearchRequest searchRequest = new SearchRequest("my-test-index");
-        SearchAnomalyRequest searchAnomalyRequest = new SearchAnomalyRequest(searchRequest, "authHeader");
-        action.doExecute(task, searchAnomalyRequest, response);
-    }
-
-    @Test
-    public void testSearchAnomalyRequest() throws IOException {
-        BytesStreamOutput out = new BytesStreamOutput();
-        SearchRequest searchRequest = new SearchRequest("my-test-index");
-        SearchAnomalyRequest request = new SearchAnomalyRequest(searchRequest, "authHeader");
-        request.writeTo(out);
-        StreamInput input = out.bytes().streamInput();
-        SearchAnomalyRequest newRequest = new SearchAnomalyRequest(input);
-        Assert.assertEquals(request.getAuthHeader(), newRequest.getAuthHeader());
+        action.doExecute(task, searchRequest, response);
     }
 }

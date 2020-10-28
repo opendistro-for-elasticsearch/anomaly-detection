@@ -26,7 +26,6 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.client.RestClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
@@ -43,21 +42,22 @@ import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);
     private final Client client;
-    private final RestClient restClient;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
+    private User user;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
         TransportService transportService,
         ActionFilters actionFilters,
         Client client,
-        RestClient restClient,
         ClusterService clusterService,
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
@@ -68,7 +68,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         this.clusterService = clusterService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.xContentRegistry = xContentRegistry;
-        this.restClient = restClient;
+        this.user = null;
+
     }
 
     @Override
@@ -86,6 +87,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
 
         checkIndicesAndExecute(detector.getIndices(), () -> {
+            String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES);
+            user = User.parse(userStr);
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
                 IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
                     clusterService,
@@ -103,11 +106,10 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                     maxAnomalyFeatures,
                     method,
                     xContentRegistry,
-                    restClient,
-                    request.getAuthHeader()
+                    user
                 );
                 try {
-                    indexAnomalyDetectorActionHandler.resolveUserAndStart();
+                    indexAnomalyDetectorActionHandler.start();
                 } catch (IOException exception) {
                     LOG.error("Fail to index detector", exception);
                     listener.onFailure(exception);

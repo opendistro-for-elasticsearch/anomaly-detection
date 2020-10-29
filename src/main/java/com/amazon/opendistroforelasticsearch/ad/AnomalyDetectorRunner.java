@@ -72,6 +72,12 @@ public final class AnomalyDetectorRunner {
         if (categoryField != null && !categoryField.isEmpty()) {
             featureManager.getPreviewEntities(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(entities -> {
 
+                if (entities == null || entities.isEmpty()) {
+                    // TODO return exception like IllegalArgumentException to explain data is not enough for preview
+                    // This also requires front-end change to handle error message correspondingly
+                    // We return empty list for now to avoid breaking front-end
+                    listener.onResponse(Collections.emptyList());
+                }
                 ActionListener<EntityAnomalyResult> entityAnomalyResultListener = ActionListener
                     .wrap(
                         entityAnomalyResult -> { listener.onResponse(entityAnomalyResult.getAnomalyResults()); },
@@ -116,6 +122,9 @@ public final class AnomalyDetectorRunner {
 
     private void onFailure(Exception e, ActionListener<List<AnomalyResult>> listener, String detectorId) {
         logger.info("Fail to preview anomaly detector " + detectorId, e);
+        // TODO return exception like IllegalArgumentException to explain data is not enough for preview
+        // This also requires front-end change to handle error message correspondingly
+        // We return empty list for now to avoid breaking front-end
         listener.onResponse(Collections.emptyList());
     }
 

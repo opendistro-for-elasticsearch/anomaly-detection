@@ -42,7 +42,6 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
 
     private final Client client;
     private volatile Boolean filterEnabled;
-    private User user;
 
     @Inject
     public SearchAnomalyResultTransportAction(
@@ -56,21 +55,20 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
         this.client = client;
         filterEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
-        user = null;
     }
 
     @Override
     protected void doExecute(Task task, SearchRequest request, ActionListener<SearchResponse> listener) {
-        user = getUserContext(client);
+        User user = getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            validateRole(request, listener);
+            validateRole(request, user, listener);
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);
         }
     }
 
-    private void validateRole(SearchRequest request, ActionListener<SearchResponse> listener) {
+    private void validateRole(SearchRequest request, User user, ActionListener<SearchResponse> listener) {
         if (user == null) {
             // Auth Header is empty when 1. Security is disabled. 2. When user is super-admin
             // Proceed with search

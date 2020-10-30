@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -258,15 +259,24 @@ public class PriorityCache implements EntityCache {
             // or shared cache
             // thread safe as each detector has one thread at one time and only the
             // thread can access its buffer.
-            buffer.replace(modelId, state);
+            ModelState<EntityModel> removed = buffer.replace(modelId, state);
+            if (removed != null) {
+                // set last used time for profile API so that we know when an entities is evicted
+                removed.setLastUsedTime(clock.instant());
+                inActiveEntities.put(removed.getModelId(), removed);
+            }
         } else {
             // If two threads try to remove the same entity and add their own state, the 2nd remove
             // returns null and only the first one succeeds.
             Entry<CacheBuffer, String> bufferToRemoveEntity = canReplaceInSharedCache(buffer, priority);
             CacheBuffer bufferToRemove = bufferToRemoveEntity.getKey();
             String entityModelId = bufferToRemoveEntity.getValue();
-            if (bufferToRemove != null && bufferToRemove.remove(entityModelId) != null) {
+            ModelState<EntityModel> removed = null;
+            if (bufferToRemove != null && ((removed = bufferToRemove.remove(entityModelId)) != null)) {
                 buffer.put(modelId, state);
+                // set last used time for profile API so that we know when an entities is evicted
+                removed.setLastUsedTime(clock.instant());
+                inActiveEntities.put(removed.getModelId(), removed);
             } else {
                 return false;
             }
@@ -567,5 +577,63 @@ public class PriorityCache implements EntityCache {
         List<ModelState<?>> states = new ArrayList<>();
         activeEnities.values().stream().forEach(cacheBuffer -> states.addAll(cacheBuffer.getAllModels()));
         return states;
+    }
+
+    /**
+     * Gets all of a detector's model sizes hosted on a node
+     *
+     * @return a map of model id to its memory size
+     */
+    @Override
+    public Map<String, Long> getModelSize(String detectorId) {
+        CacheBuffer cacheBuffer = activeEnities.get(detectorId);
+        Map<String, Long> res = new HashMap<>();
+        if (cacheBuffer != null) {
+            long size = cacheBuffer.getMemoryConsumptionPerEntity();
+            cacheBuffer.getAllModels().forEach(entry -> res.put(entry.getModelId(), size));
+        }
+        return res;
+    }
+
+    @Override
+    /**
+     * Gets an entity's model state
+     *
+     * @param detectorId detector id
+     * @param entityModelId  entity model id
+     * @return the model state
+     */
+    public long getModelSize(String detectorId, String entityModelId) {
+        CacheBuffer cacheBuffer = activeEnities.get(detectorId);
+        if (cacheBuffer != null && cacheBuffer.getModel(entityModelId).isPresent()) {
+            return cacheBuffer.getMemoryConsumptionPerEntity();
+        }
+        return -1L;
+    }
+
+    /**
+     * Return the last active time of an entity's state.
+     *
+     * If the entity's state is active in the cache, the value indicates when the cache
+     * is lastly accessed (get/put).  If the entity's state is inactive in the cache,
+     * the value indicates when the cache state is created or when the entity is evicted
+     * from active entity cache.
+     *
+     * @param detectorId The Id of the detector that an entity belongs to
+     * @param entityModelId Entity's Model Id
+     * @return if the entity is in the cache, return the timestamp in epoch
+     * milliseconds when the entity's state is lastly used.  Otherwise, return -1.
+     */
+    @Override
+    public long getLastActiveMs(String detectorId, String entityModelId) {
+        CacheBuffer cacheBuffer = activeEnities.get(detectorId);
+        if (cacheBuffer != null) {
+            return cacheBuffer.getLastUsedTime(entityModelId);
+        }
+        ModelState<EntityModel> stateInActive = inActiveEntities.getIfPresent(entityModelId);
+        if (stateInActive != null) {
+            return stateInActive.getLastUsedTime().getEpochSecond();
+        }
+        return -1L;
     }
 }

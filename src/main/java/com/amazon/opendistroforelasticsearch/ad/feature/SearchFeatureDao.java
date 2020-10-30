@@ -68,6 +68,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Entity;
@@ -81,7 +82,6 @@ import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
  */
 public class SearchFeatureDao {
 
-    protected static final String AGG_NAME_MAX = "max_timefield";
     protected static final String AGG_NAME_MIN = "min_timefield";
     protected static final String AGG_NAME_TERM = "term_agg";
 
@@ -138,14 +138,14 @@ public class SearchFeatureDao {
     @Deprecated
     public Optional<Long> getLatestDataTime(AnomalyDetector detector) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(AGG_NAME_MAX).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX).field(detector.getTimeField()))
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         return clientUtil
             .<SearchRequest, SearchResponse>timedRequest(searchRequest, logger, client::search)
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap())
-            .map(map -> (Max) map.get(AGG_NAME_MAX))
+            .map(map -> (Max) map.get(CommonName.AGG_NAME_MAX))
             .map(agg -> (long) agg.getValue());
     }
 
@@ -157,20 +157,14 @@ public class SearchFeatureDao {
      */
     public void getLatestDataTime(AnomalyDetector detector, ActionListener<Optional<Long>> listener) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(AGG_NAME_MAX).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX).field(detector.getTimeField()))
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         client
-            .search(searchRequest, ActionListener.wrap(response -> listener.onResponse(getLatestDataTime(response)), listener::onFailure));
-    }
-
-    private Optional<Long> getLatestDataTime(SearchResponse searchResponse) {
-        return Optional
-            .ofNullable(searchResponse)
-            .map(SearchResponse::getAggregations)
-            .map(aggs -> aggs.asMap())
-            .map(map -> (Max) map.get(AGG_NAME_MAX))
-            .map(agg -> (long) agg.getValue());
+            .search(
+                searchRequest,
+                ActionListener.wrap(response -> listener.onResponse(ParseUtils.getLatestDataTime(response)), listener::onFailure)
+            );
     }
 
     /**
@@ -237,7 +231,7 @@ public class SearchFeatureDao {
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(internalFilterQuery)
-            .aggregation(AggregationBuilders.max(AGG_NAME_MAX).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX).field(detector.getTimeField()))
             .aggregation(AggregationBuilders.min(AGG_NAME_MIN).field(detector.getTimeField()))
             .trackTotalHits(false)
             .size(0);
@@ -255,7 +249,7 @@ public class SearchFeatureDao {
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap());
 
-        Optional<Long> latest = mapOptional.map(map -> (Max) map.get(AGG_NAME_MAX)).map(agg -> (long) agg.getValue());
+        Optional<Long> latest = mapOptional.map(map -> (Max) map.get(CommonName.AGG_NAME_MAX)).map(agg -> (long) agg.getValue());
 
         Optional<Long> earliest = mapOptional.map(map -> (Min) map.get(AGG_NAME_MIN)).map(agg -> (long) agg.getValue());
 

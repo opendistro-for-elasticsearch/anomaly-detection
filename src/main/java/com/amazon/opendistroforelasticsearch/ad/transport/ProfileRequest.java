@@ -24,26 +24,28 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
-import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 
 /**
  * implements a request to obtain profiles about an AD detector
  */
 public class ProfileRequest extends BaseNodesRequest<ProfileRequest> {
 
-    private Set<ProfileName> profilesToBeRetrieved;
+    private Set<DetectorProfileName> profilesToBeRetrieved;
     private String detectorId;
+    private boolean forMultiEntityDetector;
 
     public ProfileRequest(StreamInput in) throws IOException {
         super(in);
         int size = in.readVInt();
-        profilesToBeRetrieved = new HashSet<ProfileName>();
+        profilesToBeRetrieved = new HashSet<DetectorProfileName>();
         if (size != 0) {
             for (int i = 0; i < size; i++) {
-                profilesToBeRetrieved.add(in.readEnum(ProfileName.class));
+                profilesToBeRetrieved.add(in.readEnum(DetectorProfileName.class));
             }
         }
         detectorId = in.readString();
+        forMultiEntityDetector = in.readBoolean();
     }
 
     /**
@@ -51,22 +53,30 @@ public class ProfileRequest extends BaseNodesRequest<ProfileRequest> {
      *
      * @param detectorId detector's id
      * @param profilesToBeRetrieved profiles to be retrieved
+     * @param forMultiEntityDetector whether the request is for a multi-entity detector
      * @param nodes nodes of nodes' profiles to be retrieved
      */
-    public ProfileRequest(String detectorId, Set<ProfileName> profilesToBeRetrieved, DiscoveryNode... nodes) {
+    public ProfileRequest(
+        String detectorId,
+        Set<DetectorProfileName> profilesToBeRetrieved,
+        boolean forMultiEntityDetector,
+        DiscoveryNode... nodes
+    ) {
         super(nodes);
         this.detectorId = detectorId;
         this.profilesToBeRetrieved = profilesToBeRetrieved;
+        this.forMultiEntityDetector = forMultiEntityDetector;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeVInt(profilesToBeRetrieved.size());
-        for (ProfileName profile : profilesToBeRetrieved) {
+        for (DetectorProfileName profile : profilesToBeRetrieved) {
             out.writeEnum(profile);
         }
         out.writeString(detectorId);
+        out.writeBoolean(forMultiEntityDetector);
     }
 
     public String getDetectorId() {
@@ -78,7 +88,15 @@ public class ProfileRequest extends BaseNodesRequest<ProfileRequest> {
      *
      * @return the set that contains the profile names marked for retrieval
      */
-    public Set<ProfileName> getProfilesToBeRetrieved() {
+    public Set<DetectorProfileName> getProfilesToBeRetrieved() {
         return profilesToBeRetrieved;
+    }
+
+    /**
+     *
+     * @return Whether this is about a multi-entity detector or not
+     */
+    public boolean isForMultiEntityDetector() {
+        return forMultiEntityDetector;
     }
 }

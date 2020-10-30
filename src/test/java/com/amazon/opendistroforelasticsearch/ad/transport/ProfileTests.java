@@ -46,8 +46,8 @@ import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 import com.amazon.opendistroforelasticsearch.ad.model.ModelProfile;
-import com.amazon.opendistroforelasticsearch.ad.model.ProfileName;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 
@@ -115,9 +115,9 @@ public class ProfileTests extends ESTestCase {
     @Test
     public void testProfileNodeRequest() throws IOException {
 
-        Set<ProfileName> profilesToRetrieve = new HashSet<ProfileName>();
-        profilesToRetrieve.add(ProfileName.COORDINATING_NODE);
-        ProfileRequest ProfileRequest = new ProfileRequest(detectorId, profilesToRetrieve);
+        Set<DetectorProfileName> profilesToRetrieve = new HashSet<DetectorProfileName>();
+        profilesToRetrieve.add(DetectorProfileName.COORDINATING_NODE);
+        ProfileRequest ProfileRequest = new ProfileRequest(detectorId, profilesToRetrieve, false);
         ProfileNodeRequest ProfileNodeRequest = new ProfileNodeRequest(ProfileRequest);
         assertEquals("ProfileNodeRequest has the wrong detector id", ProfileNodeRequest.getDetectorId(), detectorId);
         assertEquals("ProfileNodeRequest has the wrong ProfileRequest", ProfileNodeRequest.getProfilesToBeRetrieved(), profilesToRetrieve);
@@ -163,9 +163,9 @@ public class ProfileTests extends ESTestCase {
     @Test
     public void testProfileRequest() throws IOException {
         String detectorId = "123";
-        Set<ProfileName> profilesToRetrieve = new HashSet<ProfileName>();
-        profilesToRetrieve.add(ProfileName.COORDINATING_NODE);
-        ProfileRequest profileRequest = new ProfileRequest(detectorId, profilesToRetrieve);
+        Set<DetectorProfileName> profilesToRetrieve = new HashSet<DetectorProfileName>();
+        profilesToRetrieve.add(DetectorProfileName.COORDINATING_NODE);
+        ProfileRequest profileRequest = new ProfileRequest(detectorId, profilesToRetrieve, false);
 
         // Test Serialization
         BytesStreamOutput output = new BytesStreamOutput();

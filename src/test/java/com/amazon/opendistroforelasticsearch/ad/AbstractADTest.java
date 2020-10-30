@@ -242,7 +242,7 @@ public class AbstractADTest extends ESTestCase {
         String msg
     ) {
         Exception e = expectThrows(exceptionType, () -> listener.actionGet(20_000));
-        assertThat(e.getMessage(), containsString(msg));
+        assertThat("actual message: " + e.getMessage(), e.getMessage(), containsString(msg));
     }
 
     @Override

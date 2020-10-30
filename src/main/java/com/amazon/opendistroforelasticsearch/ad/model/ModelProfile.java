@@ -32,6 +32,8 @@ package com.amazon.opendistroforelasticsearch.ad.model;
 
 import java.io.IOException;
 
+import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
@@ -58,7 +60,7 @@ public class ModelProfile implements Writeable, ToXContent {
 
     public ModelProfile(StreamInput in) throws IOException {
         modelId = in.readString();
-        modelSizeInBytes = in.readVLong();
+        modelSizeInBytes = in.readLong();
         nodeId = in.readString();
     }
 
@@ -89,8 +91,33 @@ public class ModelProfile implements Writeable, ToXContent {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(modelId);
-        out.writeVLong(modelSizeInBytes);
+        out.writeLong(modelSizeInBytes);
         out.writeString(nodeId);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        if (obj instanceof ModelProfile) {
+            ModelProfile other = (ModelProfile) obj;
+            EqualsBuilder equalsBuilder = new EqualsBuilder();
+            equalsBuilder.append(modelId, other.modelId);
+            equalsBuilder.append(modelSizeInBytes, other.modelSizeInBytes);
+            equalsBuilder.append(nodeId, other.nodeId);
+
+            return equalsBuilder.isEquals();
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder().append(modelId).append(modelSizeInBytes).append(nodeId).toHashCode();
     }
 
     @Override

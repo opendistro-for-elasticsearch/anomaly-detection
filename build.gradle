@@ -250,8 +250,9 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.transport.CronRequest',
         'com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesAction',
         'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRunner',
-        'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
         'com.amazon.opendistroforelasticsearch.ad.util.ParseUtils',
+
+        // related to transport actions added for security
         'com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorTransportAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorTransportAction*',
         'com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorTransportAction*',
@@ -260,19 +261,15 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorRequest',
         'com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultTransportAction*',
         'com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorInfoTransportAction*',
+        'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorRequest',
+        'com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse',
+        'com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorTransportAction',
 
         // TODO: hc caused coverage to drop
         'com.amazon.opendistroforelasticsearch.ad.NodeStateManager',
+        'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
         'com.amazon.opendistroforelasticsearch.ad.transport.handler.MultiEntityResultHandler',
-        'com.amazon.opendistroforelasticsearch.ad.transport.EntityProfileTransportAction*',
-        'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorProfileRunner',
-        'com.amazon.opendistroforelasticsearch.ad.transport.EntityProfileResponse',
-        'com.amazon.opendistroforelasticsearch.ad.transport.EntityProfileRequest',
-        'com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener',
-        'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorRequest',
         'com.amazon.opendistroforelasticsearch.ad.util.ThrowingSupplierWrapper',
-        'com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse',
-        'com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorTransportAction',
 ]
 
 jacocoTestCoverageVerification {

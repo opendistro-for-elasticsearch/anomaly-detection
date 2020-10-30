@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,10 +37,12 @@ import org.elasticsearch.transport.TransportResponseHandler;
 import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
+import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
-import com.amazon.opendistroforelasticsearch.ad.ml.ModelPartitioner;
+import com.amazon.opendistroforelasticsearch.ad.model.EntityProfileName;
+import com.amazon.opendistroforelasticsearch.ad.model.ModelProfile;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
 /**
@@ -53,7 +56,6 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
 
     private final TransportService transportService;
     private final ModelManager modelManager;
-    private final ModelPartitioner modelPartitioner;
     private final HashRing hashRing;
     private final TransportRequestOptions option;
     private final ClusterService clusterService;
@@ -65,7 +67,6 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
         TransportService transportService,
         Settings settings,
         ModelManager modelManager,
-        ModelPartitioner modelPartitioner,
         HashRing hashRing,
         ClusterService clusterService,
         CacheProvider cacheProvider
@@ -73,7 +74,6 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
         super(EntityProfileAction.NAME, transportService, actionFilters, EntityProfileRequest::new);
         this.transportService = transportService;
         this.modelManager = modelManager;
-        this.modelPartitioner = modelPartitioner;
         this.hashRing = hashRing;
         this.option = TransportRequestOptions
             .builder()
@@ -99,7 +99,23 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
         String nodeId = node.get().getId();
         DiscoveryNode localNode = clusterService.localNode();
         if (localNode.getId().equals(nodeId)) {
-            listener.onResponse(new EntityProfileResponse((cacheProvider.get().isActive(adID, modelId))));
+            EntityCache cache = cacheProvider.get();
+            Set<EntityProfileName> profilesToCollect = request.getProfilesToCollect();
+            EntityProfileResponse.Builder builder = new EntityProfileResponse.Builder();
+            if (profilesToCollect.contains(EntityProfileName.ENTITY_INFO)) {
+                builder.setActive(cache.isActive(adID, modelId));
+                builder.setLastActiveMs(cache.getLastActiveMs(adID, modelId));
+            }
+            if (profilesToCollect.contains(EntityProfileName.INIT_PROGRESS) || profilesToCollect.contains(EntityProfileName.STATE)) {
+                builder.setTotalUpdates(cache.getTotalUpdates(adID, modelId));
+            }
+            if (profilesToCollect.contains(EntityProfileName.MODELS)) {
+                long modelSize = cache.getModelSize(adID, modelId);
+                if (modelSize > 0) {
+                    builder.setModelProfile(new ModelProfile(modelId, modelSize, localNode.getId()));
+                }
+            }
+            listener.onResponse(builder.build());
         } else {
             // redirect
             LOG.debug("Sending RCF polling request to {} for detector {}, entity {}", nodeId, adID, entityValue);

@@ -16,25 +16,20 @@
 package com.amazon.opendistroforelasticsearch.ad.model;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Set;
 
+import com.amazon.opendistroforelasticsearch.ad.Name;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 
-public enum ProfileName {
-    STATE(CommonName.STATE),
-    ERROR(CommonName.ERROR),
-    COORDINATING_NODE(CommonName.COORDINATING_NODE),
-    SHINGLE_SIZE(CommonName.SHINGLE_SIZE),
-    TOTAL_SIZE_IN_BYTES(CommonName.TOTAL_SIZE_IN_BYTES),
-    MODELS(CommonName.MODELS),
+public enum EntityProfileName implements Name {
     INIT_PROGRESS(CommonName.INIT_PROGRESS),
-    TOTAL_ENTITIES(CommonName.TOTAL_ENTITIES),
-    ACTIVE_ENTITIES(CommonName.ACTIVE_ENTITIES);
+    ENTITY_INFO(CommonName.ENTITY_INFO),
+    STATE(CommonName.STATE),
+    MODELS(CommonName.MODELS);
 
     private String name;
 
-    ProfileName(String name) {
+    EntityProfileName(String name) {
         this.name = name;
     }
 
@@ -43,40 +38,27 @@ public enum ProfileName {
      *
      * @return name
      */
+    @Override
     public String getName() {
         return name;
     }
 
-    public static ProfileName getName(String name) {
+    public static EntityProfileName getName(String name) {
         switch (name) {
-            case CommonName.STATE:
-                return STATE;
-            case CommonName.ERROR:
-                return ERROR;
-            case CommonName.COORDINATING_NODE:
-                return COORDINATING_NODE;
-            case CommonName.SHINGLE_SIZE:
-                return SHINGLE_SIZE;
-            case CommonName.TOTAL_SIZE_IN_BYTES:
-                return TOTAL_SIZE_IN_BYTES;
-            case CommonName.MODELS:
-                return MODELS;
             case CommonName.INIT_PROGRESS:
                 return INIT_PROGRESS;
-            case CommonName.TOTAL_ENTITIES:
-                return TOTAL_ENTITIES;
-            case CommonName.ACTIVE_ENTITIES:
-                return ACTIVE_ENTITIES;
+            case CommonName.ENTITY_INFO:
+                return ENTITY_INFO;
+            case CommonName.STATE:
+                return STATE;
+            case CommonName.MODELS:
+                return MODELS;
             default:
                 throw new IllegalArgumentException("Unsupported profile types");
         }
     }
 
-    public static Set<ProfileName> getNames(Collection<String> names) {
-        Set<ProfileName> res = new HashSet<>();
-        for (String name : names) {
-            res.add(getName(name));
-        }
-        return res;
+    public static Set<EntityProfileName> getNames(Collection<String> names) {
+        return Name.getNameFromCollection(names, EntityProfileName::getName);
     }
 }

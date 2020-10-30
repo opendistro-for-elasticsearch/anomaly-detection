@@ -18,6 +18,8 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 import static org.elasticsearch.action.ValidateActions.addValidationError;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionRequestValidationException;
@@ -29,22 +31,33 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
+import com.amazon.opendistroforelasticsearch.ad.model.EntityProfileName;
 
 public class EntityProfileRequest extends ActionRequest implements ToXContentObject {
     public static final String ENTITY = "entity";
+    public static final String PROFILES = "profiles";
     private String adID;
     private String entityValue;
+    private Set<EntityProfileName> profilesToCollect;
 
     public EntityProfileRequest(StreamInput in) throws IOException {
         super(in);
         adID = in.readString();
         entityValue = in.readString();
+        int size = in.readVInt();
+        profilesToCollect = new HashSet<EntityProfileName>();
+        if (size != 0) {
+            for (int i = 0; i < size; i++) {
+                profilesToCollect.add(in.readEnum(EntityProfileName.class));
+            }
+        }
     }
 
-    public EntityProfileRequest(String adID, String entityValue) {
+    public EntityProfileRequest(String adID, String entityValue, Set<EntityProfileName> profilesToCollect) {
         super();
         this.adID = adID;
         this.entityValue = entityValue;
+        this.profilesToCollect = profilesToCollect;
     }
 
     public String getAdID() {
@@ -55,11 +68,19 @@ public class EntityProfileRequest extends ActionRequest implements ToXContentObj
         return entityValue;
     }
 
+    public Set<EntityProfileName> getProfilesToCollect() {
+        return profilesToCollect;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(adID);
         out.writeString(entityValue);
+        out.writeVInt(profilesToCollect.size());
+        for (EntityProfileName profile : profilesToCollect) {
+            out.writeEnum(profile);
+        }
     }
 
     @Override
@@ -71,6 +92,9 @@ public class EntityProfileRequest extends ActionRequest implements ToXContentObj
         if (Strings.isEmpty(entityValue)) {
             validationException = addValidationError("Entity value is missing", validationException);
         }
+        if (profilesToCollect == null || profilesToCollect.isEmpty()) {
+            validationException = addValidationError(CommonErrorMessages.EMPTY_PROFILES_COLLECT, validationException);
+        }
         return validationException;
     }
 
@@ -79,6 +103,7 @@ public class EntityProfileRequest extends ActionRequest implements ToXContentObj
         builder.startObject();
         builder.field(CommonMessageAttributes.ID_JSON_KEY, adID);
         builder.field(ENTITY, entityValue);
+        builder.field(PROFILES, profilesToCollect);
         builder.endObject();
         return builder;
     }

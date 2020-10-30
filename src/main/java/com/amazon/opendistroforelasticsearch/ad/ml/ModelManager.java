@@ -43,6 +43,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 
+import com.amazon.opendistroforelasticsearch.ad.DetectorModelSize;
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
@@ -58,7 +59,7 @@ import com.google.gson.Gson;
 /**
  * A facade managing ML operations and models.
  */
-public class ModelManager {
+public class ModelManager implements DetectorModelSize {
     protected static final String DETECTOR_ID_PATTERN = "(.*)_model_.+";
 
     protected static final String ENTITY_SAMPLE = "sp";
@@ -895,6 +896,7 @@ public class ModelManager {
      * @param detectorId detector id
      * @return a map of model id to its memory size
      */
+    @Override
     public Map<String, Long> getModelSize(String detectorId) {
         Map<String, Long> res = new HashMap<>();
         forests
@@ -906,7 +908,7 @@ public class ModelManager {
             .entrySet()
             .stream()
             .filter(entry -> getDetectorIdForModelId(entry.getKey()).equals(detectorId))
-            .forEach(entry -> { res.put(entry.getKey(), 0L); });
+            .forEach(entry -> { res.put(entry.getKey(), (long) memoryTracker.getThresholdModelBytes()); });
         return res;
     }
 

@@ -111,7 +111,9 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
             if (response.getResult() == DocWriteResponse.Result.DELETED || response.getResult() == DocWriteResponse.Result.NOT_FOUND) {
                 deleteDetectorStateDoc(detectorId, listener);
             } else {
-                LOG.error("Fail to delete anomaly detector job {}", detectorId);
+                String message = "Fail to delete anomaly detector job " + detectorId;
+                LOG.error(message);
+                listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {

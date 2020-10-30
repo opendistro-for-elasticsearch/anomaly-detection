@@ -52,7 +52,6 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
-    private User user;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
@@ -69,12 +68,11 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         this.clusterService = clusterService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.xContentRegistry = xContentRegistry;
-        this.user = null;
-
     }
 
     @Override
     protected void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> listener) {
+        User user = getUserContext(client);
         anomalyDetectionIndices.updateMappingIfNecessary();
         String detectorId = request.getDetectorID();
         long seqNo = request.getSeqNo();
@@ -88,7 +86,6 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
 
         checkIndicesAndExecute(detector.getIndices(), () -> {
-            user = getUserContext(client);
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
                 IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
                     clusterService,

@@ -112,6 +112,7 @@ public class CheckpointDao {
     private final AnomalyDetectionIndices indexUtil;
     private final RateLimiter bulkRateLimiter;
     private final int maxBulkRequestSize;
+    private final JsonParser parser = new JsonParser();
 
     /**
      * Constructor with dependencies and configuration.
@@ -466,7 +467,7 @@ public class CheckpointDao {
         try {
             return AccessController.doPrivileged((PrivilegedAction<Entry<EntityModel, Instant>>) () -> {
                 String model = (String) (checkpoint.get(FIELD_MODEL));
-                JsonObject json = JsonParser.parseString(model).getAsJsonObject();
+                JsonObject json = parser.parse(model).getAsJsonObject();
                 ArrayDeque<double[]> samples = new ArrayDeque<>(
                     Arrays.asList(this.gson.fromJson(json.getAsJsonArray(ENTITY_SAMPLE), new double[0][0].getClass()))
                 );

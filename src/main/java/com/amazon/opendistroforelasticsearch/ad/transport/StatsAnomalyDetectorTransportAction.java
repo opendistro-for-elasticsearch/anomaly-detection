@@ -19,6 +19,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
@@ -27,6 +29,7 @@ import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
@@ -38,6 +41,7 @@ import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActionListener;
 
 public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<ADStatsRequest, StatsAnomalyDetectorResponse> {
+    private final Logger logger = LogManager.getLogger(StatsAnomalyDetectorTransportAction.class);
 
     private final Client client;
     private final ADStats adStats;
@@ -60,7 +64,12 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
 
     @Override
     protected void doExecute(Task task, ADStatsRequest request, ActionListener<StatsAnomalyDetectorResponse> listener) {
-        getStats(client, listener, request);
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            getStats(client, listener, request);
+        } catch (Exception e) {
+            logger.error(e);
+            listener.onFailure(e);
+        }
     }
 
     /**

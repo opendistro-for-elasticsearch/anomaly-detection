@@ -68,6 +68,29 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
         ClientUtil clientUtil,
         IndexUtils indexUtils,
         ClusterService clusterService,
+        NodeStateManager nodeStateManager
+    ) {
+        this(
+            client,
+            settings,
+            threadPool,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtils,
+            clusterService,
+            nodeStateManager,
+            Clock.systemUTC()
+        );
+    }
+
+    protected MultiEntityResultHandler(
+        Client client,
+        Settings settings,
+        ThreadPool threadPool,
+        AnomalyDetectionIndices anomalyDetectionIndices,
+        ClientUtil clientUtil,
+        IndexUtils indexUtils,
+        ClusterService clusterService,
         NodeStateManager nodeStateManager,
         Clock clock
     ) {

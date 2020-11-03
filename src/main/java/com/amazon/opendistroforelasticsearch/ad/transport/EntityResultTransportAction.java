@@ -80,6 +80,33 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         CacheProvider entityCache,
         NodeStateManager stateManager,
         Settings settings,
+        AnomalyDetectionIndices indexUtil
+    ) {
+        this(
+            actionFilters,
+            transportService,
+            manager,
+            adCircuitBreakerService,
+            anomalyResultHandler,
+            checkpointDao,
+            entityCache,
+            stateManager,
+            settings,
+            Clock.systemUTC(),
+            indexUtil
+        );
+    }
+
+    protected EntityResultTransportAction(
+        ActionFilters actionFilters,
+        TransportService transportService,
+        ModelManager manager,
+        ADCircuitBreakerService adCircuitBreakerService,
+        MultiEntityResultHandler anomalyResultHandler,
+        CheckpointDao checkpointDao,
+        CacheProvider entityCache,
+        NodeStateManager stateManager,
+        Settings settings,
         Clock clock,
         AnomalyDetectionIndices indexUtil
     ) {

@@ -20,7 +20,6 @@ import static java.util.Collections.unmodifiableList;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -39,7 +38,6 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.IndexScopedSettings;
@@ -484,8 +482,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             this.clientUtil,
             this.indexUtils,
             clusterService,
-            stateManager,
-            getClock()
+            stateManager
         );
 
         // return objects used by Guice to inject dependencies for e.g.,
@@ -523,14 +520,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
      */
     protected Clock getClock() {
         return Clock.systemUTC();
-    }
-
-    @Override
-    public Collection<Module> createGuiceModules() {
-        List<Module> modules = new ArrayList<>();
-        modules.add(b -> b.bind(Clock.class).toInstance(getClock()));
-
-        return modules;
     }
 
     @Override

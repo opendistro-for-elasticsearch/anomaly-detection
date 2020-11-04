@@ -793,9 +793,11 @@ public class SearchFeatureDao {
                     .stream()
                     .filter(agg -> AGG_NAME_TERM.equals(agg.getName()))
                     .flatMap(agg -> ((Terms) agg).getBuckets().stream())
-                    .collect(
-                        Collectors.toMap(Terms.Bucket::getKeyAsString, bucket -> parseBucket(bucket, detector.getEnabledFeatureIds()).get())
-                    );
+                    .collect(Collectors.toMap(Terms.Bucket::getKeyAsString, bucket -> parseBucket(bucket, detector.getEnabledFeatureIds())))
+                    .entrySet()
+                    .stream()
+                    .filter(entry -> entry.getValue().isPresent())
+                    .collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().get()));
 
                 listener.onResponse(results);
             }, listener::onFailure);

@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,6 +30,8 @@ import org.elasticsearch.action.admin.indices.stats.ShardStats;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.IndicesAdminClient;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.store.StoreStats;
 import org.junit.Assert;
@@ -81,6 +84,7 @@ public class IndexCleanupTests extends AbstractADTest {
         when(shardStats.getStats()).thenReturn(commonStats);
         when(commonStats.getStore()).thenReturn(storeStats);
         when(client.admin().indices()).thenReturn(indicesAdminClient);
+        when(client.threadPool().getThreadContext()).thenReturn(new ThreadContext(Settings.EMPTY));
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             ActionListener<IndicesStatsResponse> listener = (ActionListener<IndicesStatsResponse>) args[1];

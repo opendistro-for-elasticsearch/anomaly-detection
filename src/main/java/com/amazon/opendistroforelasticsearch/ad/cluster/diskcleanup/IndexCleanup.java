@@ -28,6 +28,7 @@ import org.elasticsearch.action.admin.indices.stats.ShardStats;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
@@ -113,10 +114,14 @@ public class IndexCleanup {
             .setQuery(queryForDeleteByQueryRequest)
             .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN)
             .setRefresh(true);
-        clientUtil.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(response -> {
-            // if 0 docs get deleted, it means our query cannot find any matching doc
-            LOG.info("{} docs are deleted for index:{}", response.getDeleted(), indexName);
-            listener.onResponse(response.getDeleted());
-        }, listener::onFailure));
+
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            clientUtil.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(response -> {
+                // if 0 docs get deleted, it means our query cannot find any matching doc
+                LOG.info("{} docs are deleted for index:{}", response.getDeleted(), indexName);
+                listener.onResponse(response.getDeleted());
+            }, listener::onFailure));
+        }
+
     }
 }

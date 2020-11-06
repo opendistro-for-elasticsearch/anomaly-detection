@@ -31,6 +31,7 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 
+@Deprecated
 public class DailyCron implements Runnable {
     private static final Logger LOG = LogManager.getLogger(DailyCron.class);
     protected static final String FIELD_MODEL = "queue";

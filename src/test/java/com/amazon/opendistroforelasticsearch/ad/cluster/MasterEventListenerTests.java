@@ -36,6 +36,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
+import com.amazon.opendistroforelasticsearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
@@ -46,7 +47,7 @@ public class MasterEventListenerTests extends AbstractADTest {
     private Client client;
     private Clock clock;
     private Cancellable hourlyCancellable;
-    private Cancellable dailyCancellable;
+    private Cancellable checkpointIndexRetentionCancellable;
     private MasterEventListener masterService;
     private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
@@ -58,10 +59,11 @@ public class MasterEventListenerTests extends AbstractADTest {
         clusterService = mock(ClusterService.class);
         threadPool = mock(ThreadPool.class);
         hourlyCancellable = mock(Cancellable.class);
-        dailyCancellable = mock(Cancellable.class);
+        checkpointIndexRetentionCancellable = mock(Cancellable.class);
         when(threadPool.scheduleWithFixedDelay(any(HourlyCron.class), any(TimeValue.class), any(String.class)))
             .thenReturn(hourlyCancellable);
-        when(threadPool.scheduleWithFixedDelay(any(DailyCron.class), any(TimeValue.class), any(String.class))).thenReturn(dailyCancellable);
+        when(threadPool.scheduleWithFixedDelay(any(ModelCheckpointIndexRetention.class), any(TimeValue.class), any(String.class)))
+            .thenReturn(checkpointIndexRetentionCancellable);
         client = mock(Client.class);
         clock = mock(Clock.class);
         clientUtil = mock(ClientUtil.class);
@@ -75,11 +77,11 @@ public class MasterEventListenerTests extends AbstractADTest {
     public void testOnOffMaster() {
         masterService.onMaster();
         assertThat(hourlyCancellable, is(notNullValue()));
-        assertThat(dailyCancellable, is(notNullValue()));
+        assertThat(checkpointIndexRetentionCancellable, is(notNullValue()));
         assertTrue(!masterService.getHourlyCron().isCancelled());
-        assertTrue(!masterService.getDailyCron().isCancelled());
+        assertTrue(!masterService.getCheckpointIndexRetentionCron().isCancelled());
         masterService.offMaster();
-        assertThat(masterService.getDailyCron(), is(nullValue()));
+        assertThat(masterService.getCheckpointIndexRetentionCron(), is(nullValue()));
         assertThat(masterService.getHourlyCron(), is(nullValue()));
     }
 
@@ -100,10 +102,10 @@ public class MasterEventListenerTests extends AbstractADTest {
         }).when(clusterService).addLifecycleListener(any());
 
         masterService.onMaster();
-        assertThat(masterService.getDailyCron(), is(nullValue()));
+        assertThat(masterService.getCheckpointIndexRetentionCron(), is(nullValue()));
         assertThat(masterService.getHourlyCron(), is(nullValue()));
         masterService.offMaster();
-        assertThat(masterService.getDailyCron(), is(nullValue()));
+        assertThat(masterService.getCheckpointIndexRetentionCron(), is(nullValue()));
         assertThat(masterService.getHourlyCron(), is(nullValue()));
     }
 }

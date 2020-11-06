@@ -25,13 +25,16 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.Scheduler.Cancellable;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import com.amazon.opendistroforelasticsearch.ad.cluster.diskcleanup.IndexCleanup;
+import com.amazon.opendistroforelasticsearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
+import com.google.common.annotations.VisibleForTesting;
 
 public class MasterEventListener implements LocalNodeMasterListener {
 
-    private Cancellable dailyCron;
+    private Cancellable checkpointIndexRetentionCron;
     private Cancellable hourlyCron;
     private ClusterService clusterService;
     private ThreadPool threadPool;
@@ -70,18 +73,19 @@ public class MasterEventListener implements LocalNodeMasterListener {
             });
         }
 
-        if (dailyCron == null) {
-            dailyCron = threadPool
+        if (checkpointIndexRetentionCron == null) {
+            IndexCleanup indexCleanup = new IndexCleanup(client, clientUtil, clusterService);
+            checkpointIndexRetentionCron = threadPool
                 .scheduleWithFixedDelay(
-                    new DailyCron(clock, AnomalyDetectorSettings.CHECKPOINT_TTL, clientUtil),
+                    new ModelCheckpointIndexRetention(AnomalyDetectorSettings.CHECKPOINT_TTL, clock, indexCleanup),
                     TimeValue.timeValueHours(24),
                     executorName()
                 );
             clusterService.addLifecycleListener(new LifecycleListener() {
                 @Override
                 public void beforeStop() {
-                    cancel(dailyCron);
-                    dailyCron = null;
+                    cancel(checkpointIndexRetentionCron);
+                    checkpointIndexRetentionCron = null;
                 }
             });
         }
@@ -90,9 +94,9 @@ public class MasterEventListener implements LocalNodeMasterListener {
     @Override
     public void offMaster() {
         cancel(hourlyCron);
-        cancel(dailyCron);
+        cancel(checkpointIndexRetentionCron);
         hourlyCron = null;
-        dailyCron = null;
+        checkpointIndexRetentionCron = null;
     }
 
     private void cancel(Cancellable cron) {
@@ -101,11 +105,12 @@ public class MasterEventListener implements LocalNodeMasterListener {
         }
     }
 
-    public Cancellable getDailyCron() {
-        return dailyCron;
+    @VisibleForTesting
+    protected Cancellable getCheckpointIndexRetentionCron() {
+        return checkpointIndexRetentionCron;
     }
 
-    public Cancellable getHourlyCron() {
+    protected Cancellable getHourlyCron() {
         return hourlyCron;
     }
 

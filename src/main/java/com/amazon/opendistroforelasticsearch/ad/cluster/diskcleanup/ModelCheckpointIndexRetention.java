@@ -72,6 +72,7 @@ public class ModelCheckpointIndexRetention implements Runnable {
                 ActionListener
                     .wrap(
                         response -> { cleanupBasedOnShardSize(defaultCheckpointTtl.minusDays(1)); },
+                            //The docs will be deleted in next scheduled windows. No need for retrying.
                         exception -> LOG.error("delete docs by query fails for checkpoint index", exception)
                     )
             );
@@ -105,7 +106,9 @@ public class ModelCheckpointIndexRetention implements Runnable {
                     } else {
                         LOG.debug("clean up not needed anymore for checkpoint index");
                     }
-                }, exception -> LOG.error("checkpoint index retention based on shard size fails", exception))
+                },
+                    //The docs will be deleted in next scheduled windows. No need for retrying.
+                    exception -> LOG.error("checkpoint index retention based on shard size fails", exception))
             );
     }
 }

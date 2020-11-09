@@ -581,7 +581,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             ActionListener.wrap(r -> updateRunning.set(false), exception -> {
                 // TODO: don't retry endlessly. Can be annoying if there are too many exception logs.
                 updateRunning.set(false);
-                logger.error("Fail to updatea all mappings");
+                logger.error("Fail to update AD indices' mappings");
             }),
             updates.size()
         );
@@ -606,7 +606,14 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                                 }
                                 conglomerateListeneer.onResponse(null);
                             }, exception -> {
-                                logger.error(new ParameterizedMessage("Fail to update [{}]'s mapping", adIndex.getIndexName()), exception);
+                                logger
+                                    .error(
+                                        new ParameterizedMessage(
+                                            "Fail to update [{}]'s mapping due to [{}]",
+                                            adIndex.getIndexName(),
+                                            exception.getMessage()
+                                        )
+                                    );
                                 conglomerateListeneer.onFailure(exception);
                             })
                         );

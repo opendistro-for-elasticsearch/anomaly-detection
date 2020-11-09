@@ -28,18 +28,27 @@ public final class AnomalyDetectorSettings {
     private AnomalyDetectorSettings() {}
 
     public static final Setting<Integer> MAX_SINGLE_ENTITY_ANOMALY_DETECTORS = Setting
-        .intSetting("opendistro.anomaly_detection.max_anomaly_detectors", 1000, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting(
+            "opendistro.anomaly_detection.max_anomaly_detectors",
+            1000,
+            0,
+            10_000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
     public static final Setting<Integer> MAX_MULTI_ENTITY_ANOMALY_DETECTORS = Setting
         .intSetting(
             "opendistro.anomaly_detection.max_multi_entity_anomaly_detectors",
             10,
+            0,
+            10_000,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
 
     public static final Setting<Integer> MAX_ANOMALY_FEATURES = Setting
-        .intSetting("opendistro.anomaly_detection.max_anomaly_features", 5, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting("opendistro.anomaly_detection.max_anomaly_features", 5, 0, 100, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     public static final Setting<TimeValue> REQUEST_TIMEOUT = Setting
         .positiveTimeSetting(
@@ -251,7 +260,14 @@ public final class AnomalyDetectorSettings {
 
     // Increase the value will adding pressure to indexing anomaly results and our feature query
     public static final Setting<Integer> MAX_ENTITIES_PER_QUERY = Setting
-        .intSetting("opendistro.anomaly_detection.max_entities_per_query", 1000, 1, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting(
+            "opendistro.anomaly_detection.max_entities_per_query",
+            1000,
+            1,
+            100_000_000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
     // Default number of entities retrieved for Preview API
     public static final int DEFAULT_ENTITIES_FOR_PREVIEW = 30;
@@ -262,6 +278,7 @@ public final class AnomalyDetectorSettings {
             "opendistro.anomaly_detection.max_entities_for_preview",
             DEFAULT_ENTITIES_FOR_PREVIEW,
             1,
+            1000,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -278,7 +295,7 @@ public final class AnomalyDetectorSettings {
 
     // max number of primary shards of an AD index
     public static final Setting<Integer> MAX_PRIMARY_SHARDS = Setting
-        .intSetting("opendistro.anomaly_detection.max_primary_shards", 10, 0, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting("opendistro.anomaly_detection.max_primary_shards", 10, 0, 200, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     // max entity value's length
     public static int MAX_ENTITY_LENGTH = 256;

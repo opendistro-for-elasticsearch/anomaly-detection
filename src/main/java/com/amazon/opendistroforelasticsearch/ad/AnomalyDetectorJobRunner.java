@@ -210,6 +210,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             );
             return;
         }
+        indexUtil.updateMappingIfNecessary();
         /*
          * We need to handle 3 cases:
          * 1. Detectors created by older versions and never updated. These detectors wont have User details in the
@@ -233,7 +234,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         try (InjectSecurity injectSecurity = new InjectSecurity(detectorId, settings, client.threadPool().getThreadContext())) {
             // Injecting user role to verify if the user has permissions for our API.
             injectSecurity.inject(user, roles);
-            indexUtil.updateMappingIfNecessary();
+
             AnomalyResultRequest request = new AnomalyResultRequest(
                 detectorId,
                 detectionStartTime.toEpochMilli(),

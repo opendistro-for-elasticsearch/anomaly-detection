@@ -578,7 +578,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }
 
         final GroupedActionListener<Void> conglomerateListeneer = new GroupedActionListener<>(
-            ActionListener.wrap(r -> updateRunning.set(false), exception -> logger.error("Fail to updatea all mappings")),
+            ActionListener.wrap(r -> updateRunning.set(false), exception -> {
+                // TODO: don't retry endlessly. Can be annoying if there are too many exception logs.
+                updateRunning.set(false);
+                logger.error("Fail to updatea all mappings");
+            }),
             updates.size()
         );
 

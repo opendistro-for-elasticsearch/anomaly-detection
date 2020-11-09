@@ -269,7 +269,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             AnomalyDetector anomalyDetector = detectorOptional.get();
-            if (anomalyDetector.getCategoryField() != null && anomalyDetector.getCategoryField().size() > 0) {
+            if (anomalyDetector.isMultientityDetector()) {
                 hcDetectors.add(adID);
                 adStats.getStat(StatNames.AD_HC_EXECUTE_REQUEST_COUNT.getName()).increment();
             }

@@ -180,6 +180,21 @@ public class RCFPollingTests extends AbstractADTest {
         };
     }
 
+    public void testDoubleNaN() {
+        try {
+            gson.toJson(Double.NaN);
+        } catch (Exception e) {
+            assertTrue(e instanceof IllegalArgumentException);
+            assertTrue(e.getMessage().contains("NaN is not a valid double value as per JSON specification"));
+        }
+
+        Gson gson = new GsonBuilder().serializeSpecialFloatingPointValues().create();
+        String json = gson.toJson(Double.NaN);
+        assertEquals("NaN", json);
+        Double value = gson.fromJson(json, Double.class);
+        assertTrue(value.isNaN());
+    }
+
     public void testNormal() {
         DiscoveryNode localNode = new DiscoveryNode(nodeId, transportAddress1, Version.CURRENT.minimumCompatibilityVersion());
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(localNode));

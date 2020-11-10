@@ -29,6 +29,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.google.gson.GsonBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.SpecialPermission;
@@ -255,7 +256,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     }
 
     private static Void initGson() {
-        gson = new Gson();
+        gson = new GsonBuilder().serializeSpecialFloatingPointValues().create();
         return null;
     }
 

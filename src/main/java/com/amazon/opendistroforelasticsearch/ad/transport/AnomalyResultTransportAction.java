@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import java.net.ConnectException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -123,6 +124,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final Client client;
     private final SearchFeatureDao searchFeatureDao;
 
+    // cache HC detector id
+    private final Set<String> hcDetectors;
+
     @Inject
     public AnomalyResultTransportAction(
         ActionFilters actionFilters,
@@ -160,6 +164,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.adStats = adStats;
         this.threadPool = threadPool;
         this.searchFeatureDao = searchFeatureDao;
+        this.hcDetectors = new HashSet<>();
     }
 
     /**
@@ -217,13 +222,19 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<AnomalyResultResponse> listener) {
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             AnomalyResultRequest request = AnomalyResultRequest.fromActionRequest(actionRequest);
+            String adID = request.getAdID();
             ActionListener<AnomalyResultResponse> original = listener;
-            listener = ActionListener.wrap(original::onResponse, e -> {
+            listener = ActionListener.wrap(r -> {
+                hcDetectors.remove(adID);
+                original.onResponse(r);
+            }, e -> {
                 adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                if (hcDetectors.contains(adID)) {
+                    adStats.getStat(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName()).increment();
+                }
+                hcDetectors.remove(adID);
                 original.onFailure(e);
             });
-
-            String adID = request.getAdID();
 
             if (!EnabledSetting.isADPluginEnabled()) {
                 throw new EndRunException(adID, CommonErrorMessages.DISABLED_ERR_MSG, true);
@@ -258,6 +269,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             AnomalyDetector anomalyDetector = detectorOptional.get();
+            if (anomalyDetector.isMultientityDetector()) {
+                hcDetectors.add(adID);
+                adStats.getStat(StatNames.AD_HC_EXECUTE_REQUEST_COUNT.getName()).increment();
+            }
 
             long delayMillis = Optional
                 .ofNullable((IntervalTimeConfiguration) anomalyDetector.getWindowDelay())

@@ -24,6 +24,8 @@ import java.util.Set;
 public enum StatNames {
     AD_EXECUTE_REQUEST_COUNT("ad_execute_request_count"),
     AD_EXECUTE_FAIL_COUNT("ad_execute_failure_count"),
+    AD_HC_EXECUTE_REQUEST_COUNT("ad_hc_execute_request_count"),
+    AD_HC_EXECUTE_FAIL_COUNT("ad_hc_execute_failure_count"),
     DETECTOR_COUNT("detector_count"),
     ANOMALY_DETECTORS_INDEX_STATUS("anomaly_detectors_index_status"),
     ANOMALY_RESULTS_INDEX_STATUS("anomaly_results_index_status"),

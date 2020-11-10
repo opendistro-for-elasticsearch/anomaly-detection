@@ -162,6 +162,7 @@ import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 /**
  * Entry point of AD plugin.
@@ -255,7 +256,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     }
 
     private static Void initGson() {
-        gson = new Gson();
+        gson = new GsonBuilder().serializeSpecialFloatingPointValues().create();
         return null;
     }
 

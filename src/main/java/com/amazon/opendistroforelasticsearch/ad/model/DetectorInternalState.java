@@ -94,7 +94,7 @@ public class DetectorInternalState implements ToXContentObject, Cloneable {
         Instant lastUpdateTime = null;
         String error = null;
 
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();

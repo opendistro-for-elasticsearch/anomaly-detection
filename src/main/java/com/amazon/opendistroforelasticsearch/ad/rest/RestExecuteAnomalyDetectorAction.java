@@ -145,7 +145,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
         }
 
         XContentParser parser = request.contentParser();
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         AnomalyDetectorExecutionInput input = AnomalyDetectorExecutionInput.parse(parser, detectorId);
         if (detectorId != null) {
             input.setDetectorId(detectorId);
@@ -201,7 +201,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
                         response.getSourceAsBytesRef().streamInput()
                     );
 
-                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
                 anomalyDetectorRunner

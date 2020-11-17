@@ -404,7 +404,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                             .xContent()
                             .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString())
                     ) {
-                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                         AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
                         if (job.isEnabled()) {
                             AnomalyDetectorJob newJob = new AnomalyDetectorJob(

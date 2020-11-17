@@ -102,7 +102,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                         .xContent()
                         .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
                 ) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId);
                     List<String> categoryField = detector.getCategoryField();
                     if (categoryField == null || categoryField.size() == 0) {
@@ -181,7 +181,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                         .xContent()
                         .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
                 ) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
 
                     if (profilesToCollect.contains(EntityProfileName.MODELS)) {

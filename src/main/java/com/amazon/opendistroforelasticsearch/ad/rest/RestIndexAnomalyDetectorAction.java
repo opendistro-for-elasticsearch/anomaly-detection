@@ -109,7 +109,7 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
         logger.info("AnomalyDetector {} action for detectorId {}", request.method(), detectorId);
 
         XContentParser parser = request.contentParser();
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         // TODO: check detection interval < modelTTL
         AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId, null, detectionInterval, detectionWindowDelay);
 

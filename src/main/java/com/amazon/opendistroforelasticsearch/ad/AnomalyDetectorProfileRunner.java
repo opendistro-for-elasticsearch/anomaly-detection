@@ -116,7 +116,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                         .xContent()
                         .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getDetectorResponse.getSourceAsString())
                 ) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, xContentParser.nextToken(), xContentParser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, xContentParser.nextToken(), xContentParser);
                     AnomalyDetector detector = AnomalyDetector.parse(xContentParser, detectorId);
                     boolean isMultiEntityDetector = detector.isMultientityDetector();
 
@@ -186,7 +186,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                         .xContent()
                         .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
                 ) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
                     long enabledTimeMs = job.getEnabledTime().toEpochMilli();
 
@@ -325,7 +325,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                         .xContent()
                         .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
                 ) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     DetectorInternalState detectorState = DetectorInternalState.parse(parser);
                     long lastUpdateTimeMs = detectorState.getLastUpdateTime().toEpochMilli();
 

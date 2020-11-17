@@ -110,7 +110,7 @@ public class Feature implements Writeable, ToXContentObject {
         Boolean enabled = null;
         AggregationBuilder aggregation = null;
 
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
 
@@ -126,7 +126,7 @@ public class Feature implements Writeable, ToXContentObject {
                     enabled = parser.booleanValue();
                     break;
                 case AGGREGATION_QUERY:
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
                     aggregation = ParseUtils.toAggregationBuilder(parser);
                     break;
                 default:

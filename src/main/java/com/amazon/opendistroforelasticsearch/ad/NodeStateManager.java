@@ -155,7 +155,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             try (
                 XContentParser parser = XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, xc)
             ) {
-                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId());
                 // end execution if all features are disabled
                 if (detector.getEnabledFeatureIds().isEmpty()) {

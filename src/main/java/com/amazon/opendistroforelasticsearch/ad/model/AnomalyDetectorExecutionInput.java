@@ -65,7 +65,7 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
         Instant periodEnd = null;
         AnomalyDetector detector = null;
 
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();

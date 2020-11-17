@@ -135,7 +135,7 @@ public class DetectionStateHandler extends AnomalyIndexHandler<DetectorInternalS
                             .xContent()
                             .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString())
                     ) {
-                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                         DetectorInternalState state = DetectorInternalState.parse(parser);
                         newState = handler.createNewState(state);
                     } catch (IOException e) {

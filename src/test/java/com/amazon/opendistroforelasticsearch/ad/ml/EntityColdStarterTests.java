@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -202,10 +203,10 @@ public class EntityColdStarterTests extends AbstractADTest {
         coldStartSamples.add(Optional.of(new double[] { 1.0 }));
         coldStartSamples.add(Optional.of(new double[] { -19.0 }));
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(3);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
         entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
 
@@ -268,7 +269,7 @@ public class EntityColdStarterTests extends AbstractADTest {
 
         entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
 
-        verify(searchFeatureDao, never()).getColdStartSamplesForPeriods(any(), any(), any(), any());
+        verify(searchFeatureDao, never()).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
         RandomCutForest forest = model.getRcf();
         assertTrue(forest == null);
@@ -294,10 +295,10 @@ public class EntityColdStarterTests extends AbstractADTest {
         coldStartSamples.add(Optional.empty());
         coldStartSamples.add(Optional.of(new double[] { -17.0 }));
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(3);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
         entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
 
@@ -336,10 +337,10 @@ public class EntityColdStarterTests extends AbstractADTest {
         coldStartSamples.add(Optional.of(new double[] { -17.0 }));
         coldStartSamples.add(Optional.of(new double[] { -38.0 }));
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(3);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
         entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
 
@@ -408,10 +409,10 @@ public class EntityColdStarterTests extends AbstractADTest {
         coldStartSamples.add(Optional.of(new double[] { 57.0 }));
         coldStartSamples.add(Optional.of(new double[] { 1.0 }));
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(3);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
         entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
 

@@ -701,6 +701,7 @@ public class SearchFeatureDao {
         AnomalyDetector detector,
         List<Entry<Long, Long>> ranges,
         String entityName,
+        boolean includesEmptyBucket,
         ActionListener<List<Optional<double[]>>> listener
     ) throws IOException {
         SearchRequest request = createColdStartFeatureSearchRequest(detector, ranges, entityName);
@@ -711,6 +712,8 @@ public class SearchFeatureDao {
                 listener.onResponse(Collections.emptyList());
                 return;
             }
+
+            long docCountThreshold = includesEmptyBucket ? -1 : 0;
 
             // Extract buckets and order by from_as_string. Currently by default it is ascending. Better not to assume it.
             // Example responses from date range bucket aggregation:
@@ -730,7 +733,7 @@ public class SearchFeatureDao {
                         .filter(InternalDateRange.class::isInstance)
                         .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
                         .filter(bucket -> bucket.getFrom() != null)
-                        .filter(bucket -> bucket.getDocCount() > 0)
+                        .filter(bucket -> bucket.getDocCount() > docCountThreshold)
                         .sorted(Comparator.comparing((Bucket bucket) -> Long.valueOf(bucket.getFromAsString())))
                         .map(bucket -> parseBucket(bucket, detector.getEnabledFeatureIds()))
                         .collect(Collectors.toList())

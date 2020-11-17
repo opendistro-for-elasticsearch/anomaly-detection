@@ -129,36 +129,36 @@ public class TestHelpers {
     public static final Random random = new Random(42);
 
     public static Response makeRequest(
-            RestClient client,
-            String method,
-            String endpoint,
-            Map<String, String> params,
-            String jsonEntity,
-            List<Header> headers
+        RestClient client,
+        String method,
+        String endpoint,
+        Map<String, String> params,
+        String jsonEntity,
+        List<Header> headers
     ) throws IOException {
         HttpEntity httpEntity = Strings.isBlank(jsonEntity) ? null : new NStringEntity(jsonEntity, ContentType.APPLICATION_JSON);
         return makeRequest(client, method, endpoint, params, httpEntity, headers);
     }
 
     public static Response makeRequest(
-            RestClient client,
-            String method,
-            String endpoint,
-            Map<String, String> params,
-            HttpEntity entity,
-            List<Header> headers
+        RestClient client,
+        String method,
+        String endpoint,
+        Map<String, String> params,
+        HttpEntity entity,
+        List<Header> headers
     ) throws IOException {
         return makeRequest(client, method, endpoint, params, entity, headers, true);
     }
 
     public static Response makeRequest(
-            RestClient client,
-            String method,
-            String endpoint,
-            Map<String, String> params,
-            HttpEntity entity,
-            List<Header> headers,
-            boolean strictDeprecationMode
+        RestClient client,
+        String method,
+        String endpoint,
+        Map<String, String> params,
+        HttpEntity entity,
+        List<Header> headers,
+        boolean strictDeprecationMode
     ) throws IOException {
         Request request = new Request(method, endpoint);
 

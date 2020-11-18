@@ -179,7 +179,6 @@ public class MultientityResultTests extends AbstractADTest {
         indexNameResolver = new IndexNameExpressionResolver(new ThreadContext(Settings.EMPTY));
 
         adCircuitBreakerService = mock(ADCircuitBreakerService.class);
-
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         IndexUtils indexUtils = new IndexUtils(client, mock(ClientUtil.class), clusterService, indexNameResolver);

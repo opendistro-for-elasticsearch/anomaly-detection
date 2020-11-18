@@ -163,7 +163,7 @@ public class AbstractADTest extends ESTestCase {
      */
     protected void setUpLog4jForJUnit(Class<?> cls) {
         String loggerName = toLoggerName(callerClass(cls));
-        logger = (Logger) LogManager.getLogger(cls);
+        logger = (Logger) LogManager.getLogger(loggerName);
         testAppender = new TestAppender(loggerName);
         testAppender.start();
         logger.addAppender(testAppender);

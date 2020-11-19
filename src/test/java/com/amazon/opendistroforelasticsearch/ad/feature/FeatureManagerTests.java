@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.argThat;
@@ -517,10 +518,10 @@ public class FeatureManagerTests {
         coldStartSamples.add(Optional.of(new double[] { 30.0 }));
 
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(3);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
         ActionListener<Features> listener = mock(ActionListener.class);
 
@@ -541,10 +542,10 @@ public class FeatureManagerTests {
         Entity entity = new Entity("fieldName", "value");
 
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(3);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
             listener.onResponse(new ArrayList<>());
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
         ActionListener<Features> listener = mock(ActionListener.class);
 

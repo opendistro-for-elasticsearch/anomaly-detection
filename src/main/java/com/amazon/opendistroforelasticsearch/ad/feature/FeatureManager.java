@@ -594,7 +594,13 @@ public class FeatureManager implements CleanState {
         ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> listener
     ) throws IOException {
         searchFeatureDao
-            .getColdStartSamplesForPeriods(detector, sampleRanges, entity.getValue(), getSamplesRangesListener(sampleRanges, listener));
+            .getColdStartSamplesForPeriods(
+                detector,
+                sampleRanges,
+                entity.getValue(),
+                true,
+                getSamplesRangesListener(sampleRanges, listener)
+            );
     }
 
     private ActionListener<List<Optional<double[]>>> getSamplesRangesListener(

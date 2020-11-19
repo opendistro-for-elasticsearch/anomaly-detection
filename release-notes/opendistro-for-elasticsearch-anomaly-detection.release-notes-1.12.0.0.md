@@ -12,7 +12,6 @@ Compatible with Elasticsearch 7.10.0
 ### Bug Fixes
 
 * Fix edge case where entities found for preview is empty ([#296](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/296))
-* Improve profile API ([#298](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/298))
 * fix null user in detector ([#301](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/301))
 * fix fatal error of missing method parseString ([#302](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/302))
 * remove clock Guice binding ([#305](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/305))

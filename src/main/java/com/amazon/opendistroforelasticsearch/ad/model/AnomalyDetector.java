@@ -266,7 +266,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             xContentBuilder.field(UI_METADATA_FIELD, uiMetadata);
         }
         if (lastUpdateTime != null) {
-            xContentBuilder.timeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime);
+            xContentBuilder.field(LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli());
         }
         if (categoryFields != null) {
             xContentBuilder.field(CATEGORY_FIELD, categoryFields.toArray());

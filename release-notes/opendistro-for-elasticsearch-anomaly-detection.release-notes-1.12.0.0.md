@@ -18,4 +18,4 @@ Compatible with Elasticsearch 7.10.0
 * filter out empty value for entity features ([#306](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/306))
 * Fix for upgrading mapping ([#309](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/309))
 * fix double nan error when parse to json ([#310](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/310))
-
+* Fix issue where data hole exists for Preview API ([#312](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/312))

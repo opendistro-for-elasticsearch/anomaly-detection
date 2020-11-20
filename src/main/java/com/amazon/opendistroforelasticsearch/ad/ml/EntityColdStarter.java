@@ -417,6 +417,7 @@ public class EntityColdStarter {
                             detector,
                             sampleRanges,
                             entityName,
+                            false,
                             new ThreadedActionListener<>(
                                 logger,
                                 threadPool,

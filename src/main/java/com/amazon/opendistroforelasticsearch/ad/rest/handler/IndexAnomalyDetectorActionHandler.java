@@ -211,7 +211,7 @@ public class IndexAnomalyDetectorActionHandler {
             return;
         }
         try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             AnomalyDetector existingDetector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
             if (!hasCategoryField(existingDetector) && hasCategoryField(this.anomalyDetector)) {
                 validateAgainstExistingMultiEntityAnomalyDetector(detectorId);

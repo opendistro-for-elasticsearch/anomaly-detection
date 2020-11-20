@@ -152,7 +152,7 @@ public class IndexAnomalyDetectorJobActionHandler {
             return;
         }
         try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
             if (detector.getFeatureAttributes().size() == 0) {
@@ -202,7 +202,7 @@ public class IndexAnomalyDetectorJobActionHandler {
             try (
                 XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
             ) {
-                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 AnomalyDetectorJob currentAdJob = AnomalyDetectorJob.parse(parser);
                 if (currentAdJob.isEnabled()) {
                     listener
@@ -286,7 +286,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                     XContentParser parser = RestHandlerUtils
                         .createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
                 ) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
                     if (!job.isEnabled()) {
                         listener

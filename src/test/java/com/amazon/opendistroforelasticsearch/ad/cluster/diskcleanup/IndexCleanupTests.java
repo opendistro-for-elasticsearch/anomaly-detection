@@ -22,6 +22,9 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.stats.CommonStats;
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse;
@@ -35,7 +38,6 @@ import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.store.StoreStats;
 import org.junit.Assert;
 import org.mockito.Answers;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -53,7 +55,6 @@ public class IndexCleanupTests extends AbstractADTest {
     @Mock(answer = Answers.RETURNS_DEEP_STUBS)
     ClientUtil clientUtil;
 
-    @InjectMocks
     IndexCleanup indexCleanup;
 
     @Mock
@@ -75,9 +76,10 @@ public class IndexCleanupTests extends AbstractADTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        super.setUpLog4jForJUnit(IndexCleanup.class);
+
         MockitoAnnotations.initMocks(this);
         when(clusterService.state().getRoutingTable().hasIndex(anyString())).thenReturn(true);
+        super.setUpLog4jForJUnit(IndexCleanup.class);
         indexCleanup = new IndexCleanup(client, clientUtil, clusterService);
         when(indicesStatsResponse.getShards()).thenReturn(new ShardStats[] { shardStats });
         when(shardStats.getStats()).thenReturn(commonStats);
@@ -121,6 +123,8 @@ public class IndexCleanupTests extends AbstractADTest {
 
     public void testDeleteDocsBasedOnShardSizeIndexNotExisted() throws Exception {
         when(clusterService.state().getRoutingTable().hasIndex(anyString())).thenReturn(false);
+        Logger logger = (Logger) LogManager.getLogger(IndexCleanup.class);
+        logger.setLevel(Level.DEBUG);
         indexCleanup.deleteDocsBasedOnShardSize("indexname", 1000, null, null);
         assertTrue(testAppender.containsMessage("skip as the index:indexname doesn't exist"));
     }

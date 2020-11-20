@@ -91,7 +91,7 @@ public class AnomalyDetectorActionHandler {
                     XContentParser parser = RestHandlerUtils
                         .createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
                 ) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetectorJob adJob = AnomalyDetectorJob.parse(parser);
                     if (adJob.isEnabled()) {
                         listener.onFailure(new ElasticsearchStatusException("Detector job is running: " + adJobId, RestStatus.BAD_REQUEST));

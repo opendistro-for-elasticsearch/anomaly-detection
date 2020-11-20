@@ -15,10 +15,20 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
+import static com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_SECURITY_SSL_HTTP_ENABLED;
+import static com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH;
+import static com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD;
+import static com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_PASSWORD;
+import static com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_SECURITY_SSL_HTTP_PEMCERT_FILEPATH;
+
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -35,6 +45,7 @@ import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.common.io.PathUtils;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
@@ -44,6 +55,8 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.test.rest.ESRestTestCase;
 import org.junit.After;
+
+import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder;
 
 /**
  * ODFE integration test base class to support both security disabled and enabled ODFE cluster.
@@ -68,22 +81,58 @@ public abstract class ODFERestTestCase extends ESRestTestCase {
     }
 
     @Override
+    protected Settings restAdminSettings() {
+        return Settings
+            .builder()
+            // disable the warning exception for admin client since it's only used for cleanup.
+            .put("strictDeprecationMode", false)
+            .put("http.port", 9200)
+            .put(OPENDISTRO_SECURITY_SSL_HTTP_ENABLED, true)
+            .put(OPENDISTRO_SECURITY_SSL_HTTP_PEMCERT_FILEPATH, "sample.pem")
+            .put(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH, "test-kirk.jks")
+            .put(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_PASSWORD, "changeit")
+            .put(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD, "changeit")
+            .build();
+    }
+
+    protected static void deleteIndexWithAdminClient(String name) throws IOException {
+        Request request = new Request("DELETE", "/" + name);
+        adminClient().performRequest(request);
+    }
+
+    @Override
     protected RestClient buildClient(Settings settings, HttpHost[] hosts) throws IOException {
+        boolean strictDeprecationMode = settings.getAsBoolean("strictDeprecationMode", true);
         RestClientBuilder builder = RestClient.builder(hosts);
         if (isHttps()) {
-            configureHttpsClient(builder, settings);
+            String keystore = settings.get(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH);
+            if (Objects.nonNull(keystore)) {
+                URI uri = null;
+                try {
+                    uri = this.getClass().getClassLoader().getResource("security/sample.pem").toURI();
+                } catch (URISyntaxException e) {
+                    throw new RuntimeException(e);
+                }
+                Path configPath = PathUtils.get(uri).getParent().toAbsolutePath();
+                return new SecureRestClientBuilder(settings, configPath).build();
+            } else {
+                configureHttpsClient(builder, settings);
+                builder.setStrictDeprecationMode(strictDeprecationMode);
+                return builder.build();
+            }
+
         } else {
             configureClient(builder, settings);
+            builder.setStrictDeprecationMode(strictDeprecationMode);
+            return builder.build();
         }
 
-        builder.setStrictDeprecationMode(true);
-        return builder.build();
     }
 
     @SuppressWarnings("unchecked")
     @After
     protected void wipeAllODFEIndices() throws IOException {
-        Response response = client().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
+        Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
         XContentType xContentType = XContentType.fromMediaTypeOrFormat(response.getEntity().getContentType().getValue());
         try (
             XContentParser parser = xContentType
@@ -105,7 +154,7 @@ public abstract class ODFERestTestCase extends ESRestTestCase {
             for (Map<String, Object> index : parserList) {
                 String indexName = (String) index.get("index");
                 if (indexName != null && !".opendistro_security".equals(indexName)) {
-                    client().performRequest(new Request("DELETE", "/" + indexName));
+                    adminClient().performRequest(new Request("DELETE", "/" + indexName));
                 }
             }
         }

@@ -173,7 +173,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         Long lockDurationSeconds = DEFAULT_AD_JOB_LOC_DURATION_SECONDS;
         User user = null;
 
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();

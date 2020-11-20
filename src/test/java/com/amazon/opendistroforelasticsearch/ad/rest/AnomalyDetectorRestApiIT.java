@@ -327,7 +327,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getUser()
         );
 
-        deleteIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        deleteIndexWithAdminClient(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
 
         TestHelpers
             .assertFailWith(
@@ -494,7 +494,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                 ImmutableMap.of(),
                 toHttpEntity(input),
-                null
+                null,
+                false
             );
         assertEquals("Execute anomaly detector failed", RestStatus.OK, restStatus(response));
     }
@@ -527,12 +528,13 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyResult anomalyResult = TestHelpers.randomAnomalyDetectResult();
         Response response = TestHelpers
             .makeRequest(
-                client(),
+                adminClient(),
                 "POST",
                 "/.opendistro-anomaly-results/_doc/" + UUIDs.base64UUID(),
                 ImmutableMap.of(),
                 toHttpEntity(anomalyResult),
-                null
+                null,
+                false
             );
         assertEquals("Post anomaly result failed", RestStatus.CREATED, restStatus(response));
 

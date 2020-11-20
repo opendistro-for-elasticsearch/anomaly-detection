@@ -13,10 +13,13 @@
  *   permissions and limitations under the License.
  */
 
+import java.util.concurrent.Callable
+import org.elasticsearch.gradle.test.RestIntegTestTask
+
 buildscript {
     ext {
         es_group = "org.elasticsearch"
-        es_version = '7.9.1'
+        es_version = '7.10.0'
     }
 
     repositories {
@@ -44,7 +47,7 @@ repositories {
 }
 
 ext {
-    opendistroVersion = '1.11.0'
+    opendistroVersion = '1.12.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
@@ -53,6 +56,7 @@ version = "${opendistroVersion}.0"
 apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'elasticsearch.esplugin'
+apply plugin: 'elasticsearch.testclusters'
 apply plugin: 'base'
 apply plugin: 'jacoco'
 apply plugin: 'eclipse'
@@ -115,6 +119,7 @@ testingConventions.enabled = false
 licenseHeaders.enabled = true
 dependencyLicenses.enabled = false
 thirdPartyAudit.enabled = false
+loggerUsageCheck.enabled = false
 
 // See package README.md for details on using these tasks.
 def _numNodes = findProperty('numNodes') as Integer ?: 1
@@ -127,35 +132,50 @@ test {
     systemProperty 'tests.security.manager', 'false'
 }
 
+task integTest(type: RestIntegTestTask) {
+    description = "Run tests against a cluster"
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+}
+tasks.named("check").configure { dependsOn(integTest) }
+
 integTest {
-    runner {
-        systemProperty 'tests.security.manager', 'false'
-        systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
+    dependsOn "bundlePlugin"
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
 
-        systemProperty "https", System.getProperty("https")
-        systemProperty "user", System.getProperty("user")
-        systemProperty "password", System.getProperty("password")
+    systemProperty "https", System.getProperty("https")
+    systemProperty "user", System.getProperty("user")
+    systemProperty "password", System.getProperty("password")
 
-        // The 'doFirst' delays till execution time.
-        doFirst {
-            // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
-            // use longer timeouts for requests.
-            def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
-            systemProperty 'cluster.debug', isDebuggingCluster
-            // Set number of nodes system property to be used in tests
-            systemProperty 'cluster.number_of_nodes', "${_numNodes}"
-            // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
-            // not being written, the waitForAllConditions ensures it's written
-            getClusters().forEach { cluster ->
-                cluster.waitForAllConditions()
-            }
-        }
-
-        // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
-        if (System.getProperty("test.debug") != null) {
-            jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    // Only rest case can run with remote cluster
+    if (System.getProperty("tests.rest.cluster") != null) {
+        filter {
+            includeTestsMatching "com.amazon.opendistroforelasticsearch.ad.rest.*IT"
+            includeTestsMatching "com.amazon.opendistroforelasticsearch.ad.e2e.*IT"
         }
     }
+
+    // The 'doFirst' delays till execution time.
+    doFirst {
+        // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
+        // use longer timeouts for requests.
+        def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
+        systemProperty 'cluster.debug', isDebuggingCluster
+        // Set number of nodes system property to be used in tests
+        systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+        // not being written, the waitForAllConditions ensures it's written
+        getClusters().forEach { cluster ->
+            cluster.waitForAllConditions()
+        }
+    }
+
+    // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
+    if (System.getProperty("test.debug") != null) {
+        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    }
+
 }
 
 testClusters.integTest {
@@ -172,7 +192,19 @@ testClusters.integTest {
             debugPort += 1
         }
     }
-    plugin(fileTree("src/test/resources/job-scheduler").getSingleFile())
+    plugin(project.tasks.bundlePlugin.archiveFile)
+
+    plugin(provider(new Callable<RegularFile>(){
+        @Override
+        RegularFile call() throws Exception {
+            return new RegularFile() {
+                @Override
+                File getAsFile() {
+                    return fileTree("src/test/resources/job-scheduler").getSingleFile()
+                }
+            }
+        }
+    }))
 
     // As of ES 7.7.0 the opendistro-anomaly-detection plugin is being added to the list of plugins for the testCluster during build before
     // the opendistro-job-scheduler plugin, which is causing build failures. From the stack trace, this looks like a bug.
@@ -188,7 +220,7 @@ testClusters.integTest {
     // ./bin/elasticsearch-plugin install --batch file:opendistro-anomaly-detection.zip file:opendistro-job-scheduler.zip
     //
     // After 7.7:
-    // ./bin/elasticsearch-plugin install --batch file:opendistro-job-scheduler.zip file:opendistro-anomaly-detection.zip 
+    // ./bin/elasticsearch-plugin install --batch file:opendistro-job-scheduler.zip file:opendistro-anomaly-detection.zip
     //
     // A temporary hack is to reorder the plugins list after evaluation but prior to task execution when the plugins are installed.
     nodes.each { node ->
@@ -207,6 +239,8 @@ run {
             cluster.waitForAllConditions()
         }
     }
+
+    useCluster testClusters.integTest
 }
 
 evaluationDependsOnChildren()
@@ -311,8 +345,8 @@ checkstyle {
 dependencies {
     compile "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.11.0.0"
-    compile "com.amazon.opendistroforelasticsearch:common-utils:1.11.0.1"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.12.0.0"
+    compile "com.amazon.opendistroforelasticsearch:common-utils:1.12.0.0"
     compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     compile group: 'com.google.code.gson', name: 'gson', version: '2.8.6'

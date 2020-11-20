@@ -114,8 +114,7 @@ public class MasterEventListener implements LocalNodeMasterListener {
         return hourlyCron;
     }
 
-    @Override
-    public String executorName() {
+    private String executorName() {
         return ThreadPool.Names.GENERIC;
     }
 }

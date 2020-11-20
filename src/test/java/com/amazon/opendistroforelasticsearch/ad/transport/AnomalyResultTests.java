@@ -261,7 +261,7 @@ public class AnomalyResultTests extends AbstractADTest {
             return null;
         }).when(client).index(any(), any());
 
-        indexNameResolver = new IndexNameExpressionResolver();
+        indexNameResolver = new IndexNameExpressionResolver(new ThreadContext(Settings.EMPTY));
         Clock clock = mock(Clock.class);
         Throttler throttler = new Throttler(clock);
         ThreadPool threadpool = mock(ThreadPool.class);

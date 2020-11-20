@@ -93,6 +93,7 @@ import org.elasticsearch.search.aggregations.AggregatorFactories;
 import org.elasticsearch.search.aggregations.BucketOrder;
 import org.elasticsearch.search.aggregations.InternalAggregation;
 import org.elasticsearch.search.aggregations.InternalAggregations;
+import org.elasticsearch.search.aggregations.InternalOrder;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
@@ -766,6 +767,7 @@ public class SearchFeatureDaoTests {
 
         StringTerms termsAgg = new StringTerms(
             "term_agg",
+            InternalOrder.key(false),
             BucketOrder.count(false),
             1,
             0,
@@ -961,6 +963,7 @@ public class SearchFeatureDaoTests {
         List<StringTerms.Bucket> stringBuckets = ImmutableList.of(entity1Bucket, entity2Bucket);
         StringTerms termsAgg = new StringTerms(
             "term_agg",
+            InternalOrder.key(false),
             BucketOrder.count(false),
             1,
             0,

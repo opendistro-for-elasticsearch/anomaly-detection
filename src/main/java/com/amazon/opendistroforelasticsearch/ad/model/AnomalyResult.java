@@ -224,7 +224,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         User user = null;
         Integer schemaVersion = CommonValue.NO_SCHEMA_VERSION;
 
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();
@@ -243,7 +243,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                     confidence = parser.doubleValue();
                     break;
                 case FEATURE_DATA_FIELD:
-                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
                     while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
                         featureData.add(FeatureData.parse(parser));
                     }
@@ -265,7 +265,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                     break;
                 case ENTITY_FIELD:
                     entityList = new ArrayList<>();
-                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
                     while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
                         entityList.add(Entity.parse(parser));
                     }

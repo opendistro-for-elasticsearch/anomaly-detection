@@ -266,7 +266,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             xContentBuilder.field(UI_METADATA_FIELD, uiMetadata);
         }
         if (lastUpdateTime != null) {
-            xContentBuilder.timeField(LAST_UPDATE_TIME_FIELD, LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli());
+            xContentBuilder.field(LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli());
         }
         if (categoryFields != null) {
             xContentBuilder.field(CATEGORY_FIELD, categoryFields.toArray());
@@ -343,7 +343,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
 
         List<String> categoryField = null;
 
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();
@@ -359,7 +359,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     timeField = parser.text();
                     break;
                 case INDICES_FIELD:
-                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
                     while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
                         indices.add(parser.text());
                     }
@@ -371,7 +371,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     schemaVersion = parser.intValue();
                     break;
                 case FILTER_QUERY_FIELD:
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
                     try {
                         filterQuery = parseInnerQueryBuilder(parser);
                     } catch (IllegalArgumentException e) {
@@ -384,7 +384,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     detectionInterval = TimeConfiguration.parse(parser);
                     break;
                 case FEATURE_ATTRIBUTES_FIELD:
-                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser::getTokenLocation);
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
                     while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
                         features.add(Feature.parse(parser));
                     }

@@ -439,8 +439,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }
     }
 
-    @Override
-    public String executorName() {
+    private String executorName() {
         return ThreadPool.Names.MANAGEMENT;
     }
 

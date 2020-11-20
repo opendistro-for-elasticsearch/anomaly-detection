@@ -629,7 +629,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     @Override
     public ScheduledJobParser getJobParser() {
         return (parser, id, jobDocVersion) -> {
-            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             return AnomalyDetectorJob.parse(parser);
         };
     }

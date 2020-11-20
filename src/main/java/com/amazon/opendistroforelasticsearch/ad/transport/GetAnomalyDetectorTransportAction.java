@@ -196,7 +196,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                                 XContentParser parser = RestHandlerUtils
                                     .createXContentParserFromRegistry(xContentRegistry, response.getResponse().getSourceAsBytesRef())
                             ) {
-                                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                                 detector = parser.namedObject(AnomalyDetector.class, AnomalyDetector.PARSE_FIELD_NAME, null);
                             } catch (Exception e) {
                                 String message = "Failed to parse detector job " + detectorId;
@@ -214,7 +214,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                                 XContentParser parser = RestHandlerUtils
                                     .createXContentParserFromRegistry(xContentRegistry, response.getResponse().getSourceAsBytesRef())
                             ) {
-                                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                                 adJob = AnomalyDetectorJob.parse(parser);
                             } catch (Exception e) {
                                 String message = "Failed to parse detector job " + detectorId;

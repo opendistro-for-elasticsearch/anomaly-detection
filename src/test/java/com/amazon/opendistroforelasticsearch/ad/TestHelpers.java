@@ -59,6 +59,7 @@ import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.WarningsHandler;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.block.ClusterBlocks;
@@ -147,12 +148,25 @@ public class TestHelpers {
         HttpEntity entity,
         List<Header> headers
     ) throws IOException {
+        return makeRequest(client, method, endpoint, params, entity, headers, true);
+    }
+
+    public static Response makeRequest(
+        RestClient client,
+        String method,
+        String endpoint,
+        Map<String, String> params,
+        HttpEntity entity,
+        List<Header> headers,
+        boolean strictDeprecationMode
+    ) throws IOException {
         Request request = new Request(method, endpoint);
 
         RequestOptions.Builder options = RequestOptions.DEFAULT.toBuilder();
         if (headers != null) {
             headers.forEach(header -> options.addHeader(header.getName(), header.getValue()));
         }
+        options.setWarningsHandler(strictDeprecationMode ? WarningsHandler.STRICT : WarningsHandler.PERMISSIVE);
         request.setOptions(options.build());
 
         if (params != null) {

@@ -46,7 +46,7 @@ public abstract class TimeConfiguration implements Writeable, ToXContentObject {
         ChronoUnit unit = null;
         String scheduleType = null;
 
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             scheduleType = parser.currentName();
             parser.nextToken();

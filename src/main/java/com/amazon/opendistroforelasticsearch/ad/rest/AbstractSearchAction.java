@@ -99,7 +99,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
                                 LoggingDeprecationHandler.INSTANCE,
                                 hit.getSourceAsString()
                             );
-                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
 
                         // write back id and version to anomaly detector object
                         ToXContentObject xContentObject = AnomalyDetector.parse(parser, hit.getId(), hit.getVersion());

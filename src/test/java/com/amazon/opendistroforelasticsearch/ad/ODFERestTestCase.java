@@ -84,7 +84,8 @@ public abstract class ODFERestTestCase extends ESRestTestCase {
     protected Settings restAdminSettings() {
         return Settings
             .builder()
-            .put("isAdmin", true)
+            // disable the warning exception for admin client since it's only used for cleanup.
+            .put("strictDeprecationMode", false)
             .put("http.port", 9200)
             .put(OPENDISTRO_SECURITY_SSL_HTTP_ENABLED, true)
             .put(OPENDISTRO_SECURITY_SSL_HTTP_PEMCERT_FILEPATH, "sample.pem")
@@ -101,8 +102,7 @@ public abstract class ODFERestTestCase extends ESRestTestCase {
 
     @Override
     protected RestClient buildClient(Settings settings, HttpHost[] hosts) throws IOException {
-        // disable warning exception for admin client. AdminClient is only used for cleanup.
-        boolean strictDeprecationMode = !settings.getAsBoolean("isAdmin", false);
+        boolean strictDeprecationMode = settings.getAsBoolean("strictDeprecationMode", true);
         RestClientBuilder builder = RestClient.builder(hosts);
         if (isHttps()) {
             String keystore = settings.get(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH);

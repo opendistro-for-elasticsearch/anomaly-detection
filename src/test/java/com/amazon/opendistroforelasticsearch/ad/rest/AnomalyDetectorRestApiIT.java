@@ -25,7 +25,6 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
-import org.elasticsearch.client.WarningFailureException;
 import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -328,14 +327,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getUser()
         );
 
-        try {
-            deleteIndexWithAdminClient(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-        } catch (WarningFailureException e) {
-            // This will delete system indices, and will get warning exception.
-            if (!e.getMessage().contains("this request accesses system indices")) {
-                throw e;
-            }
-        }
+        deleteIndexWithAdminClient(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
 
         TestHelpers
             .assertFailWith(

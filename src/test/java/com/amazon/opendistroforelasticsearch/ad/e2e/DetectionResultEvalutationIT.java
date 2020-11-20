@@ -30,7 +30,9 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.elasticsearch.client.Request;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.WarningsHandler;
 
 import com.amazon.opendistroforelasticsearch.ad.ODFERestTestCase;
 import com.google.gson.JsonArray;
@@ -143,6 +145,9 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         data.stream().skip(trainTestSplit).forEach(r -> {
             try {
                 Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
+                RequestOptions.Builder options = RequestOptions.DEFAULT.toBuilder();
+                options.setWarningsHandler(WarningsHandler.PERMISSIVE);
+                req.setOptions(options.build());
                 req.setJsonEntity(r.toString());
                 client.performRequest(req);
             } catch (Exception e) {

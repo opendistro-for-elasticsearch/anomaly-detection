@@ -45,7 +45,6 @@ import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.WarningFailureException;
 import org.elasticsearch.common.io.PathUtils;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -85,6 +84,7 @@ public abstract class ODFERestTestCase extends ESRestTestCase {
     protected Settings restAdminSettings() {
         return Settings
             .builder()
+            .put("isAdmin", true)
             .put("http.port", 9200)
             .put(OPENDISTRO_SECURITY_SSL_HTTP_ENABLED, true)
             .put(OPENDISTRO_SECURITY_SSL_HTTP_PEMCERT_FILEPATH, "sample.pem")
@@ -101,6 +101,8 @@ public abstract class ODFERestTestCase extends ESRestTestCase {
 
     @Override
     protected RestClient buildClient(Settings settings, HttpHost[] hosts) throws IOException {
+        // disable warning exception for admin client. AdminClient is only used for cleanup.
+        boolean strictDeprecationMode = !settings.getAsBoolean("isAdmin", false);
         RestClientBuilder builder = RestClient.builder(hosts);
         if (isHttps()) {
             String keystore = settings.get(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH);
@@ -115,13 +117,13 @@ public abstract class ODFERestTestCase extends ESRestTestCase {
                 return new SecureRestClientBuilder(settings, configPath).build();
             } else {
                 configureHttpsClient(builder, settings);
-                builder.setStrictDeprecationMode(true);
+                builder.setStrictDeprecationMode(strictDeprecationMode);
                 return builder.build();
             }
 
         } else {
             configureClient(builder, settings);
-            builder.setStrictDeprecationMode(true);
+            builder.setStrictDeprecationMode(strictDeprecationMode);
             return builder.build();
         }
 
@@ -130,7 +132,7 @@ public abstract class ODFERestTestCase extends ESRestTestCase {
     @SuppressWarnings("unchecked")
     @After
     protected void wipeAllODFEIndices() throws IOException {
-        Response response = client().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
+        Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
         XContentType xContentType = XContentType.fromMediaTypeOrFormat(response.getEntity().getContentType().getValue());
         try (
             XContentParser parser = xContentType
@@ -152,15 +154,7 @@ public abstract class ODFERestTestCase extends ESRestTestCase {
             for (Map<String, Object> index : parserList) {
                 String indexName = (String) index.get("index");
                 if (indexName != null && !".opendistro_security".equals(indexName)) {
-                    try {
-                        adminClient().performRequest(new Request("DELETE", "/" + indexName));
-                    } catch (WarningFailureException e) {
-                        // This will also delete system indices, and will get warning exception.
-                        if (!e.getMessage().contains("this request accesses system indices")) {
-                            throw e;
-                        }
-                    }
-
+                    adminClient().performRequest(new Request("DELETE", "/" + indexName));
                 }
             }
         }

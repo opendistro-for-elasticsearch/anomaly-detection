@@ -502,7 +502,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                 ImmutableMap.of(),
                 toHttpEntity(input),
-                null
+                null,
+                false
             );
         assertEquals("Execute anomaly detector failed", RestStatus.OK, restStatus(response));
     }

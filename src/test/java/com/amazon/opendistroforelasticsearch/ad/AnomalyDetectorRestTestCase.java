@@ -74,7 +74,8 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 "/" + indexName + "/_doc/" + randomAlphaOfLength(5) + "?refresh=true",
                 ImmutableMap.of(),
                 toHttpEntity("{\"name\": \"test\"}"),
-                null
+                null,
+                false
             );
         AnomalyDetector createdDetector = createAnomalyDetector(detector, refresh);
 

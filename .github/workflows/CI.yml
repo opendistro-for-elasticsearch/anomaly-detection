@@ -32,6 +32,10 @@ jobs:
           ./gradlew build
           ls -ltr build/distributions/
 
+      - name: Multi Nodes Integration Testing
+        run: |
+          ./gradlew integTest  -PnumNodes=3
+
       - name: Pull and Run Docker
         run: |
           plugin=`ls build/distributions/*.zip`

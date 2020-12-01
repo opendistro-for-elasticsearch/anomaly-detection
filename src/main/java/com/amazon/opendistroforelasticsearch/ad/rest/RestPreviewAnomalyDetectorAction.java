@@ -15,9 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.RUN;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PREVIEW;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -27,13 +25,10 @@ import java.util.Locale;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.client.node.NodeClient;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
+import org.elasticsearch.rest.RestHandler;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.rest.action.RestToXContentListener;
@@ -42,37 +37,32 @@ import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
-import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.PreviewAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.PreviewAnomalyDetectorRequest;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.google.common.collect.ImmutableList;
 
-/**
- * This class consists of the REST handler to handle request to detect data.
- */
-public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
+public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
 
-    public static final String DETECT_DATA_ACTION = "execute_anomaly_detector";
-    // TODO: apply timeout config
-    private volatile TimeValue requestTimeout;
+    public static final String PREVIEW_ANOMALY_DETECTOR_ACTION = "preview_anomaly_detector";
 
-    private final Logger logger = LogManager.getLogger(RestExecuteAnomalyDetectorAction.class);
+    private static final Logger logger = LogManager.getLogger(RestPreviewAnomalyDetectorAction.class);
 
-    public RestExecuteAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
-    }
+    public RestPreviewAnomalyDetectorAction() {}
 
     @Override
     public String getName() {
-        return DETECT_DATA_ACTION;
+        return PREVIEW_ANOMALY_DETECTOR_ACTION;
     }
 
     @Override
-    protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+    protected RestChannelConsumer prepareRequest(RestRequest request, org.elasticsearch.client.node.NodeClient client) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
+
         AnomalyDetectorExecutionInput input = getAnomalyDetectorExecutionInput(request);
+
         return channel -> {
             String rawPath = request.rawPath();
             String error = validateAdExecutionInput(input);
@@ -80,20 +70,20 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
                 channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
                 return;
             }
-
-            AnomalyResultRequest getRequest = new AnomalyResultRequest(
+            PreviewAnomalyDetectorRequest previewRequest = new PreviewAnomalyDetectorRequest(
+                input.getDetector(),
                 input.getDetectorId(),
-                input.getPeriodStart().toEpochMilli(),
-                input.getPeriodEnd().toEpochMilli()
+                input.getPeriodStart(),
+                input.getPeriodEnd()
             );
-            client.execute(AnomalyResultAction.INSTANCE, getRequest, new RestToXContentListener<>(channel));
+            client.execute(PreviewAnomalyDetectorAction.INSTANCE, previewRequest, new RestToXContentListener<>(channel));
         };
     }
 
     private AnomalyDetectorExecutionInput getAnomalyDetectorExecutionInput(RestRequest request) throws IOException {
         String detectorId = null;
-        if (request.hasParam(DETECTOR_ID)) {
-            detectorId = request.param(DETECTOR_ID);
+        if (request.hasParam(RestHandlerUtils.DETECTOR_ID)) {
+            detectorId = request.param(RestHandlerUtils.DETECTOR_ID);
         }
 
         XContentParser parser = request.contentParser();
@@ -119,13 +109,20 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
     }
 
     @Override
-    public List<Route> routes() {
+    public List<RestHandler.Route> routes() {
         return ImmutableList
             .of(
-                // get AD result, for regular run
+                // preview detector
                 new Route(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, RUN)
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "%s/{%s}/%s",
+                            AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI,
+                            RestHandlerUtils.DETECTOR_ID,
+                            PREVIEW
+                        )
                 )
             );
     }

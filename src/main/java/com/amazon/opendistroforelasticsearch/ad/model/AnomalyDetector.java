@@ -41,7 +41,6 @@ import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -196,7 +195,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         this.indices = indices;
         featureAttributes = input.readList(Feature::new);
-        filterQuery = new MatchAllQueryBuilder(input);
+        filterQuery = input.readNamedWriteable(QueryBuilder.class);
         detectionInterval = IntervalTimeConfiguration.readFrom(input);
         windowDelay = IntervalTimeConfiguration.readFrom(input);
         Integer shingleSize = input.readInt();
@@ -204,14 +203,18 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             throw new IllegalArgumentException("Shingle size must be a positive integer");
         }
         this.shingleSize = shingleSize;
-        uiMetadata = input.readMap();
         schemaVersion = input.readInt();
+        this.categoryFields = input.readOptionalStringList();
         lastUpdateTime = input.readInstant();
-        this.categoryFields = input.readStringList();
         if (input.readBoolean()) {
             this.user = new User(input);
         } else {
             user = null;
+        }
+        if (input.readBoolean()) {
+            this.uiMetadata = input.readMap();
+        } else {
+            this.uiMetadata = null;
         }
     }
 
@@ -228,19 +231,24 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         output.writeString(timeField);
         output.writeStringCollection(indices);
         output.writeList(featureAttributes);
-        filterQuery.writeTo(output);
+        output.writeNamedWriteable(filterQuery);
         detectionInterval.writeTo(output);
         windowDelay.writeTo(output);
         output.writeInt(shingleSize);
-        output.writeMap(uiMetadata);
         output.writeInt(schemaVersion);
+        output.writeOptionalStringCollection(categoryFields);
         output.writeInstant(lastUpdateTime);
-        output.writeStringCollection(categoryFields);
         if (user != null) {
             output.writeBoolean(true); // user exists
             user.writeTo(output);
         } else {
             output.writeBoolean(false); // user does not exist
+        }
+        if (uiMetadata != null) {
+            output.writeBoolean(true);
+            output.writeMap(uiMetadata);
+        } else {
+            output.writeBoolean(false);
         }
     }
 
@@ -453,7 +461,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             && Objects.equal(getFilterQuery(), detector.getFilterQuery())
             && Objects.equal(getDetectionInterval(), detector.getDetectionInterval())
             && Objects.equal(getWindowDelay(), detector.getWindowDelay())
-            && Objects.equal(getSchemaVersion(), detector.getSchemaVersion());
+            && Objects.equal(getShingleSize(), detector.getShingleSize())
+            && Objects.equal(getCategoryField(), detector.getCategoryField())
+            && Objects.equal(getUser(), detector.getUser());
     }
 
     @Generated

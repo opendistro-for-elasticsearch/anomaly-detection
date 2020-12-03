@@ -80,7 +80,7 @@ public class Feature implements Writeable, ToXContentObject {
         out.writeString(this.id);
         out.writeString(this.name);
         out.writeBoolean(this.enabled);
-        aggregation.writeTo(out);
+        out.writeNamedWriteable(aggregation);
     }
 
     @Override

@@ -80,23 +80,6 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
         // to the detector. This is filtered by our Search Detector API.
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener));
-
-            DeleteRequest deleteRequest = new DeleteRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId)
-                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-            client.delete(deleteRequest, ActionListener.wrap(response -> {
-                if (response.getResult() == DocWriteResponse.Result.DELETED || response.getResult() == DocWriteResponse.Result.NOT_FOUND) {
-                    deleteDetectorStateDoc(detectorId, listener);
-                } else {
-                    LOG.error("Fail to delete anomaly detector job {}", detectorId);
-                }
-            }, exception -> {
-                if (exception instanceof IndexNotFoundException) {
-                    deleteDetectorStateDoc(detectorId, listener);
-                } else {
-                    LOG.error("Failed to delete anomaly detector job", exception);
-                    listener.onFailure(exception);
-                }
-            }));
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);

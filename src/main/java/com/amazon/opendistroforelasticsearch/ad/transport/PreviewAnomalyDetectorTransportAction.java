@@ -166,7 +166,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                     anomalyDetectorRunner
                         .executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(listener, detector));
                 } catch (IOException e) {
-                    e.printStackTrace(); // TODO vemsarat@
+                    listener.onFailure(e);
                 }
             }
 

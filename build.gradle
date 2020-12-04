@@ -299,8 +299,6 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse',
         'com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorTransportAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.PreviewAnomalyDetectorTransportAction*',
-        'com.amazon.opendistroforelasticsearch.ad.transport.PreviewAnomalyDetectorResponse',
-        'com.amazon.opendistroforelasticsearch.ad.transport.PreviewAnomalyDetectorRequest',
 
         // TODO: hc caused coverage to drop
         'com.amazon.opendistroforelasticsearch.ad.NodeStateManager',

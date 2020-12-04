@@ -18,31 +18,37 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 import java.time.Instant;
 
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
+import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
+import org.elasticsearch.common.xcontent.ToXContent;
+import org.elasticsearch.test.ESSingleNodeTestCase;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mockito;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
-@RunWith(PowerMockRunner.class)
-@PrepareForTest({ PreviewAnomalyDetectorRequest.class, PreviewAnomalyDetectorResponse.class })
-public class PreviewAnomalyDetectorActionTests {
+public class PreviewAnomalyDetectorActionTests extends ESSingleNodeTestCase {
+
+    @Override
     @Before
     public void setUp() throws Exception {
+        super.setUp();
+    }
 
+    @Override
+    protected NamedWriteableRegistry writableRegistry() {
+        return getInstanceFromNode(NamedWriteableRegistry.class);
     }
 
     @Test
     public void testPreviewRequest() throws Exception {
         BytesStreamOutput out = new BytesStreamOutput();
-        AnomalyDetector detector = Mockito.mock(AnomalyDetector.class);
-        Mockito.doNothing().when(detector).writeTo(out);
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
         PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(
             detector,
             "1234",
@@ -50,10 +56,25 @@ public class PreviewAnomalyDetectorActionTests {
             Instant.now()
         );
         request.writeTo(out);
-        StreamInput input = out.bytes().streamInput();
-        PowerMockito.whenNew(AnomalyDetector.class).withAnyArguments().thenReturn(detector);
+        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
         PreviewAnomalyDetectorRequest newRequest = new PreviewAnomalyDetectorRequest(input);
         Assert.assertEquals(request.getDetectorId(), newRequest.getDetectorId());
+        Assert.assertEquals(request.getStartTime(), newRequest.getStartTime());
+        Assert.assertEquals(request.getEndTime(), newRequest.getEndTime());
+        Assert.assertNotNull(newRequest.getDetector());
+        Assert.assertNull(newRequest.validate());
+    }
+
+    @Test
+    public void testPreviewResponse() throws Exception {
+        BytesStreamOutput out = new BytesStreamOutput();
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
+        AnomalyResult result = TestHelpers.randomMultiEntityAnomalyDetectResult(0.8d, 0d);
+        PreviewAnomalyDetectorResponse response = new PreviewAnomalyDetectorResponse(ImmutableList.of(result), detector);
+        response.writeTo(out);
+        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
+        PreviewAnomalyDetectorResponse newResponse = new PreviewAnomalyDetectorResponse(input);
+        Assert.assertNotNull(newResponse.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
     }
 
     @Test

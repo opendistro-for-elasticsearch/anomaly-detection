@@ -19,3 +19,12 @@ Compatible with Elasticsearch 7.10.0
 * Fix for upgrading mapping ([#309](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/309))
 * fix double nan error when parse to json ([#310](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/310))
 * Fix issue where data hole exists for Preview API ([#312](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/312))
+* fix delete running detector bug ([#320](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/320))
+* fix detector and feature serialization ([#322](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/322))
+* Moving common-utils to 1.12.0.2 ([#323](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/323))
+
+### Infrastructure
+* Add multi node integration testing into CI workflow ([#318](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/318))
+
+### Maintenance
+* Support ES 7.10.0 ([#313](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/313))

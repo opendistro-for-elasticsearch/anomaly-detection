@@ -16,10 +16,18 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.settings.ClusterSettings;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.tasks.Task;
@@ -31,6 +39,7 @@ import org.junit.Test;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
 public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
     private IndexAnomalyDetectorTransportAction action;
@@ -42,12 +51,18 @@ public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        ClusterService clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         action = new IndexAnomalyDetectorTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
             client(),
-            clusterService(),
+            clusterService,
             indexSettings(),
             mock(AnomalyDetectionIndices.class),
             xContentRegistry()

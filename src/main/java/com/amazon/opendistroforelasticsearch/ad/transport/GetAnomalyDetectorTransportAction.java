@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getDetector;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -37,9 +40,11 @@ import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.CheckedConsumer;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -55,15 +60,18 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 import com.amazon.opendistroforelasticsearch.ad.model.EntityProfileName;
+import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.collect.Sets;
 
 public class GetAnomalyDetectorTransportAction extends HandledTransportAction<GetAnomalyDetectorRequest, GetAnomalyDetectorResponse> {
 
     private static final Logger LOG = LogManager.getLogger(GetAnomalyDetectorTransportAction.class);
 
+    private final ClusterService clusterService;
     private final Client client;
 
     private final Set<String> allProfileTypeStrs;
@@ -74,16 +82,20 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
     private final Set<EntityProfileName> defaultEntityProfileTypes;
     private final NamedXContentRegistry xContentRegistry;
     private final DiscoveryNodeFilterer nodeFilter;
+    private volatile Boolean filterByEnabled;
 
     @Inject
     public GetAnomalyDetectorTransportAction(
         TransportService transportService,
         DiscoveryNodeFilterer nodeFilter,
         ActionFilters actionFilters,
+        ClusterService clusterService,
         Client client,
+        Settings settings,
         NamedXContentRegistry xContentRegistry
     ) {
         super(GetAnomalyDetectorAction.NAME, transportService, actionFilters, GetAnomalyDetectorRequest::new);
+        this.clusterService = clusterService;
         this.client = client;
 
         List<DetectorProfileName> allProfiles = Arrays.asList(DetectorProfileName.values());
@@ -100,10 +112,46 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
 
         this.xContentRegistry = xContentRegistry;
         this.nodeFilter = nodeFilter;
+        filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
     }
 
     @Override
     protected void doExecute(Task task, GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> listener) {
+        String detectorID = request.getDetectorID();
+        User user = getUserContext(client);
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            resolveUserAndExecute(user, detectorID, listener, () -> getExecute(request, listener));
+        } catch (Exception e) {
+            LOG.error(e);
+            listener.onFailure(e);
+        }
+    }
+
+    private void resolveUserAndExecute(
+        User requestedUser,
+        String detectorId,
+        ActionListener<GetAnomalyDetectorResponse> listener,
+        AnomalyDetectorFunction function
+    ) {
+        if (requestedUser == null) {
+            // Security is disabled or user is superadmin
+            function.execute();
+        } else if (!filterByEnabled) {
+            // security is enabled and filterby is disabled.
+            function.execute();
+        } else {
+            // security is enabled and filterby is enabled.
+            // Get detector and check if the user has permissions to access the detector
+            try {
+                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry);
+            } catch (Exception e) {
+                listener.onFailure(e);
+            }
+        }
+    }
+
+    protected void getExecute(GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> listener) {
         String detectorID = request.getDetectorID();
         Long version = request.getVersion();
         String typesStr = request.getTypeStr();
@@ -112,53 +160,48 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         boolean all = request.isAll();
         boolean returnJob = request.isReturnJob();
 
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            if (!Strings.isEmpty(typesStr) || rawPath.endsWith(PROFILE) || rawPath.endsWith(PROFILE + "/")) {
-                if (entityValue != null) {
-                    Set<EntityProfileName> entityProfilesToCollect = getEntityProfilesToCollect(typesStr, all);
-                    EntityProfileRunner profileRunner = new EntityProfileRunner(
-                        client,
-                        xContentRegistry,
-                        AnomalyDetectorSettings.NUM_MIN_SAMPLES
+        if (!Strings.isEmpty(typesStr) || rawPath.endsWith(PROFILE) || rawPath.endsWith(PROFILE + "/")) {
+            if (entityValue != null) {
+                Set<EntityProfileName> entityProfilesToCollect = getEntityProfilesToCollect(typesStr, all);
+                EntityProfileRunner profileRunner = new EntityProfileRunner(
+                    client,
+                    xContentRegistry,
+                    AnomalyDetectorSettings.NUM_MIN_SAMPLES
+                );
+                profileRunner
+                    .profile(
+                        detectorID,
+                        entityValue,
+                        entityProfilesToCollect,
+                        ActionListener
+                            .wrap(
+                                profile -> {
+                                    listener
+                                        .onResponse(
+                                            new GetAnomalyDetectorResponse(0, null, 0, 0, null, null, false, null, null, profile, true)
+                                        );
+                                },
+                                e -> listener.onFailure(e)
+                            )
                     );
-                    profileRunner
-                        .profile(
-                            detectorID,
-                            entityValue,
-                            entityProfilesToCollect,
-                            ActionListener
-                                .wrap(
-                                    profile -> {
-                                        listener
-                                            .onResponse(
-                                                new GetAnomalyDetectorResponse(0, null, 0, 0, null, null, false, null, null, profile, true)
-                                            );
-                                    },
-                                    e -> listener.onFailure(e)
-                                )
-                        );
-                } else {
-                    Set<DetectorProfileName> profilesToCollect = getProfilesToCollect(typesStr, all);
-                    AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(
-                        client,
-                        xContentRegistry,
-                        nodeFilter,
-                        AnomalyDetectorSettings.NUM_MIN_SAMPLES
-                    );
-                    profileRunner.profile(detectorID, getProfileActionListener(listener, detectorID), profilesToCollect);
-                }
             } else {
-                MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorID).version(version);
-                MultiGetRequest multiGetRequest = new MultiGetRequest().add(adItem);
-                if (returnJob) {
-                    MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(ANOMALY_DETECTOR_JOB_INDEX, detectorID).version(version);
-                    multiGetRequest.add(adJobItem);
-                }
-                client.multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, detectorID));
+                Set<DetectorProfileName> profilesToCollect = getProfilesToCollect(typesStr, all);
+                AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(
+                    client,
+                    xContentRegistry,
+                    nodeFilter,
+                    AnomalyDetectorSettings.NUM_MIN_SAMPLES
+                );
+                profileRunner.profile(detectorID, getProfileActionListener(listener, detectorID), profilesToCollect);
             }
-        } catch (Exception e) {
-            LOG.error(e);
-            listener.onFailure(e);
+        } else {
+            MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorID).version(version);
+            MultiGetRequest multiGetRequest = new MultiGetRequest().add(adItem);
+            if (returnJob) {
+                MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(ANOMALY_DETECTOR_JOB_INDEX, detectorID).version(version);
+                multiGetRequest.add(adJobItem);
+            }
+            client.multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, detectorID));
         }
     }
 

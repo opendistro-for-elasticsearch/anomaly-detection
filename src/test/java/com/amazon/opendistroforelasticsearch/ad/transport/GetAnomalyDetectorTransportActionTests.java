@@ -16,20 +16,35 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.Map;
 
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
+import org.elasticsearch.common.io.stream.BytesStreamOutput;
+import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
+import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.xcontent.ToXContent;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.tasks.Task;
-import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.test.ESSingleNodeTestCase;
 import org.elasticsearch.transport.TransportService;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.EntityProfile;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.google.common.collect.ImmutableMap;
 
-public class GetAnomalyDetectorTransportActionTests extends ESIntegTestCase {
+public class GetAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase {
     private GetAnomalyDetectorTransportAction action;
     private Task task;
     private ActionListener<GetAnomalyDetectorResponse> response;
@@ -58,6 +73,11 @@ public class GetAnomalyDetectorTransportActionTests extends ESIntegTestCase {
         };
     }
 
+    @Override
+    protected NamedWriteableRegistry writableRegistry() {
+        return getInstanceFromNode(NamedWriteableRegistry.class);
+    }
+
     @Test
     public void testGetTransportAction() throws IOException {
         GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest(
@@ -82,5 +102,88 @@ public class GetAnomalyDetectorTransportActionTests extends ESIntegTestCase {
     public void testGetAction() {
         Assert.assertNotNull(GetAnomalyDetectorAction.INSTANCE.name());
         Assert.assertEquals(GetAnomalyDetectorAction.INSTANCE.name(), GetAnomalyDetectorAction.NAME);
+    }
+
+    @Test
+    public void testGetAnomalyDetectorRequest() throws IOException {
+        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest("1234", 4321, true, "", "abcd", false, "value");
+        BytesStreamOutput out = new BytesStreamOutput();
+        request.writeTo(out);
+        StreamInput input = out.bytes().streamInput();
+        GetAnomalyDetectorRequest newRequest = new GetAnomalyDetectorRequest(input);
+        Assert.assertEquals(request.getDetectorID(), newRequest.getDetectorID());
+        Assert.assertEquals(request.getRawPath(), newRequest.getRawPath());
+        Assert.assertNull(newRequest.validate());
+    }
+
+    @Test
+    public void testGetAnomalyDetectorRequestNoEntityValue() throws IOException {
+        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest("1234", 4321, true, "", "abcd", false, null);
+        BytesStreamOutput out = new BytesStreamOutput();
+        request.writeTo(out);
+        StreamInput input = out.bytes().streamInput();
+        GetAnomalyDetectorRequest newRequest = new GetAnomalyDetectorRequest(input);
+        Assert.assertNull(newRequest.getEntityValue());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testGetAnomalyDetectorResponse() throws IOException {
+        BytesStreamOutput out = new BytesStreamOutput();
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
+        AnomalyDetectorJob adJob = TestHelpers.randomAnomalyDetectorJob();
+        GetAnomalyDetectorResponse response = new GetAnomalyDetectorResponse(
+            4321,
+            "1234",
+            5678,
+            9867,
+            detector,
+            adJob,
+            false,
+            RestStatus.OK,
+            null,
+            null,
+            false
+        );
+        response.writeTo(out);
+        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
+        GetAnomalyDetectorResponse newResponse = new GetAnomalyDetectorResponse(input);
+        XContentBuilder builder = TestHelpers.builder();
+        Assert.assertNotNull(newResponse.toXContent(builder, ToXContent.EMPTY_PARAMS));
+
+        Map<String, Object> map = TestHelpers.XContentBuilderToMap(builder);
+        Assert.assertTrue(map.get(RestHandlerUtils.ANOMALY_DETECTOR) instanceof Map);
+        Map<String, Object> map1 = (Map<String, Object>) map.get(RestHandlerUtils.ANOMALY_DETECTOR);
+        Assert.assertEquals(map1.get("name"), detector.getName());
+    }
+
+    @Test
+    public void testGetAnomalyDetectorProfileResponse() throws IOException {
+        BytesStreamOutput out = new BytesStreamOutput();
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
+        AnomalyDetectorJob adJob = TestHelpers.randomAnomalyDetectorJob();
+        EntityProfile entityProfile = new EntityProfile.Builder("catField", "app-0").build();
+        GetAnomalyDetectorResponse response = new GetAnomalyDetectorResponse(
+            4321,
+            "1234",
+            5678,
+            9867,
+            detector,
+            adJob,
+            false,
+            RestStatus.OK,
+            null,
+            entityProfile,
+            true
+        );
+        response.writeTo(out);
+        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
+        GetAnomalyDetectorResponse newResponse = new GetAnomalyDetectorResponse(input);
+        XContentBuilder builder = TestHelpers.builder();
+        Assert.assertNotNull(newResponse.toXContent(builder, ToXContent.EMPTY_PARAMS));
+
+        Map<String, Object> map = TestHelpers.XContentBuilderToMap(builder);
+        Assert.assertEquals(map.get(EntityProfile.CATEGORY_FIELD), "catField");
+        Assert.assertEquals(map.get(EntityProfile.ENTITY_VALUE), "app-0");
     }
 }

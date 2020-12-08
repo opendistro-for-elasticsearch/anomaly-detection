@@ -15,36 +15,43 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import java.time.Instant;
+import java.util.Map;
+
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
+import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.ToXContent;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.test.ESSingleNodeTestCase;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mockito;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.google.common.collect.ImmutableMap;
 
-@RunWith(PowerMockRunner.class)
-@PrepareForTest({ IndexAnomalyDetectorRequest.class, IndexAnomalyDetectorResponse.class })
-public class IndexAnomalyDetectorActionTests {
+public class IndexAnomalyDetectorActionTests extends ESSingleNodeTestCase {
     @Before
     public void setUp() throws Exception {
+        super.setUp();
+    }
 
+    @Override
+    protected NamedWriteableRegistry writableRegistry() {
+        return getInstanceFromNode(NamedWriteableRegistry.class);
     }
 
     @Test
     public void testIndexRequest() throws Exception {
         BytesStreamOutput out = new BytesStreamOutput();
-        AnomalyDetector detector = Mockito.mock(AnomalyDetector.class);
-        Mockito.doNothing().when(detector).writeTo(out);
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
         IndexAnomalyDetectorRequest request = new IndexAnomalyDetectorRequest(
             "1234",
             4321,
@@ -58,23 +65,25 @@ public class IndexAnomalyDetectorActionTests {
             5
         );
         request.writeTo(out);
-        StreamInput input = out.bytes().streamInput();
-        PowerMockito.whenNew(AnomalyDetector.class).withAnyArguments().thenReturn(detector);
+        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
         IndexAnomalyDetectorRequest newRequest = new IndexAnomalyDetectorRequest(input);
         Assert.assertEquals(request.getDetectorID(), newRequest.getDetectorID());
-
+        Assert.assertNull(newRequest.validate());
     }
 
     @Test
     public void testIndexResponse() throws Exception {
         BytesStreamOutput out = new BytesStreamOutput();
-        AnomalyDetector detector = Mockito.mock(AnomalyDetector.class);
-        Mockito.doNothing().when(detector).writeTo(out);
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
         IndexAnomalyDetectorResponse response = new IndexAnomalyDetectorResponse("1234", 56, 78, 90, detector, RestStatus.OK);
         response.writeTo(out);
-        StreamInput input = out.bytes().streamInput();
-        PowerMockito.whenNew(AnomalyDetector.class).withAnyArguments().thenReturn(detector);
+        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
         IndexAnomalyDetectorResponse newResponse = new IndexAnomalyDetectorResponse(input);
         Assert.assertEquals(response.getId(), newResponse.getId());
+        XContentBuilder builder = TestHelpers.builder();
+        Assert.assertNotNull(newResponse.toXContent(builder, ToXContent.EMPTY_PARAMS));
+
+        Map<String, Object> map = TestHelpers.XContentBuilderToMap(builder);
+        Assert.assertEquals(map.get(RestHandlerUtils._ID), "1234");
     }
 }

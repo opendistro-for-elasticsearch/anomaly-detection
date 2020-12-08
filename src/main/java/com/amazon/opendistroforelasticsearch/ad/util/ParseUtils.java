@@ -509,7 +509,10 @@ public final class ParseUtils {
                         )
                 );
         } else {
-            listener.onFailure(new ElasticsearchException("Failed to get anomaly detector: " + detectorId));
+            listener
+                .onFailure(
+                    new ResourceNotFoundException("Failed to find anomaly detector index: " + AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+                );
         }
     }
 

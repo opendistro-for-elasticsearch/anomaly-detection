@@ -275,7 +275,6 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException',
         'com.amazon.opendistroforelasticsearch.ad.util.ClientUtil',
 
-        'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction',
         'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorRequest',
         'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorResponse',
         'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction',
@@ -291,13 +290,8 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorTransportAction*',
         'com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorTransportAction*',
         'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorTransportAction*',
-        'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorResponse',
-        'com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorRequest',
         'com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultTransportAction*',
         'com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorInfoTransportAction*',
-        'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorRequest',
-        'com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse',
-        'com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorTransportAction',
 
         // TODO: hc caused coverage to drop
         'com.amazon.opendistroforelasticsearch.ad.NodeStateManager',

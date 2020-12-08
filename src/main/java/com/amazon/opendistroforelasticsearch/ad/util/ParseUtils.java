@@ -34,6 +34,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
@@ -457,6 +458,33 @@ public final class ParseUtils {
         return User.parse(userStr);
     }
 
+    public static void resolveUserAndExecute(
+        User requestedUser,
+        String detectorId,
+        boolean filterByEnabled,
+        ActionListener listener,
+        AnomalyDetectorFunction function,
+        Client client,
+        ClusterService clusterService,
+        NamedXContentRegistry xContentRegistry
+    ) {
+        if (requestedUser == null) {
+            // Security is disabled or user is superadmin
+            function.execute();
+        } else if (!filterByEnabled) {
+            // security is enabled and filterby is disabled.
+            function.execute();
+        } else {
+            // security is enabled and filterby is enabled.
+            // Get detector and check if the user has permissions to access the detector
+            try {
+                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry);
+            } catch (Exception e) {
+                listener.onFailure(e);
+            }
+        }
+    }
+
     public static void getDetector(
         User requestUser,
         String detectorId,
@@ -511,7 +539,7 @@ public final class ParseUtils {
                 listener.onFailure(new ElasticsearchException("Unable to get user information from detector " + detectorId));
             }
         } else {
-            listener.onFailure(new ElasticsearchException("Could not find detector " + detectorId));
+            listener.onFailure(new ResourceNotFoundException("Could not find detector " + detectorId));
         }
     }
 

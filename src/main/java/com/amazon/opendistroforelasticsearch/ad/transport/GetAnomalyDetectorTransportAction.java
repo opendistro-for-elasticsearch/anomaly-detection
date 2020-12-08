@@ -18,8 +18,8 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getDetector;
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -60,7 +60,6 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 import com.amazon.opendistroforelasticsearch.ad.model.EntityProfileName;
-import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
@@ -121,33 +120,19 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         String detectorID = request.getDetectorID();
         User user = getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, detectorID, listener, () -> getExecute(request, listener));
+            resolveUserAndExecute(
+                user,
+                detectorID,
+                filterByEnabled,
+                listener,
+                () -> getExecute(request, listener),
+                client,
+                clusterService,
+                xContentRegistry
+            );
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
-        }
-    }
-
-    private void resolveUserAndExecute(
-        User requestedUser,
-        String detectorId,
-        ActionListener<GetAnomalyDetectorResponse> listener,
-        AnomalyDetectorFunction function
-    ) {
-        if (requestedUser == null) {
-            // Security is disabled or user is superadmin
-            function.execute();
-        } else if (!filterByEnabled) {
-            // security is enabled and filterby is disabled.
-            function.execute();
-        } else {
-            // security is enabled and filterby is enabled.
-            // Get detector and check if the user has permissions to access the detector
-            try {
-                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry);
-            } catch (Exception e) {
-                listener.onFailure(e);
-            }
         }
     }
 

@@ -17,8 +17,8 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getDetector;
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -90,35 +90,16 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
             resolveUserAndExecute(
                 user,
                 detectorId,
+                filterByEnabled,
                 listener,
-                () -> getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener))
+                () -> getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener)),
+                client,
+                clusterService,
+                xContentRegistry
             );
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
-        }
-    }
-
-    private void resolveUserAndExecute(
-        User requestedUser,
-        String detectorId,
-        ActionListener<DeleteResponse> listener,
-        AnomalyDetectorFunction function
-    ) {
-        if (requestedUser == null) {
-            // Security is disabled or user is superadmin
-            function.execute();
-        } else if (!filterByEnabled) {
-            // security is enabled and filterby is disabled.
-            function.execute();
-        } else {
-            // security is enabled and filterby is enabled.
-            // Get detector and check if the user has permissions to access the detector
-            try {
-                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry);
-            } catch (Exception e) {
-                listener.onFailure(e);
-            }
         }
     }
 

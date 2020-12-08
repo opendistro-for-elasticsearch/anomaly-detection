@@ -17,8 +17,8 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
-import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getDetector;
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.resolveUserAndExecute;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,7 +36,6 @@ import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
-import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
@@ -78,7 +77,16 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         // By the time request reaches here, the user permissions are validated by Security plugin.
         User user = getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, detectorId, listener, () -> adJobExecute(request, listener));
+            resolveUserAndExecute(
+                user,
+                detectorId,
+                filterByEnabled,
+                listener,
+                () -> adJobExecute(request, listener),
+                client,
+                clusterService,
+                xContentRegistry
+            );
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);
@@ -111,29 +119,6 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);
-        }
-    }
-
-    private void resolveUserAndExecute(
-        User requestedUser,
-        String detectorId,
-        ActionListener<AnomalyDetectorJobResponse> listener,
-        AnomalyDetectorFunction function
-    ) {
-        if (requestedUser == null) {
-            // Security is disabled or user is superadmin
-            function.execute();
-        } else if (!filterByEnabled) {
-            // security is enabled and filterby is disabled.
-            function.execute();
-        } else {
-            // security is enabled and filterby is enabled.
-            // Get detector and check if the user has permissions to access the detector
-            try {
-                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry);
-            } catch (Exception e) {
-                listener.onFailure(e);
-            }
         }
     }
 }

@@ -1,7 +1,7 @@
 {
   "dynamic": false,
   "_meta": {
-    "schema_version": 2
+    "schema_version": 3
   },
   "properties": {
     "schema_version": {
@@ -144,6 +144,21 @@
     },
     "category_field": {
       "type": "keyword"
+    },
+    "detector_type": {
+      "type": "keyword"
+    },
+    "detection_date_range": {
+      "properties": {
+        "start_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "end_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        }
+      }
     }
   }
 }

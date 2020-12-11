@@ -64,8 +64,10 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public static final String ERROR_FIELD = "error";
     public static final String ENTITY_FIELD = "entity";
     public static final String USER_FIELD = "user";
+    public static final String TASK_ID_FIELD = "task_id";
 
     private final String detectorId;
+    private final String taskId;
     private final Double anomalyScore;
     private final Double anomalyGrade;
     private final Double confidence;
@@ -125,7 +127,42 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         User user,
         Integer schemaVersion
     ) {
+        this(
+            detectorId,
+            null,
+            anomalyScore,
+            anomalyGrade,
+            confidence,
+            featureData,
+            dataStartTime,
+            dataEndTime,
+            executionStartTime,
+            executionEndTime,
+            error,
+            entity,
+            user,
+            schemaVersion
+        );
+    }
+
+    public AnomalyResult(
+        String detectorId,
+        String taskId,
+        Double anomalyScore,
+        Double anomalyGrade,
+        Double confidence,
+        List<FeatureData> featureData,
+        Instant dataStartTime,
+        Instant dataEndTime,
+        Instant executionStartTime,
+        Instant executionEndTime,
+        String error,
+        List<Entity> entity,
+        User user,
+        Integer schemaVersion
+    ) {
         this.detectorId = detectorId;
+        this.taskId = taskId;
         this.anomalyScore = anomalyScore;
         this.anomalyGrade = anomalyGrade;
         this.confidence = confidence;
@@ -166,6 +203,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             user = null;
         }
         this.schemaVersion = input.readInt();
+        this.taskId = input.readOptionalString();
     }
 
     @Override
@@ -206,6 +244,9 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         if (user != null) {
             xContentBuilder.field(USER_FIELD, user);
         }
+        if (taskId != null) {
+            xContentBuilder.field(TASK_ID_FIELD, taskId);
+        }
         return xContentBuilder.endObject();
     }
 
@@ -223,6 +264,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         List<Entity> entityList = null;
         User user = null;
         Integer schemaVersion = CommonValue.NO_SCHEMA_VERSION;
+        String taskId = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -276,6 +318,9 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 case CommonName.SCHEMA_VERSION_FIELD:
                     schemaVersion = parser.intValue();
                     break;
+                case TASK_ID_FIELD:
+                    taskId = parser.text();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -283,6 +328,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         }
         return new AnomalyResult(
             detectorId,
+            taskId,
             anomalyScore,
             anomalyGrade,
             confidence,
@@ -307,6 +353,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             return false;
         AnomalyResult that = (AnomalyResult) o;
         return Objects.equal(getDetectorId(), that.getDetectorId())
+            && Objects.equal(getTaskId(), that.getTaskId())
             && Objects.equal(getAnomalyScore(), that.getAnomalyScore())
             && Objects.equal(getAnomalyGrade(), that.getAnomalyGrade())
             && Objects.equal(getConfidence(), that.getConfidence())
@@ -325,6 +372,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         return Objects
             .hashCode(
                 getDetectorId(),
+                getTaskId(),
                 getAnomalyScore(),
                 getAnomalyGrade(),
                 getConfidence(),
@@ -343,6 +391,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public String toString() {
         return new ToStringBuilder(this)
             .append("detectorId", detectorId)
+            .append("taskId", taskId)
             .append("anomalyScore", anomalyScore)
             .append("anomalyGrade", anomalyGrade)
             .append("confidence", confidence)
@@ -358,6 +407,10 @@ public class AnomalyResult implements ToXContentObject, Writeable {
 
     public String getDetectorId() {
         return detectorId;
+    }
+
+    private String getTaskId() {
+        return taskId;
     }
 
     public Double getAnomalyScore() {
@@ -426,5 +479,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             out.writeBoolean(false); // user does not exist
         }
         out.writeInt(schemaVersion);
+        out.writeOptionalString(taskId);
     }
 }

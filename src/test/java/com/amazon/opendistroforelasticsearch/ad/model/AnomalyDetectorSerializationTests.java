@@ -45,7 +45,6 @@ public class AnomalyDetectorSerializationTests extends ESSingleNodeTestCase {
     public void testDetectorWithUiMetadata() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
         BytesStreamOutput output = new BytesStreamOutput();
-        System.out.println(detector.toString());
         detector.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         AnomalyDetector parsedDetector = new AnomalyDetector(input);
@@ -55,7 +54,6 @@ public class AnomalyDetectorSerializationTests extends ESSingleNodeTestCase {
     public void testDetectorWithoutUiMetadata() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
         BytesStreamOutput output = new BytesStreamOutput();
-        System.out.println(detector.toString());
         detector.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         AnomalyDetector parsedDetector = new AnomalyDetector(input);
@@ -65,7 +63,6 @@ public class AnomalyDetectorSerializationTests extends ESSingleNodeTestCase {
     public void testHCDetector() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields("testId", ImmutableList.of("category_field"));
         BytesStreamOutput output = new BytesStreamOutput();
-        System.out.println(detector.toString());
         detector.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         AnomalyDetector parsedDetector = new AnomalyDetector(input);
@@ -76,7 +73,6 @@ public class AnomalyDetectorSerializationTests extends ESSingleNodeTestCase {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields("testId", ImmutableList.of("category_field"));
         detector.setUser(null);
         BytesStreamOutput output = new BytesStreamOutput();
-        System.out.println(detector.toString());
         detector.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         AnomalyDetector parsedDetector = new AnomalyDetector(input);

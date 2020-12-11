@@ -26,7 +26,47 @@ import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 public class AnomalyResultTests extends ESTestCase {
 
     public void testParseAnomalyDetector() throws IOException {
-        AnomalyResult detectResult = TestHelpers.randomAnomalyDetectResult();
+        AnomalyResult detectResult = TestHelpers.randomAnomalyDetectResult(0.8, randomAlphaOfLength(5), null);
+        String detectResultString = TestHelpers
+            .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        detectResultString = detectResultString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
+        assertEquals(
+            "Parsing anomaly detect result doesn't work",
+            // String.format(
+            // Locale.ROOT,
+            // "\"Parsing anomaly detect result doesn't work\". Expected %s, but get %s",
+            // detectResult,
+            // parsedDetectResult
+            // ),
+            detectResult,
+            parsedDetectResult
+        );
+    }
+
+    public void testParseAnomalyDetectorWithTaskId() throws IOException {
+        AnomalyResult detectResult = TestHelpers.randomAnomalyDetectResult(0.8, randomAlphaOfLength(5), randomAlphaOfLength(5));
+        String detectResultString = TestHelpers
+            .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        detectResultString = detectResultString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
+        assertEquals(
+            "Parsing anomaly detect result doesn't work",
+            // String.format(
+            // Locale.ROOT,
+            // "\"Parsing anomaly detect result doesn't work\". Expected %s, but get %s",
+            // detectResult,
+            // parsedDetectResult
+            // ),
+            detectResult,
+            parsedDetectResult
+        );
+    }
+
+    public void testParseAnomalyDetectorWithEntity() throws IOException {
+        AnomalyResult detectResult = TestHelpers.randomMultiEntityAnomalyDetectResult(0.8, 0.5);
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         detectResultString = detectResultString

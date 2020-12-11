@@ -42,6 +42,23 @@ public class AnomalyDetectorTests extends AbstractADTest {
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
     }
 
+    public void testParseHistoricalAnomalyDetector() throws IOException {
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(TestHelpers.randomFeature()),
+                TestHelpers.randomUiMetadata(),
+                Instant.now(),
+                AnomalyDetectorType.HISTORICAL_SIGLE_ENTITY.name(),
+                TestHelpers.randomDetectionDateRange()
+            );
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        LOG.info(detectorString);
+        detectorString = detectorString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+    }
+
     public void testParseAnomalyDetectorWithNullFilterQuery() throws IOException {
         String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
             + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"

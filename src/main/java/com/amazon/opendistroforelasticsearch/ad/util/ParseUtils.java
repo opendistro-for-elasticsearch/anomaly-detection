@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.util;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.elasticsearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
 
@@ -33,8 +34,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.ResourceNotFoundException;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.ParsingException;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
@@ -60,6 +66,8 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
+import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
+import com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorResponse;
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
@@ -448,6 +456,132 @@ public final class ParseUtils {
         String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT);
         logger.debug("Filtering result by " + userStr);
         return User.parse(userStr);
+    }
+
+    public static void resolveUserAndExecute(
+        User requestedUser,
+        String detectorId,
+        boolean filterByEnabled,
+        ActionListener listener,
+        AnomalyDetectorFunction function,
+        Client client,
+        ClusterService clusterService,
+        NamedXContentRegistry xContentRegistry
+    ) {
+        if (requestedUser == null) {
+            // Security is disabled or user is superadmin
+            function.execute();
+        } else if (!filterByEnabled) {
+            // security is enabled and filterby is disabled.
+            function.execute();
+        } else {
+            // security is enabled and filterby is enabled.
+            // Get detector and check if the user has permissions to access the detector
+            try {
+                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry);
+            } catch (Exception e) {
+                listener.onFailure(e);
+            }
+        }
+    }
+
+    public static void getDetector(
+        User requestUser,
+        String detectorId,
+        ActionListener listener,
+        AnomalyDetectorFunction function,
+        Client client,
+        ClusterService clusterService,
+        NamedXContentRegistry xContentRegistry
+    ) {
+        if (clusterService.state().metadata().indices().containsKey(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
+            GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
+            client
+                .get(
+                    request,
+                    ActionListener
+                        .wrap(
+                            response -> onGetAdResponse(response, requestUser, detectorId, listener, function, xContentRegistry),
+                            exception -> {
+                                logger.error("Failed to get anomaly detector: " + detectorId, exception);
+                                listener.onFailure(exception);
+                            }
+                        )
+                );
+        } else {
+            listener
+                .onFailure(
+                    new ResourceNotFoundException("Failed to find anomaly detector index: " + AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+                );
+        }
+    }
+
+    public static void onGetAdResponse(
+        GetResponse response,
+        User requestUser,
+        String detectorId,
+        ActionListener<GetAnomalyDetectorResponse> listener,
+        AnomalyDetectorFunction function,
+        NamedXContentRegistry xContentRegistry
+    ) {
+        if (response.isExists()) {
+            try (
+                XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
+            ) {
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                AnomalyDetector detector = AnomalyDetector.parse(parser);
+                User resourceUser = detector.getUser();
+
+                if (checkUserPermissions(requestUser, resourceUser, detectorId)) {
+                    function.execute();
+                } else {
+                    logger.debug("User: " + requestUser.getName() + " does not have permissions to access detector: " + detectorId);
+                    listener.onFailure(new ElasticsearchException("User does not have permissions to access detector: " + detectorId));
+                }
+            } catch (Exception e) {
+                listener.onFailure(new ElasticsearchException("Unable to get user information from detector " + detectorId));
+            }
+        } else {
+            listener.onFailure(new ResourceNotFoundException("Could not find detector " + detectorId));
+        }
+    }
+
+    private static boolean checkUserPermissions(User requestedUser, User resourceUser, String detectorId) throws Exception {
+        if (resourceUser.getBackendRoles() == null || requestedUser.getBackendRoles() == null) {
+            return false;
+        }
+        // Check if requested user has backend role required to access the resource
+        for (String backendRole : requestedUser.getBackendRoles()) {
+            if (resourceUser.getBackendRoles().contains(backendRole)) {
+                logger
+                    .debug(
+                        "User: "
+                            + requestedUser.getName()
+                            + " has backend role: "
+                            + backendRole
+                            + " permissions to access detector: "
+                            + detectorId
+                    );
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean checkFilterByBackendRoles(User requestedUser, ActionListener listener) {
+        if (requestedUser == null) {
+            return false;
+        }
+        if (requestedUser.getBackendRoles().isEmpty()) {
+            listener
+                .onFailure(
+                    new ElasticsearchException(
+                        "Filter by backend roles is enabled and User " + requestedUser.getName() + " does not have backend roles configured"
+                    )
+                );
+            return false;
+        }
+        return true;
     }
 
     /**

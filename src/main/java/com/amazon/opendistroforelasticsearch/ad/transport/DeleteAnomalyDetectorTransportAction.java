@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -35,6 +38,7 @@ import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -47,7 +51,9 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
+import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction<DeleteAnomalyDetectorRequest, DeleteResponse> {
 
@@ -55,6 +61,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
     private final Client client;
     private final ClusterService clusterService;
     private NamedXContentRegistry xContentRegistry;
+    private volatile Boolean filterByEnabled;
 
     @Inject
     public DeleteAnomalyDetectorTransportAction(
@@ -62,24 +69,34 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
         ActionFilters actionFilters,
         Client client,
         ClusterService clusterService,
+        Settings settings,
         NamedXContentRegistry xContentRegistry
     ) {
         super(DeleteAnomalyDetectorAction.NAME, transportService, actionFilters, DeleteAnomalyDetectorRequest::new);
         this.client = client;
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
+        filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
     }
 
     @Override
     protected void doExecute(Task task, DeleteAnomalyDetectorRequest request, ActionListener<DeleteResponse> listener) {
         String detectorId = request.getDetectorID();
         LOG.info("Delete anomaly detector job {}", detectorId);
-
+        User user = getUserContext(client);
         // By the time request reaches here, the user permissions are validated by Security plugin.
-        // Since the detectorID is provided, this can only happen if User is part of a role which has access
-        // to the detector. This is filtered by our Search Detector API.
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener));
+            resolveUserAndExecute(
+                user,
+                detectorId,
+                filterByEnabled,
+                listener,
+                () -> getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener)),
+                client,
+                clusterService,
+                xContentRegistry
+            );
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);

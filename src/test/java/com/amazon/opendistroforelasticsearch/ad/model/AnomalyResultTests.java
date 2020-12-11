@@ -34,12 +34,6 @@ public class AnomalyResultTests extends ESTestCase {
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
         assertEquals(
             "Parsing anomaly detect result doesn't work",
-            // String.format(
-            // Locale.ROOT,
-            // "\"Parsing anomaly detect result doesn't work\". Expected %s, but get %s",
-            // detectResult,
-            // parsedDetectResult
-            // ),
             detectResult,
             parsedDetectResult
         );
@@ -54,12 +48,6 @@ public class AnomalyResultTests extends ESTestCase {
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
         assertEquals(
             "Parsing anomaly detect result doesn't work",
-            // String.format(
-            // Locale.ROOT,
-            // "\"Parsing anomaly detect result doesn't work\". Expected %s, but get %s",
-            // detectResult,
-            // parsedDetectResult
-            // ),
             detectResult,
             parsedDetectResult
         );
@@ -74,12 +62,6 @@ public class AnomalyResultTests extends ESTestCase {
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
         assertEquals(
             "Parsing anomaly detect result doesn't work",
-            // String.format(
-            // Locale.ROOT,
-            // "\"Parsing anomaly detect result doesn't work\". Expected %s, but get %s",
-            // detectResult,
-            // parsedDetectResult
-            // ),
             detectResult,
             parsedDetectResult
         );

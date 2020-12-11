@@ -546,7 +546,7 @@ public final class ParseUtils {
         }
     }
 
-    public static boolean checkUserPermissions(User requestedUser, User resourceUser, String detectorId) throws Exception {
+    private static boolean checkUserPermissions(User requestedUser, User resourceUser, String detectorId) throws Exception {
         if (resourceUser.getBackendRoles() == null || requestedUser.getBackendRoles() == null) {
             return false;
         }
@@ -569,6 +569,9 @@ public final class ParseUtils {
     }
 
     public static boolean checkFilterByBackendRoles(User requestedUser, ActionListener listener) {
+        if (requestedUser == null) {
+            return false;
+        }
         if (requestedUser.getBackendRoles().isEmpty()) {
             listener
                 .onFailure(

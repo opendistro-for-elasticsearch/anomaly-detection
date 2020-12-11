@@ -63,7 +63,7 @@ public class AnomalyDetectorJobActionTests extends ESIntegTestCase {
 
         Settings build = Settings.builder().build();
         ThreadContext threadContext = new ThreadContext(build);
-        threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice");
+        threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         Client client = mock(Client.class);
         org.elasticsearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
@@ -85,7 +85,7 @@ public class AnomalyDetectorJobActionTests extends ESIntegTestCase {
             @Override
             public void onResponse(AnomalyDetectorJobResponse adResponse) {
                 // Will not be called as there is no detector
-                Assert.assertTrue(true);
+                Assert.assertTrue(false);
             }
 
             @Override

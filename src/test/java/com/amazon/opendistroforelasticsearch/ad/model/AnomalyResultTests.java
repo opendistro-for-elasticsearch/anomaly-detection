@@ -32,11 +32,7 @@ public class AnomalyResultTests extends ESTestCase {
         detectResultString = detectResultString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
-        assertEquals(
-            "Parsing anomaly detect result doesn't work",
-            detectResult,
-            parsedDetectResult
-        );
+        assertEquals("Parsing anomaly detect result doesn't work", detectResult, parsedDetectResult);
     }
 
     public void testParseAnomalyDetectorWithTaskId() throws IOException {
@@ -46,11 +42,7 @@ public class AnomalyResultTests extends ESTestCase {
         detectResultString = detectResultString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
-        assertEquals(
-            "Parsing anomaly detect result doesn't work",
-            detectResult,
-            parsedDetectResult
-        );
+        assertEquals("Parsing anomaly detect result doesn't work", detectResult, parsedDetectResult);
     }
 
     public void testParseAnomalyDetectorWithEntity() throws IOException {
@@ -60,10 +52,6 @@ public class AnomalyResultTests extends ESTestCase {
         detectResultString = detectResultString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
-        assertEquals(
-            "Parsing anomaly detect result doesn't work",
-            detectResult,
-            parsedDetectResult
-        );
+        assertEquals("Parsing anomaly detect result doesn't work", detectResult, parsedDetectResult);
     }
 }

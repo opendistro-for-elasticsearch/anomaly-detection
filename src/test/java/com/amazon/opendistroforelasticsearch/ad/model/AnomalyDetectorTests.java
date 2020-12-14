@@ -19,8 +19,10 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 import org.elasticsearch.common.ParsingException;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
 
@@ -42,6 +44,35 @@ public class AnomalyDetectorTests extends AbstractADTest {
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
     }
 
+    public void testParseAnomalyDetectorWithoutParams() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), Instant.now());
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder()));
+        LOG.info(detectorString);
+        detectorString = detectorString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+    }
+
+    public void testParseAnomalyDetectorWithCustomDetectionDelay() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), Instant.now());
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder()));
+        LOG.info(detectorString);
+        TimeValue detectionInterval = new TimeValue(1, TimeUnit.MINUTES);
+        TimeValue detectionWindowDelay = new TimeValue(10, TimeUnit.MINUTES);
+        detectorString = detectorString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyDetector parsedDetector = AnomalyDetector
+            .parse(
+                TestHelpers.parser(detectorString),
+                detector.getDetectorId(),
+                detector.getVersion(),
+                detectionInterval,
+                detectionWindowDelay
+            );
+        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+    }
+
     public void testParseHistoricalAnomalyDetector() throws IOException {
         AnomalyDetector detector = TestHelpers
             .randomAnomalyDetector(
@@ -50,6 +81,24 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 Instant.now(),
                 AnomalyDetectorType.HISTORICAL_SIGLE_ENTITY.name(),
                 TestHelpers.randomDetectionDateRange()
+            );
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        LOG.info(detectorString);
+        detectorString = detectorString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+    }
+
+    public void testParseHistoricalAnomalyDetectorWithoutUser() throws IOException {
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(TestHelpers.randomFeature()),
+                TestHelpers.randomUiMetadata(),
+                Instant.now(),
+                AnomalyDetectorType.HISTORICAL_SIGLE_ENTITY.name(),
+                TestHelpers.randomDetectionDateRange(),
+                false
             );
         String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         LOG.info(detectorString);

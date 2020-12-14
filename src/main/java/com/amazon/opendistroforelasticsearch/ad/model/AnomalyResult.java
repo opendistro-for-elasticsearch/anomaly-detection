@@ -183,7 +183,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.anomalyGrade = input.readDouble();
         this.confidence = input.readDouble();
         int featureSize = input.readVInt();
-        this.featureData = new ArrayList<FeatureData>(featureSize);
+        this.featureData = new ArrayList<>(featureSize);
         for (int i = 0; i < featureSize; i++) {
             featureData.add(new FeatureData(input));
         }
@@ -192,10 +192,14 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.executionStartTime = input.readInstant();
         this.executionEndTime = input.readInstant();
         this.error = input.readOptionalString();
-        int entitySize = input.readVInt();
-        this.entity = new ArrayList<Entity>(entitySize);
-        for (int i = 0; i < entitySize; i++) {
-            entity.add(new Entity(input));
+        if (input.readBoolean()) {
+            int entitySize = input.readVInt();
+            this.entity = new ArrayList<>(entitySize);
+            for (int i = 0; i < entitySize; i++) {
+                entity.add(new Entity(input));
+            }
+        } else {
+            this.entity = null;
         }
         if (input.readBoolean()) {
             this.user = new User(input);
@@ -409,7 +413,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         return detectorId;
     }
 
-    private String getTaskId() {
+    public String getTaskId() {
         return taskId;
     }
 
@@ -468,9 +472,14 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         out.writeInstant(executionStartTime);
         out.writeInstant(executionEndTime);
         out.writeOptionalString(error);
-        out.writeVInt(entity.size());
-        for (Entity entityItem : entity) {
-            entityItem.writeTo(out);
+        if (entity != null) {
+            out.writeBoolean(true);
+            out.writeVInt(entity.size());
+            for (Entity entityItem : entity) {
+                entityItem.writeTo(out);
+            }
+        } else {
+            out.writeBoolean(false);
         }
         if (user != null) {
             out.writeBoolean(true); // user exists

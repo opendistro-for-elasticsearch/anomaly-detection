@@ -227,6 +227,18 @@ public class TestHelpers {
         String detectorType,
         DetectionDateRange dateRange
     ) throws IOException {
+        return randomAnomalyDetector(features, uiMetadata, lastUpdateTime, detectorType, dateRange, true);
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(
+        List<Feature> features,
+        Map<String, Object> uiMetadata,
+        Instant lastUpdateTime,
+        String detectorType,
+        DetectionDateRange dateRange,
+        boolean withUser
+    ) throws IOException {
+        User user = withUser ? randomUser() : null;
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -243,7 +255,7 @@ public class TestHelpers {
             randomInt(),
             lastUpdateTime,
             null,
-            randomUser(),
+            user,
             detectorType,
             dateRange
         );
@@ -467,6 +479,11 @@ public class TestHelpers {
     }
 
     public static AnomalyResult randomAnomalyDetectResult(double score, String error, String taskId) {
+        return randomAnomalyDetectResult(score, error, taskId, true);
+    }
+
+    public static AnomalyResult randomAnomalyDetectResult(double score, String error, String taskId, boolean withUser) {
+        User user = withUser ? randomUser() : null;
         return new AnomalyResult(
             randomAlphaOfLength(5),
             taskId,
@@ -480,7 +497,7 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             error,
             null,
-            randomUser(),
+            user,
             CommonValue.NO_SCHEMA_VERSION
         );
     }

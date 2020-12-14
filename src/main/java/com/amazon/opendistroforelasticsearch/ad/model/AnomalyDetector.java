@@ -43,7 +43,6 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
@@ -226,31 +225,15 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public AnomalyDetector(StreamInput input) throws IOException {
         detectorId = input.readString();
         version = input.readLong();
-        String name = input.readString();
-        if (Strings.isBlank(name)) {
-            throw new IllegalArgumentException("Detector name should be set");
-        }
-        this.name = name;
+        name = input.readString();
         description = input.readString();
-        String timeField = input.readString();
-        if (timeField == null) {
-            throw new IllegalArgumentException("Time field should be set");
-        }
-        this.timeField = timeField;
-        List<String> indices = input.readStringList();
-        if (indices == null || indices.isEmpty()) {
-            throw new IllegalArgumentException("Indices should be set");
-        }
-        this.indices = indices;
+        timeField = input.readString();
+        indices = input.readStringList();
         featureAttributes = input.readList(Feature::new);
         filterQuery = input.readNamedWriteable(QueryBuilder.class);
         detectionInterval = IntervalTimeConfiguration.readFrom(input);
         windowDelay = IntervalTimeConfiguration.readFrom(input);
-        Integer shingleSize = input.readInt();
-        if (shingleSize != null && shingleSize < 1) {
-            throw new IllegalArgumentException("Shingle size must be a positive integer");
-        }
-        this.shingleSize = shingleSize;
+        shingleSize = input.readInt();
         schemaVersion = input.readInt();
         this.categoryFields = input.readOptionalStringList();
         lastUpdateTime = input.readInstant();
@@ -518,14 +501,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             detectorType,
             detectionDateRange
         );
-    }
-
-    public SearchSourceBuilder generateFeatureQuery() {
-        SearchSourceBuilder generatedFeatureQuery = new SearchSourceBuilder().query(filterQuery);
-        if (this.getFeatureAttributes() != null) {
-            this.getFeatureAttributes().stream().forEach(feature -> generatedFeatureQuery.aggregation(feature.getAggregation()));
-        }
-        return generatedFeatureQuery;
     }
 
     @Generated

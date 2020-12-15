@@ -52,8 +52,8 @@ public class DetectionDateRange implements ToXContentObject, Writeable {
     }
 
     public DetectionDateRange(StreamInput in) throws IOException {
-        this.startTime = in.readOptionalInstant();
-        this.endTime = in.readOptionalInstant();
+        this.startTime = in.readInstant();
+        this.endTime = in.readInstant();
     }
 
     @Override
@@ -125,7 +125,7 @@ public class DetectionDateRange implements ToXContentObject, Writeable {
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeOptionalInstant(startTime);
-        out.writeOptionalInstant(endTime);
+        out.writeInstant(startTime);
+        out.writeInstant(endTime);
     }
 }

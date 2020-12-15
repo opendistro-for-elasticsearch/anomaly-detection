@@ -478,11 +478,11 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         if (AnomalyDetector.isRealTimeDetector(detectionDateRange)) {
             detectorType = AnomalyDetector.isMultientityDetector(categoryField)
                 ? AnomalyDetectorType.REALTIME_MULTI_ENTITY.name()
-                : AnomalyDetectorType.REALTIME_SIGLE_ENTITY.name();
+                : AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name();
         } else {
             detectorType = AnomalyDetector.isMultientityDetector(categoryField)
                 ? AnomalyDetectorType.HISTORICAL_MULTI_ENTITY.name()
-                : AnomalyDetectorType.HISTORICAL_SIGLE_ENTITY.name();
+                : AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name();
         }
         return new AnomalyDetector(
             detectorId,

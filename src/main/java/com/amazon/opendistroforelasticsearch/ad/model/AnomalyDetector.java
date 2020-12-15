@@ -202,6 +202,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         if (categoryFields != null && categoryFields.size() > CATEGORY_FIELD_LIMIT) {
             throw new IllegalArgumentException(CommonErrorMessages.CATEGORICAL_FIELD_NUMBER_SURPASSED + CATEGORY_FIELD_LIMIT);
         }
+        if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
+            throw new IllegalArgumentException("Detection interval must be a positive integer");
+        }
         this.detectorId = detectorId;
         this.version = version;
         this.name = name;

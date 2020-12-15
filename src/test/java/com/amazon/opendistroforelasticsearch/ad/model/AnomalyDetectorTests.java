@@ -362,6 +362,60 @@ public class AnomalyDetectorTests extends AbstractADTest {
             );
     }
 
+    public void testInvalidDetectionInterval() {
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> new AnomalyDetector(
+                randomAlphaOfLength(10),
+                randomLong(),
+                randomAlphaOfLength(20),
+                randomAlphaOfLength(30),
+                randomAlphaOfLength(5),
+                ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+                ImmutableList.of(TestHelpers.randomFeature()),
+                TestHelpers.randomQuery(),
+                new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
+                TestHelpers.randomIntervalTimeConfiguration(),
+                randomIntBetween(1, 2000),
+                null,
+                randomInt(),
+                Instant.now(),
+                null,
+                null,
+                null,
+                null
+            )
+        );
+        assertEquals("Detection interval must be a positive integer", exception.getMessage());
+    }
+
+    public void testInvalidWindowDelay() {
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> new AnomalyDetector(
+                randomAlphaOfLength(10),
+                randomLong(),
+                randomAlphaOfLength(20),
+                randomAlphaOfLength(30),
+                randomAlphaOfLength(5),
+                ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+                ImmutableList.of(TestHelpers.randomFeature()),
+                TestHelpers.randomQuery(),
+                new IntervalTimeConfiguration(1, ChronoUnit.MINUTES),
+                new IntervalTimeConfiguration(-1, ChronoUnit.MINUTES),
+                randomIntBetween(1, 2000),
+                null,
+                randomInt(),
+                Instant.now(),
+                null,
+                null,
+                null,
+                null
+            )
+        );
+        assertEquals("Interval -1 should be non-negative", exception.getMessage());
+    }
+
     public void testNullFeatures() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, null, Instant.now().truncatedTo(ChronoUnit.SECONDS));
         String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));

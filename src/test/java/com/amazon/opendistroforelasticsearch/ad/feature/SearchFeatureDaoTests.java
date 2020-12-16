@@ -226,7 +226,6 @@ public class SearchFeatureDaoTests {
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         when(detector.getTimeField()).thenReturn("testTimeField");
         when(detector.getIndices()).thenReturn(Arrays.asList("testIndices"));
-        when(detector.generateFeatureQuery()).thenReturn(featureQuery);
         when(detector.getDetectionInterval()).thenReturn(detectionInterval);
         when(detector.getFilterQuery()).thenReturn(QueryBuilders.matchAllQuery());
         when(detector.getCategoryField()).thenReturn(Collections.singletonList("a"));

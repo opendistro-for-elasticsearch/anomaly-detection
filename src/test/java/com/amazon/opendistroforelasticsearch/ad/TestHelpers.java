@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
+import static org.apache.http.entity.ContentType.APPLICATION_JSON;
 import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
@@ -41,6 +42,7 @@ import java.util.function.Consumer;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.nio.entity.NStringEntity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -49,11 +51,13 @@ import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.client.AdminClient;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
@@ -627,6 +631,11 @@ public class TestHelpers {
         return pool;
     }
 
+    public static CreateIndexResponse createIndex(AdminClient adminClient, String indexName, String indexMapping) {
+        CreateIndexRequest request = new CreateIndexRequest(indexName).mapping(AnomalyDetector.TYPE, indexMapping, XContentType.JSON);
+        return adminClient.indices().create(request).actionGet(5_000);
+    }
+
     public static void createIndex(RestClient client, String indexName, HttpEntity data) throws IOException {
         TestHelpers
             .makeRequest(
@@ -756,5 +765,18 @@ public class TestHelpers {
             .stoppedBy(stoppedBy)
             .build();
         return task;
+    }
+
+    public static HttpEntity toHttpEntity(ToXContentObject object) throws IOException {
+        return new StringEntity(toJsonString(object), APPLICATION_JSON);
+    }
+
+    public static HttpEntity toHttpEntity(String jsonString) throws IOException {
+        return new StringEntity(jsonString, APPLICATION_JSON);
+    }
+
+    public static String toJsonString(ToXContentObject object) throws IOException {
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        return TestHelpers.xContentBuilderToString(object.toXContent(builder, ToXContent.EMPTY_PARAMS));
     }
 }

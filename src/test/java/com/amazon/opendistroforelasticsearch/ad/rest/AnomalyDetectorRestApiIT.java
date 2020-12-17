@@ -1083,20 +1083,13 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testDeleteAnomalyDetectorWhileRunning() throws Exception {
-        try {
-            AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
-            Assert.assertNotNull(detector.getDetectorId());
-            Response response = startAnomalyDetector(detector.getDetectorId(), client());
-            Assert.assertEquals(response.getStatusLine().toString(), "HTTP/1.1 200 OK");
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
+        Assert.assertNotNull(detector.getDetectorId());
+        Response response = startAnomalyDetector(detector.getDetectorId(), client());
+        Assert.assertEquals(response.getStatusLine().toString(), "HTTP/1.1 200 OK");
 
-            // Deleting detector should fail while its running
-            response = deleteAnomalyDetector(detector.getDetectorId(), client());
-            Assert.assertEquals(response.getStatusLine().toString(), "HTTP/1.1 400 Bad Request");
-            Assert.assertTrue(false); // Should always raise exception and never end up here
-        } catch (IOException e) {
-            if (!e.getMessage().contains("Detector job is running")) {
-                Assert.assertTrue(false);
-            }
-        }
+        // Deleting detector should fail while its running
+        Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(detector.getDetectorId(), client()); });
+        Assert.assertTrue(exception.getMessage().contains("Detector job is running"));
     }
 }

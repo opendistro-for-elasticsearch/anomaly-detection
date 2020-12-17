@@ -47,4 +47,8 @@ public class StatsAnomalyDetectorResponse extends ActionResponse implements ToXC
         adStatsResponse.toXContent(builder, params);
         return builder;
     }
+
+    protected ADStatsResponse getAdStatsResponse() {
+        return adStatsResponse;
+    }
 }

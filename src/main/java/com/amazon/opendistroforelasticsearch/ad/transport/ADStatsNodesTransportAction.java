@@ -27,10 +27,12 @@ import org.elasticsearch.action.support.nodes.TransportNodesAction;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.monitor.jvm.JvmService;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
+import com.amazon.opendistroforelasticsearch.ad.stats.InternalStatNames;
 
 /**
  *  ADStatsNodesTransportAction contains the logic to extract the stats from the nodes
@@ -39,6 +41,7 @@ public class ADStatsNodesTransportAction extends
     TransportNodesAction<ADStatsRequest, ADStatsNodesResponse, ADStatsNodeRequest, ADStatsNodeResponse> {
 
     private ADStats adStats;
+    private final JvmService jvmService;
 
     /**
      * Constructor
@@ -55,7 +58,8 @@ public class ADStatsNodesTransportAction extends
         ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
-        ADStats adStats
+        ADStats adStats,
+        JvmService jvmService
     ) {
         super(
             ADStatsNodesAction.NAME,
@@ -69,6 +73,7 @@ public class ADStatsNodesTransportAction extends
             ADStatsNodeResponse.class
         );
         this.adStats = adStats;
+        this.jvmService = jvmService;
     }
 
     @Override
@@ -98,6 +103,11 @@ public class ADStatsNodesTransportAction extends
     private ADStatsNodeResponse createADStatsNodeResponse(ADStatsRequest adStatsRequest) {
         Map<String, Object> statValues = new HashMap<>();
         Set<String> statsToBeRetrieved = adStatsRequest.getStatsToBeRetrieved();
+
+        if (statsToBeRetrieved.contains(InternalStatNames.JVM_HEAP_USAGE.getName())) {
+            long heapUsedPercent = jvmService.stats().getMem().getHeapUsedPercent();
+            statValues.put(InternalStatNames.JVM_HEAP_USAGE.getName(), heapUsedPercent);
+        }
 
         for (String statName : adStats.getNodeStats().keySet()) {
             if (statsToBeRetrieved.contains(statName)) {

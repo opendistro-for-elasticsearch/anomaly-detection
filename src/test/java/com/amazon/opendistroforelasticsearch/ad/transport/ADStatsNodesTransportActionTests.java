@@ -42,7 +42,7 @@ import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
-import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
+import com.amazon.opendistroforelasticsearch.ad.stats.InternalStatNames;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
@@ -91,7 +91,7 @@ public class ADStatsNodesTransportActionTests extends ESIntegTestCase {
                 put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider)));
                 put(clusterStatName1, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index1")));
                 put(clusterStatName2, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index2")));
-                put(StatNames.JVM_HEAP_USAGE.getName(), new ADStat<>(true, new SettableSupplier()));
+                put(InternalStatNames.JVM_HEAP_USAGE.getName(), new ADStat<>(true, new SettableSupplier()));
             }
         };
 
@@ -153,7 +153,7 @@ public class ADStatsNodesTransportActionTests extends ESIntegTestCase {
         ADStatsRequest adStatsRequest = new ADStatsRequest((nodeId));
         adStatsRequest.clear();
 
-        Set<String> statsToBeRetrieved = new HashSet<>(Arrays.asList(nodeStatName1, StatNames.JVM_HEAP_USAGE.getName()));
+        Set<String> statsToBeRetrieved = new HashSet<>(Arrays.asList(nodeStatName1, InternalStatNames.JVM_HEAP_USAGE.getName()));
 
         for (String stat : statsToBeRetrieved) {
             adStatsRequest.addStat(stat);

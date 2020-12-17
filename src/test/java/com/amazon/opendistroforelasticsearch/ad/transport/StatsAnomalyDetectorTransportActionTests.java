@@ -38,6 +38,7 @@ import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorType;
+import com.amazon.opendistroforelasticsearch.ad.stats.InternalStatNames;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -96,7 +97,7 @@ public class StatsAnomalyDetectorTransportActionTests extends ESIntegTestCase {
 
     public void testStatsAnomalyDetectorWithNodeLevelStats() {
         ADStatsRequest adStatsRequest = new ADStatsRequest(clusterService().localNode());
-        adStatsRequest.addStat(StatNames.JVM_HEAP_USAGE.getName());
+        adStatsRequest.addStat(InternalStatNames.JVM_HEAP_USAGE.getName());
         StatsAnomalyDetectorResponse response = client().execute(StatsAnomalyDetectorAction.INSTANCE, adStatsRequest).actionGet(5_000);
         assertEquals(1, response.getAdStatsResponse().getADStatsNodesResponse().getNodes().size());
         assertTrue(
@@ -106,7 +107,7 @@ public class StatsAnomalyDetectorTransportActionTests extends ESIntegTestCase {
                 .getNodes()
                 .get(0)
                 .getStatsMap()
-                .containsKey(StatNames.JVM_HEAP_USAGE.getName())
+                .containsKey(InternalStatNames.JVM_HEAP_USAGE.getName())
         );
     }
 

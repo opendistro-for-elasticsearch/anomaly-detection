@@ -40,6 +40,7 @@ import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorType;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStatsResponse;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
@@ -47,7 +48,6 @@ import com.amazon.opendistroforelasticsearch.ad.util.MultiResponsesDelegateActio
 
 public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<ADStatsRequest, StatsAnomalyDetectorResponse> {
     public static final String DETECTOR_TYPE_AGG = "detector_type_agg";
-    private static final String HISTORICAL_DETECTOR_TYPE_PREFIX = "HISTORICAL";
     private final Logger logger = LogManager.getLogger(StatsAnomalyDetectorTransportAction.class);
 
     private final Client client;
@@ -128,7 +128,7 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
     ) {
         ADStatsResponse adStatsResponse = new ADStatsResponse();
         if ((adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())
-            || adStatsRequest.getStatsToBeRetrieved().contains(StatNames.HISTORICAL_DETECTOR_COUNT.getName()))
+            || adStatsRequest.getStatsToBeRetrieved().contains(StatNames.HISTORICAL_SINGLE_ENTITY_DETECTOR_COUNT.getName()))
             && clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
 
             TermsAggregationBuilder termsAgg = AggregationBuilders.terms(DETECTOR_TYPE_AGG).field(AnomalyDetector.DETECTOR_TYPE_FIELD);
@@ -140,17 +140,19 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
                 StringTerms aggregation = r.getAggregations().get(DETECTOR_TYPE_AGG);
                 List<StringTerms.Bucket> buckets = aggregation.getBuckets();
                 long totalDetectors = r.getHits().getTotalHits().value;
-                long totalHistoricalDetectors = 0;
+                long totalHistoricalSingleEntityDetectors = 0;
                 for (StringTerms.Bucket b : buckets) {
-                    if (b.getKeyAsString().contains(HISTORICAL_DETECTOR_TYPE_PREFIX)) {
-                        totalHistoricalDetectors += b.getDocCount();
+                    if (AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name().equals(b.getKeyAsString())) {
+                        totalHistoricalSingleEntityDetectors += b.getDocCount();
                     }
                 }
                 if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())) {
                     adStats.getStat(StatNames.DETECTOR_COUNT.getName()).setValue(totalDetectors);
                 }
-                if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.HISTORICAL_DETECTOR_COUNT.getName())) {
-                    adStats.getStat(StatNames.HISTORICAL_DETECTOR_COUNT.getName()).setValue(totalHistoricalDetectors);
+                if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.HISTORICAL_SINGLE_ENTITY_DETECTOR_COUNT.getName())) {
+                    adStats
+                        .getStat(StatNames.HISTORICAL_SINGLE_ENTITY_DETECTOR_COUNT.getName())
+                        .setValue(totalHistoricalSingleEntityDetectors);
                 }
                 adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
                 listener.onResponse(adStatsResponse);

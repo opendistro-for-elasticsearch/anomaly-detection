@@ -34,7 +34,7 @@ public enum StatNames {
     ANOMALY_DETECTION_STATE_STATUS("anomaly_detection_state_status"),
     MODEL_INFORMATION("models"),
     JVM_HEAP_USAGE("jvm_heap_usage"),
-    HISTORICAL_DETECTOR_COUNT("historical_detector_count"),
+    HISTORICAL_SINGLE_ENTITY_DETECTOR_COUNT("historical_single_entity_detector_count"),
     AD_EXECUTING_BATCH_TASK_COUNT("ad_executing_batch_task_count"),
     AD_CANCELED_BATCH_TASK_COUNT("ad_canceled_batch_task_count"),
     AD_TOTAL_BATCH_TASK_EXECUTION_COUNT("ad_total_batch_task_execution_count"),

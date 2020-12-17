@@ -43,7 +43,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     @Before
     public void setupSecureTests() throws IOException {
         if (!isHttps())
-            return;
+            throw new IllegalArgumentException("Secure Tests are running but HTTPS is not set");
         createIndexRole("index_all_access", "*");
         createUser(aliceUser, aliceUser, new ArrayList<>(Arrays.asList("odfe")));
         aliceClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), aliceUser, aliceUser)
@@ -72,8 +72,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
     @After
     public void deleteUserSetup() throws IOException {
-        if (!isHttps())
-            return;
         aliceClient.close();
         bobClient.close();
         catClient.close();
@@ -84,160 +82,102 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         deleteUser(dogUser);
     }
 
-    public void testCreateAnomalyDetectorWithWriteAccess() {
-        if (!isHttps())
-            return;
-        try {
-            // User Alice has AD full access, should be able to create a detector
-            AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-            Assert.assertNotNull(aliceDetector.getDetectorId());
-        } catch (IOException e) {
-            Assert.assertTrue("User Alice could not create detector", false);
-        }
+    public void testCreateAnomalyDetectorWithWriteAccess() throws IOException {
+        // User Alice has AD full access, should be able to create a detector
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        Assert.assertNotNull("User alice could not create detector", aliceDetector.getDetectorId());
     }
 
     public void testCreateAnomalyDetectorWithReadAccess() {
-        if (!isHttps())
-            return;
-        try {
-            // User Bob has AD read access, should not be able to create a detector
-            AnomalyDetector bobDetector = createRandomAnomalyDetector(false, false, bobClient);
-            Assert.assertNull(bobDetector.getDetectorId());
-        } catch (IOException e) {
-            if (!e.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]")) {
-                Assert.assertTrue(false);
-            }
-        }
+        // User Bob has AD read access, should not be able to create a detector
+        Exception exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, bobClient); });
+        Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]"));
     }
 
-    public void testStartDetectorWithReadAccess() {
-        if (!isHttps())
-            return;
-        try {
-            // User Bob has AD read access, should not be able to modify a detector
-            AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-            Assert.assertNotNull(aliceDetector.getDetectorId());
-            Response response = startAnomalyDetector(aliceDetector.getDetectorId(), bobClient);
-            Assert.assertEquals(response.getStatusLine().toString(), "HTTP/1.1 500 Internal Server Error");
-        } catch (IOException e) {
-            if (!e.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]")) {
-                Assert.assertTrue(false);
-            }
-        }
+    public void testStartDetectorWithReadAccess() throws IOException {
+        // User Bob has AD read access, should not be able to modify a detector
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        Assert.assertNotNull(aliceDetector.getDetectorId());
+        Exception exception = expectThrows(IOException.class, () -> { startAnomalyDetector(aliceDetector.getDetectorId(), bobClient); });
+        Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]"));
     }
 
-    public void testStartDetectorForWriteUser() {
-        if (!isHttps())
-            return;
-        try {
-            // User Alice has AD full access, should be able to modify a detector
-            AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-            Assert.assertNotNull(aliceDetector.getDetectorId());
-            Response response = startAnomalyDetector(aliceDetector.getDetectorId(), aliceClient);
-            Assert.assertEquals(response.getStatusLine().toString(), "HTTP/1.1 200 OK");
-        } catch (IOException e) {
-            Assert.assertTrue("User Alice could not start detector", false);
-        }
+    public void testStartDetectorForWriteUser() throws IOException {
+        // User Alice has AD full access, should be able to modify a detector
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        Assert.assertNotNull(aliceDetector.getDetectorId());
+        Response response = startAnomalyDetector(aliceDetector.getDetectorId(), aliceClient);
+        Assert.assertEquals(response.getStatusLine().toString(), "HTTP/1.1 200 OK");
     }
 
-    public void testFilterByDisabled() {
-        if (!isHttps())
-            return;
-        try {
-            // User Alice has AD full access, should be able to create a detector
-            AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-            // User Cat has AD full access, should be able to get a detector
-            AnomalyDetector detector = getAnomalyDetector(aliceDetector.getDetectorId(), catClient);
-            Assert.assertEquals(aliceDetector.getDetectorId(), detector.getDetectorId());
-        } catch (IOException e) {
-            Assert.assertTrue("User Cat could not get detector", false);
-        }
+    public void testFilterByDisabled() throws IOException {
+        // User Alice has AD full access, should be able to create a detector
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        // User Cat has AD full access, should be able to get a detector
+        AnomalyDetector detector = getAnomalyDetector(aliceDetector.getDetectorId(), catClient);
+        Assert.assertEquals(aliceDetector.getDetectorId(), detector.getDetectorId());
     }
 
     public void testGetApiFilterByEnabled() throws IOException {
-        if (!isHttps())
-            return;
         // User Alice has AD full access, should be able to create a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        try {
-            enableFilterBy();
-            // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
-            // Alice detector
-            AnomalyDetector detector = getAnomalyDetector(aliceDetector.getDetectorId(), catClient);
-            Assert.assertNull(detector.getDetectorId());
-        } catch (IOException e) {
-            if (!e.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())) {
-                Assert.assertTrue(false);
-            }
-        }
+        enableFilterBy();
+        // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
+        // Alice detector
+        Exception exception = expectThrows(IOException.class, () -> { getAnomalyDetector(aliceDetector.getDetectorId(), catClient); });
+        Assert
+            .assertTrue(
+                exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())
+            );
     }
 
     public void testStartApiFilterByEnabled() throws IOException {
-        if (!isHttps())
-            return;
         // User Alice has AD full access, should be able to create a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        try {
-            enableFilterBy();
-            // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
-            // Alice detector
-            Response response = startAnomalyDetector(aliceDetector.getDetectorId(), catClient);
-            Assert.assertEquals(response.getStatusLine().toString(), "HTTP/1.1 500 Internal Server Error");
-        } catch (IOException e) {
-            if (!e.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())) {
-                Assert.assertTrue(false);
-            }
-        }
+        enableFilterBy();
+        // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
+        // Alice detector
+        Exception exception = expectThrows(IOException.class, () -> { startAnomalyDetector(aliceDetector.getDetectorId(), catClient); });
+        Assert
+            .assertTrue(
+                exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())
+            );
     }
 
     public void testStopApiFilterByEnabled() throws IOException {
-        if (!isHttps())
-            return;
         // User Alice has AD full access, should be able to create a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        try {
-            enableFilterBy();
-            // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
-            // Alice detector
-            Response response = stopAnomalyDetector(aliceDetector.getDetectorId(), catClient);
-            Assert.assertEquals(response.getStatusLine().toString(), "HTTP/1.1 500 Internal Server Error");
-        } catch (IOException e) {
-            if (!e.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())) {
-                Assert.assertTrue(false);
-            }
-        }
+        enableFilterBy();
+        // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
+        // Alice detector
+        Exception exception = expectThrows(IOException.class, () -> { stopAnomalyDetector(aliceDetector.getDetectorId(), catClient); });
+        Assert
+            .assertTrue(
+                exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())
+            );
     }
 
     public void testDeleteApiFilterByEnabled() throws IOException {
-        if (!isHttps())
-            return;
         // User Alice has AD full access, should be able to create a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        try {
-            enableFilterBy();
-            // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
-            // Alice detector
-            Response response = deleteAnomalyDetector(aliceDetector.getDetectorId(), catClient);
-            Assert.assertEquals(response.getStatusLine().toString(), "HTTP/1.1 500 Internal Server Error");
-        } catch (IOException e) {
-            if (!e.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())) {
-                Assert.assertTrue(false);
-            }
-        }
+        enableFilterBy();
+        // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
+        // Alice detector
+        Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(aliceDetector.getDetectorId(), catClient); });
+        Assert
+            .assertTrue(
+                exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())
+            );
     }
 
     public void testCreateAnomalyDetectorWithNoBackendRole() throws IOException {
-        if (!isHttps())
-            return;
-        try {
-            enableFilterBy();
-            // User Dog has AD full access, but has no backend role
-            // When filter by is enabled, we block creating Detectors
-            AnomalyDetector dogDetector = createRandomAnomalyDetector(false, false, dogClient);
-        } catch (IOException e) {
-            if (!e.getMessage().contains("Filter by backend roles is enabled and User dog does not have backend roles configured")) {
-                Assert.assertTrue(false);
-            }
-        }
+        enableFilterBy();
+        // User Dog has AD full access, but has no backend role
+        // When filter by is enabled, we block creating Detectors
+        Exception exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, dogClient); });
+        Assert
+            .assertTrue(
+                exception.getMessage().contains("Filter by backend roles is enabled and User dog does not have backend roles configured")
+            );
     }
 }

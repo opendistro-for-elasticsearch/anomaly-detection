@@ -58,6 +58,9 @@ public class ADTaskCacheManager {
 
     /**
      * Put AD task into cache.
+     * If AD task is already in cache, will throw {@link IllegalArgumentException}
+     * If there is one AD task in cache for detector, will throw {@link IllegalArgumentException}
+     * If there is no enough memory for this AD task, will throw {@link LimitExceededException}
      *
      * @param adTask AD task
      */
@@ -83,6 +86,8 @@ public class ADTaskCacheManager {
     /**
      * check if current running batch task on current node exceeds
      * max running task limitation.
+     * If executing task count exceeds limitation, will throw
+     * {@link LimitExceededException}
      */
     public void checkRunningTaskLimit() {
         if (size() >= maxAdBatchTaskPerNode) {

@@ -33,7 +33,6 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.CheckedConsumer;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
@@ -109,22 +108,24 @@ public class PreviewAnomalyDetectorTransportAction extends
         ActionListener<PreviewAnomalyDetectorResponse> listener,
         AnomalyDetector detector
     ) {
-        return ActionListener.wrap(new CheckedConsumer<List<AnomalyResult>, Exception>() {
+        return new ActionListener<List<AnomalyResult>>() {
             @Override
-            public void accept(List<AnomalyResult> anomalyResult) throws Exception {
-                PreviewAnomalyDetectorResponse response = new PreviewAnomalyDetectorResponse(anomalyResult, detector);
+            public void onResponse(List<AnomalyResult> anomalyResults) {
+                PreviewAnomalyDetectorResponse response = new PreviewAnomalyDetectorResponse(anomalyResults, detector);
                 listener.onResponse(response);
             }
-        }, exception -> {
-            logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(), exception);
-            listener
-                .onFailure(
-                    new ElasticsearchException(
-                        "Unexpected error running anomaly detector " + detector.getDetectorId(),
-                        RestStatus.INTERNAL_SERVER_ERROR
-                    )
-                );
-        });
+
+            @Override
+            public void onFailure(Exception e) {
+                listener
+                    .onFailure(
+                        new ElasticsearchException(
+                            "Unexpected error running anomaly detector " + detector.getDetectorId(),
+                            RestStatus.INTERNAL_SERVER_ERROR
+                        )
+                    );
+            }
+        };
     }
 
     private void previewAnomalyDetector(

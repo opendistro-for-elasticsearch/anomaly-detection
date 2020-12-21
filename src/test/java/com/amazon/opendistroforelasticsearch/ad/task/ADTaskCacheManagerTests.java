@@ -132,7 +132,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
         adTaskCacheManager.setThresholdModelTrained(adTask.getTaskId(), false);
         verify(memoryTracker, never()).releaseMemory(anyLong(), anyBoolean(), eq(HISTORICAL_SINGLE_ENTITY_DETECTOR));
         adTaskCacheManager.setThresholdModelTrained(adTask.getTaskId(), true);
-        verify(memoryTracker, times(1)).releaseMemory(eq(cacheSize), eq(false), eq(HISTORICAL_SINGLE_ENTITY_DETECTOR));
+        verify(memoryTracker, times(1)).releaseMemory(eq(cacheSize), eq(true), eq(HISTORICAL_SINGLE_ENTITY_DETECTOR));
     }
 
     public void testCancel() throws IOException {

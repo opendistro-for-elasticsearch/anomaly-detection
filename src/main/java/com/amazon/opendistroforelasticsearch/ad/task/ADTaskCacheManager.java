@@ -154,7 +154,7 @@ public class ADTaskCacheManager {
             long cacheSize = trainingDataMemorySize(size);
             taskCache.getThresholdModelTrainingData().clear();
             taskCache.getCacheMemorySize().getAndAdd(-cacheSize);
-            memoryTracker.releaseMemory(cacheSize, false, HISTORICAL_SINGLE_ENTITY_DETECTOR);
+            memoryTracker.releaseMemory(cacheSize, true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
         }
     }
 
@@ -220,7 +220,7 @@ public class ADTaskCacheManager {
      */
     public void remove(String taskId) {
         if (contains(taskId)) {
-            memoryTracker.releaseMemory(getBatchTaskCache(taskId).getCacheMemorySize().get(), false, HISTORICAL_SINGLE_ENTITY_DETECTOR);
+            memoryTracker.releaseMemory(getBatchTaskCache(taskId).getCacheMemorySize().get(), true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
             taskCaches.remove(taskId);
         }
     }

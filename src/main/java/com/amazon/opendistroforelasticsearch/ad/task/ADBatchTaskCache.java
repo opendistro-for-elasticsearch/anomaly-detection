@@ -22,12 +22,11 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.TIME_DECAY;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
@@ -46,7 +45,8 @@ public class ADBatchTaskCache {
     private ThresholdingModel thresholdModel;
     private boolean thresholdModelTrained;
     private Deque<Map.Entry<Long, Optional<double[]>>> shingle;
-    private List<Double> thresholdModelTrainingData;
+    private AtomicInteger thresholdModelTrainingDataSize = new AtomicInteger(0);
+    private double[] thresholdModelTrainingData;
     private AtomicBoolean cancelled = new AtomicBoolean(false);
     private AtomicLong cacheMemorySize = new AtomicLong(0);
     private String cancelReason;
@@ -74,7 +74,7 @@ public class ADBatchTaskCache {
             AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
             AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES
         );
-        this.thresholdModelTrainingData = new ArrayList<>(THRESHOLD_MODEL_TRAINING_SIZE);
+        this.thresholdModelTrainingData = new double[THRESHOLD_MODEL_TRAINING_SIZE];
         this.thresholdModelTrained = false;
         this.shingle = new ArrayDeque<>(detector.getShingleSize());
     }
@@ -103,8 +103,17 @@ public class ADBatchTaskCache {
         return thresholdModelTrained;
     }
 
-    protected List<Double> getThresholdModelTrainingData() {
+    protected double[] getThresholdModelTrainingData() {
         return thresholdModelTrainingData;
+    }
+
+    protected void clearTrainingData() {
+        this.thresholdModelTrainingData = null;
+        this.thresholdModelTrainingDataSize.set(0);
+    }
+
+    public AtomicInteger getThresholdModelTrainingDataSize() {
+        return thresholdModelTrainingDataSize;
     }
 
     protected AtomicLong getCacheMemorySize() {

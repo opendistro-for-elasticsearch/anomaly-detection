@@ -21,11 +21,11 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 
 import java.util.Deque;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
@@ -34,6 +34,7 @@ import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.randomcutforest.RandomCutForest;
 
 public class ADTaskCacheManager {
@@ -125,8 +126,17 @@ public class ADTaskCacheManager {
      * @param taskId AD task id
      * @return threshold model training data
      */
-    public List<Double> getThresholdModelTrainingData(String taskId) {
+    public double[] getThresholdModelTrainingData(String taskId) {
         return getBatchTaskCache(taskId).getThresholdModelTrainingData();
+    }
+
+    public int addThresholdModelTrainingData(String taskId, double... data) {
+        ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
+        double[] thresholdModelTrainingData = taskCache.getThresholdModelTrainingData();
+        AtomicInteger size = taskCache.getThresholdModelTrainingDataSize();
+        int dataPointsAdded = Math.min(data.length, THRESHOLD_MODEL_TRAINING_SIZE - size.get());
+        System.arraycopy(data, 0, thresholdModelTrainingData, size.get(), dataPointsAdded);
+        return size.addAndGet(dataPointsAdded);
     }
 
     /**
@@ -146,13 +156,13 @@ public class ADTaskCacheManager {
      * @param taskId task id
      * @param trained threshold model trained or not
      */
-    public void setThresholdModelTrained(String taskId, boolean trained) {
+    protected void setThresholdModelTrained(String taskId, boolean trained) {
         ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
         taskCache.setThresholdModelTrained(trained);
         if (trained) {
-            int size = taskCache.getThresholdModelTrainingData().size();
+            int size = taskCache.getThresholdModelTrainingDataSize().get();
             long cacheSize = trainingDataMemorySize(size);
-            taskCache.getThresholdModelTrainingData().clear();
+            taskCache.clearTrainingData();
             taskCache.getCacheMemorySize().getAndAdd(-cacheSize);
             memoryTracker.releaseMemory(cacheSize, true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
         }
@@ -209,8 +219,9 @@ public class ADTaskCacheManager {
      * @return how many bytes will consume
      */
     private long calculateADTaskCacheSize(ADTask adTask) {
-        return memoryTracker.estimateModelSize(adTask.getDetector(), NUM_TREES) + trainingDataMemorySize(THRESHOLD_MODEL_TRAINING_SIZE)
-            + shingleMemorySize(adTask.getDetector().getShingleSize());
+        AnomalyDetector detector = adTask.getDetector();
+        return memoryTracker.estimateModelSize(detector, NUM_TREES) + trainingDataMemorySize(THRESHOLD_MODEL_TRAINING_SIZE)
+            + shingleMemorySize(detector.getShingleSize(), detector.getEnabledFeatureIds().size());
     }
 
     /**
@@ -285,27 +296,30 @@ public class ADTaskCacheManager {
 
     /**
      * Estimate max memory usage of model training data.
-     * The training data is double and will cache in {@link java.util.ArrayList}.
-     * Check {@link ADBatchTaskCache#getThresholdModelTrainingData()}
+     * The training data is double and will cache in double array.
+     * One double consumes 8 bytes.
      *
      * @param size training data point count
      * @return how many bytes will consume
      */
     public long trainingDataMemorySize(int size) {
-        return 24 * size;
+        return 8 * size;
     }
 
     /**
      * Estimate max memory usage of shingle data.
-     * Based on the test, one shingle data point consumes about 96 bytes.
-     * The shingle data is stored in {@link java.util.Deque}
+     * One feature aggregated data point(double) consumes 8 bytes.
+     * The shingle data is stored in {@link java.util.Deque}. From testing,
+     * other parts except feature data consume 80 bytes.
+     *
      * Check {@link ADBatchTaskCache#getShingle()}
      *
      * @param shingleSize shingle data point count
+     * @param enabledFeatureSize enabled feature count
      * @return how many bytes will consume
      */
-    public long shingleMemorySize(int shingleSize) {
-        return 96 * shingleSize;
+    public long shingleMemorySize(int shingleSize, int enabledFeatureSize) {
+        return (80 + 8 * enabledFeatureSize) * shingleSize;
     }
 
 }

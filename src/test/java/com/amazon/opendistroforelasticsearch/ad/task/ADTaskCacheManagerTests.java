@@ -43,7 +43,6 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededEx
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
-import com.google.common.collect.ImmutableList;
 
 public class ADTaskCacheManagerTests extends ESTestCase {
     private MemoryTracker memoryTracker;
@@ -126,8 +125,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
         ADTask adTask = TestHelpers.randomAdTask();
         adTaskCacheManager.put(adTask);
         assertEquals(1, adTaskCacheManager.size());
-        adTaskCacheManager.getThresholdModelTrainingData(adTask.getTaskId()).addAll(ImmutableList.of(randomDouble(), randomDouble()));
-        int size = adTaskCacheManager.getThresholdModelTrainingData(adTask.getTaskId()).size();
+        int size = adTaskCacheManager.addThresholdModelTrainingData(adTask.getTaskId(), randomDouble(), randomDouble());
         long cacheSize = adTaskCacheManager.trainingDataMemorySize(size);
         adTaskCacheManager.setThresholdModelTrained(adTask.getTaskId(), false);
         verify(memoryTracker, never()).releaseMemory(anyLong(), anyBoolean(), eq(HISTORICAL_SINGLE_ENTITY_DETECTOR));

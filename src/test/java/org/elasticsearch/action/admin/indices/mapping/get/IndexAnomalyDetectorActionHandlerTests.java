@@ -27,13 +27,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
 
-import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
@@ -53,8 +49,6 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.threadpool.TestThreadPool;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.AfterClass;
@@ -182,13 +176,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         );
     }
 
-    private SearchHits createSearchHits(int totalHits) {
-        List<SearchHit> hitList = new ArrayList<>();
-        IntStream.range(0, totalHits).forEach(i -> hitList.add(new SearchHit(i)));
-        SearchHit[] hitArray = new SearchHit[hitList.size()];
-        return new SearchHits(hitList.toArray(hitArray), new TotalHits(totalHits, TotalHits.Relation.EQUAL_TO), 1.0F);
-    }
-
     public void testTwoCategoricalFields() throws IOException {
         expectThrows(
             IllegalArgumentException.class,
@@ -200,7 +187,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     public void testNoCategoricalField() throws IOException {
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = 1001;
-        when(mockResponse.getHits()).thenReturn(createSearchHits(totalHits));
+        when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
@@ -250,7 +237,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         SearchResponse detectorResponse = mock(SearchResponse.class);
         int totalHits = 9;
-        when(detectorResponse.getHits()).thenReturn(createSearchHits(totalHits));
+        when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
@@ -313,11 +300,11 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         SearchResponse detectorResponse = mock(SearchResponse.class);
         int totalHits = 9;
-        when(detectorResponse.getHits()).thenReturn(createSearchHits(totalHits));
+        when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
         SearchResponse userIndexResponse = mock(SearchResponse.class);
         int userIndexHits = 0;
-        when(userIndexResponse.getHits()).thenReturn(createSearchHits(userIndexHits));
+        when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
 
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
@@ -397,14 +384,14 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         SearchResponse detectorResponse = mock(SearchResponse.class);
         int totalHits = 9;
-        when(detectorResponse.getHits()).thenReturn(createSearchHits(totalHits));
+        when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
         GetResponse getDetectorResponse = TestHelpers
             .createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
 
         SearchResponse userIndexResponse = mock(SearchResponse.class);
         int userIndexHits = 0;
-        when(userIndexResponse.getHits()).thenReturn(createSearchHits(userIndexHits));
+        when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
 
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
@@ -496,7 +483,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         int totalHits = 11;
 
-        when(mockResponse.getHits()).thenReturn(createSearchHits(totalHits));
+        when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -530,7 +517,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             .createGetResponse(existingDetector, existingDetector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
 
         SearchResponse searchResponse = mock(SearchResponse.class);
-        when(searchResponse.getHits()).thenReturn(createSearchHits(totalHits));
+        when(searchResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -602,7 +589,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             .createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
 
         SearchResponse searchResponse = mock(SearchResponse.class);
-        when(searchResponse.getHits()).thenReturn(createSearchHits(totalHits));
+        when(searchResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();

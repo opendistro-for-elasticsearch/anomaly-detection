@@ -42,6 +42,7 @@ public class ADTaskCacheManager {
     private final Map<String, ADBatchTaskCache> taskCaches;
     private volatile Integer maxAdBatchTaskPerNode;
     private final MemoryTracker memoryTracker;
+    private final int numberSize = 8;
 
     /**
      * Constructor to create AD task cache manager.
@@ -75,10 +76,10 @@ public class ADTaskCacheManager {
         }
         checkRunningTaskLimit();
         long neededCacheSize = calculateADTaskCacheSize(adTask);
-        if (!memoryTracker.canAllocate(neededCacheSize)) {
+        if (!memoryTracker.canAllocateReserved(adTask.getDetectorId(), neededCacheSize)) {
             throw new LimitExceededException("No enough memory to run detector");
         }
-        memoryTracker.consumeMemory(neededCacheSize, false, HISTORICAL_SINGLE_ENTITY_DETECTOR);
+        memoryTracker.consumeMemory(neededCacheSize, true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
         ADBatchTaskCache taskCache = new ADBatchTaskCache(adTask);
         taskCache.getCacheMemorySize().set(neededCacheSize);
         taskCaches.put(taskId, taskCache);
@@ -201,6 +202,9 @@ public class ADTaskCacheManager {
     /**
      * Get batch task cache. If task doesn't exist in cache, will throw
      * {@link java.lang.IllegalArgumentException}
+     * We throw exception rather than return {@code Optional.empty} or null
+     * here, so don't need to check task existence by writing duplicate null
+     * checking code. All AD task exceptions will be handled in AD task manager.
      *
      * @param taskId task id
      * @return AD batch task cache
@@ -303,7 +307,7 @@ public class ADTaskCacheManager {
      * @return how many bytes will consume
      */
     public long trainingDataMemorySize(int size) {
-        return 8 * size;
+        return numberSize * size;
     }
 
     /**
@@ -319,7 +323,7 @@ public class ADTaskCacheManager {
      * @return how many bytes will consume
      */
     public long shingleMemorySize(int shingleSize, int enabledFeatureSize) {
-        return (80 + 8 * enabledFeatureSize) * shingleSize;
+        return (80 + numberSize * enabledFeatureSize) * shingleSize;
     }
 
 }

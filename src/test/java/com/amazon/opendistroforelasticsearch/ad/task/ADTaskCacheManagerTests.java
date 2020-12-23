@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.ad.task;
 import static com.amazon.opendistroforelasticsearch.ad.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DETECTOR;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -75,7 +76,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     }
 
     public void testPutTask() throws IOException {
-        when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
+        when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(true);
         ADTask adTask = TestHelpers.randomAdTask();
         adTaskCacheManager.put(adTask);
         assertEquals(1, adTaskCacheManager.size());
@@ -91,7 +92,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     }
 
     public void testPutDuplicateTask() throws IOException {
-        when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
+        when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(true);
         ADTask adTask1 = TestHelpers.randomAdTask();
         adTaskCacheManager.put(adTask1);
         assertEquals(1, adTaskCacheManager.size());
@@ -112,7 +113,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     }
 
     public void testPutTaskWithMemoryExceedLimit() {
-        when(memoryTracker.canAllocate(anyLong())).thenReturn(false);
+        when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(false);
         LimitExceededException exception = expectThrows(
             LimitExceededException.class,
             () -> adTaskCacheManager.put(TestHelpers.randomAdTask())
@@ -121,7 +122,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     }
 
     public void testThresholdModelTrained() throws IOException {
-        when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
+        when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(true);
         ADTask adTask = TestHelpers.randomAdTask();
         adTaskCacheManager.put(adTask);
         assertEquals(1, adTaskCacheManager.size());
@@ -134,7 +135,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     }
 
     public void testCancel() throws IOException {
-        when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
+        when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(true);
         ADTask adTask = TestHelpers.randomAdTask();
         adTaskCacheManager.put(adTask);
         assertEquals(1, adTaskCacheManager.size());
@@ -161,7 +162,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     }
 
     public void testExceedRunningTaskLimit() throws IOException {
-        when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
+        when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(true);
         adTaskCacheManager.put(TestHelpers.randomAdTask());
         adTaskCacheManager.put(TestHelpers.randomAdTask());
         assertEquals(2, adTaskCacheManager.size());

@@ -20,6 +20,7 @@ import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import static org.elasticsearch.test.ESTestCase.randomAlphaOfLength;
+import static org.elasticsearch.test.ESTestCase.randomBoolean;
 import static org.elasticsearch.test.ESTestCase.randomDouble;
 import static org.elasticsearch.test.ESTestCase.randomInt;
 import static org.elasticsearch.test.ESTestCase.randomIntBetween;
@@ -415,14 +416,7 @@ public class TestHelpers {
     }
 
     public static Feature randomFeature(String featureName, String aggregationName) {
-        AggregationBuilder testAggregation = null;
-        try {
-            testAggregation = randomAggregation(aggregationName);
-        } catch (IOException e) {
-            logger.error("Fail to generate test aggregation");
-            throw new RuntimeException();
-        }
-        return new Feature(randomAlphaOfLength(5), featureName, ESRestTestCase.randomBoolean(), testAggregation);
+        return randomFeature(featureName, aggregationName, randomBoolean());
     }
 
     public static Feature randomFeature(boolean enabled) {
@@ -739,10 +733,51 @@ public class TestHelpers {
         return mappings;
     }
 
+    public static ADTask randomAdTask() throws IOException {
+        return randomAdTask(
+            randomAlphaOfLength(5),
+            ADTaskState.RUNNING,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            randomAlphaOfLength(5),
+            true
+        );
+    }
+
+    public static ADTask randomAdTask(
+        String taskId,
+        ADTaskState state,
+        Instant executionEndTime,
+        String stoppedBy,
+        String detectorId,
+        AnomalyDetector detector
+    ) {
+        executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
+        ADTask task = ADTask
+            .builder()
+            .taskId(taskId)
+            .taskType(ADTaskType.HISTORICAL.name())
+            .detectorId(detectorId)
+            .detector(detector)
+            .state(state.name())
+            .taskProgress(0.5f)
+            .initProgress(1.0f)
+            .currentPiece(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(randomIntBetween(1, 100), ChronoUnit.MINUTES))
+            .executionStartTime(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(100, ChronoUnit.MINUTES))
+            .executionEndTime(executionEndTime)
+            .isLatest(true)
+            .error(randomAlphaOfLength(5))
+            .checkpointId(randomAlphaOfLength(5))
+            .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            .startedBy(randomAlphaOfLength(5))
+            .stoppedBy(stoppedBy)
+            .build();
+        return task;
+    }
+
     public static ADTask randomAdTask(String taskId, ADTaskState state, Instant executionEndTime, String stoppedBy, boolean withDetector)
         throws IOException {
         AnomalyDetector detector = withDetector
-            ? randomAnomalyDetector(ImmutableMap.of(), Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            ? randomAnomalyDetector(ImmutableMap.of(), Instant.now().truncatedTo(ChronoUnit.SECONDS), true)
             : null;
         executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
         ADTask task = ADTask

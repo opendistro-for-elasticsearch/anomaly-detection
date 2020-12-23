@@ -570,7 +570,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT,
                 AnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
                 AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
-                AnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND
+                AnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND,
+                AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE
             );
         return unmodifiableList(Stream.concat(enabledSetting.stream(), systemSetting.stream()).collect(Collectors.toList()));
     }

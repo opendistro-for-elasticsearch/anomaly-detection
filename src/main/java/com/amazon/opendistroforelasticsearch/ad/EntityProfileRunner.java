@@ -179,7 +179,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                         new MultiResponsesDelegateActionListener<EntityProfile>(
                             listener,
                             totalResponsesToWait,
-                            "Fail to fetch profile for " + entityValue + " of detector " + detectorId,
+                            CommonErrorMessages.FAIL_FETCH_ERR_MSG + entityValue + " of detector " + detectorId,
                             false
                         );
 

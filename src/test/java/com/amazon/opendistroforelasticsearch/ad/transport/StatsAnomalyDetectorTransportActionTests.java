@@ -15,84 +15,42 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
-
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Before;
 
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.ADIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorType;
 import com.amazon.opendistroforelasticsearch.ad.stats.InternalStatNames;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class StatsAnomalyDetectorTransportActionTests extends ESIntegTestCase {
-
-    @Override
-    protected Collection<Class<? extends Plugin>> nodePlugins() {
-        return Collections.singletonList(AnomalyDetectorPlugin.class);
-    }
-
-    @Override
-    protected Collection<Class<? extends Plugin>> transportClientPlugins() {
-        return Collections.singletonList(AnomalyDetectorPlugin.class);
-    }
+public class StatsAnomalyDetectorTransportActionTests extends ADIntegTestCase {
 
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        createTestDetector();
-    }
-
-    private void createTestDetector() throws IOException {
-        CreateIndexResponse createIndexResponse = TestHelpers
-            .createIndex(admin(), AnomalyDetector.ANOMALY_DETECTORS_INDEX, AnomalyDetectionIndices.getAnomalyDetectorMappings());
-        assertEquals(true, createIndexResponse.isAcknowledged());
-
-        IndexRequest indexRequest = new IndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
-            .source(
-                TestHelpers
-                    .randomAnomalyDetector(ImmutableMap.of(), Instant.now())
-                    .toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE)
-            );
-        IndexResponse indexResponse = client().index(indexRequest).actionGet(5_000);
-        assertEquals(RestStatus.CREATED, indexResponse.status());
-
-        indexRequest = new IndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
-            .source(
-                TestHelpers
-                    .randomAnomalyDetector(
-                        ImmutableList.of(TestHelpers.randomFeature()),
-                        ImmutableMap.of(),
-                        Instant.now(),
-                        AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name(),
-                        TestHelpers.randomDetectionDateRange(),
-                        true
-                    )
-                    .toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE)
-            );
-        indexResponse = client().index(indexRequest).actionGet(5_000);
-        assertEquals(RestStatus.CREATED, indexResponse.status());
+        createDetectors(
+            ImmutableList
+                .of(
+                    TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now()),
+                    TestHelpers
+                        .randomAnomalyDetector(
+                            ImmutableList.of(TestHelpers.randomFeature()),
+                            ImmutableMap.of(),
+                            Instant.now(),
+                            AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name(),
+                            TestHelpers.randomDetectionDateRange(),
+                            true
+                        )
+                ),
+            true
+        );
     }
 
     public void testStatsAnomalyDetectorWithNodeLevelStats() {

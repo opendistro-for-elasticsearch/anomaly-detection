@@ -147,7 +147,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     ) {
         return ActionListener.wrap(detectorOptional -> {
             if (!detectorOptional.isPresent()) {
-                listener.onFailure(new EndRunException(detectorId, "AnomalyDetector is not available.", true));
+                listener.onFailure(new EndRunException(detectorId, "AnomalyDetector is not available.", true).countInStats(false));
                 return;
             }
 

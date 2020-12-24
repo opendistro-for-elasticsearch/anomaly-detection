@@ -64,11 +64,16 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     }
 
     protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, RestClient client) throws IOException {
+        return createRandomAnomalyDetector(refresh, withMetadata, client, true);
+    }
+
+    protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, RestClient client, boolean featureEnabled)
+        throws IOException {
         Map<String, Object> uiMetadata = null;
         if (withMetadata) {
             uiMetadata = TestHelpers.randomUiMetadata();
         }
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(uiMetadata, null);
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(uiMetadata, null, featureEnabled);
         String indexName = detector.getIndices().get(0);
         TestHelpers
             .makeRequest(

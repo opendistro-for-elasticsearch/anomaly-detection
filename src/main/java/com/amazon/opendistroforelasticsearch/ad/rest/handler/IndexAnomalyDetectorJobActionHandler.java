@@ -162,6 +162,16 @@ public class IndexAnomalyDetectorJobActionHandler {
                     );
                 return;
             }
+            if (detector.getEnabledFeatureIds().size() == 0) {
+                listener
+                    .onFailure(
+                        new ElasticsearchStatusException(
+                            "Can't start detector job as no enabled features configured",
+                            RestStatus.BAD_REQUEST
+                        )
+                    );
+                return;
+            }
 
             IntervalTimeConfiguration interval = (IntervalTimeConfiguration) detector.getDetectionInterval();
             Schedule schedule = new IntervalSchedule(Instant.now(), (int) interval.getInterval(), interval.getUnit());

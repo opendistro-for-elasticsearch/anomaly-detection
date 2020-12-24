@@ -351,7 +351,10 @@ public class EntityColdStarter {
         ActionListener<Optional<AnomalyDetector>> getDetectorListener = ActionListener.wrap(detectorOp -> {
             if (!detectorOp.isPresent()) {
                 nodeStateManager
-                    .setLastColdStartException(detectorId, new EndRunException(detectorId, "AnomalyDetector is not available.", true));
+                    .setLastColdStartException(
+                        detectorId,
+                        new EndRunException(detectorId, "AnomalyDetector is not available.", true).countInStats(false)
+                    );
                 return;
             }
             List<double[][]> coldStartData = new ArrayList<>();

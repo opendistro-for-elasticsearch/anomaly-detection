@@ -37,6 +37,7 @@ import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
 import org.elasticsearch.action.ActionRequest;
+import org.elasticsearch.action.search.SearchPhaseExecutionException;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.IndicesOptions;
@@ -228,16 +229,20 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 hcDetectors.remove(adID);
                 original.onResponse(r);
             }, e -> {
-                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
-                if (hcDetectors.contains(adID)) {
-                    adStats.getStat(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName()).increment();
+                // If exception is AnomalyDetectionException and it should not be counted in stats,
+                // we will not count it in failure stats.
+                if (!(e instanceof AnomalyDetectionException && !((AnomalyDetectionException) e).isCountInStats())) {
+                    adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+                    if (hcDetectors.contains(adID)) {
+                        adStats.getStat(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName()).increment();
+                    }
                 }
                 hcDetectors.remove(adID);
                 original.onFailure(e);
             });
 
             if (!EnabledSetting.isADPluginEnabled()) {
-                throw new EndRunException(adID, CommonErrorMessages.DISABLED_ERR_MSG, true);
+                throw new EndRunException(adID, CommonErrorMessages.DISABLED_ERR_MSG, true).countInStats(false);
             }
 
             adStats.getStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
@@ -264,7 +269,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     ) {
         return ActionListener.wrap(detectorOptional -> {
             if (!detectorOptional.isPresent()) {
-                listener.onFailure(new EndRunException(adID, "AnomalyDetector is not available.", true));
+                listener
+                    .onFailure(
+                        new EndRunException(adID, "AnomalyDetector is not available.", true).countInStats(false).countInStats(false)
+                    );
                 return;
             }
 
@@ -501,7 +509,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
     private void handleFailure(Exception exception, ActionListener<AnomalyResultResponse> listener, String adID) {
         if (exception instanceof IndexNotFoundException) {
-            listener.onFailure(new EndRunException(adID, TROUBLE_QUERYING_ERR_MSG + exception.getMessage(), true));
+            listener.onFailure(new EndRunException(adID, TROUBLE_QUERYING_ERR_MSG + exception.getMessage(), true).countInStats(false));
         } else if (exception instanceof EndRunException) {
             // invalid feature query
             listener.onFailure(exception);
@@ -598,6 +606,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             listener.onFailure(ex);
         } else if (ex instanceof AnomalyDetectionException) {
             listener.onFailure(new InternalFailure((AnomalyDetectionException) ex));
+        } else if (ex instanceof SearchPhaseExecutionException) {
+            // This is to catch invalid aggregation on wrong field type. For example,
+            // sum aggregation on text field. We should end detector run for such case.
+            if ("all shards failed".equals(ex.getMessage())) {
+                listener.onFailure(new EndRunException(adID, ex.getCause().getMessage(), ex, true).countInStats(false));
+            }
         } else {
             Throwable cause = ExceptionsHelper.unwrapCause(ex);
             listener.onFailure(new InternalFailure(adID, cause));

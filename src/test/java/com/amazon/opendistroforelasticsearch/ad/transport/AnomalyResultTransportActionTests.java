@@ -90,8 +90,43 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
         assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [sum]");
     }
 
+    public void testFeatureWithMaxOfTextField() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"max\":{\"field\":\"message\"}}}");
+        assertErrorMessage(adId, "Text fields are not optimised for operations");
+    }
+
+    public void testFeatureWithMaxOfTypeField() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"max\":{\"field\":\"type\"}}}");
+        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [max]");
+    }
+
+    public void testFeatureWithMinOfTextField() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"min\":{\"field\":\"message\"}}}");
+        assertErrorMessage(adId, "Text fields are not optimised for operations");
+    }
+
+    public void testFeatureWithMinOfTypeField() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"min\":{\"field\":\"type\"}}}");
+        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [min]");
+    }
+
+    public void testFeatureWithAvgOfTextField() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"avg\":{\"field\":\"message\"}}}");
+        assertErrorMessage(adId, "Text fields are not optimised for operations");
+    }
+
+    public void testFeatureWithAvgOfTypeField() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"avg\":{\"field\":\"type\"}}}");
+        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [avg]");
+    }
+
     public void testFeatureWithCountOfTextField() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"value_count\":{\"field\":\"message\"}}}");
+        assertErrorMessage(adId, "Text fields are not optimised for operations");
+    }
+
+    public void testFeatureWithCardinalityOfTextField() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"cardinality\":{\"field\":\"message\"}}}");
         assertErrorMessage(adId, "Text fields are not optimised for operations");
     }
 
@@ -118,9 +153,6 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
             ImmutableList.of(NotSerializableExceptionWrapper.class, AnomalyDetectionException.class),
             () -> client().execute(AnomalyResultAction.INSTANCE, resultRequest).actionGet(30_000)
         );
-        System.out.println("+++++");
-        System.out.println(e.getMessage());
-        System.out.println("+++++");
         assertTrue(e.getMessage().contains(errorMessage));
     }
 }

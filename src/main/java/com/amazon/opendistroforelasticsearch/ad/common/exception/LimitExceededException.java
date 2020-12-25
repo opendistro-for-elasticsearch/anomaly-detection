@@ -28,7 +28,7 @@ public class LimitExceededException extends EndRunException {
      */
     public LimitExceededException(String anomalyDetectorId, String message) {
         super(anomalyDetectorId, message, true);
-        this.countInStats(false);
+        this.countedInStats(false);
     }
 
     /**
@@ -40,6 +40,6 @@ public class LimitExceededException extends EndRunException {
      */
     public LimitExceededException(String anomalyDetectorId, String message, boolean stopNow) {
         super(anomalyDetectorId, message, stopNow);
-        this.countInStats(false);
+        this.countedInStats(false);
     }
 }

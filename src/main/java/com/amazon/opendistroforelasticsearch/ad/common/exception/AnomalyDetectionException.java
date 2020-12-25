@@ -21,9 +21,9 @@ package com.amazon.opendistroforelasticsearch.ad.common.exception;
 public class AnomalyDetectionException extends RuntimeException {
 
     private String anomalyDetectorId;
-    // countInStats will be used to tell whether the exception should be
-    // counted in feature stats.
-    private boolean countInStats = true;
+    // countedInStats will be used to tell whether the exception should be
+    // counted in failure stats.
+    private boolean countedInStats = true;
 
     public AnomalyDetectionException(String message) {
         super(message);
@@ -68,8 +68,8 @@ public class AnomalyDetectionException extends RuntimeException {
      *
      * @return true if should count the exception in stats; otherwise return false
      */
-    public boolean isCountInStats() {
-        return countInStats;
+    public boolean isCountedInStats() {
+        return countedInStats;
     }
 
     /**
@@ -78,8 +78,8 @@ public class AnomalyDetectionException extends RuntimeException {
      * @param countInStats count the exception in stats
      * @return the exception itself
      */
-    public AnomalyDetectionException countInStats(boolean countInStats) {
-        this.countInStats = countInStats;
+    public AnomalyDetectionException countedInStats(boolean countInStats) {
+        this.countedInStats = countInStats;
         return this;
     }
 

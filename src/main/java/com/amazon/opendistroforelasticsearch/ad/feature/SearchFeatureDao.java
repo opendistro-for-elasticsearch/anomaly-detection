@@ -315,7 +315,7 @@ public class SearchFeatureDao {
         }
         return Optional
             .ofNullable(result)
-            .orElseThrow(() -> new EndRunException("Failed to parse aggregation " + aggregation, true).countInStats(false));
+            .orElseThrow(() -> new EndRunException("Failed to parse aggregation " + aggregation, true).countedInStats(false));
     }
 
     /**

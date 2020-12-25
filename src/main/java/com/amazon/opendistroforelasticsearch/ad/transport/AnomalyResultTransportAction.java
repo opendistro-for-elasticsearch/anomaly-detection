@@ -38,6 +38,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.search.SearchPhaseExecutionException;
+import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.IndicesOptions;
@@ -56,6 +57,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.node.NodeClosedException;
+import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.ActionNotFoundTransportException;
@@ -231,7 +233,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }, e -> {
                 // If exception is AnomalyDetectionException and it should not be counted in stats,
                 // we will not count it in failure stats.
-                if (!(e instanceof AnomalyDetectionException && !((AnomalyDetectionException) e).isCountInStats())) {
+                if (!(e instanceof AnomalyDetectionException) || ((AnomalyDetectionException) e).isCountedInStats()) {
                     adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                     if (hcDetectors.contains(adID)) {
                         adStats.getStat(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName()).increment();
@@ -242,7 +244,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             });
 
             if (!EnabledSetting.isADPluginEnabled()) {
-                throw new EndRunException(adID, CommonErrorMessages.DISABLED_ERR_MSG, true).countInStats(false);
+                throw new EndRunException(adID, CommonErrorMessages.DISABLED_ERR_MSG, true).countedInStats(false);
             }
 
             adStats.getStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
@@ -269,10 +271,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     ) {
         return ActionListener.wrap(detectorOptional -> {
             if (!detectorOptional.isPresent()) {
-                listener
-                    .onFailure(
-                        new EndRunException(adID, "AnomalyDetector is not available.", true).countInStats(false).countInStats(false)
-                    );
+                listener.onFailure(new EndRunException(adID, "AnomalyDetector is not available.", true));
                 return;
             }
 
@@ -509,7 +508,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
     private void handleFailure(Exception exception, ActionListener<AnomalyResultResponse> listener, String adID) {
         if (exception instanceof IndexNotFoundException) {
-            listener.onFailure(new EndRunException(adID, TROUBLE_QUERYING_ERR_MSG + exception.getMessage(), true).countInStats(false));
+            listener.onFailure(new EndRunException(adID, TROUBLE_QUERYING_ERR_MSG + exception.getMessage(), true).countedInStats(false));
         } else if (exception instanceof EndRunException) {
             // invalid feature query
             listener.onFailure(exception);
@@ -609,8 +608,16 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         } else if (ex instanceof SearchPhaseExecutionException) {
             // This is to catch invalid aggregation on wrong field type. For example,
             // sum aggregation on text field. We should end detector run for such case.
-            if ("all shards failed".equals(ex.getMessage())) {
-                listener.onFailure(new EndRunException(adID, ex.getCause().getMessage(), ex, true).countInStats(false));
+            boolean invalidQuery = true;
+            // If all shards return bad request and failure cause is IllegalArgumentException, we
+            // consider the feature query is invalid and will not count the error in failure stats.
+            for (ShardSearchFailure failure : ((SearchPhaseExecutionException) ex).shardFailures()) {
+                if (RestStatus.BAD_REQUEST != failure.status() || !(failure.getCause() instanceof IllegalArgumentException)) {
+                    invalidQuery = false;
+                }
+            }
+            if (invalidQuery) {
+                listener.onFailure(new EndRunException(adID, ex.getCause().getMessage(), ex, true).countedInStats(false));
             }
         } else {
             Throwable cause = ExceptionsHelper.unwrapCause(ex);

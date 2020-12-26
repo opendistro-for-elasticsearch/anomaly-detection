@@ -111,6 +111,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String BUG_RESPONSE = "We might have bugs.";
     static final String TROUBLE_QUERYING_ERR_MSG = "Having trouble querying data: ";
     static final String NO_ACK_ERR = "no acknowledgements from model hosting nodes.";
+    // We need this invalid query tag to show proper error message on frontend
+    // refer to AD Kibana code: https://github.com/opendistro-for-elasticsearch/ \
+    // anomaly-detection-kibana-plugin/blob/master/public/pages/DetectorDetail/utils/constants.ts#L70-L76
+    static final String INVALID_QUERY = "Invalid search query: ";
 
     private final TransportService transportService;
     private final NodeStateManager stateManager;
@@ -617,7 +621,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 }
             }
             if (invalidQuery) {
-                listener.onFailure(new EndRunException(adID, ex.getCause().getMessage(), ex, true).countedInStats(false));
+                listener
+                    .onFailure(
+                        new EndRunException(adID, INVALID_QUERY + ((SearchPhaseExecutionException) ex).getDetailedMessage(), ex, true)
+                            .countedInStats(false)
+                    );
             }
         } else {
             Throwable cause = ExceptionsHelper.unwrapCause(ex);

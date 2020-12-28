@@ -20,7 +20,6 @@ import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.CATEGORY_FIELD_LIMIT;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
-import java.io.IOException;
 import java.security.InvalidParameterException;
 import java.util.List;
 import java.util.Optional;
@@ -35,7 +34,6 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentParseException;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.IndexNotFoundException;
@@ -113,25 +111,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                                 new InvalidParameterException(CommonErrorMessages.CATEGORICAL_FIELD_NUMBER_SURPASSED + CATEGORY_FIELD_LIMIT)
                             );
                     } else {
-                        int totalResponsesToWait = 0;
-                        if (profilesToCollect.contains(EntityProfileName.INIT_PROGRESS)
-                            || profilesToCollect.contains(EntityProfileName.STATE)) {
-                            totalResponsesToWait++;
-                        }
-                        if (profilesToCollect.contains(EntityProfileName.ENTITY_INFO)) {
-                            totalResponsesToWait++;
-                        }
-                        if (profilesToCollect.contains(EntityProfileName.MODELS)) {
-                            totalResponsesToWait++;
-                        }
-                        MultiResponsesDelegateActionListener<EntityProfile> delegateListener =
-                            new MultiResponsesDelegateActionListener<EntityProfile>(
-                                listener,
-                                totalResponsesToWait,
-                                "Fail to fetch profile for " + entityValue + " of detector " + detectorId,
-                                false
-                            );
-                        prepareEntityProfile(delegateListener, detectorId, entityValue, profilesToCollect, detector, categoryField.get(0));
+                        prepareEntityProfile(listener, detectorId, entityValue, profilesToCollect, detector, categoryField.get(0));
                     }
                 } catch (Exception t) {
                     listener.onFailure(t);
@@ -143,7 +123,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
     }
 
     private void prepareEntityProfile(
-        MultiResponsesDelegateActionListener<EntityProfile> delegateListener,
+        ActionListener<EntityProfile> listener,
         String detectorId,
         String entityValue,
         Set<EntityProfileName> profilesToCollect,
@@ -158,8 +138,8 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                 request,
                 ActionListener
                     .wrap(
-                        r -> getJob(detectorId, categoryField, entityValue, profilesToCollect, detector, r, delegateListener),
-                        delegateListener::failImmediately
+                        r -> getJob(detectorId, categoryField, entityValue, profilesToCollect, detector, r, listener),
+                        listener::onFailure
                     )
             );
     }
@@ -171,7 +151,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         Set<EntityProfileName> profilesToCollect,
         AnomalyDetector detector,
         EntityProfileResponse entityProfileResponse,
-        MultiResponsesDelegateActionListener<EntityProfile> delegateListener
+        ActionListener<EntityProfile> listener
     ) {
         GetRequest getRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX, detectorId);
         client.get(getRequest, ActionListener.wrap(getResponse -> {
@@ -183,6 +163,25 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+
+                    int totalResponsesToWait = 0;
+                    if (profilesToCollect.contains(EntityProfileName.INIT_PROGRESS)
+                        || profilesToCollect.contains(EntityProfileName.STATE)) {
+                        totalResponsesToWait++;
+                    }
+                    if (profilesToCollect.contains(EntityProfileName.ENTITY_INFO)) {
+                        totalResponsesToWait++;
+                    }
+                    if (profilesToCollect.contains(EntityProfileName.MODELS)) {
+                        totalResponsesToWait++;
+                    }
+                    MultiResponsesDelegateActionListener<EntityProfile> delegateListener =
+                        new MultiResponsesDelegateActionListener<EntityProfile>(
+                            listener,
+                            totalResponsesToWait,
+                            CommonErrorMessages.FAIL_FETCH_ERR_MSG + entityValue + " of detector " + detectorId,
+                            false
+                        );
 
                     if (profilesToCollect.contains(EntityProfileName.MODELS)) {
                         EntityProfile.Builder builder = new EntityProfile.Builder(categoryField, entityValue);
@@ -233,20 +232,20 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                             delegateListener.onResponse(builder.build());
                         }));
                     }
-                } catch (IOException | XContentParseException | NullPointerException e) {
-                    logger.error(e);
-                    delegateListener.failImmediately(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG, e);
+                } catch (Exception e) {
+                    logger.error(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG, e);
+                    listener.onFailure(e);
                 }
             } else {
-                sendUnknownState(profilesToCollect, categoryField, entityValue, true, delegateListener);
+                sendUnknownState(profilesToCollect, categoryField, entityValue, true, listener);
             }
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {
                 logger.info(exception.getMessage());
-                sendUnknownState(profilesToCollect, categoryField, entityValue, true, delegateListener);
+                sendUnknownState(profilesToCollect, categoryField, entityValue, true, listener);
             } else {
                 logger.error(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG + detectorId, exception);
-                delegateListener.failImmediately(exception);
+                listener.onFailure(exception);
             }
         }));
     }
@@ -285,14 +284,14 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         String categoryField,
         String entityValue,
         boolean immediate,
-        MultiResponsesDelegateActionListener<EntityProfile> delegateListener
+        ActionListener<EntityProfile> delegateListener
     ) {
         EntityProfile.Builder builder = new EntityProfile.Builder(categoryField, entityValue);
         if (profilesToCollect.contains(EntityProfileName.STATE)) {
             builder.state(EntityState.UNKNOWN);
         }
         if (immediate) {
-            delegateListener.respondImmediately(builder.build());
+            delegateListener.onResponse(builder.build());
         } else {
             delegateListener.onResponse(builder.build());
         }

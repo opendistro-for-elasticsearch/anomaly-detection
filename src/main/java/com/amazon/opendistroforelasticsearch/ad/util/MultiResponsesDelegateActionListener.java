@@ -109,20 +109,4 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
             this.delegate.onResponse(response0);
         }
     }
-
-    public void failImmediately(Exception e) {
-        this.delegate.onFailure(new RuntimeException(finalErrorMsg, e));
-    }
-
-    public void failImmediately(String errMsg) {
-        this.delegate.onFailure(new RuntimeException(errMsg));
-    }
-
-    public void failImmediately(String errMsg, Exception e) {
-        this.delegate.onFailure(new RuntimeException(errMsg, e));
-    }
-
-    public void respondImmediately(T o) {
-        this.delegate.onResponse(o);
-    }
 }

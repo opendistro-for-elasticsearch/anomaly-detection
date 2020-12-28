@@ -34,4 +34,5 @@ public class CommonErrorMessages {
     public static String FAIL_TO_GET_TOTAL_ENTITIES = "Failed to get total entities for detector ";
     public static String CATEGORICAL_FIELD_NUMBER_SURPASSED = "We don't support categorical fields more than ";
     public static String EMPTY_PROFILES_COLLECT = "profiles to collect are missing or invalid";
+    public static String FAIL_FETCH_ERR_MSG = "Fail to fetch profile for ";
 }

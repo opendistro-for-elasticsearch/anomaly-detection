@@ -313,7 +313,9 @@ public class SearchFeatureDao {
                 result = percentile.next().getValue();
             }
         }
-        return Optional.ofNullable(result).orElseThrow(() -> new IllegalStateException("Failed to parse aggregation " + aggregation));
+        return Optional
+            .ofNullable(result)
+            .orElseThrow(() -> new EndRunException("Failed to parse aggregation " + aggregation, true).countedInStats(false));
     }
 
     /**
@@ -812,6 +814,7 @@ public class SearchFeatureDao {
                 );
 
         } catch (Exception e) {
+            // TODO: catch concrete exception and check if they should be counted in stats or not
             throw new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, false);
         }
     }

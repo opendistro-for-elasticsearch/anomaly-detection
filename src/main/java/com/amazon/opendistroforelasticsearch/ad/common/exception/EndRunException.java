@@ -22,6 +22,11 @@ package com.amazon.opendistroforelasticsearch.ad.common.exception;
 public class EndRunException extends ClientException {
     private boolean endNow;
 
+    public EndRunException(String message, boolean endNow) {
+        super(message);
+        this.endNow = endNow;
+    }
+
     public EndRunException(String anomalyDetectorId, String message, boolean endNow) {
         super(anomalyDetectorId, message);
         this.endNow = endNow;

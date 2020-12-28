@@ -246,6 +246,26 @@ public class TestHelpers {
         DetectionDateRange dateRange,
         boolean withUser
     ) throws IOException {
+        return randomAnomalyDetector(
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            features,
+            uiMetadata,
+            lastUpdateTime,
+            detectorType,
+            dateRange,
+            withUser
+        );
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(
+        List<String> indices,
+        List<Feature> features,
+        Map<String, Object> uiMetadata,
+        Instant lastUpdateTime,
+        String detectorType,
+        DetectionDateRange dateRange,
+        boolean withUser
+    ) throws IOException {
         User user = withUser ? randomUser() : null;
         return new AnomalyDetector(
             randomAlphaOfLength(10),
@@ -253,7 +273,7 @@ public class TestHelpers {
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            indices,
             features,
             randomQuery(),
             randomIntervalTimeConfiguration(),
@@ -393,6 +413,22 @@ public class TestHelpers {
 
     public static AggregationBuilder randomAggregation(String aggregationName) throws IOException {
         XContentParser parser = parser("{\"" + aggregationName + "\":{\"value_count\":{\"field\":\"ok\"}}}");
+
+        AggregatorFactories.Builder parsed = AggregatorFactories.parseAggregators(parser);
+        return parsed.getAggregatorFactories().iterator().next();
+    }
+
+    /**
+     * Parse string aggregation query into {@link AggregationBuilder}
+     * Sample input:
+     * "{\"test\":{\"value_count\":{\"field\":\"ok\"}}}"
+     *
+     * @param aggregationQuery aggregation builder
+     * @return aggregation builder
+     * @throws IOException IO exception
+     */
+    public static AggregationBuilder parseAggregation(String aggregationQuery) throws IOException {
+        XContentParser parser = parser(aggregationQuery);
 
         AggregatorFactories.Builder parsed = AggregatorFactories.parseAggregators(parser);
         return parsed.getAggregatorFactories().iterator().next();

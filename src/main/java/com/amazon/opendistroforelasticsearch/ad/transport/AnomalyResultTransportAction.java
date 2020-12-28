@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.INVALID_SEARCH_QUERY_MSG;
+
 import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -114,7 +116,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     // We need this invalid query tag to show proper error message on frontend
     // refer to AD Kibana code: https://github.com/opendistro-for-elasticsearch/ \
     // anomaly-detection-kibana-plugin/blob/master/public/pages/DetectorDetail/utils/constants.ts#L70-L76
-    static final String INVALID_QUERY = "Invalid search query: ";
 
     private final TransportService transportService;
     private final NodeStateManager stateManager;
@@ -609,28 +610,34 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             listener.onFailure(ex);
         } else if (ex instanceof AnomalyDetectionException) {
             listener.onFailure(new InternalFailure((AnomalyDetectionException) ex));
-        } else if (ex instanceof SearchPhaseExecutionException) {
+        } else if (ex instanceof SearchPhaseExecutionException && invalidQuery((SearchPhaseExecutionException) ex)) {
             // This is to catch invalid aggregation on wrong field type. For example,
             // sum aggregation on text field. We should end detector run for such case.
-            boolean invalidQuery = true;
-            // If all shards return bad request and failure cause is IllegalArgumentException, we
-            // consider the feature query is invalid and will not count the error in failure stats.
-            for (ShardSearchFailure failure : ((SearchPhaseExecutionException) ex).shardFailures()) {
-                if (RestStatus.BAD_REQUEST != failure.status() || !(failure.getCause() instanceof IllegalArgumentException)) {
-                    invalidQuery = false;
-                }
-            }
-            if (invalidQuery) {
-                listener
-                    .onFailure(
-                        new EndRunException(adID, INVALID_QUERY + ((SearchPhaseExecutionException) ex).getDetailedMessage(), ex, true)
-                            .countedInStats(false)
-                    );
-            }
+            listener
+                .onFailure(
+                    new EndRunException(
+                        adID,
+                        INVALID_SEARCH_QUERY_MSG + ((SearchPhaseExecutionException) ex).getDetailedMessage(),
+                        ex,
+                        true
+                    ).countedInStats(false)
+                );
         } else {
             Throwable cause = ExceptionsHelper.unwrapCause(ex);
             listener.onFailure(new InternalFailure(adID, cause));
         }
+    }
+
+    private boolean invalidQuery(SearchPhaseExecutionException ex) {
+        boolean invalidQuery = true;
+        // If all shards return bad request and failure cause is IllegalArgumentException, we
+        // consider the feature query is invalid and will not count the error in failure stats.
+        for (ShardSearchFailure failure : ex.shardFailures()) {
+            if (RestStatus.BAD_REQUEST != failure.status() || !(failure.getCause() instanceof IllegalArgumentException)) {
+                invalidQuery = false;
+            }
+        }
+        return invalidQuery;
     }
 
     class RCFActionListener implements ActionListener<RCFResultResponse> {

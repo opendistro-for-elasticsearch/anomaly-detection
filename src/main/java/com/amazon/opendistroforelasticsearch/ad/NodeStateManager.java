@@ -159,7 +159,10 @@ public class NodeStateManager implements MaintenanceState, CleanState {
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId());
                 // end execution if all features are disabled
                 if (detector.getEnabledFeatureIds().isEmpty()) {
-                    listener.onFailure(new EndRunException(adID, CommonErrorMessages.ALL_FEATURES_DISABLED_ERR_MSG, true));
+                    listener
+                        .onFailure(
+                            new EndRunException(adID, CommonErrorMessages.ALL_FEATURES_DISABLED_ERR_MSG, true).countedInStats(false)
+                        );
                     return;
                 }
                 NodeState state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));

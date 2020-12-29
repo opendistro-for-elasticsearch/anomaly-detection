@@ -1034,4 +1034,11 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Response profileResponse = getDetectorProfile(detector.getDetectorId(), true, "/models/");
         assertEquals("Incorrect profile status", RestStatus.OK, restStatus(profileResponse));
     }
+
+    public void testRunDetectorWithNoEnabledFeature() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, false);
+        assertNotNull(detector.getDetectorId());
+        ResponseException e = expectThrows(ResponseException.class, () -> startAnomalyDetector(detector.getDetectorId()));
+        assertTrue(e.getMessage().contains("Can't start detector job as no enabled features configured"));
+    }
 }

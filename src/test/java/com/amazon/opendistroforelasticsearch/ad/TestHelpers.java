@@ -403,6 +403,10 @@ public class TestHelpers {
         String query = "{\"bool\":{\"must\":{\"term\":{\"user\":\"kimchy\"}},\"filter\":{\"term\":{\"tag\":"
             + "\"tech\"}},\"must_not\":{\"range\":{\"age\":{\"gte\":10,\"lte\":20}}},\"should\":[{\"term\":"
             + "{\"tag\":\"wow\"}},{\"term\":{\"tag\":\"elasticsearch\"}}],\"minimum_should_match\":1,\"boost\":1}}";
+        return randomQuery(query);
+    }
+
+    public static QueryBuilder randomQuery(String query) throws IOException {
         XContentParser parser = TestHelpers.parser(query);
         return parseInnerQueryBuilder(parser);
     }

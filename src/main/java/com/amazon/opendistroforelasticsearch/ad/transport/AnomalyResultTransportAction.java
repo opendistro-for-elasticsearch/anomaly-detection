@@ -629,15 +629,14 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     }
 
     private boolean invalidQuery(SearchPhaseExecutionException ex) {
-        boolean invalidQuery = true;
         // If all shards return bad request and failure cause is IllegalArgumentException, we
         // consider the feature query is invalid and will not count the error in failure stats.
         for (ShardSearchFailure failure : ex.shardFailures()) {
             if (RestStatus.BAD_REQUEST != failure.status() || !(failure.getCause() instanceof IllegalArgumentException)) {
-                invalidQuery = false;
+                return false;
             }
         }
-        return invalidQuery;
+        return true;
     }
 
     class RCFActionListener implements ActionListener<RCFResultResponse> {

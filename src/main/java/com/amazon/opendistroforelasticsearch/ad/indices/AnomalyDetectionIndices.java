@@ -123,7 +123,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return anomaly detector index mapping
      * @throws IOException IOException if mapping file can't be read correctly
      */
-    private String getAnomalyDetectorMappings() throws IOException {
+    public static String getAnomalyDetectorMappings() throws IOException {
         URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(ANOMALY_DETECTORS_INDEX_MAPPING_FILE);
         return Resources.toString(url, Charsets.UTF_8);
     }

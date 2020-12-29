@@ -51,9 +51,9 @@ jobs:
             echo "RUN /usr/share/elasticsearch/bin/elasticsearch-plugin install --batch file:/tmp/opendistro-anomaly-detection-$plugin_version.zip" >> Dockerfile
 
             docker build -t odfe-ad:test .
-            echo "::set-env name=imagePresent::true"
+            echo "imagePresent=true" >> $GITHUB_ENV
           else
-            echo "::set-env name=imagePresent::false"
+            echo "imagePresent=false" >> $GITHUB_ENV
           fi
 
       - name: Run Docker Image

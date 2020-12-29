@@ -83,6 +83,7 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
@@ -343,7 +344,7 @@ public class SearchFeatureDaoTests {
             new Object[] { asList(multiBucket), asList(aggName), null }, };
     }
 
-    @Test(expected = IllegalStateException.class)
+    @Test(expected = EndRunException.class)
     @Parameters(method = "getFeaturesForPeriodThrowIllegalStateData")
     public void getFeaturesForPeriod_throwIllegalState_forUnknownAggregation(
         List<Aggregation> aggs,

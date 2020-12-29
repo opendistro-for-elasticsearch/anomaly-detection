@@ -159,6 +159,13 @@ public class IndexAnomalyDetectorJobActionHandler extends AbstractActionHandler 
                 channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Can't start detector job as no features configured"));
                 return;
             }
+            if (detector.getEnabledFeatureIds().size() == 0) {
+                channel
+                    .sendResponse(
+                        new BytesRestResponse(RestStatus.BAD_REQUEST, "Can't start detector job as no enabled features configured")
+                    );
+                return;
+            }
 
             IntervalTimeConfiguration interval = (IntervalTimeConfiguration) detector.getDetectionInterval();
             Schedule schedule = new IntervalSchedule(Instant.now(), (int) interval.getInterval(), interval.getUnit());

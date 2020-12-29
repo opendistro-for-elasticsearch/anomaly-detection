@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.INVALID_SEARCH_QUERY_MSG;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -32,6 +34,8 @@ import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
 import org.elasticsearch.action.ActionRequest;
+import org.elasticsearch.action.search.SearchPhaseExecutionException;
+import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.IndicesOptions;
@@ -46,6 +50,7 @@ import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.node.NodeClosedException;
+import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.ConnectTransportException;
 import org.elasticsearch.transport.ReceiveTimeoutTransportException;
@@ -91,6 +96,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
         .getExceptionName(new ResourceNotFoundException("", ""));
     static final String NULL_RESPONSE = "Received null response from";
+    static final String TROUBLE_QUERYING_ERR_MSG = "Having trouble querying data: ";
 
     private final TransportService transportService;
     private final ADStateManager stateManager;
@@ -202,14 +208,18 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         AnomalyResultRequest request = AnomalyResultRequest.fromActionRequest(actionRequest);
         ActionListener<AnomalyResultResponse> original = listener;
         listener = ActionListener.wrap(original::onResponse, e -> {
-            adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+            // If exception is AnomalyDetectionException and it should not be counted in stats,
+            // we will not count it in failure stats.
+            if (!(e instanceof AnomalyDetectionException) || ((AnomalyDetectionException) e).isCountedInStats()) {
+                adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
+            }
             original.onFailure(e);
         });
 
         String adID = request.getAdID();
 
         if (!EnabledSetting.isADPluginEnabled()) {
-            throw new EndRunException(adID, CommonErrorMessages.DISABLED_ERR_MSG, true);
+            throw new EndRunException(adID, CommonErrorMessages.DISABLED_ERR_MSG, true).countedInStats(false);
         }
 
         adStats.getStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
@@ -237,6 +247,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
             AnomalyDetector anomalyDetector = detector.get();
+            if (anomalyDetector.getEnabledFeatureIds().size() == 0) {
+                listener.onFailure(new EndRunException(ALL_FEATURES_DISABLED_ERR_MSG, true).countedInStats(false));
+                return;
+            }
 
             String thresholdModelID = modelManager.getThresholdModelId(adID);
             Optional<DiscoveryNode> asThresholdNode = hashRing.getOwningNode(thresholdModelID);
@@ -367,15 +381,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
                     );
             }
-        }, exception -> {
-            if (exception instanceof IndexNotFoundException) {
-                listener.onFailure(new EndRunException(adID, "Having trouble querying data: " + exception.getMessage(), true));
-            } else if (exception instanceof IllegalArgumentException && detector.getEnabledFeatureIds().isEmpty()) {
-                listener.onFailure(new EndRunException(adID, ALL_FEATURES_DISABLED_ERR_MSG, true));
-            } else {
-                handleExecuteException(exception, listener, adID);
-            }
-        });
+        }, exception -> { handleFailure(exception, listener, adID); });
     }
 
     /**
@@ -477,15 +483,50 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         return modelManager.combineRcfResults(rcfResultLib);
     }
 
+    private void handleFailure(Exception exception, ActionListener<AnomalyResultResponse> listener, String adID) {
+        if (exception instanceof IndexNotFoundException) {
+            listener.onFailure(new EndRunException(adID, TROUBLE_QUERYING_ERR_MSG + exception.getMessage(), true).countedInStats(false));
+        } else if (exception instanceof EndRunException) {
+            // invalid feature query
+            listener.onFailure(exception);
+        } else {
+            handleExecuteException(exception, listener, adID);
+        }
+    }
+
     void handleExecuteException(Exception ex, ActionListener<AnomalyResultResponse> listener, String adID) {
         if (ex instanceof ClientException) {
             listener.onFailure(ex);
         } else if (ex instanceof AnomalyDetectionException) {
             listener.onFailure(new InternalFailure((AnomalyDetectionException) ex));
+        } else if (ex instanceof SearchPhaseExecutionException && invalidQuery((SearchPhaseExecutionException) ex)) {
+            // This is to catch invalid aggregation on wrong field type. For example,
+            // sum aggregation on text field. We should end detector run for such case.
+            listener
+                .onFailure(
+                    new EndRunException(
+                        adID,
+                        INVALID_SEARCH_QUERY_MSG + ((SearchPhaseExecutionException) ex).getDetailedMessage(),
+                        ex,
+                        true
+                    ).countedInStats(false)
+                );
         } else {
             Throwable cause = ExceptionsHelper.unwrapCause(ex);
             listener.onFailure(new InternalFailure(adID, cause));
         }
+    }
+
+    private boolean invalidQuery(SearchPhaseExecutionException ex) {
+        boolean invalidQuery = true;
+        // If all shards return bad request and failure cause is IllegalArgumentException, we
+        // consider the feature query is invalid and will not count the error in failure stats.
+        for (ShardSearchFailure failure : ex.shardFailures()) {
+            if (RestStatus.BAD_REQUEST != failure.status() || !(failure.getCause() instanceof IllegalArgumentException)) {
+                invalidQuery = false;
+            }
+        }
+        return invalidQuery;
     }
 
     class RCFActionListener implements ActionListener<RCFResultResponse> {

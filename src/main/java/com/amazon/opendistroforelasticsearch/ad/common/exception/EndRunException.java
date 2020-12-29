@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -21,6 +21,11 @@ package com.amazon.opendistroforelasticsearch.ad.common.exception;
  */
 public class EndRunException extends ClientException {
     private boolean endNow;
+
+    public EndRunException(String message, boolean endNow) {
+        super(message);
+        this.endNow = endNow;
+    }
 
     public EndRunException(String anomalyDetectorId, String message, boolean endNow) {
         super(anomalyDetectorId, message);

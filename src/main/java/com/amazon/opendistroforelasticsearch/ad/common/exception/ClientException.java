@@ -16,10 +16,13 @@
 package com.amazon.opendistroforelasticsearch.ad.common.exception;
 
 /**
- * All exception visible to AD transport layer's client is under ClientVisible.
- *
+ * All exception visible to AD transport layer's client is under ClientException.
  */
 public class ClientException extends AnomalyDetectionException {
+
+    public ClientException(String message) {
+        super(message);
+    }
 
     public ClientException(String anomalyDetectorId, String message) {
         super(anomalyDetectorId, message);

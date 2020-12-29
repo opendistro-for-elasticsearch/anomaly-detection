@@ -313,7 +313,9 @@ public class SearchFeatureDao {
                 result = percentile.next().getValue();
             }
         }
-        return Optional.ofNullable(result).orElseThrow(() -> new IllegalStateException("Failed to parse aggregation " + aggregation));
+        return Optional
+            .ofNullable(result)
+            .orElseThrow(() -> new EndRunException("Failed to parse aggregation " + aggregation, true).countedInStats(false));
     }
 
     /**

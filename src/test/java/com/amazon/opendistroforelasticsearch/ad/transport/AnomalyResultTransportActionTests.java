@@ -15,22 +15,26 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomQuery;
+
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Map;
 
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.test.rest.ESRestTestCase;
 import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.ADIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorType;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
+import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -39,6 +43,8 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
     private Instant testDataTimeStamp;
     private long start;
     private long end;
+    private String timeField = "timestamp";
+    private String categoryField = "type";
 
     @Override
     @Before
@@ -52,8 +58,12 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
     }
 
     private void ingestTestData() throws IOException {
-        String mappings = "{\"properties\":{\"timestamp\":{\"type\":\"date\",\"format\":\"strict_date_time||epoch_millis\"},"
-            + "\"value\":{\"type\":\"double\"}, \"type\":{\"type\":\"keyword\"},"
+        String mappings = "{\"properties\":{\""
+            + timeField
+            + "\":{\"type\":\"date\",\"format\":\"strict_date_time||epoch_millis\"},"
+            + "\"value\":{\"type\":\"double\"}, \""
+            + categoryField
+            + "\":{\"type\":\"keyword\"},"
             + "\"is_error\":{\"type\":\"boolean\"}, \"message\":{\"type\":\"text\"}}}";
         createIndex(testIndex, mappings);
         double value = randomDouble();
@@ -63,11 +73,11 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
         String id = indexDoc(
             testIndex,
             ImmutableMap
-                .of("timestamp", testDataTimeStamp.toEpochMilli(), "value", value, "type", type, "is_error", isError, "message", message)
+                .of(timeField, testDataTimeStamp.toEpochMilli(), "value", value, "type", type, "is_error", isError, "message", message)
         );
         GetResponse doc = getDoc(testIndex, id);
         Map<String, Object> sourceAsMap = doc.getSourceAsMap();
-        assertEquals(testDataTimeStamp.toEpochMilli(), sourceAsMap.get("timestamp"));
+        assertEquals(testDataTimeStamp.toEpochMilli(), sourceAsMap.get(timeField));
         assertEquals(value, sourceAsMap.get("value"));
         assertEquals(type, sourceAsMap.get("type"));
         assertEquals(isError, sourceAsMap.get("is_error"));
@@ -130,21 +140,115 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
         assertErrorMessage(adId, "Text fields are not optimised for operations");
     }
 
+    public void testFeatureQueryWithTermsAggregationForHCDetector() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"terms\":{\"field\":\"type\"}}}", true);
+        assertErrorMessage(adId, "Failed to parse aggregation");
+    }
+
+    public void testFeatureWithSumOfTextFieldForHCDetector() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"sum\":{\"field\":\"message\"}}}", true);
+        assertErrorMessage(adId, "Text fields are not optimised for operations");
+    }
+
+    public void testFeatureWithSumOfTypeFieldForHCDetector() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"sum\":{\"field\":\"type\"}}}", true);
+        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [sum]");
+    }
+
+    public void testFeatureWithMaxOfTextFieldForHCDetector() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"max\":{\"field\":\"message\"}}}", true);
+        assertErrorMessage(adId, "Text fields are not optimised for operations");
+    }
+
+    public void testFeatureWithMaxOfTypeFieldForHCDetector() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"max\":{\"field\":\"type\"}}}", true);
+        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [max]");
+    }
+
+    public void testFeatureWithMinOfTextFieldForHCDetector() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"min\":{\"field\":\"message\"}}}", true);
+        assertErrorMessage(adId, "Text fields are not optimised for operations");
+    }
+
+    public void testFeatureWithMinOfTypeFieldForHCDetector() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"min\":{\"field\":\"type\"}}}", true);
+        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [min]");
+    }
+
+    public void testFeatureWithAvgOfTextFieldForHCDetector() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"avg\":{\"field\":\"message\"}}}", true);
+        assertErrorMessage(adId, "Text fields are not optimised for operations");
+    }
+
+    public void testFeatureWithAvgOfTypeFieldForHCDetector() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"avg\":{\"field\":\"type\"}}}", true);
+        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [avg]");
+    }
+
+    public void testFeatureWithCountOfTextFieldForHCDetector() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"value_count\":{\"field\":\"message\"}}}", true);
+        assertErrorMessage(adId, "Text fields are not optimised for operations");
+    }
+
+    public void testFeatureWithCardinalityOfTextFieldForHCDetector() throws IOException {
+        String adId = createDetectorWithFeatureAgg("{\"test\":{\"cardinality\":{\"field\":\"message\"}}}", true);
+        assertErrorMessage(adId, "Text fields are not optimised for operations");
+    }
+
     private String createDetectorWithFeatureAgg(String aggQuery) throws IOException {
+        return createDetectorWithFeatureAgg(aggQuery, false);
+    }
+
+    private String createDetectorWithFeatureAgg(String aggQuery, boolean hcDetector) throws IOException {
         AggregationBuilder aggregationBuilder = TestHelpers.parseAggregation(aggQuery);
         Feature feature = new Feature(randomAlphaOfLength(5), randomAlphaOfLength(10), true, aggregationBuilder);
-        AnomalyDetector detector = TestHelpers
-            .randomAnomalyDetector(
-                ImmutableList.of(testIndex),
-                ImmutableList.of(feature),
-                ImmutableMap.of(),
-                Instant.now(),
-                AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name(),
-                null,
-                false
-            );
+        AnomalyDetector detector = hcDetector
+            ? randomHCDetector(ImmutableList.of(testIndex), ImmutableList.of(feature))
+            : randomDetector(ImmutableList.of(testIndex), ImmutableList.of(feature));
         String adId = createDetectors(detector);
         return adId;
+    }
+
+    private AnomalyDetector randomDetector(List<String> indices, List<Feature> features) throws IOException {
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            timeField,
+            indices,
+            features,
+            randomQuery("{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"value\"}}]}}"),
+            new IntervalTimeConfiguration(ESRestTestCase.randomLongBetween(1, 5), ChronoUnit.MINUTES),
+            new IntervalTimeConfiguration(ESRestTestCase.randomLongBetween(1, 5), ChronoUnit.MINUTES),
+            8,
+            null,
+            randomInt(),
+            Instant.now(),
+            null,
+            null
+        );
+    }
+
+    private AnomalyDetector randomHCDetector(List<String> indices, List<Feature> features) throws IOException {
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            timeField,
+            indices,
+            features,
+            randomQuery("{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"value\"}}]}}"),
+            new IntervalTimeConfiguration(ESRestTestCase.randomLongBetween(1, 5), ChronoUnit.MINUTES),
+            new IntervalTimeConfiguration(ESRestTestCase.randomLongBetween(1, 5), ChronoUnit.MINUTES),
+            8,
+            null,
+            randomInt(),
+            Instant.now(),
+            ImmutableList.of(categoryField),
+            null
+        );
     }
 
     private void assertErrorMessage(String adId, String errorMessage) {

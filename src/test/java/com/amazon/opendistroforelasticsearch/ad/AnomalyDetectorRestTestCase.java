@@ -62,11 +62,16 @@ public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
     }
 
     protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata) throws IOException {
+        return createRandomAnomalyDetector(refresh, withMetadata, true);
+    }
+
+    protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, boolean featureEnabled)
+        throws IOException {
         Map<String, Object> uiMetadata = null;
         if (withMetadata) {
             uiMetadata = TestHelpers.randomUiMetadata();
         }
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(uiMetadata, null);
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(uiMetadata, null, featureEnabled);
         String indexName = detector.getIndices().get(0);
         TestHelpers
             .makeRequest(
@@ -178,6 +183,11 @@ public abstract class AnomalyDetectorRestTestCase extends ESRestTestCase {
                 detector.getLastUpdateTime()
             ),
             detectorJob };
+    }
+
+    protected Response startAnomalyDetector(String detectorId) throws IOException {
+        return TestHelpers
+            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start", ImmutableMap.of(), "", null);
     }
 
     protected HttpEntity toHttpEntity(ToXContentObject object) throws IOException {

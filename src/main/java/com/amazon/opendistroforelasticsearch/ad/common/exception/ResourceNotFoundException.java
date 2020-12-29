@@ -28,5 +28,6 @@ public class ResourceNotFoundException extends AnomalyDetectionException {
      */
     public ResourceNotFoundException(String detectorId, String message) {
         super(detectorId, message);
+        countedInStats(false);
     }
 }

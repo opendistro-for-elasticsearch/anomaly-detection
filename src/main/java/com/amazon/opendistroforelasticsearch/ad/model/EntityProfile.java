@@ -214,7 +214,7 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
         if (modelProfile != null) {
             builder.field(CommonName.MODEL, modelProfile);
         }
-        if (state != null) {
+        if (state != null && state != EntityState.UNKNOWN) {
             builder.field(CommonName.STATE, state);
         }
         builder.endObject();
@@ -263,7 +263,7 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
         if (modelProfile != null) {
             builder.append(CommonName.MODELS, modelProfile);
         }
-        if (state != null) {
+        if (state != null && state != EntityState.UNKNOWN) {
             builder.append(CommonName.STATE, state);
         }
         return builder.toString();
@@ -330,7 +330,7 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
         if (otherProfile.modelProfile != null) {
             this.modelProfile = otherProfile.modelProfile;
         }
-        if (otherProfile.getState() != null) {
+        if (otherProfile.getState() != null && otherProfile.getState() != EntityState.UNKNOWN) {
             this.state = otherProfile.getState();
         }
     }

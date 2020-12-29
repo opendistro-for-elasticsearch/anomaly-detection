@@ -21,7 +21,6 @@ import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -30,7 +29,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,17 +40,12 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.transport.RemoteTransportException;
-import org.junit.Before;
-import org.junit.BeforeClass;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
@@ -72,96 +65,8 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ProfileNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingResponse;
-import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
-public class AnomalyDetectorProfileRunnerTests extends AbstractADTest {
-    private AnomalyDetectorProfileRunner runner;
-    private Client client;
-    private DiscoveryNodeFilterer nodeFilter;
-    private AnomalyDetector detector;
-    private ClusterService clusterService;
-
-    private static Set<DetectorProfileName> stateOnly;
-    private static Set<DetectorProfileName> stateNError;
-    private static Set<DetectorProfileName> modelProfile;
-    private static Set<DetectorProfileName> stateInitProgress;
-    private static String noFullShingleError = "No full shingle in current detection window";
-    private static String stoppedError = "Stopped detector as job failed consecutively for more than 3 times: Having trouble querying data."
-        + " Maybe all of your features have been disabled.";
-
-    private int requiredSamples;
-    private int neededSamples;
-
-    // profile model related
-    private String node1;
-    private String nodeName1;
-    private DiscoveryNode discoveryNode1;
-
-    private String node2;
-    private String nodeName2;
-    private DiscoveryNode discoveryNode2;
-
-    private long modelSize;
-    private String model1Id;
-    private String model0Id;
-
-    private int shingleSize;
-
-    private int detectorIntervalMin;
-    private GetResponse detectorGetReponse;
-    private String messaingExceptionError = "blah";
-
-    @BeforeClass
-    public static void setUpOnce() {
-        stateOnly = new HashSet<DetectorProfileName>();
-        stateOnly.add(DetectorProfileName.STATE);
-        stateNError = new HashSet<DetectorProfileName>();
-        stateNError.add(DetectorProfileName.ERROR);
-        stateNError.add(DetectorProfileName.STATE);
-        stateInitProgress = new HashSet<DetectorProfileName>();
-        stateInitProgress.add(DetectorProfileName.INIT_PROGRESS);
-        stateInitProgress.add(DetectorProfileName.STATE);
-        modelProfile = new HashSet<DetectorProfileName>(
-            Arrays
-                .asList(
-                    DetectorProfileName.SHINGLE_SIZE,
-                    DetectorProfileName.MODELS,
-                    DetectorProfileName.COORDINATING_NODE,
-                    DetectorProfileName.TOTAL_SIZE_IN_BYTES
-                )
-        );
-    }
-
-    @Override
-    @Before
-    public void setUp() throws Exception {
-        super.setUp();
-        client = mock(Client.class);
-        nodeFilter = mock(DiscoveryNodeFilterer.class);
-        clusterService = mock(ClusterService.class);
-        when(clusterService.state()).thenReturn(ClusterState.builder(new ClusterName("test cluster")).build());
-
-        requiredSamples = 128;
-        neededSamples = 5;
-
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples);
-
-        detectorIntervalMin = 3;
-        detectorGetReponse = mock(GetResponse.class);
-    }
-
-    enum DetectorStatus {
-        INDEX_NOT_EXIST,
-        NO_DOC,
-        EXIST
-    }
-
-    enum JobStatus {
-        INDEX_NOT_EXIT,
-        DISABLED,
-        ENABLED
-    }
-
+public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTests {
     enum RCFPollingStatus {
         INIT_NOT_EXIT,
         REMOTE_INIT_NOT_EXIT,
@@ -173,13 +78,14 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractADTest {
         INITTING
     }
 
-    enum ErrorResultStatus {
-        INDEX_NOT_EXIT,
-        NO_ERROR,
-        SHINGLE_ERROR,
-        STOPPED_ERROR
-    }
-
+    /**
+     * Convenience methods for single-stream detector profile tests set up
+     * @param detectorStatus Detector config status
+     * @param jobStatus Detector job status
+     * @param rcfPollingStatus RCF polling result status
+     * @param errorResultStatus Error result status
+     * @throws IOException when failing the getting request
+     */
     @SuppressWarnings("unchecked")
     private void setUpClientGet(
         DetectorStatus detectorStatus,
@@ -188,6 +94,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractADTest {
         ErrorResultStatus errorResultStatus
     ) throws IOException {
         detector = TestHelpers.randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(detectorIntervalMin, ChronoUnit.MINUTES));
+
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             GetRequest request = (GetRequest) args[0];
@@ -639,9 +546,9 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractADTest {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
         }, exception -> {
-            logger.error(exception);
+            LOG.error(exception);
             for (StackTraceElement ste : exception.getStackTrace()) {
-                logger.info(ste);
+                LOG.info(ste);
             }
             assertTrue("Should not reach here ", false);
             inProgressLatch.countDown();
@@ -661,9 +568,9 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractADTest {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
         }, exception -> {
-            logger.error(exception);
+            LOG.error(exception);
             for (StackTraceElement ste : exception.getStackTrace()) {
-                logger.info(ste);
+                LOG.info(ste);
             }
             assertTrue("Should not reach here ", false);
             inProgressLatch.countDown();
@@ -673,5 +580,22 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractADTest {
 
     public void testInvalidRequiredSamples() {
         expectThrows(IllegalArgumentException.class, () -> new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, 0));
+    }
+
+    public void testFailRCFPolling() throws IOException, InterruptedException {
+        setUpClientGet(DetectorStatus.EXIST, JobStatus.ENABLED, RCFPollingStatus.EXCEPTION, ErrorResultStatus.NO_ERROR);
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+            assertTrue("Should not reach here ", false);
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue(exception instanceof RuntimeException);
+            // this means we don't exit with failImmediately. failImmediately can make we return early when there are other concurrent
+            // requests
+            assertTrue(exception.getMessage(), exception.getMessage().contains("Exceptions:"));
+            inProgressLatch.countDown();
+        }), stateNError);
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 }

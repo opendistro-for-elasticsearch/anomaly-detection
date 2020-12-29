@@ -27,8 +27,10 @@ import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -37,6 +39,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -299,7 +302,7 @@ public class TestHelpers {
             null,
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            null,
+            categoryField,
             randomUser()
         );
     }
@@ -596,6 +599,24 @@ public class TestHelpers {
         );
     }
 
+    public static GetResponse createBrokenGetResponse(String id, String indexName) throws IOException {
+        ByteBuffer[] buffers = new ByteBuffer[0];
+        return new GetResponse(
+            new GetResult(
+                indexName,
+                MapperService.SINGLE_MAPPING_NAME,
+                id,
+                UNASSIGNED_SEQ_NO,
+                0,
+                -1,
+                true,
+                BytesReference.fromByteBuffers(buffers),
+                Collections.emptyMap(),
+                Collections.emptyMap()
+            )
+        );
+    }
+
     public static SearchResponse createSearchResponse(ToXContentObject o) throws IOException {
         XContentBuilder content = o.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS);
 
@@ -671,5 +692,12 @@ public class TestHelpers {
         );
         mappings.put(index, Collections.singletonMap(CommonName.MAPPING_TYPE, Collections.singletonMap(fieldName, fieldMappingMetadata)));
         return mappings;
+    }
+
+    public static SearchHits createSearchHits(int totalHits) {
+        List<SearchHit> hitList = new ArrayList<>();
+        IntStream.range(0, totalHits).forEach(i -> hitList.add(new SearchHit(i)));
+        SearchHit[] hitArray = new SearchHit[hitList.size()];
+        return new SearchHits(hitList.toArray(hitArray), new TotalHits(totalHits, TotalHits.Relation.EQUAL_TO), 1.0F);
     }
 }

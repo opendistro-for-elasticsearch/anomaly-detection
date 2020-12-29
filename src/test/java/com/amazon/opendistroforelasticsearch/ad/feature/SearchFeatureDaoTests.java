@@ -27,6 +27,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.Interpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.LinearUniformInterpolator;
 import com.amazon.opendistroforelasticsearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
@@ -348,7 +349,7 @@ public class SearchFeatureDaoTests {
             new Object[] { asList(multiBucket), asList(aggName), null }, };
     }
 
-    @Test(expected = IllegalStateException.class)
+    @Test(expected = EndRunException.class)
     @Parameters(method = "getFeaturesForPeriodThrowIllegalStateData")
     public void getFeaturesForPeriod_throwIllegalState_forUnknownAggregation(
         List<Aggregation> aggs,

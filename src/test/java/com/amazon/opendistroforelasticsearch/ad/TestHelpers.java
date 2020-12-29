@@ -36,10 +36,12 @@ import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.client.AdminClient;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
@@ -99,6 +101,7 @@ import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import static org.elasticsearch.test.ESTestCase.randomAlphaOfLength;
+import static org.elasticsearch.test.ESTestCase.randomBoolean;
 import static org.elasticsearch.test.ESTestCase.randomDouble;
 import static org.elasticsearch.test.ESTestCase.randomInt;
 import static org.elasticsearch.test.ESTestCase.randomLong;
@@ -173,15 +176,30 @@ public class TestHelpers {
         return randomAnomalyDetector(ImmutableList.of(randomFeature()), uiMetadata, lastUpdateTime);
     }
 
+    public static AnomalyDetector randomAnomalyDetector(Map<String, Object> uiMetadata, Instant lastUpdateTime, boolean featureEnabled)
+        throws IOException {
+        return randomAnomalyDetector(ImmutableList.of(randomFeature(featureEnabled)), uiMetadata, lastUpdateTime);
+    }
+
     public static AnomalyDetector randomAnomalyDetector(List<Feature> features, Map<String, Object> uiMetadata, Instant lastUpdateTime)
         throws IOException {
+        List<String> indices = ImmutableList.of(randomAlphaOfLength(10).toLowerCase());
+        return randomAnomalyDetector(indices, features, uiMetadata, lastUpdateTime);
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(
+        List<String> indices,
+        List<Feature> features,
+        Map<String, Object> uiMetadata,
+        Instant lastUpdateTime
+    ) throws IOException {
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            indices,
             features,
             randomQuery(),
             randomIntervalTimeConfiguration(),
@@ -245,6 +263,10 @@ public class TestHelpers {
         String query = "{\"bool\":{\"must\":{\"term\":{\"user\":\"kimchy\"}},\"filter\":{\"term\":{\"tag\":"
             + "\"tech\"}},\"must_not\":{\"range\":{\"age\":{\"gte\":10,\"lte\":20}}},\"should\":[{\"term\":"
             + "{\"tag\":\"wow\"}},{\"term\":{\"tag\":\"elasticsearch\"}}],\"minimum_should_match\":1,\"boost\":1}}";
+        return randomQuery(query);
+    }
+
+    public static QueryBuilder randomQuery(String query) throws IOException {
         XContentParser parser = TestHelpers.parser(query);
         return parseInnerQueryBuilder(parser);
     }
@@ -255,6 +277,22 @@ public class TestHelpers {
 
     public static AggregationBuilder randomAggregation(String aggregationName) throws IOException {
         XContentParser parser = parser("{\"" + aggregationName + "\":{\"value_count\":{\"field\":\"ok\"}}}");
+
+        AggregatorFactories.Builder parsed = AggregatorFactories.parseAggregators(parser);
+        return parsed.getAggregatorFactories().iterator().next();
+    }
+
+    /**
+     * Parse string aggregation query into {@link AggregationBuilder}
+     * Sample input:
+     * "{\"test\":{\"value_count\":{\"field\":\"ok\"}}}"
+     *
+     * @param aggregationQuery aggregation builder
+     * @return aggregation builder
+     * @throws IOException IO exception
+     */
+    public static AggregationBuilder parseAggregation(String aggregationQuery) throws IOException {
+        XContentParser parser = parser(aggregationQuery);
 
         AggregatorFactories.Builder parsed = AggregatorFactories.parseAggregators(parser);
         return parsed.getAggregatorFactories().iterator().next();
@@ -280,7 +318,15 @@ public class TestHelpers {
         return randomFeature(randomAlphaOfLength(5), randomAlphaOfLength(5));
     }
 
+    public static Feature randomFeature(boolean enabled) {
+        return randomFeature(randomAlphaOfLength(5), randomAlphaOfLength(5), enabled);
+    }
+
     public static Feature randomFeature(String featureName, String aggregationName) {
+        return randomFeature(featureName, aggregationName, randomBoolean());
+    }
+
+    public static Feature randomFeature(String featureName, String aggregationName, boolean enabled) {
         AggregationBuilder testAggregation = null;
         try {
             testAggregation = randomAggregation(aggregationName);
@@ -288,7 +334,7 @@ public class TestHelpers {
             logger.error("Fail to generate test aggregation");
             throw new RuntimeException();
         }
-        return new Feature(randomAlphaOfLength(5), featureName, ESRestTestCase.randomBoolean(), testAggregation);
+        return new Feature(randomAlphaOfLength(5), featureName, enabled, testAggregation);
     }
 
     public static <S, T> void assertFailWith(Class<S> clazz, Callable<T> callable) throws Exception {
@@ -433,6 +479,11 @@ public class TestHelpers {
         ThreadPool pool = mock(ThreadPool.class);
         when(pool.getThreadContext()).thenReturn(createThreadContext());
         return pool;
+    }
+
+    public static CreateIndexResponse createIndex(AdminClient adminClient, String indexName, String indexMapping) {
+        CreateIndexRequest request = new CreateIndexRequest(indexName).mapping(AnomalyDetector.TYPE, indexMapping, XContentType.JSON);
+        return adminClient.indices().create(request).actionGet(5_000);
     }
 
     public static void createIndex(RestClient client, String indexName, HttpEntity data) throws IOException {

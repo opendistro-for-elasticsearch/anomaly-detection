@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
@@ -111,6 +112,7 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
             } else if (request.index().equals(DetectorInternalState.DETECTOR_STATE_INDEX)) {
                 switch (errorResultStatus) {
                     case NO_ERROR:
+                        listener.onResponse(null);
                         break;
                     case NULL_POINTER_EXCEPTION:
                         GetResponse response = mock(GetResponse.class);
@@ -237,7 +239,29 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
-    public void testFaiConfirmInitted() throws IOException, InterruptedException {
+    public void testNoResultsNoError() throws IOException, InterruptedException {
+        setUpMultiEntityClientGet(DetectorStatus.EXIST, JobStatus.ENABLED, ErrorResultStatus.NO_ERROR);
+        setUpMultiEntityClientSearch(ADResultStatus.NO_RESULT, CardinalityStatus.NORMAL);
+        setUpProfileAction();
+
+        final AtomicInteger called = new AtomicInteger(0);
+
+        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+            assertTrue(response.getInitProgress() != null);
+            called.getAndIncrement();
+        }, exception -> {
+            assertTrue("Should not reach here ", false);
+            called.getAndIncrement();
+        }), totalInitProgress);
+
+        while (called.get() == 0) {
+            Thread.sleep(100);
+        }
+        // should only call onResponse once
+        assertEquals(1, called.get());
+    }
+
+    public void testFailConfirmInitted() throws IOException, InterruptedException {
         setUpMultiEntityClientGet(DetectorStatus.EXIST, JobStatus.ENABLED, ErrorResultStatus.NO_ERROR);
         setUpMultiEntityClientSearch(ADResultStatus.EXCEPTION, CardinalityStatus.NORMAL);
         setUpProfileAction();

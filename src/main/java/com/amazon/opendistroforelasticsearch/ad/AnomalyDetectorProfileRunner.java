@@ -188,7 +188,6 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             CommonErrorMessages.FAIL_FETCH_ERR_MSG + detectorId,
                             false
                         );
-
                     if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
                         GetRequest getStateRequest = new GetRequest(DetectorInternalState.DETECTOR_STATE_INDEX, detectorId);
                         client.get(getStateRequest, onGetDetectorState(delegateListener, detectorId, enabledTimeMs));
@@ -459,8 +458,8 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 processInitResponse(detector, profilesToCollect, totalUpdates, false, profileBuilder, listener);
             } else {
                 createRunningStateAndInitProgress(profilesToCollect, profileBuilder);
+                listener.onResponse(profileBuilder.build());
             }
-            listener.onResponse(profileBuilder.build());
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {
                 // anomaly result index is not created yet
@@ -554,7 +553,6 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             } else {
                 long intervalMins = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMinutes();
                 InitProgressProfile initProgress = computeInitProgressProfile(totalUpdates, intervalMins);
-
                 builder.initProgress(initProgress);
             }
         }

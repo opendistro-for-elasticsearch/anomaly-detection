@@ -99,7 +99,6 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             listener.onFailure(new InvalidParameterException(CommonErrorMessages.EMPTY_PROFILES_COLLECT));
             return;
         }
-
         calculateTotalResponsesToWait(detectorId, profilesToCollect, listener);
     }
 
@@ -118,10 +117,38 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, xContentParser.nextToken(), xContentParser);
                     AnomalyDetector detector = AnomalyDetector.parse(xContentParser, detectorId);
+
+                    prepareProfile(detector, listener, profilesToCollect);
+                } catch (Exception e) {
+                    listener.onFailure(new RuntimeException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId, e));
+                }
+            } else {
+                listener.onFailure(new RuntimeException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId));
+            }
+        }, exception -> listener.onFailure(new RuntimeException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId, exception))));
+    }
+
+    private void prepareProfile(
+        AnomalyDetector detector,
+        ActionListener<DetectorProfile> listener,
+        Set<DetectorProfileName> profilesToCollect
+    ) {
+        String detectorId = detector.getDetectorId();
+        GetRequest getRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX, detectorId);
+        client.get(getRequest, ActionListener.wrap(getResponse -> {
+            if (getResponse != null && getResponse.isExists()) {
+                try (
+                    XContentParser parser = XContentType.JSON
+                        .xContent()
+                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
+                ) {
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                    long enabledTimeMs = job.getEnabledTime().toEpochMilli();
+
                     boolean isMultiEntityDetector = detector.isMultientityDetector();
 
                     int totalResponsesToWait = 0;
-
                     if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
                         totalResponsesToWait++;
                     }
@@ -158,50 +185,19 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                         new MultiResponsesDelegateActionListener<DetectorProfile>(
                             listener,
                             totalResponsesToWait,
-                            "Fail to fetch profile for " + detectorId,
+                            CommonErrorMessages.FAIL_FETCH_ERR_MSG + detectorId,
                             false
                         );
-
-                    prepareProfile(detector, delegateListener, profilesToCollect);
-                } catch (Exception e) {
-                    listener.onFailure(new RuntimeException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId, e));
-                }
-            } else {
-                listener.onFailure(new RuntimeException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId));
-            }
-        }, exception -> listener.onFailure(new RuntimeException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId, exception))));
-    }
-
-    private void prepareProfile(
-        AnomalyDetector detector,
-        MultiResponsesDelegateActionListener<DetectorProfile> listener,
-        Set<DetectorProfileName> profilesToCollect
-    ) {
-        String detectorId = detector.getDetectorId();
-        GetRequest getRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX, detectorId);
-        client.get(getRequest, ActionListener.wrap(getResponse -> {
-            if (getResponse != null && getResponse.isExists()) {
-                try (
-                    XContentParser parser = XContentType.JSON
-                        .xContent()
-                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
-                ) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
-                    long enabledTimeMs = job.getEnabledTime().toEpochMilli();
-
                     if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
                         GetRequest getStateRequest = new GetRequest(DetectorInternalState.DETECTOR_STATE_INDEX, detectorId);
-                        client.get(getStateRequest, onGetDetectorState(listener, detectorId, enabledTimeMs));
+                        client.get(getStateRequest, onGetDetectorState(delegateListener, detectorId, enabledTimeMs));
                     }
-
-                    boolean isMultiEntityDetector = detector.isMultientityDetector();
 
                     // total number of listeners we need to define. Needed by MultiResponsesDelegateActionListener to decide
                     // when to consolidate results and return to users
                     if (isMultiEntityDetector) {
                         if (profilesToCollect.contains(DetectorProfileName.TOTAL_ENTITIES)) {
-                            profileEntityStats(listener, detector);
+                            profileEntityStats(delegateListener, detector);
                         }
                         if (profilesToCollect.contains(DetectorProfileName.COORDINATING_NODE)
                             || profilesToCollect.contains(DetectorProfileName.SHINGLE_SIZE)
@@ -210,24 +206,24 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             || profilesToCollect.contains(DetectorProfileName.ACTIVE_ENTITIES)
                             || profilesToCollect.contains(DetectorProfileName.INIT_PROGRESS)
                             || profilesToCollect.contains(DetectorProfileName.STATE)) {
-                            profileModels(detector, profilesToCollect, job, true, listener);
+                            profileModels(detector, profilesToCollect, job, true, delegateListener);
                         }
                     } else {
                         if (profilesToCollect.contains(DetectorProfileName.STATE)
                             || profilesToCollect.contains(DetectorProfileName.INIT_PROGRESS)) {
-                            profileStateRelated(detector, listener, job.isEnabled(), profilesToCollect);
+                            profileStateRelated(detector, delegateListener, job.isEnabled(), profilesToCollect);
                         }
                         if (profilesToCollect.contains(DetectorProfileName.COORDINATING_NODE)
                             || profilesToCollect.contains(DetectorProfileName.SHINGLE_SIZE)
                             || profilesToCollect.contains(DetectorProfileName.TOTAL_SIZE_IN_BYTES)
                             || profilesToCollect.contains(DetectorProfileName.MODELS)) {
-                            profileModels(detector, profilesToCollect, job, false, listener);
+                            profileModels(detector, profilesToCollect, job, false, delegateListener);
                         }
                     }
 
-                } catch (IOException | XContentParseException | NullPointerException e) {
-                    logger.error(e);
-                    listener.failImmediately(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG, e);
+                } catch (Exception e) {
+                    logger.error(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG, e);
+                    listener.onFailure(e);
                 }
             } else {
                 onGetDetectorForPrepare(listener, profilesToCollect);
@@ -261,20 +257,19 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
                 DetectorProfile profile = profileBuilder.totalEntities(value).build();
                 listener.onResponse(profile);
-            }, searchException -> { listener.failImmediately(CommonErrorMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId()); })
-            );
+            }, searchException -> {
+                logger.warn(CommonErrorMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
+                listener.onFailure(searchException);
+            }));
         }
     }
 
-    private void onGetDetectorForPrepare(
-        MultiResponsesDelegateActionListener<DetectorProfile> listener,
-        Set<DetectorProfileName> profiles
-    ) {
+    private void onGetDetectorForPrepare(ActionListener<DetectorProfile> listener, Set<DetectorProfileName> profiles) {
         DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
         if (profiles.contains(DetectorProfileName.STATE)) {
             profileBuilder.state(DetectorState.DISABLED);
         }
-        listener.respondImmediately(profileBuilder.build());
+        listener.onResponse(profileBuilder.build());
     }
 
     /**
@@ -340,8 +335,8 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     listener.onResponse(profileBuilder.build());
 
                 } catch (IOException | XContentParseException | NullPointerException e) {
-                    logger.error(e);
-                    listener.failImmediately(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG, e);
+                    logger.error(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG, e);
+                    listener.onFailure(e);
                 }
             } else {
                 // detector state for this detector does not exist
@@ -463,8 +458,8 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 processInitResponse(detector, profilesToCollect, totalUpdates, false, profileBuilder, listener);
             } else {
                 createRunningStateAndInitProgress(profilesToCollect, profileBuilder);
+                listener.onResponse(profileBuilder.build());
             }
-            listener.onResponse(profileBuilder.build());
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {
                 // anomaly result index is not created yet
@@ -475,7 +470,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                         "Fail to find any anomaly result with anomaly score larger than 0 after AD job enabled time for detector {}",
                         detector.getDetectorId()
                     );
-                listener.failImmediately(new RuntimeException("Fail to find detector state: " + detector.getDetectorId(), exception));
+                listener.onFailure(exception);
             }
         });
     }
@@ -523,7 +518,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                         new ParameterizedMessage("Fail to get init progress through messaging for {}", detector.getDetectorId()),
                         exception
                     );
-                listener.failImmediately(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG + detector.getDetectorId(), exception);
+                listener.onFailure(exception);
             }
         });
     }
@@ -558,7 +553,6 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             } else {
                 long intervalMins = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMinutes();
                 InitProgressProfile initProgress = computeInitProgressProfile(totalUpdates, intervalMins);
-
                 builder.initProgress(initProgress);
             }
         }

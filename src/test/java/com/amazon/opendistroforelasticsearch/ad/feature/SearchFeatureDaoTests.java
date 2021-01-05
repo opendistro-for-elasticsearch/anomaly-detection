@@ -226,7 +226,6 @@ public class SearchFeatureDaoTests {
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         when(detector.getTimeField()).thenReturn("testTimeField");
         when(detector.getIndices()).thenReturn(Arrays.asList("testIndices"));
-        when(detector.generateFeatureQuery()).thenReturn(featureQuery);
         when(detector.getDetectionInterval()).thenReturn(detectionInterval);
         when(detector.getFilterQuery()).thenReturn(QueryBuilders.matchAllQuery());
         when(detector.getCategoryField()).thenReturn(Collections.singletonList("a"));
@@ -419,7 +418,7 @@ public class SearchFeatureDaoTests {
             new Object[] { asList(multiBucket), asList(aggName), null }, };
     }
 
-    @Test(expected = IllegalStateException.class)
+    @Test(expected = EndRunException.class)
     @Parameters(method = "getFeaturesForPeriodThrowIllegalStateData")
     public void getFeaturesForPeriod_throwIllegalState_forUnknownAggregation(
         List<Aggregation> aggs,

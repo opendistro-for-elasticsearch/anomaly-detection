@@ -15,10 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
+import static org.apache.http.entity.ContentType.APPLICATION_JSON;
 import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import static org.elasticsearch.test.ESTestCase.randomAlphaOfLength;
+import static org.elasticsearch.test.ESTestCase.randomBoolean;
 import static org.elasticsearch.test.ESTestCase.randomDouble;
 import static org.elasticsearch.test.ESTestCase.randomInt;
 import static org.elasticsearch.test.ESTestCase.randomIntBetween;
@@ -27,8 +29,10 @@ import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -37,10 +41,12 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.nio.entity.NStringEntity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -49,11 +55,13 @@ import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.client.AdminClient;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
@@ -82,6 +90,7 @@ import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.get.GetResult;
@@ -104,10 +113,14 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
@@ -192,29 +205,75 @@ public class TestHelpers {
         return parser;
     }
 
+    public static Map<String, Object> XContentBuilderToMap(XContentBuilder builder) {
+        return XContentHelper.convertToMap(BytesReference.bytes(builder), false, builder.contentType()).v2();
+    }
+
     public static NamedXContentRegistry xContentRegistry() {
         SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
         return new NamedXContentRegistry(searchModule.getNamedXContents());
     }
 
     public static AnomalyDetector randomAnomalyDetector(Map<String, Object> uiMetadata, Instant lastUpdateTime) throws IOException {
-        return randomAnomalyDetector(ImmutableList.of(randomFeature()), uiMetadata, lastUpdateTime);
+        return randomAnomalyDetector(ImmutableList.of(randomFeature()), uiMetadata, lastUpdateTime, null, null);
     }
 
     public static AnomalyDetector randomAnomalyDetector(Map<String, Object> uiMetadata, Instant lastUpdateTime, boolean featureEnabled)
         throws IOException {
-        return randomAnomalyDetector(ImmutableList.of(randomFeature(featureEnabled)), uiMetadata, lastUpdateTime);
+        return randomAnomalyDetector(ImmutableList.of(randomFeature(featureEnabled)), uiMetadata, lastUpdateTime, null, null);
     }
 
     public static AnomalyDetector randomAnomalyDetector(List<Feature> features, Map<String, Object> uiMetadata, Instant lastUpdateTime)
         throws IOException {
+        return randomAnomalyDetector(features, uiMetadata, lastUpdateTime, null, null);
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(
+        List<Feature> features,
+        Map<String, Object> uiMetadata,
+        Instant lastUpdateTime,
+        String detectorType,
+        DetectionDateRange dateRange
+    ) throws IOException {
+        return randomAnomalyDetector(features, uiMetadata, lastUpdateTime, detectorType, dateRange, true);
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(
+        List<Feature> features,
+        Map<String, Object> uiMetadata,
+        Instant lastUpdateTime,
+        String detectorType,
+        DetectionDateRange dateRange,
+        boolean withUser
+    ) throws IOException {
+        return randomAnomalyDetector(
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            features,
+            uiMetadata,
+            lastUpdateTime,
+            detectorType,
+            dateRange,
+            withUser
+        );
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(
+        List<String> indices,
+        List<Feature> features,
+        Map<String, Object> uiMetadata,
+        Instant lastUpdateTime,
+        String detectorType,
+        DetectionDateRange dateRange,
+        boolean withUser
+    ) throws IOException {
+        User user = withUser ? randomUser() : null;
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            indices,
             features,
             randomQuery(),
             randomIntervalTimeConfiguration(),
@@ -224,7 +283,16 @@ public class TestHelpers {
             randomInt(),
             lastUpdateTime,
             null,
-            randomUser()
+            user,
+            detectorType,
+            dateRange
+        );
+    }
+
+    public static DetectionDateRange randomDetectionDateRange() {
+        return new DetectionDateRange(
+            Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(10, ChronoUnit.DAYS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
         );
     }
 
@@ -313,7 +381,7 @@ public class TestHelpers {
             null,
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            null,
+            categoryField,
             randomUser()
         );
     }
@@ -335,6 +403,10 @@ public class TestHelpers {
         String query = "{\"bool\":{\"must\":{\"term\":{\"user\":\"kimchy\"}},\"filter\":{\"term\":{\"tag\":"
             + "\"tech\"}},\"must_not\":{\"range\":{\"age\":{\"gte\":10,\"lte\":20}}},\"should\":[{\"term\":"
             + "{\"tag\":\"wow\"}},{\"term\":{\"tag\":\"elasticsearch\"}}],\"minimum_should_match\":1,\"boost\":1}}";
+        return randomQuery(query);
+    }
+
+    public static QueryBuilder randomQuery(String query) throws IOException {
         XContentParser parser = TestHelpers.parser(query);
         return parseInnerQueryBuilder(parser);
     }
@@ -345,6 +417,22 @@ public class TestHelpers {
 
     public static AggregationBuilder randomAggregation(String aggregationName) throws IOException {
         XContentParser parser = parser("{\"" + aggregationName + "\":{\"value_count\":{\"field\":\"ok\"}}}");
+
+        AggregatorFactories.Builder parsed = AggregatorFactories.parseAggregators(parser);
+        return parsed.getAggregatorFactories().iterator().next();
+    }
+
+    /**
+     * Parse string aggregation query into {@link AggregationBuilder}
+     * Sample input:
+     * "{\"test\":{\"value_count\":{\"field\":\"ok\"}}}"
+     *
+     * @param aggregationQuery aggregation builder
+     * @return aggregation builder
+     * @throws IOException IO exception
+     */
+    public static AggregationBuilder parseAggregation(String aggregationQuery) throws IOException {
+        XContentParser parser = parser(aggregationQuery);
 
         AggregatorFactories.Builder parsed = AggregatorFactories.parseAggregators(parser);
         return parsed.getAggregatorFactories().iterator().next();
@@ -371,14 +459,7 @@ public class TestHelpers {
     }
 
     public static Feature randomFeature(String featureName, String aggregationName) {
-        AggregationBuilder testAggregation = null;
-        try {
-            testAggregation = randomAggregation(aggregationName);
-        } catch (IOException e) {
-            logger.error("Fail to generate test aggregation");
-            throw new RuntimeException();
-        }
-        return new Feature(randomAlphaOfLength(5), featureName, ESRestTestCase.randomBoolean(), testAggregation);
+        return randomFeature(featureName, aggregationName, randomBoolean());
     }
 
     public static Feature randomFeature(boolean enabled) {
@@ -427,20 +508,26 @@ public class TestHelpers {
     }
 
     public static AnomalyResult randomAnomalyDetectResult() {
-        return randomAnomalyDetectResult(randomDouble(), randomAlphaOfLength(5));
+        return randomAnomalyDetectResult(randomDouble(), randomAlphaOfLength(5), null);
     }
 
     public static AnomalyResult randomAnomalyDetectResult(double score) {
-        return randomAnomalyDetectResult(randomDouble(), null);
+        return randomAnomalyDetectResult(randomDouble(), null, null);
     }
 
     public static AnomalyResult randomAnomalyDetectResult(String error) {
-        return randomAnomalyDetectResult(Double.NaN, error);
+        return randomAnomalyDetectResult(Double.NaN, error, null);
     }
 
-    public static AnomalyResult randomAnomalyDetectResult(double score, String error) {
+    public static AnomalyResult randomAnomalyDetectResult(double score, String error, String taskId) {
+        return randomAnomalyDetectResult(score, error, taskId, true);
+    }
+
+    public static AnomalyResult randomAnomalyDetectResult(double score, String error, String taskId, boolean withUser) {
+        User user = withUser ? randomUser() : null;
         return new AnomalyResult(
             randomAlphaOfLength(5),
+            taskId,
             score,
             randomDouble(),
             randomDouble(),
@@ -450,7 +537,8 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             error,
-            randomUser(),
+            null,
+            user,
             CommonValue.NO_SCHEMA_VERSION
         );
     }
@@ -580,6 +668,11 @@ public class TestHelpers {
         return pool;
     }
 
+    public static CreateIndexResponse createIndex(AdminClient adminClient, String indexName, String indexMapping) {
+        CreateIndexRequest request = new CreateIndexRequest(indexName).mapping(AnomalyDetector.TYPE, indexMapping, XContentType.JSON);
+        return adminClient.indices().create(request).actionGet(5_000);
+    }
+
     public static void createIndex(RestClient client, String indexName, HttpEntity data) throws IOException {
         TestHelpers
             .makeRequest(
@@ -604,6 +697,24 @@ public class TestHelpers {
                 -1,
                 true,
                 BytesReference.bytes(content),
+                Collections.emptyMap(),
+                Collections.emptyMap()
+            )
+        );
+    }
+
+    public static GetResponse createBrokenGetResponse(String id, String indexName) throws IOException {
+        ByteBuffer[] buffers = new ByteBuffer[0];
+        return new GetResponse(
+            new GetResult(
+                indexName,
+                MapperService.SINGLE_MAPPING_NAME,
+                id,
+                UNASSIGNED_SEQ_NO,
+                0,
+                -1,
+                true,
+                BytesReference.fromByteBuffers(buffers),
                 Collections.emptyMap(),
                 Collections.emptyMap()
             )
@@ -657,10 +768,6 @@ public class TestHelpers {
         );
     }
 
-    public static AnomalyResult randomDetectState() {
-        return randomAnomalyDetectResult(randomDouble(), randomAlphaOfLength(5));
-    }
-
     public static DetectorInternalState randomDetectState(String error) {
         return randomDetectState(error, Instant.now());
     }
@@ -685,5 +792,94 @@ public class TestHelpers {
         );
         mappings.put(index, Collections.singletonMap(CommonName.MAPPING_TYPE, Collections.singletonMap(fieldName, fieldMappingMetadata)));
         return mappings;
+    }
+
+    public static ADTask randomAdTask() throws IOException {
+        return randomAdTask(
+            randomAlphaOfLength(5),
+            ADTaskState.RUNNING,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            randomAlphaOfLength(5),
+            true
+        );
+    }
+
+    public static ADTask randomAdTask(
+        String taskId,
+        ADTaskState state,
+        Instant executionEndTime,
+        String stoppedBy,
+        String detectorId,
+        AnomalyDetector detector
+    ) {
+        executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
+        ADTask task = ADTask
+            .builder()
+            .taskId(taskId)
+            .taskType(ADTaskType.HISTORICAL.name())
+            .detectorId(detectorId)
+            .detector(detector)
+            .state(state.name())
+            .taskProgress(0.5f)
+            .initProgress(1.0f)
+            .currentPiece(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(randomIntBetween(1, 100), ChronoUnit.MINUTES))
+            .executionStartTime(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(100, ChronoUnit.MINUTES))
+            .executionEndTime(executionEndTime)
+            .isLatest(true)
+            .error(randomAlphaOfLength(5))
+            .checkpointId(randomAlphaOfLength(5))
+            .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            .startedBy(randomAlphaOfLength(5))
+            .stoppedBy(stoppedBy)
+            .build();
+        return task;
+    }
+
+    public static ADTask randomAdTask(String taskId, ADTaskState state, Instant executionEndTime, String stoppedBy, boolean withDetector)
+        throws IOException {
+        AnomalyDetector detector = withDetector
+            ? randomAnomalyDetector(ImmutableMap.of(), Instant.now().truncatedTo(ChronoUnit.SECONDS), true)
+            : null;
+        executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
+        ADTask task = ADTask
+            .builder()
+            .taskId(taskId)
+            .taskType(ADTaskType.HISTORICAL.name())
+            .detectorId(randomAlphaOfLength(5))
+            .detector(detector)
+            .state(state.name())
+            .taskProgress(0.5f)
+            .initProgress(1.0f)
+            .currentPiece(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(randomIntBetween(1, 100), ChronoUnit.MINUTES))
+            .executionStartTime(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(100, ChronoUnit.MINUTES))
+            .executionEndTime(executionEndTime)
+            .isLatest(true)
+            .error(randomAlphaOfLength(5))
+            .checkpointId(randomAlphaOfLength(5))
+            .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            .startedBy(randomAlphaOfLength(5))
+            .stoppedBy(stoppedBy)
+            .build();
+        return task;
+    }
+
+    public static HttpEntity toHttpEntity(ToXContentObject object) throws IOException {
+        return new StringEntity(toJsonString(object), APPLICATION_JSON);
+    }
+
+    public static HttpEntity toHttpEntity(String jsonString) throws IOException {
+        return new StringEntity(jsonString, APPLICATION_JSON);
+    }
+
+    public static String toJsonString(ToXContentObject object) throws IOException {
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        return TestHelpers.xContentBuilderToString(object.toXContent(builder, ToXContent.EMPTY_PARAMS));
+    }
+
+    public static SearchHits createSearchHits(int totalHits) {
+        List<SearchHit> hitList = new ArrayList<>();
+        IntStream.range(0, totalHits).forEach(i -> hitList.add(new SearchHit(i)));
+        SearchHit[] hitArray = new SearchHit[hitList.size()];
+        return new SearchHits(hitList.toArray(hitArray), new TotalHits(totalHits, TotalHits.Relation.EQUAL_TO), 1.0F);
     }
 }

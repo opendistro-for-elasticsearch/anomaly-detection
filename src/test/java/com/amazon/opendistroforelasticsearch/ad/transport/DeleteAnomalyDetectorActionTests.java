@@ -16,21 +16,30 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.support.ActionFilters;
+import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.settings.ClusterSettings;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.elasticsearch.transport.TransportService;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
+import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
 public class DeleteAnomalyDetectorActionTests extends ESIntegTestCase {
     private DeleteAnomalyDetectorTransportAction action;
@@ -40,11 +49,18 @@ public class DeleteAnomalyDetectorActionTests extends ESIntegTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        ClusterService clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         action = new DeleteAnomalyDetectorTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
             client(),
-            clusterService(),
+            clusterService,
+            Settings.EMPTY,
             xContentRegistry()
         );
         response = new ActionListener<DeleteResponse>() {

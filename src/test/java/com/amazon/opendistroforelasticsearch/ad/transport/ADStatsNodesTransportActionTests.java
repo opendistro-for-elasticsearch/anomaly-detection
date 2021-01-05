@@ -29,6 +29,8 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.monitor.jvm.JvmService;
+import org.elasticsearch.monitor.jvm.JvmStats;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
@@ -40,9 +42,11 @@ import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
+import com.amazon.opendistroforelasticsearch.ad.stats.InternalStatNames;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.IndexStatusSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupplier;
+import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.SettableSupplier;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
@@ -87,17 +91,26 @@ public class ADStatsNodesTransportActionTests extends ESIntegTestCase {
                 put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider)));
                 put(clusterStatName1, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index1")));
                 put(clusterStatName2, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index2")));
+                put(InternalStatNames.JVM_HEAP_USAGE.getName(), new ADStat<>(true, new SettableSupplier()));
             }
         };
 
         adStats = new ADStats(indexUtils, modelManager, statsMap);
+        JvmService jvmService = mock(JvmService.class);
+        JvmStats jvmStats = mock(JvmStats.class);
+        JvmStats.Mem mem = mock(JvmStats.Mem.class);
+
+        when(jvmService.stats()).thenReturn(jvmStats);
+        when(jvmStats.getMem()).thenReturn(mem);
+        when(mem.getHeapUsedPercent()).thenReturn(randomShort());
 
         action = new ADStatsNodesTransportAction(
             client().threadPool(),
             clusterService(),
             mock(TransportService.class),
             mock(ActionFilters.class),
-            adStats
+            adStats,
+            jvmService
         );
     }
 
@@ -119,6 +132,28 @@ public class ADStatsNodesTransportActionTests extends ESIntegTestCase {
         adStatsRequest.clear();
 
         Set<String> statsToBeRetrieved = new HashSet<>(Arrays.asList(nodeStatName1, nodeStatName2));
+
+        for (String stat : statsToBeRetrieved) {
+            adStatsRequest.addStat(stat);
+        }
+
+        ADStatsNodeResponse response = action.nodeOperation(new ADStatsNodeRequest(adStatsRequest));
+
+        Map<String, Object> stats = response.getStatsMap();
+
+        assertEquals(statsToBeRetrieved.size(), stats.size());
+        for (String statName : stats.keySet()) {
+            assertTrue(statsToBeRetrieved.contains(statName));
+        }
+    }
+
+    @Test
+    public void testNodeOperationWithJvmHeapUsage() {
+        String nodeId = clusterService().localNode().getId();
+        ADStatsRequest adStatsRequest = new ADStatsRequest((nodeId));
+        adStatsRequest.clear();
+
+        Set<String> statsToBeRetrieved = new HashSet<>(Arrays.asList(nodeStatName1, InternalStatNames.JVM_HEAP_USAGE.getName()));
 
         for (String stat : statsToBeRetrieved) {
             adStatsRequest.addStat(stat);

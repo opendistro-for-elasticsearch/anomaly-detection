@@ -30,6 +30,7 @@ import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.junit.Assert;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRestTestCase;
@@ -78,7 +79,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testCreateAnomalyDetectorWithDuplicateName() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         AnomalyDetector detectorDuplicateName = new AnomalyDetector(
             AnomalyDetector.NO_ID,
@@ -141,26 +142,26 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testGetAnomalyDetector() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
 
-        Exception ex = expectThrows(ResponseException.class, () -> getAnomalyDetector(detector.getDetectorId()));
+        Exception ex = expectThrows(ResponseException.class, () -> getAnomalyDetector(detector.getDetectorId(), client()));
         assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
-        AnomalyDetector createdDetector = getAnomalyDetector(detector.getDetectorId());
+        AnomalyDetector createdDetector = getAnomalyDetector(detector.getDetectorId(), client());
         assertEquals("Incorrect Location header", detector, createdDetector);
     }
 
     public void testGetNotExistingAnomalyDetector() throws Exception {
-        createRandomAnomalyDetector(true, true);
-        TestHelpers.assertFailWith(ResponseException.class, null, () -> getAnomalyDetector(randomAlphaOfLength(5)));
+        createRandomAnomalyDetector(true, true, client());
+        TestHelpers.assertFailWith(ResponseException.class, null, () -> getAnomalyDetector(randomAlphaOfLength(5), client()));
     }
 
     public void testUpdateAnomalyDetectorA() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         String newDescription = randomAlphaOfLength(5);
 
@@ -216,15 +217,15 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Updated anomaly detector id doesn't match", detector.getDetectorId(), responseBody.get("_id"));
         assertEquals("Version not incremented", (detector.getVersion().intValue() + 1), (int) responseBody.get("_version"));
 
-        AnomalyDetector updatedDetector = getAnomalyDetector(detector.getDetectorId());
+        AnomalyDetector updatedDetector = getAnomalyDetector(detector.getDetectorId(), client());
         assertNotEquals("Anomaly detector last update time not changed", updatedDetector.getLastUpdateTime(), detector.getLastUpdateTime());
         assertEquals("Anomaly detector description not updated", newDescription, updatedDetector.getDescription());
     }
 
     public void testUpdateAnomalyDetectorNameToExisting() throws Exception {
-        AnomalyDetector detector1 = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector1 = createRandomAnomalyDetector(true, true, client());
 
-        AnomalyDetector detector2 = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector2 = createRandomAnomalyDetector(true, true, client());
 
         AnomalyDetector newDetector1WithDetector2Name = new AnomalyDetector(
             detector1.getDetectorId(),
@@ -262,7 +263,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testUpdateAnomalyDetectorNameToNew() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         AnomalyDetector detectorWithNewName = new AnomalyDetector(
             detector.getDetectorId(),
@@ -293,7 +294,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
 
-        AnomalyDetector resultDetector = getAnomalyDetector(detectorWithNewName.getDetectorId());
+        AnomalyDetector resultDetector = getAnomalyDetector(detectorWithNewName.getDetectorId(), client());
         assertEquals("Detector name updating failed", detectorWithNewName.getName(), resultDetector.getName());
         assertEquals("Updated anomaly detector id doesn't match", detectorWithNewName.getDetectorId(), resultDetector.getDetectorId());
         assertNotEquals(
@@ -304,7 +305,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testUpdateAnomalyDetectorWithNotExistingIndex() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         String newDescription = randomAlphaOfLength(5);
 
@@ -346,7 +347,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchAnomalyDetector() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
         SearchSourceBuilder search = (new SearchSourceBuilder()).query(QueryBuilders.termQuery("_id", detector.getDetectorId()));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
@@ -396,7 +397,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testPreviewAnomalyDetector() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
         AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
             detector.getDetectorId(),
             Instant.now().minusSeconds(60 * 10),
@@ -435,7 +436,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testPreviewAnomalyDetectorWhichNotExist() throws Exception {
-        createRandomAnomalyDetector(true, false);
+        createRandomAnomalyDetector(true, false, client());
         AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
             randomAlphaOfLength(5),
             Instant.now().minusSeconds(60 * 10),
@@ -480,7 +481,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testPreviewAnomalyDetectorWithDetector() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
         AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
             detector.getDetectorId(),
             Instant.now().minusSeconds(60 * 10),
@@ -501,7 +502,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testPreviewAnomalyDetectorWithDetectorAndNoFeatures() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
         AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
             detector.getDetectorId(),
             Instant.now().minusSeconds(60 * 10),
@@ -584,7 +585,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testDeleteAnomalyDetector() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
 
@@ -633,7 +634,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testDeleteAnomalyDetectorWithNoAdJob() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
         Response response = TestHelpers
             .makeRequest(
                 client(),
@@ -647,7 +648,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testDeleteAnomalyDetectorWithRunningAdJob() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
 
         Response startAdJobResponse = TestHelpers
             .makeRequest(
@@ -678,7 +679,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testUpdateAnomalyDetectorWithRunningAdJob() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
 
         Response startAdJobResponse = TestHelpers
             .makeRequest(
@@ -730,7 +731,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testGetDetectorWithAdJob() throws IOException {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
 
         Response startAdJobResponse = TestHelpers
             .makeRequest(
@@ -744,18 +745,18 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
 
-        ToXContentObject[] results = getAnomalyDetector(detector.getDetectorId(), true);
+        ToXContentObject[] results = getAnomalyDetector(detector.getDetectorId(), true, client());
         assertEquals("Incorrect Location header", detector, results[0]);
         assertEquals("Incorrect detector job name", detector.getDetectorId(), ((AnomalyDetectorJob) results[1]).getName());
         assertTrue(((AnomalyDetectorJob) results[1]).isEnabled());
 
-        results = getAnomalyDetector(detector.getDetectorId(), false);
+        results = getAnomalyDetector(detector.getDetectorId(), false, client());
         assertEquals("Incorrect Location header", detector, results[0]);
         assertEquals("Should not return detector job", null, results[1]);
     }
 
     public void testStartAdJobWithExistingDetector() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
 
@@ -818,7 +819,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testStartAdJobWithNonexistingDetector() throws Exception {
-        createRandomAnomalyDetector(true, false);
+        createRandomAnomalyDetector(true, false, client());
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
@@ -837,7 +838,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testStopAdJob() throws Exception {
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -908,7 +909,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testStopNonExistingAdJob() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -937,7 +938,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testStartDisabledAdjob() throws IOException {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -977,7 +978,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detectorWithoutFeature = TestHelpers.randomAnomalyDetector(null, null, Instant.now());
         String indexName = detectorWithoutFeature.getIndices().get(0);
         TestHelpers.createIndex(client(), indexName, toHttpEntity("{\"name\": \"test\"}"));
-        AnomalyDetector detector = createAnomalyDetector(detectorWithoutFeature, true);
+        AnomalyDetector detector = createAnomalyDetector(detectorWithoutFeature, true, client());
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
@@ -998,7 +999,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detectorWithoutFeature = TestHelpers.randomAnomalyDetector(ImmutableList.of(), null, Instant.now());
         String indexName = detectorWithoutFeature.getIndices().get(0);
         TestHelpers.createIndex(client(), indexName, toHttpEntity("{\"name\": \"test\"}"));
-        AnomalyDetector detector = createAnomalyDetector(detectorWithoutFeature, true);
+        AnomalyDetector detector = createAnomalyDetector(detectorWithoutFeature, true, client());
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
@@ -1016,7 +1017,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testDefaultProfileAnomalyDetector() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
 
@@ -1030,16 +1031,16 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testAllProfileAnomalyDetector() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         Response profileResponse = getDetectorProfile(detector.getDetectorId(), true);
         assertEquals("Incorrect profile status", RestStatus.OK, restStatus(profileResponse));
     }
 
     public void testCustomizedProfileAnomalyDetector() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
-        Response profileResponse = getDetectorProfile(detector.getDetectorId(), true, "/models/");
+        Response profileResponse = getDetectorProfile(detector.getDetectorId(), true, "/models/", client());
         assertEquals("Incorrect profile status", RestStatus.OK, restStatus(profileResponse));
     }
 
@@ -1051,7 +1052,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchAnomalyDetectorCount() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
         Response countResponse = getSearchDetectorCount();
         Map<String, Object> responseMap = entityAsMap(countResponse);
         Integer count = (Integer) responseMap.get("count");
@@ -1066,7 +1067,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchAnomalyDetectorNoMatch() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
         Response matchResponse = getSearchDetectorMatch(detector.getName());
         Map<String, Object> responseMap = entityAsMap(matchResponse);
         boolean nameExists = (boolean) responseMap.get("match");
@@ -1074,10 +1075,28 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchAnomalyDetectorMatch() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, true);
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
         Response matchResponse = getSearchDetectorMatch(detector.getName() + "newDetector");
         Map<String, Object> responseMap = entityAsMap(matchResponse);
         boolean nameExists = (boolean) responseMap.get("match");
         assertEquals(nameExists, false);
+    }
+
+    public void testRunDetectorWithNoEnabledFeature() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client(), false);
+        Assert.assertNotNull(detector.getDetectorId());
+        ResponseException e = expectThrows(ResponseException.class, () -> startAnomalyDetector(detector.getDetectorId(), client()));
+        assertTrue(e.getMessage().contains("Can't start detector job as no enabled features configured"));
+    }
+
+    public void testDeleteAnomalyDetectorWhileRunning() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
+        Assert.assertNotNull(detector.getDetectorId());
+        Response response = startAnomalyDetector(detector.getDetectorId(), client());
+        Assert.assertEquals(response.getStatusLine().toString(), "HTTP/1.1 200 OK");
+
+        // Deleting detector should fail while its running
+        Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(detector.getDetectorId(), client()); });
+        Assert.assertTrue(exception.getMessage().contains("Detector job is running"));
     }
 }

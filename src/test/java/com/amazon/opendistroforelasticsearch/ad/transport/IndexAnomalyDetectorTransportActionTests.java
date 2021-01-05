@@ -16,14 +16,25 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.settings.ClusterSettings;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 import org.junit.Assert;
 import org.junit.Before;
@@ -31,23 +42,33 @@ import org.junit.Test;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 
 public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
     private IndexAnomalyDetectorTransportAction action;
     private Task task;
     private IndexAnomalyDetectorRequest request;
     private ActionListener<IndexAnomalyDetectorResponse> response;
+    private ClusterService clusterService;
+    private ClusterSettings clusterSettings;
 
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        clusterService = mock(ClusterService.class);
+        clusterSettings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         action = new IndexAnomalyDetectorTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
             client(),
-            clusterService(),
+            clusterService,
             indexSettings(),
             mock(AnomalyDetectionIndices.class),
             xContentRegistry()
@@ -68,7 +89,8 @@ public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
         response = new ActionListener<IndexAnomalyDetectorResponse>() {
             @Override
             public void onResponse(IndexAnomalyDetectorResponse indexResponse) {
-                Assert.assertTrue(true);
+                // onResponse will not be called as we do not have the AD index
+                Assert.assertTrue(false);
             }
 
             @Override
@@ -81,6 +103,52 @@ public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
     @Test
     public void testIndexTransportAction() {
         action.doExecute(task, request, response);
+    }
+
+    @Test
+    public void testIndexTransportActionWithUserAndFilterOn() {
+        Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
+        ThreadContext threadContext = new ThreadContext(settings);
+        threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        Client client = mock(Client.class);
+        org.elasticsearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
+        when(client.threadPool()).thenReturn(mockThreadPool);
+        when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
+
+        IndexAnomalyDetectorTransportAction transportAction = new IndexAnomalyDetectorTransportAction(
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            client,
+            clusterService,
+            settings,
+            mock(AnomalyDetectionIndices.class),
+            xContentRegistry()
+        );
+        transportAction.doExecute(task, request, response);
+    }
+
+    @Test
+    public void testIndexTransportActionWithUserAndFilterOff() {
+        Settings settings = Settings.builder().build();
+        ThreadContext threadContext = new ThreadContext(settings);
+        threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        Client client = mock(Client.class);
+        org.elasticsearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
+        when(client.threadPool()).thenReturn(mockThreadPool);
+        when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
+
+        IndexAnomalyDetectorTransportAction transportAction = new IndexAnomalyDetectorTransportAction(
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            client,
+            clusterService,
+            settings,
+            mock(AnomalyDetectionIndices.class),
+            xContentRegistry()
+        );
+        transportAction.doExecute(task, request, response);
     }
 
     @Test

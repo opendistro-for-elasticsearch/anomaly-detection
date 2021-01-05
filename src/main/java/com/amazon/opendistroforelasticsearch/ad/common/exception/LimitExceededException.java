@@ -28,6 +28,16 @@ public class LimitExceededException extends EndRunException {
      */
     public LimitExceededException(String anomalyDetectorId, String message) {
         super(anomalyDetectorId, message, true);
+        this.countedInStats(false);
+    }
+
+    /**
+     * Constructor with error message.
+     *
+     * @param message explanation for the limit
+     */
+    public LimitExceededException(String message) {
+        super(null, message, true);
     }
 
     /**
@@ -39,5 +49,6 @@ public class LimitExceededException extends EndRunException {
      */
     public LimitExceededException(String anomalyDetectorId, String message, boolean stopNow) {
         super(anomalyDetectorId, message, stopNow);
+        this.countedInStats(false);
     }
 }

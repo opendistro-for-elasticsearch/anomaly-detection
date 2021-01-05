@@ -38,7 +38,8 @@ public class MemoryTracker {
 
     public enum Origin {
         SINGLE_ENTITY_DETECTOR,
-        MULTI_ENTITY_DETECTOR
+        MULTI_ENTITY_DETECTOR,
+        HISTORICAL_SINGLE_ENTITY_DETECTOR,
     }
 
     // memory tracker for total consumption of bytes

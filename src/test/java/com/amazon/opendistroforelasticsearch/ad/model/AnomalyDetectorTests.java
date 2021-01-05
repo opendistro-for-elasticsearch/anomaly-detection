@@ -19,8 +19,10 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 import org.elasticsearch.common.ParsingException;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
 
@@ -34,6 +36,70 @@ public class AnomalyDetectorTests extends AbstractADTest {
 
     public void testParseAnomalyDetector() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), Instant.now());
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        LOG.info(detectorString);
+        detectorString = detectorString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+    }
+
+    public void testParseAnomalyDetectorWithoutParams() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), Instant.now());
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder()));
+        LOG.info(detectorString);
+        detectorString = detectorString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+    }
+
+    public void testParseAnomalyDetectorWithCustomDetectionDelay() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), Instant.now());
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder()));
+        LOG.info(detectorString);
+        TimeValue detectionInterval = new TimeValue(1, TimeUnit.MINUTES);
+        TimeValue detectionWindowDelay = new TimeValue(10, TimeUnit.MINUTES);
+        detectorString = detectorString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyDetector parsedDetector = AnomalyDetector
+            .parse(
+                TestHelpers.parser(detectorString),
+                detector.getDetectorId(),
+                detector.getVersion(),
+                detectionInterval,
+                detectionWindowDelay
+            );
+        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+    }
+
+    public void testParseHistoricalAnomalyDetector() throws IOException {
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(TestHelpers.randomFeature()),
+                TestHelpers.randomUiMetadata(),
+                Instant.now(),
+                AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name(),
+                TestHelpers.randomDetectionDateRange()
+            );
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        LOG.info(detectorString);
+        detectorString = detectorString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+    }
+
+    public void testParseHistoricalAnomalyDetectorWithoutUser() throws IOException {
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(TestHelpers.randomFeature()),
+                TestHelpers.randomUiMetadata(),
+                Instant.now(),
+                AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name(),
+                TestHelpers.randomDetectionDateRange(),
+                false
+            );
         String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         LOG.info(detectorString);
         detectorString = detectorString
@@ -294,6 +360,60 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomUser()
                 )
             );
+    }
+
+    public void testInvalidDetectionInterval() {
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> new AnomalyDetector(
+                randomAlphaOfLength(10),
+                randomLong(),
+                randomAlphaOfLength(20),
+                randomAlphaOfLength(30),
+                randomAlphaOfLength(5),
+                ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+                ImmutableList.of(TestHelpers.randomFeature()),
+                TestHelpers.randomQuery(),
+                new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
+                TestHelpers.randomIntervalTimeConfiguration(),
+                randomIntBetween(1, 2000),
+                null,
+                randomInt(),
+                Instant.now(),
+                null,
+                null,
+                null,
+                null
+            )
+        );
+        assertEquals("Detection interval must be a positive integer", exception.getMessage());
+    }
+
+    public void testInvalidWindowDelay() {
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> new AnomalyDetector(
+                randomAlphaOfLength(10),
+                randomLong(),
+                randomAlphaOfLength(20),
+                randomAlphaOfLength(30),
+                randomAlphaOfLength(5),
+                ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+                ImmutableList.of(TestHelpers.randomFeature()),
+                TestHelpers.randomQuery(),
+                new IntervalTimeConfiguration(1, ChronoUnit.MINUTES),
+                new IntervalTimeConfiguration(-1, ChronoUnit.MINUTES),
+                randomIntBetween(1, 2000),
+                null,
+                randomInt(),
+                Instant.now(),
+                null,
+                null,
+                null,
+                null
+            )
+        );
+        assertEquals("Interval -1 should be non-negative", exception.getMessage());
     }
 
     public void testNullFeatures() throws IOException {

@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -37,9 +40,11 @@ import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.CheckedConsumer;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -58,12 +63,14 @@ import com.amazon.opendistroforelasticsearch.ad.model.EntityProfileName;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.collect.Sets;
 
 public class GetAnomalyDetectorTransportAction extends HandledTransportAction<GetAnomalyDetectorRequest, GetAnomalyDetectorResponse> {
 
     private static final Logger LOG = LogManager.getLogger(GetAnomalyDetectorTransportAction.class);
 
+    private final ClusterService clusterService;
     private final Client client;
 
     private final Set<String> allProfileTypeStrs;
@@ -74,16 +81,20 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
     private final Set<EntityProfileName> defaultEntityProfileTypes;
     private final NamedXContentRegistry xContentRegistry;
     private final DiscoveryNodeFilterer nodeFilter;
+    private volatile Boolean filterByEnabled;
 
     @Inject
     public GetAnomalyDetectorTransportAction(
         TransportService transportService,
         DiscoveryNodeFilterer nodeFilter,
         ActionFilters actionFilters,
+        ClusterService clusterService,
         Client client,
+        Settings settings,
         NamedXContentRegistry xContentRegistry
     ) {
         super(GetAnomalyDetectorAction.NAME, transportService, actionFilters, GetAnomalyDetectorRequest::new);
+        this.clusterService = clusterService;
         this.client = client;
 
         List<DetectorProfileName> allProfiles = Arrays.asList(DetectorProfileName.values());
@@ -100,10 +111,32 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
 
         this.xContentRegistry = xContentRegistry;
         this.nodeFilter = nodeFilter;
+        filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
     }
 
     @Override
     protected void doExecute(Task task, GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> listener) {
+        String detectorID = request.getDetectorID();
+        User user = getUserContext(client);
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            resolveUserAndExecute(
+                user,
+                detectorID,
+                filterByEnabled,
+                listener,
+                () -> getExecute(request, listener),
+                client,
+                clusterService,
+                xContentRegistry
+            );
+        } catch (Exception e) {
+            LOG.error(e);
+            listener.onFailure(e);
+        }
+    }
+
+    protected void getExecute(GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> listener) {
         String detectorID = request.getDetectorID();
         Long version = request.getVersion();
         String typesStr = request.getTypeStr();
@@ -112,7 +145,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         boolean all = request.isAll();
         boolean returnJob = request.isReturnJob();
 
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             if (!Strings.isEmpty(typesStr) || rawPath.endsWith(PROFILE) || rawPath.endsWith(PROFILE + "/")) {
                 if (entityValue != null) {
                     Set<EntityProfileName> entityProfilesToCollect = getEntityProfilesToCollect(typesStr, all);

@@ -20,6 +20,7 @@ import static org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Map;
 
 import org.apache.http.HttpEntity;
@@ -28,6 +29,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicHeader;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
+import org.elasticsearch.client.RestClient;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
@@ -47,6 +49,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.gson.JsonArray;
 
 public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
 
@@ -60,16 +63,21 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         return super.restClientSettings();
     }
 
-    protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata) throws IOException {
+    protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, RestClient client) throws IOException {
+        return createRandomAnomalyDetector(refresh, withMetadata, client, true);
+    }
+
+    protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, RestClient client, boolean featureEnabled)
+        throws IOException {
         Map<String, Object> uiMetadata = null;
         if (withMetadata) {
             uiMetadata = TestHelpers.randomUiMetadata();
         }
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(uiMetadata, null);
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(uiMetadata, null, featureEnabled);
         String indexName = detector.getIndices().get(0);
         TestHelpers
             .makeRequest(
-                client(),
+                client,
                 "POST",
                 "/" + indexName + "/_doc/" + randomAlphaOfLength(5) + "?refresh=true",
                 ImmutableMap.of(),
@@ -77,17 +85,17 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 null,
                 false
             );
-        AnomalyDetector createdDetector = createAnomalyDetector(detector, refresh);
+        AnomalyDetector createdDetector = createAnomalyDetector(detector, refresh, client);
 
         if (withMetadata) {
-            return getAnomalyDetector(createdDetector.getDetectorId(), new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"));
+            return getAnomalyDetector(createdDetector.getDetectorId(), new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"), client);
         }
-        return getAnomalyDetector(createdDetector.getDetectorId(), new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json"));
+        return getAnomalyDetector(createdDetector.getDetectorId(), new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json"), client);
     }
 
-    protected AnomalyDetector createAnomalyDetector(AnomalyDetector detector, Boolean refresh) throws IOException {
+    protected AnomalyDetector createAnomalyDetector(AnomalyDetector detector, Boolean refresh, RestClient client) throws IOException {
         Response response = TestHelpers
-            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null);
+            .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null);
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, restStatus(response));
 
         Map<String, Object> detectorJson = jsonXContent
@@ -113,23 +121,38 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         );
     }
 
-    public AnomalyDetector getAnomalyDetector(String detectorId) throws IOException {
-        return (AnomalyDetector) getAnomalyDetector(detectorId, false)[0];
+    protected Response startAnomalyDetector(String detectorId, RestClient client) throws IOException {
+        return TestHelpers
+            .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start", ImmutableMap.of(), "", null);
     }
 
-    public AnomalyDetector getAnomalyDetector(String detectorId, BasicHeader header) throws IOException {
-        return (AnomalyDetector) getAnomalyDetector(detectorId, header, false)[0];
+    protected Response stopAnomalyDetector(String detectorId, RestClient client) throws IOException {
+        return TestHelpers
+            .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_stop", ImmutableMap.of(), "", null);
     }
 
-    public ToXContentObject[] getAnomalyDetector(String detectorId, boolean returnJob) throws IOException {
+    protected Response deleteAnomalyDetector(String detectorId, RestClient client) throws IOException {
+        return TestHelpers.makeRequest(client, "DELETE", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId, ImmutableMap.of(), "", null);
+    }
+
+    public AnomalyDetector getAnomalyDetector(String detectorId, RestClient client) throws IOException {
+        return (AnomalyDetector) getAnomalyDetector(detectorId, false, client)[0];
+    }
+
+    public AnomalyDetector getAnomalyDetector(String detectorId, BasicHeader header, RestClient client) throws IOException {
+        return (AnomalyDetector) getAnomalyDetector(detectorId, header, false, client)[0];
+    }
+
+    public ToXContentObject[] getAnomalyDetector(String detectorId, boolean returnJob, RestClient client) throws IOException {
         BasicHeader header = new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-        return getAnomalyDetector(detectorId, header, returnJob);
+        return getAnomalyDetector(detectorId, header, returnJob, client);
     }
 
-    public ToXContentObject[] getAnomalyDetector(String detectorId, BasicHeader header, boolean returnJob) throws IOException {
+    public ToXContentObject[] getAnomalyDetector(String detectorId, BasicHeader header, boolean returnJob, RestClient client)
+        throws IOException {
         Response response = TestHelpers
             .makeRequest(
-                client(),
+                client,
                 "GET",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "?job=" + returnJob,
                 null,
@@ -221,10 +244,10 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
-    public Response getDetectorProfile(String detectorId, boolean all, String customizedProfile) throws IOException {
+    public Response getDetectorProfile(String detectorId, boolean all, String customizedProfile, RestClient client) throws IOException {
         return TestHelpers
             .makeRequest(
-                client(),
+                client,
                 "GET",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/" + RestHandlerUtils.PROFILE + customizedProfile + "?_all=" + all,
                 null,
@@ -234,11 +257,11 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     }
 
     public Response getDetectorProfile(String detectorId) throws IOException {
-        return getDetectorProfile(detectorId, false, "");
+        return getDetectorProfile(detectorId, false, "", client());
     }
 
     public Response getDetectorProfile(String detectorId, boolean all) throws IOException {
-        return getDetectorProfile(detectorId, all, "");
+        return getDetectorProfile(detectorId, all, "", client());
     }
 
     public Response getSearchDetectorCount() throws IOException {
@@ -261,6 +284,144 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.MATCH,
                 ImmutableMap.of("name", name),
                 "",
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    public Response createUser(String name, String password, ArrayList<String> backendRoles) throws IOException {
+        JsonArray backendRolesString = new JsonArray();
+        for (int i = 0; i < backendRoles.size(); i++) {
+            backendRolesString.add(backendRoles.get(i));
+        }
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/_opendistro/_security/api/internalusers/" + name,
+                null,
+                toHttpEntity(
+                    " {\n"
+                        + "\"password\": \""
+                        + password
+                        + "\",\n"
+                        + "\"backend_roles\": "
+                        + backendRolesString
+                        + ",\n"
+                        + "\"attributes\": {\n"
+                        + "}} "
+                ),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    public Response createRoleMapping(String role, ArrayList<String> users) throws IOException {
+        JsonArray usersString = new JsonArray();
+        for (int i = 0; i < users.size(); i++) {
+            usersString.add(users.get(i));
+        }
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/_opendistro/_security/api/rolesmapping/" + role,
+                null,
+                toHttpEntity(
+                    "{\n" + "  \"backend_roles\" : [  ],\n" + "  \"hosts\" : [  ],\n" + "  \"users\" : " + usersString + "\n" + "}"
+                ),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    public Response createIndexRole(String role, String index) throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/_opendistro/_security/api/roles/" + role,
+                null,
+                toHttpEntity(
+                    "{\n"
+                        + "\"cluster_permissions\": [\n"
+                        + "],\n"
+                        + "\"index_permissions\": [\n"
+                        + "{\n"
+                        + "\"index_patterns\": [\n"
+                        + "\""
+                        + index
+                        + "\"\n"
+                        + "],\n"
+                        + "\"dls\": \"\",\n"
+                        + "\"fls\": [],\n"
+                        + "\"masked_fields\": [],\n"
+                        + "\"allowed_actions\": [\n"
+                        + "\"crud\",\n"
+                        + "\"indices:admin/create\"\n"
+                        + "]\n"
+                        + "}\n"
+                        + "],\n"
+                        + "\"tenant_permissions\": []\n"
+                        + "}"
+                ),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    public Response deleteUser(String user) throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "DELETE",
+                "/_opendistro/_security/api/internalusers/" + user,
+                null,
+                "",
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    public Response deleteRoleMapping(String user) throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "DELETE",
+                "/_opendistro/_security/api/rolesmapping/" + user,
+                null,
+                "",
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    public Response enableFilterBy() throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "_cluster/settings",
+                null,
+                toHttpEntity(
+                    "{\n"
+                        + "  \"persistent\": {\n"
+                        + "       \"opendistro.anomaly_detection.filter_by_backend_roles\" : \"true\"\n"
+                        + "   }\n"
+                        + "}"
+                ),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    public Response disableFilterBy() throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "_cluster/settings",
+                null,
+                toHttpEntity(
+                    "{\n"
+                        + "  \"persistent\": {\n"
+                        + "       \"opendistro.anomaly_detection.filter_by_backend_roles\" : \"false\"\n"
+                        + "   }\n"
+                        + "}"
+                ),
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
     }

@@ -72,7 +72,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
             client,
             settings,
             threadPool,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initDetectorStateIndex),
+            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initDetectionStateIndex),
             anomalyDetectionIndices::doesDetectorStateIndexExist,
             clientUtil,
             indexUtils,

@@ -42,4 +42,11 @@ public class CounterSupplier implements Supplier<Long> {
     public void increment() {
         counter.increment();
     }
+
+    /**
+     * Decrease the value of the counter by 1
+     */
+    public void decrement() {
+        counter.decrement();
+    }
 }

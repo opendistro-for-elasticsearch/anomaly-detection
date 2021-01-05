@@ -131,6 +131,10 @@ public class ADTaskCacheManager {
         return getBatchTaskCache(taskId).getThresholdModelTrainingData();
     }
 
+    public int getThresholdModelTrainingDataSize(String taskId) {
+        return getBatchTaskCache(taskId).getThresholdModelTrainingDataSize().get();
+    }
+
     public int addThresholdModelTrainingData(String taskId, double... data) {
         ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
         double[] thresholdModelTrainingData = taskCache.getThresholdModelTrainingData();

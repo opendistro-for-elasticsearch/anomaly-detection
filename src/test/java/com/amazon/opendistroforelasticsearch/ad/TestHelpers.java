@@ -119,6 +119,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorType;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
@@ -252,6 +253,7 @@ public class TestHelpers {
             uiMetadata,
             lastUpdateTime,
             detectorType,
+            ESRestTestCase.randomLongBetween(1, 1000),
             dateRange,
             withUser
         );
@@ -263,6 +265,7 @@ public class TestHelpers {
         Map<String, Object> uiMetadata,
         Instant lastUpdateTime,
         String detectorType,
+        long detectionIntervalInMinutes,
         DetectionDateRange dateRange,
         boolean withUser
     ) throws IOException {
@@ -276,7 +279,7 @@ public class TestHelpers {
             indices,
             features,
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
             randomIntervalTimeConfiguration(),
             randomIntBetween(1, 2000),
             uiMetadata,
@@ -284,6 +287,38 @@ public class TestHelpers {
             lastUpdateTime,
             null,
             user,
+            detectorType,
+            dateRange
+        );
+    }
+
+    public static AnomalyDetector randomDetector(
+        DetectionDateRange dateRange,
+        List<Feature> features,
+        String indexName,
+        int detectionIntervalInMinutes,
+        String timeField
+    ) throws IOException {
+        String detectorType = dateRange == null
+            ? AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name()
+            : AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name();
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            timeField,
+            ImmutableList.of(indexName),
+            features,
+            randomQuery("{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"value\"}}]}}"),
+            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
+            new IntervalTimeConfiguration(ESRestTestCase.randomLongBetween(1, 5), ChronoUnit.MINUTES),
+            8,
+            null,
+            randomInt(),
+            Instant.now(),
+            null,
+            null,
             detectorType,
             dateRange
         );

@@ -15,6 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.ad.util;
 
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.DATE_HISTOGRAM;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.EPOCH_MILLIS_FORMAT;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.FEATURE_AGGS;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -58,14 +61,20 @@ import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregatorFactories;
 import org.elasticsearch.search.aggregations.BaseAggregationBuilder;
 import org.elasticsearch.search.aggregations.PipelineAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeValuesSourceBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.DateHistogramValuesSourceBuilder;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.elasticsearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.Max;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
+import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorResponse;
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
@@ -594,7 +603,68 @@ public final class ParseUtils {
             .ofNullable(searchResponse)
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap())
-            .map(map -> (Max) map.get(CommonName.AGG_NAME_MAX))
+            .map(map -> (Max) map.get(CommonName.AGG_NAME_MAX_TIME))
             .map(agg -> (long) agg.getValue());
     }
+
+    /**
+     * Generate batch query request for feature aggregation on given date range.
+     *
+     * @param detector anomaly detector
+     * @param startTime start time
+     * @param endTime end time
+     * @param xContentRegistry content registry
+     * @return search source builder
+     * @throws IOException throw IO exception if fail to parse feature aggregation
+     */
+    public static SearchSourceBuilder batchFeatureQuery(
+        AnomalyDetector detector,
+        long startTime,
+        long endTime,
+        NamedXContentRegistry xContentRegistry
+    ) throws IOException {
+        RangeQueryBuilder rangeQuery = new RangeQueryBuilder(detector.getTimeField())
+            .from(startTime)
+            .to(endTime)
+            .format(EPOCH_MILLIS_FORMAT)
+            .includeLower(true)
+            .includeUpper(false);
+
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(detector.getFilterQuery());
+
+        long intervalSeconds = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().getSeconds();
+
+        List<CompositeValuesSourceBuilder<?>> sources = new ArrayList<>();
+        sources
+            .add(
+                new DateHistogramValuesSourceBuilder(DATE_HISTOGRAM)
+                    .field(detector.getTimeField())
+                    .fixedInterval(DateHistogramInterval.seconds((int) intervalSeconds))
+            );
+
+        CompositeAggregationBuilder aggregationBuilder = new CompositeAggregationBuilder(FEATURE_AGGS, sources).size(1000);
+
+        if (detector.getEnabledFeatureIds().size() == 0) {
+            throw new AnomalyDetectionException("No enabled feature configured").countedInStats(false);
+        }
+
+        for (Feature feature : detector.getFeatureAttributes()) {
+            if (feature.getEnabled()) {
+                AggregatorFactories.Builder internalAgg = parseAggregators(
+                    feature.getAggregation().toString(),
+                    xContentRegistry,
+                    feature.getId()
+                );
+                aggregationBuilder.subAggregation(internalAgg.getAggregatorFactories().iterator().next());
+            }
+        }
+
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.aggregation(aggregationBuilder);
+        searchSourceBuilder.query(internalFilterQuery);
+        searchSourceBuilder.size(0);
+
+        return searchSourceBuilder;
+    }
+
 }

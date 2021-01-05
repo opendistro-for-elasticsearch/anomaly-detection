@@ -123,7 +123,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         if (index.equals(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
             adIndices.initAnomalyDetectorIndexIfAbsent(listener);
         } else {
-            adIndices.initDetectorStateIndex(listener);
+            adIndices.initDetectionStateIndex(listener);
         }
 
         ArgumentCaptor<CreateIndexResponse> captor = ArgumentCaptor.forClass(CreateIndexResponse.class);
@@ -178,7 +178,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         if (index.equals(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
             adIndices.initAnomalyDetectorIndexIfAbsent(listener);
         } else if (index.equals(DetectorInternalState.DETECTOR_STATE_INDEX)) {
-            adIndices.initDetectorStateIndex(listener);
+            adIndices.initDetectionStateIndex(listener);
         } else if (index.equals(CommonName.CHECKPOINT_INDEX_NAME)) {
             adIndices.initCheckpointIndex(listener);
         } else if (index.equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {

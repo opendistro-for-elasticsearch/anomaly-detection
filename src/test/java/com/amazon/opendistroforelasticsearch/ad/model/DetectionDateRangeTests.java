@@ -17,11 +17,14 @@ package com.amazon.opendistroforelasticsearch.ad.model;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
+import java.util.Locale;
 
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
+import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.test.ESSingleNodeTestCase;
 import org.elasticsearch.test.InternalSettingsPlugin;
@@ -57,6 +60,14 @@ public class DetectionDateRangeTests extends ESSingleNodeTestCase {
         assertEquals("Detection data range's end time must not be null", exception.getMessage());
     }
 
+    public void testInvalidDateRange() {
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> new DetectionDateRange(Instant.now(), Instant.now().minus(10, ChronoUnit.MINUTES))
+        );
+        assertEquals("Detection data range's end time must be after start time", exception.getMessage());
+    }
+
     public void testSerializeDetectoinDateRange() throws IOException {
         DetectionDateRange dateRange = TestHelpers.randomDetectionDateRange();
         BytesStreamOutput output = new BytesStreamOutput();
@@ -65,4 +76,14 @@ public class DetectionDateRangeTests extends ESSingleNodeTestCase {
         DetectionDateRange parsedDateRange = new DetectionDateRange(input);
         assertTrue(parsedDateRange.equals(dateRange));
     }
+
+    public void testParseDetectionDateRange() throws IOException {
+        DetectionDateRange dateRange = TestHelpers.randomDetectionDateRange();
+        String dateRangeString = TestHelpers.xContentBuilderToString(dateRange.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        dateRangeString = dateRangeString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        DetectionDateRange parsedDateRange = DetectionDateRange.parse(TestHelpers.parser(dateRangeString));
+        assertEquals("Parsing detection range doesn't work", dateRange, parsedDateRange);
+    }
+
 }

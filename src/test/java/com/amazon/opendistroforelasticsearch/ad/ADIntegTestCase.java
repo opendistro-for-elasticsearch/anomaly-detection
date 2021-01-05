@@ -15,7 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
+import static com.amazon.opendistroforelasticsearch.ad.AbstractADTest.LOG;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -23,25 +25,44 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
+import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.action.support.master.AcknowledgedResponse;
+import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.cluster.node.DiscoveryNodes;
+import org.elasticsearch.common.collect.ImmutableOpenMap;
+import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Before;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 
 public abstract class ADIntegTestCase extends ESIntegTestCase {
 
     private long timeout = 5_000;
+    protected String timeField = "timestamp";
+    protected String categoryField = "type";
+    protected String valueField = "value";
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
@@ -65,21 +86,49 @@ public abstract class ADIntegTestCase extends ESIntegTestCase {
         }
 
         for (AnomalyDetector detector : detectors) {
-            indexDoc(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detector.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE));
+            indexDoc(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
         }
+    }
+
+    public String createDetector(AnomalyDetector detector) throws IOException {
+        return indexDoc(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+    }
+
+    public String createADTask(ADTask adTask) throws IOException {
+        return indexDoc(ADTask.DETECTION_STATE_INDEX, adTask.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
     }
 
     public void createDetectorIndex() throws IOException {
         createIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX, AnomalyDetectionIndices.getAnomalyDetectorMappings());
     }
 
-    public String createDetectors(AnomalyDetector detector) throws IOException {
-        return indexDoc(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detector.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE));
+    public void createDetectionStateIndex() throws IOException {
+        createIndex(ADTask.DETECTION_STATE_INDEX, AnomalyDetectionIndices.getDetectionStateMappings());
+    }
+
+    public void createTestDataIndex(String indexName) {
+        String mappings = "{\"properties\":{\""
+            + timeField
+            + "\":{\"type\":\"date\",\"format\":\"strict_date_time||epoch_millis\"},"
+            + "\"value\":{\"type\":\"double\"}, \""
+            + categoryField
+            + "\":{\"type\":\"keyword\"},"
+            + "\"is_error\":{\"type\":\"boolean\"}, \"message\":{\"type\":\"text\"}}}";
+        createIndex(indexName, mappings);
     }
 
     public void createIndex(String indexName, String mappings) {
         CreateIndexResponse createIndexResponse = TestHelpers.createIndex(admin(), indexName, mappings);
         assertEquals(true, createIndexResponse.isAcknowledged());
+    }
+
+    public AcknowledgedResponse deleteDetectorIndex() {
+        return deleteIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+    }
+
+    public AcknowledgedResponse deleteIndex(String indexName) {
+        DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest(indexName);
+        return admin().indices().delete(deleteIndexRequest).actionGet(timeout);
     }
 
     public String indexDoc(String indexName, XContentBuilder source) {
@@ -96,8 +145,51 @@ public abstract class ADIntegTestCase extends ESIntegTestCase {
         return indexResponse.getId();
     }
 
+    public <T extends ToXContent> BulkResponse bulkIndexObjects(String indexName, List<T> objects) {
+        BulkRequestBuilder bulkRequestBuilder = client().prepareBulk();
+        objects.forEach(obj -> {
+            try (XContentBuilder builder = jsonBuilder()) {
+                IndexRequest indexRequest = new IndexRequest(indexName)
+                    .source(obj.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
+                bulkRequestBuilder.add(indexRequest);
+            } catch (Exception e) {
+                String error = "Failed to prepare request to bulk index docs";
+                LOG.error(error, e);
+                throw new AnomalyDetectionException(error);
+            }
+        });
+        return client().bulk(bulkRequestBuilder.request()).actionGet(timeout);
+    }
+
+    public BulkResponse bulkIndexDocs(String indexName, List<Map<String, ?>> docs, long timeout) {
+        BulkRequestBuilder bulkRequestBuilder = client().prepareBulk();
+        docs.forEach(doc -> bulkRequestBuilder.add(new IndexRequest(indexName).source(doc)));
+        return client().bulk(bulkRequestBuilder.request().setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)).actionGet(timeout);
+    }
+
     public GetResponse getDoc(String indexName, String id) {
         GetRequest getRequest = new GetRequest(indexName).id(id);
         return client().get(getRequest).actionGet(timeout);
     }
+
+    public long countDocs(String indexName) {
+        SearchRequest request = new SearchRequest();
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query(new MatchAllQueryBuilder()).size(0);
+        request.indices(indexName).source(searchSourceBuilder);
+        SearchResponse searchResponse = client().search(request).actionGet(timeout);
+        return searchResponse.getHits().getTotalHits().value;
+    }
+
+    public ClusterUpdateSettingsResponse updateTransientSettings(Map<String, ?> settings) {
+        ClusterUpdateSettingsRequest updateSettingsRequest = new ClusterUpdateSettingsRequest();
+        updateSettingsRequest.transientSettings(settings);
+        return clusterAdmin().updateSettings(updateSettingsRequest).actionGet(timeout);
+    }
+
+    public ImmutableOpenMap<String, DiscoveryNode> getDataNodes() {
+        DiscoveryNodes nodes = clusterService().state().getNodes();
+        return nodes.getDataNodes();
+    }
+
 }

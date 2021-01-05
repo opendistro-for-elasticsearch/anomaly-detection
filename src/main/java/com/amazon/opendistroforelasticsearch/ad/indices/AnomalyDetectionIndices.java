@@ -211,7 +211,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return anomaly detector state index mapping
      * @throws IOException IOException if mapping file can't be read correctly
      */
-    public static String getDetectorStateMappings() throws IOException {
+    public static String getDetectionStateMappings() throws IOException {
         URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(ANOMALY_DETECTION_STATE_INDEX_MAPPING_FILE);
         return Resources.toString(url, Charsets.UTF_8);
     }
@@ -376,26 +376,33 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * Create anomaly detector job index.
      *
      * @param actionListener action called after create index
-     * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorJobMappings}
      */
-    public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        // TODO: specify replica setting
-        CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-            .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON);
-        choosePrimaryShards(request);
-        adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
+    public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) {
+        try {
+            CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
+                .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON);
+            choosePrimaryShards(request);
+            adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
+        } catch (IOException e) {
+            logger.error("Fail to init AD job index", e);
+            actionListener.onFailure(e);
+        }
     }
 
     /**
      * Create the state index.
      *
      * @param actionListener action called after create index
-     * @throws IOException IOException from {@link AnomalyDetectionIndices#getDetectorStateMappings}
      */
-    public void initDetectorStateIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        CreateIndexRequest request = new CreateIndexRequest(DetectorInternalState.DETECTOR_STATE_INDEX)
-            .mapping(AnomalyDetector.TYPE, getDetectorStateMappings(), XContentType.JSON);
-        adminClient.indices().create(request, markMappingUpToDate(ADIndex.STATE, actionListener));
+    public void initDetectionStateIndex(ActionListener<CreateIndexResponse> actionListener) {
+        try {
+            CreateIndexRequest request = new CreateIndexRequest(DetectorInternalState.DETECTOR_STATE_INDEX)
+                .mapping(AnomalyDetector.TYPE, getDetectionStateMappings(), XContentType.JSON);
+            adminClient.indices().create(request, markMappingUpToDate(ADIndex.STATE, actionListener));
+        } catch (IOException e) {
+            logger.error("Fail to init AD detection state index", e);
+            actionListener.onFailure(e);
+        }
     }
 
     /**

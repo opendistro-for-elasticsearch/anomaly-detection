@@ -53,7 +53,7 @@ public enum ADIndex {
     STATE(
         DetectorInternalState.DETECTOR_STATE_INDEX,
         false,
-        ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getDetectorStateMappings)
+        ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getDetectionStateMappings)
     );
 
     private final String indexName;

@@ -43,28 +43,32 @@ public class DetectionDateRange implements ToXContentObject, Writeable {
     public DetectionDateRange(Instant startTime, Instant endTime) {
         this.startTime = startTime;
         this.endTime = endTime;
+        validate();
+    }
+
+    public DetectionDateRange(StreamInput in) throws IOException {
+        this.startTime = in.readInstant();
+        this.endTime = in.readInstant();
+        validate();
+    }
+
+    private void validate() {
         if (startTime == null) {
             throw new IllegalArgumentException("Detection data range's start time must not be null");
         }
         if (endTime == null) {
             throw new IllegalArgumentException("Detection data range's end time must not be null");
         }
-    }
-
-    public DetectionDateRange(StreamInput in) throws IOException {
-        this.startTime = in.readInstant();
-        this.endTime = in.readInstant();
+        if (startTime.isAfter(endTime)) {
+            throw new IllegalArgumentException("Detection data range's end time must be after start time");
+        }
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         XContentBuilder xContentBuilder = builder.startObject();
-        if (startTime != null) {
-            xContentBuilder.field(START_TIME_FIELD, startTime.toEpochMilli());
-        }
-        if (endTime != null) {
-            xContentBuilder.field(END_TIME_FIELD, endTime.toEpochMilli());
-        }
+        xContentBuilder.field(START_TIME_FIELD, startTime.toEpochMilli());
+        xContentBuilder.field(END_TIME_FIELD, endTime.toEpochMilli());
         return xContentBuilder.endObject();
     }
 

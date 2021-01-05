@@ -75,4 +75,13 @@ public class ADStat<T> {
             ((CounterSupplier) supplier).increment();
         }
     }
+
+    /**
+     * Decrease the supplier if it can be decreased.
+     */
+    public void decrement() {
+        if (supplier instanceof CounterSupplier) {
+            ((CounterSupplier) supplier).decrement();
+        }
+    }
 }

@@ -83,5 +83,11 @@ public class CommonName {
     // Query
     // ======================================
     // Used in finding the max timestamp
-    public static final String AGG_NAME_MAX = "max_timefield";
+    public static final String AGG_NAME_MAX_TIME = "max_timefield";
+    // Used in finding the min timestamp
+    public static final String AGG_NAME_MIN_TIME = "min_timefield";
+    // date histogram aggregation name
+    public static final String DATE_HISTOGRAM = "date_histogram";
+    // feature aggregation name
+    public static final String FEATURE_AGGS = "feature_aggs";
 }

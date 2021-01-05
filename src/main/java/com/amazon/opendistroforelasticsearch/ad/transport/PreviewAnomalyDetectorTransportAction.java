@@ -33,6 +33,7 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.CheckedConsumer;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
@@ -108,24 +109,22 @@ public class PreviewAnomalyDetectorTransportAction extends
         ActionListener<PreviewAnomalyDetectorResponse> listener,
         AnomalyDetector detector
     ) {
-        return new ActionListener<List<AnomalyResult>>() {
+        return ActionListener.wrap(new CheckedConsumer<List<AnomalyResult>, Exception>() {
             @Override
-            public void onResponse(List<AnomalyResult> anomalyResults) {
-                PreviewAnomalyDetectorResponse response = new PreviewAnomalyDetectorResponse(anomalyResults, detector);
+            public void accept(List<AnomalyResult> anomalyResult) throws Exception {
+                PreviewAnomalyDetectorResponse response = new PreviewAnomalyDetectorResponse(anomalyResult, detector);
                 listener.onResponse(response);
             }
-
-            @Override
-            public void onFailure(Exception e) {
-                listener
-                    .onFailure(
-                        new ElasticsearchException(
-                            "Unexpected error running anomaly detector " + detector.getDetectorId(),
-                            RestStatus.INTERNAL_SERVER_ERROR
-                        )
-                    );
-            }
-        };
+        }, exception -> {
+            logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(), exception);
+            listener
+                .onFailure(
+                    new ElasticsearchException(
+                        "Unexpected error running anomaly detector " + detector.getDetectorId(),
+                        RestStatus.INTERNAL_SERVER_ERROR
+                    )
+                );
+        });
     }
 
     private void previewAnomalyDetector(
@@ -138,7 +137,7 @@ public class PreviewAnomalyDetectorTransportAction extends
             GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
             client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime));
         } else {
-            listener.onFailure(new ElasticsearchException("Wrong input, no detector id", RestStatus.NOT_FOUND));
+            listener.onFailure(new ElasticsearchException("Wrong input, no detector id", RestStatus.BAD_REQUEST));
         }
     }
 
@@ -147,9 +146,9 @@ public class PreviewAnomalyDetectorTransportAction extends
         Instant startTime,
         Instant endTime
     ) {
-        return new ActionListener<GetResponse>() {
+        return ActionListener.wrap(new CheckedConsumer<GetResponse, Exception>() {
             @Override
-            public void onResponse(GetResponse response) {
+            public void accept(GetResponse response) throws Exception {
                 if (!response.isExists()) {
                     listener
                         .onFailure(
@@ -170,11 +169,6 @@ public class PreviewAnomalyDetectorTransportAction extends
                     listener.onFailure(e);
                 }
             }
-
-            @Override
-            public void onFailure(Exception e) {
-                listener.onFailure(new ElasticsearchException("Could not execute get query to find detector"));
-            }
-        };
+        }, exception -> { listener.onFailure(new ElasticsearchException("Could not execute get query to find detector")); });
     }
 }

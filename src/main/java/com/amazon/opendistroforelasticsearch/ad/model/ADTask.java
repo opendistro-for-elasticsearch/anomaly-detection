@@ -36,8 +36,6 @@ import com.google.common.base.Objects;
  */
 public class ADTask implements ToXContentObject, Writeable {
 
-    public static final String DETECTION_STATE_INDEX = ".opendistro-anomaly-detection-state";
-
     public static final String TASK_ID_FIELD = "task_id";
     public static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String STARTED_BY_FIELD = "started_by";

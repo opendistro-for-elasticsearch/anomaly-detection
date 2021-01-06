@@ -60,12 +60,6 @@ public class RestHandlerUtilsTests extends ESTestCase {
         parser.close();
     }
 
-    public void testValidateAnomalyDetectorWithNullFeatures() throws IOException {
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null);
-        String error = RestHandlerUtils.validateAnomalyDetector(detector, 1);
-        assertNull(error);
-    }
-
     public void testValidateAnomalyDetectorWithTooManyFeatures() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of(randomFeature(), randomFeature()));
         String error = RestHandlerUtils.validateAnomalyDetector(detector, 1);

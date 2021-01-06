@@ -35,6 +35,7 @@ import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -125,7 +126,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
         ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(dateRange);
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
         Thread.sleep(10000);
-        GetResponse doc = getDoc(ADTask.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
+        GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
         assertEquals(ADTaskState.FINISHED.name(), doc.getSourceAsMap().get(ADTask.STATE_FIELD));
     }
 
@@ -182,7 +183,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
         );
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
         Thread.sleep(10000);
-        GetResponse doc = getDoc(ADTask.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
+        GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
         assertEquals(ADTaskState.FINISHED.name(), doc.getSourceAsMap().get(ADTask.STATE_FIELD));
         updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 1));
     }
@@ -207,7 +208,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
         ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(dateRange);
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
         Thread.sleep(5000);
-        GetResponse doc = getDoc(ADTask.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
+        GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
         assertEquals(error, doc.getSourceAsMap().get(ADTask.ERROR_FIELD));
     }
 }

@@ -49,7 +49,6 @@ import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
@@ -177,7 +176,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         ActionListener<CreateIndexResponse> listener = mock(ActionListener.class);
         if (index.equals(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
             adIndices.initAnomalyDetectorIndexIfAbsent(listener);
-        } else if (index.equals(DetectorInternalState.DETECTOR_STATE_INDEX)) {
+        } else if (index.equals(CommonName.DETECTION_STATE_INDEX)) {
             adIndices.initDetectionStateIndex(listener);
         } else if (index.equals(CommonName.CHECKPOINT_INDEX_NAME)) {
             adIndices.initCheckpointIndex(listener);
@@ -206,7 +205,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
     }
 
     public void testCreateState() throws IOException {
-        fixedPrimaryShardsIndexCreationTemplate(DetectorInternalState.DETECTOR_STATE_INDEX);
+        fixedPrimaryShardsIndexCreationTemplate(CommonName.DETECTION_STATE_INDEX);
     }
 
     public void testCreateJob() throws IOException {

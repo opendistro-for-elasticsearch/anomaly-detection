@@ -51,6 +51,7 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 
 /**
  * An AnomalyDetector is used to represent anomaly detection model(RCF) related parameters.
@@ -211,7 +212,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.description = description;
         this.timeField = timeField;
         this.indices = indices;
-        this.featureAttributes = features;
+        this.featureAttributes = features == null ? ImmutableList.of() : ImmutableList.copyOf(features);
         this.filterQuery = filterQuery;
         this.detectionInterval = detectionInterval;
         this.windowDelay = windowDelay;
@@ -311,11 +312,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             .field(DETECTION_INTERVAL_FIELD, detectionInterval)
             .field(WINDOW_DELAY_FIELD, windowDelay)
             .field(SHINGLE_SIZE_FIELD, shingleSize)
-            .field(CommonName.SCHEMA_VERSION_FIELD, schemaVersion);
-
-        if (featureAttributes != null) {
-            xContentBuilder.field(FEATURE_ATTRIBUTES_FIELD, featureAttributes.toArray());
-        }
+            .field(CommonName.SCHEMA_VERSION_FIELD, schemaVersion)
+            .field(FEATURE_ATTRIBUTES_FIELD, featureAttributes.toArray());
 
         if (uiMetadata != null && !uiMetadata.isEmpty()) {
             xContentBuilder.field(UI_METADATA_FIELD, uiMetadata);

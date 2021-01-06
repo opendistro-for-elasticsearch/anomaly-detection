@@ -189,7 +189,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             false
                         );
                     if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
-                        GetRequest getStateRequest = new GetRequest(DetectorInternalState.DETECTOR_STATE_INDEX, detectorId);
+                        GetRequest getStateRequest = new GetRequest(CommonName.DETECTION_STATE_INDEX, detectorId);
                         client.get(getStateRequest, onGetDetectorState(delegateListener, detectorId, enabledTimeMs));
                     }
 

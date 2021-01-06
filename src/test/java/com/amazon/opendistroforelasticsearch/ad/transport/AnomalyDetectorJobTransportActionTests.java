@@ -43,6 +43,7 @@ import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -132,7 +133,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
         );
         AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         Thread.sleep(10000);
-        GetResponse doc = getDoc(ADTask.DETECTION_STATE_INDEX, response.getId());
+        GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, response.getId());
         assertEquals(ADTaskState.FINISHED.name(), doc.getSourceAsMap().get(ADTask.STATE_FIELD));
     }
 
@@ -169,7 +170,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
             ADTask task = randomADTask(randomAlphaOfLength(5), detector, detectorId, state);
             createADTask(task);
         }
-        long count = countDocs(ADTask.DETECTION_STATE_INDEX);
+        long count = countDocs(CommonName.DETECTION_STATE_INDEX);
         assertEquals(states.size(), count);
 
         AnomalyDetectorJobRequest request = new AnomalyDetectorJobRequest(detectorId, randomLong(), randomLong(), START_JOB);
@@ -181,7 +182,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
         }, e -> { latch.countDown(); }));
         latch.await();
 
-        count = countDocs(ADTask.DETECTION_STATE_INDEX);
+        count = countDocs(CommonName.DETECTION_STATE_INDEX);
         // we have one latest task, so total count should add 1
         assertEquals(maxOldAdTaskDocsPerDetector + 1, count);
     }

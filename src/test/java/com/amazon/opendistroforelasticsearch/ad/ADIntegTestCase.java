@@ -52,6 +52,7 @@ import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -95,7 +96,7 @@ public abstract class ADIntegTestCase extends ESIntegTestCase {
     }
 
     public String createADTask(ADTask adTask) throws IOException {
-        return indexDoc(ADTask.DETECTION_STATE_INDEX, adTask.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+        return indexDoc(CommonName.DETECTION_STATE_INDEX, adTask.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
     }
 
     public void createDetectorIndex() throws IOException {
@@ -103,7 +104,7 @@ public abstract class ADIntegTestCase extends ESIntegTestCase {
     }
 
     public void createDetectionStateIndex() throws IOException {
-        createIndex(ADTask.DETECTION_STATE_INDEX, AnomalyDetectionIndices.getDetectionStateMappings());
+        createIndex(CommonName.DETECTION_STATE_INDEX, AnomalyDetectionIndices.getDetectionStateMappings());
     }
 
     public void createTestDataIndex(String indexName) {

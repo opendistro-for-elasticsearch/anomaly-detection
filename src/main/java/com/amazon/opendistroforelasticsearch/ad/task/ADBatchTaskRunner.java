@@ -180,6 +180,12 @@ public class ADBatchTaskRunner {
         Map<String, Object> updatedFields = new HashMap<>();
         updatedFields.put(STATE_FIELD, ADTaskState.INIT.name());
         updatedFields.put(INIT_PROGRESS_FIELD, 0.0f);
+
+        ActionListener<ADBatchAnomalyResultResponse> delegatedListener = ActionListener.wrap(r -> { listener.onResponse(r); }, e -> {
+            listener.onFailure(e);
+            handleException(adTask, e);
+        });
+
         adTaskManager
             .updateADTask(adTask.getTaskId(), updatedFields, ActionListener.wrap(r -> getNodeStats(adTask, ActionListener.wrap(node -> {
                 if (clusterService.localNode().getId().equals(node.getId())) {
@@ -191,7 +197,7 @@ public class ADBatchTaskRunner {
                             node.getId(),
                             adTask.getDetectorId()
                         );
-                    startADBatchTask(adTask, false, listener);
+                    startADBatchTask(adTask, false, delegatedListener);
                 } else {
                     // Execute batch task remotely
                     logger
@@ -207,13 +213,10 @@ public class ADBatchTaskRunner {
                             ADBatchTaskRemoteExecutionAction.NAME,
                             new ADBatchAnomalyResultRequest(adTask),
                             option,
-                            new ActionListenerResponseHandler<>(listener, ADBatchAnomalyResultResponse::new)
+                            new ActionListenerResponseHandler<>(delegatedListener, ADBatchAnomalyResultResponse::new)
                         );
                 }
-            }, e -> listener.onFailure(e))), e -> {
-                logger.warn("Failed to move task to INIT state, task id " + adTask.getTaskId());
-                listener.onFailure(e);
-            }));
+            }, e -> delegatedListener.onFailure(e))), e -> delegatedListener.onFailure(e)));
     }
 
     private void getNodeStats(ADTask adTask, ActionListener<DiscoveryNode> listener) {
@@ -229,7 +232,9 @@ public class ADBatchTaskRunner {
                 .collect(Collectors.toList());
 
             if (candidateNodeResponse.size() == 0) {
-                String errorMessage = "All nodes' memory usage exceeds limitation. No eligible node to run detector "
+                String errorMessage = "All nodes' memory usage exceeds limitation"
+                    + DEFAULT_JVM_HEAP_USAGE_THRESHOLD
+                    + ". No eligible node to run detector "
                     + adTask.getDetectorId();
                 logger.warn(errorMessage);
                 listener.onFailure(new LimitExceededException(adTask.getDetectorId(), errorMessage));
@@ -286,15 +291,15 @@ public class ADBatchTaskRunner {
      */
     public void startADBatchTask(ADTask adTask, boolean runTaskRemotely, ActionListener<ADBatchAnomalyResultResponse> listener) {
         try {
-            if (!EnabledSetting.isADPluginEnabled()) {
-                throw new EndRunException(adTask.getDetectorId(), CommonErrorMessages.DISABLED_ERR_MSG, true);
-            }
+            // check if cluster is eligible to run AD currently, if not eligible like
+            // circuit breaker open, will throw exception.
+            checkClusterState(adTask);
             threadPool.executor(AD_BATCH_TASK_THREAD_POOL_NAME).execute(() -> {
+                ActionListener<String> internalListener = internalBatchTaskListener(adTask);
                 try {
-                    executeADBatchTask(adTask);
+                    executeADBatchTask(adTask, internalListener);
                 } catch (Exception e) {
-                    listener.onFailure(e);
-                    adTaskManager.handleADTaskException(adTask, e);
+                    internalListener.onFailure(e);
                 }
             });
             listener.onResponse(new ADBatchAnomalyResultResponse(clusterService.localNode().getId(), runTaskRemotely));
@@ -302,24 +307,6 @@ public class ADBatchTaskRunner {
             logger.error("Fail to start AD batch task " + adTask.getTaskId(), e);
             listener.onFailure(e);
         }
-    }
-
-    private void executeADBatchTask(ADTask adTask) {
-        ActionListener<String> listener = internalBatchTaskListener(adTask);
-
-        // track AD executing batch task and total batch task execution count
-        adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).increment();
-        adStats.getStat(StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT.getName()).increment();
-
-        // put AD task into cache
-        adTaskCacheManager.put(adTask);
-
-        // check if circuit breaker is open
-        checkCircuitBreaker(adTask);
-
-        // start to run first piece
-        Instant executeStartTime = Instant.now();
-        runFirstPiece(adTask, executeStartTime, listener);
     }
 
     private ActionListener<String> internalBatchTaskListener(ADTask adTask) {
@@ -332,18 +319,49 @@ public class ADBatchTaskRunner {
             // If batch task failed, remove task from cache and decrease executing task count by 1.
             adTaskCacheManager.remove(taskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
-
-            // Check if batch task was cancelled or not by exception type.
-            // If it's cancelled, then increase cancelled task count by 1, otherwise increase failure count by 1.
-            if (e instanceof ADTaskCancelledException) {
-                adStats.getStat(StatNames.AD_CANCELED_BATCH_TASK_COUNT.getName()).increment();
-            } else if (ExceptionUtil.countInStats(e)) {
-                adStats.getStat(StatNames.AD_BATCH_TASK_FAILURE_COUNT.getName()).increment();
-            }
-            // Handle AD task exception
-            adTaskManager.handleADTaskException(adTask, e);
+            handleException(adTask, e);
         });
         return listener;
+    }
+
+    private void handleException(ADTask adTask, Exception e) {
+        logger.debug("Failed to run task " + adTask.getTaskId() + " for detector " + adTask.getDetectorId(), e);
+        // Check if batch task was cancelled or not by exception type.
+        // If it's cancelled, then increase cancelled task count by 1, otherwise increase failure count by 1.
+        if (e instanceof ADTaskCancelledException) {
+            adStats.getStat(StatNames.AD_CANCELED_BATCH_TASK_COUNT.getName()).increment();
+        } else if (ExceptionUtil.countInStats(e)) {
+            adStats.getStat(StatNames.AD_BATCH_TASK_FAILURE_COUNT.getName()).increment();
+        }
+        // Handle AD task exception
+        adTaskManager.handleADTaskException(adTask, e);
+    }
+
+    private void executeADBatchTask(ADTask adTask, ActionListener<String> internalListener) {
+        // track AD executing batch task and total batch task execution count
+        adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).increment();
+        adStats.getStat(StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT.getName()).increment();
+
+        // put AD task into cache
+        adTaskCacheManager.put(adTask);
+
+        // start to run first piece
+        Instant executeStartTime = Instant.now();
+        runFirstPiece(adTask, executeStartTime, internalListener);
+    }
+
+    private void checkClusterState(ADTask adTask) {
+        // check if AD plugin is enabled
+        checkADPluginEnabled(adTask.getDetectorId());
+
+        // check if circuit breaker is open
+        checkCircuitBreaker(adTask);
+    }
+
+    private void checkADPluginEnabled(String detectorId) {
+        if (!EnabledSetting.isADPluginEnabled()) {
+            throw new EndRunException(detectorId, CommonErrorMessages.DISABLED_ERR_MSG, true).countedInStats(false);
+        }
     }
 
     private void checkCircuitBreaker(ADTask adTask) {
@@ -355,7 +373,7 @@ public class ADBatchTaskRunner {
         }
     }
 
-    private void runFirstPiece(ADTask adTask, Instant executeStartTime, ActionListener<String> listener) {
+    private void runFirstPiece(ADTask adTask, Instant executeStartTime, ActionListener<String> internalListener) {
         try {
             adTaskManager
                 .updateADTask(
@@ -384,7 +402,7 @@ public class ADBatchTaskRunner {
                                 long dataEndTime = detectionDateRange.getEndTime().toEpochMilli();
 
                                 if (minDate >= dataEndTime || maxDate <= dataStartTime) {
-                                    listener
+                                    internalListener
                                         .onFailure(
                                             new ResourceNotFoundException(
                                                 adTask.getDetectorId(),
@@ -404,14 +422,14 @@ public class ADBatchTaskRunner {
                                 dataStartTime = dataStartTime - dataStartTime % interval;
                                 dataEndTime = dataEndTime - dataEndTime % interval;
                                 if ((dataEndTime - dataStartTime) < THRESHOLD_MODEL_TRAINING_SIZE * interval) {
-                                    listener
+                                    internalListener
                                         .onFailure(
                                             new AnomalyDetectionException("There is no enough data to train model").countedInStats(false)
                                         );
                                     return;
                                 }
                                 long expectedPieceEndTime = dataStartTime + pieceSize * interval;
-                                long firstPieceEndTime = expectedPieceEndTime > dataEndTime ? dataEndTime : expectedPieceEndTime;
+                                long firstPieceEndTime = Math.min(expectedPieceEndTime, dataEndTime);
                                 logger
                                     .debug(
                                         "start first piece from {} to {}, interval {}, dataStartTime {}, dataEndTime {},"
@@ -432,16 +450,16 @@ public class ADBatchTaskRunner {
                                     dataEndTime,
                                     interval,
                                     executeStartTime,
-                                    listener
+                                    internalListener
                                 );
-                            }, listener);
+                            }, internalListener);
                         } catch (Exception e) {
-                            listener.onFailure(e);
+                            internalListener.onFailure(e);
                         }
-                    }, e -> { listener.onFailure(e); })
+                    }, internalListener::onFailure)
                 );
         } catch (Exception exception) {
-            listener.onFailure(exception);
+            internalListener.onFailure(exception);
         }
     }
 
@@ -476,13 +494,13 @@ public class ADBatchTaskRunner {
         long dataEndTime,
         long interval,
         Instant executeStartTime,
-        ActionListener<String> listener
+        ActionListener<String> internalListener
     ) {
         ActionListener<Map<Long, Optional<double[]>>> actionListener = ActionListener.wrap(dataPoints -> {
             try {
                 if (dataPoints.size() == 0) {
                     logger.debug("No data in current piece with end time: " + pieceEndTime);
-                    runNextPiece(adTask, pieceEndTime, dataStartTime, dataEndTime, interval, listener);
+                    runNextPiece(adTask, pieceEndTime, dataStartTime, dataEndTime, interval, internalListener);
                 } else {
                     detectAnomaly(
                         adTask,
@@ -493,15 +511,15 @@ public class ADBatchTaskRunner {
                         dataEndTime,
                         interval,
                         executeStartTime,
-                        listener
+                        internalListener
                     );
                 }
             } catch (Exception e) {
-                listener.onFailure(e);
+                internalListener.onFailure(e);
             }
         }, exception -> {
             logger.error("Fail to execute onFeatureResponseLocalRCF", exception);
-            listener.onFailure(exception);
+            internalListener.onFailure(exception);
         });
         ThreadedActionListener threadedActionListener = new ThreadedActionListener<>(
             logger,
@@ -511,7 +529,7 @@ public class ADBatchTaskRunner {
             false
         );
 
-        featureManager.getFeatureDataPoints(adTask.getDetector(), pieceStartTime, pieceEndTime, threadedActionListener);
+        featureManager.getFeatureDataPointsByBatch(adTask.getDetector(), pieceStartTime, pieceEndTime, threadedActionListener);
     }
 
     private void detectAnomaly(
@@ -523,7 +541,7 @@ public class ADBatchTaskRunner {
         long dataEndTime,
         long interval,
         Instant executeStartTime,
-        ActionListener<String> listener
+        ActionListener<String> internalListener
     ) {
         String taskId = adTask.getTaskId();
         RandomCutForest rcf = adTaskCacheManager.getRcfModel(taskId);
@@ -610,13 +628,13 @@ public class ADBatchTaskRunner {
                 anomalyResults,
                 new ThreadedActionListener<>(logger, threadPool, AD_BATCH_TASK_THREAD_POOL_NAME, ActionListener.wrap(r -> {
                     try {
-                        runNextPiece(adTask, pieceEndTime, dataStartTime, dataEndTime, interval, listener);
+                        runNextPiece(adTask, pieceEndTime, dataStartTime, dataEndTime, interval, internalListener);
                     } catch (Exception e) {
-                        listener.onFailure(e);
+                        internalListener.onFailure(e);
                     }
                 }, e -> {
                     logger.error("Fail to bulk index anomaly result", e);
-                    listener.onFailure(e);
+                    internalListener.onFailure(e);
                 }), false)
             );
     }
@@ -627,14 +645,14 @@ public class ADBatchTaskRunner {
         long dataStartTime,
         long dataEndTime,
         long interval,
-        ActionListener<String> listener
+        ActionListener<String> internalListener
     ) {
         String taskId = adTask.getTaskId();
         float initProgress = calculateInitProgress(taskId);
         String taskState = initProgress >= 1.0f ? ADTaskState.RUNNING.name() : ADTaskState.INIT.name();
 
         if (pieceStartTime < dataEndTime) {
-            checkCircuitBreaker(adTask);
+            checkClusterState(adTask);
             long expectedPieceEndTime = pieceStartTime + pieceSize * interval;
             long pieceEndTime = expectedPieceEndTime > dataEndTime ? dataEndTime : expectedPieceEndTime;
             int i = 0;
@@ -671,9 +689,9 @@ public class ADBatchTaskRunner {
                                 dataEndTime,
                                 interval,
                                 Instant.now(),
-                                listener
+                                internalListener
                             ),
-                            e -> listener.onFailure(e)
+                            e -> internalListener.onFailure(e)
                         )
                 );
         } else {
@@ -695,7 +713,7 @@ public class ADBatchTaskRunner {
                             INIT_PROGRESS_FIELD,
                             initProgress
                         ),
-                    ActionListener.wrap(r -> listener.onResponse("task execution done"), e -> listener.onFailure(e))
+                    ActionListener.wrap(r -> internalListener.onResponse("task execution done"), e -> internalListener.onFailure(e))
                 );
         }
     }

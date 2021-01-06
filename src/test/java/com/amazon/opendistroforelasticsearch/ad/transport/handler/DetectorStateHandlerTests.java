@@ -38,6 +38,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler.ErrorStrategy;
@@ -119,7 +120,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
             @SuppressWarnings("unchecked")
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
             DetectorInternalState.Builder result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now()).error(error);
-            listener.onResponse(TestHelpers.createGetResponse(result.build(), detectorId, DetectorInternalState.DETECTOR_STATE_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(result.build(), detectorId, CommonName.DETECTION_STATE_INDEX));
             return null;
         }).when(client).get(any(), any());
 
@@ -135,7 +136,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
             @SuppressWarnings("unchecked")
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
             DetectorInternalState.Builder result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now()).error("blah");
-            listener.onResponse(TestHelpers.createGetResponse(result.build(), detectorId, DetectorInternalState.DETECTOR_STATE_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(result.build(), detectorId, CommonName.DETECTION_STATE_INDEX));
             return null;
         }).when(client).get(any(), any());
 
@@ -153,7 +154,7 @@ public class DetectorStateHandlerTests extends ESTestCase {
             DetectorInternalState.Builder result = new DetectorInternalState.Builder()
                 .lastUpdateTime(Instant.ofEpochMilli(1))
                 .error("blah");
-            listener.onResponse(TestHelpers.createGetResponse(result.build(), detectorId, DetectorInternalState.DETECTOR_STATE_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(result.build(), detectorId, CommonName.DETECTION_STATE_INDEX));
             return null;
         }).when(client).get(any(), any());
 

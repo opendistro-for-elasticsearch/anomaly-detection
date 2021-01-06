@@ -74,7 +74,6 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
@@ -260,7 +259,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly state index exists
      */
     public boolean doesDetectorStateIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(DetectorInternalState.DETECTOR_STATE_INDEX);
+        return clusterService.state().getRoutingTable().hasIndex(CommonName.DETECTION_STATE_INDEX);
     }
 
     /**
@@ -396,7 +395,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public void initDetectionStateIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
-            CreateIndexRequest request = new CreateIndexRequest(DetectorInternalState.DETECTOR_STATE_INDEX)
+            CreateIndexRequest request = new CreateIndexRequest(CommonName.DETECTION_STATE_INDEX)
                 .mapping(AnomalyDetector.TYPE, getDetectionStateMappings(), XContentType.JSON);
             adminClient.indices().create(request, markMappingUpToDate(ADIndex.STATE, actionListener));
         } catch (IOException e) {

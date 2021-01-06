@@ -42,8 +42,6 @@ public class DetectorInternalState implements ToXContentObject, Cloneable {
         it -> parse(it)
     );
 
-    public static final String DETECTOR_STATE_INDEX = ".opendistro-anomaly-detection-state";
-
     public static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String ERROR_FIELD = "error";
 

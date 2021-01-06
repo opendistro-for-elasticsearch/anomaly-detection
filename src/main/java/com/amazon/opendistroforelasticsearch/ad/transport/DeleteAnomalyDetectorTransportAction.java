@@ -47,9 +47,9 @@ import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
@@ -127,7 +127,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
 
     private void deleteDetectorStateDoc(String detectorId, ActionListener<DeleteResponse> listener) {
         LOG.info("Delete detector info {}", detectorId);
-        DeleteRequest deleteRequest = new DeleteRequest(DetectorInternalState.DETECTOR_STATE_INDEX, detectorId);
+        DeleteRequest deleteRequest = new DeleteRequest(CommonName.DETECTION_STATE_INDEX, detectorId);
         client
             .delete(
                 deleteRequest,

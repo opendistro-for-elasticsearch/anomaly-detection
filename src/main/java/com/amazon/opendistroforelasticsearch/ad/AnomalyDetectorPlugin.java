@@ -470,7 +470,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             )
             .put(
                 StatNames.ANOMALY_DETECTION_STATE_STATUS.getName(),
-                new ADStat<>(true, new IndexStatusSupplier(indexUtils, DetectorInternalState.DETECTOR_STATE_INDEX))
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.DETECTION_STATE_INDEX))
             )
             .put(StatNames.DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
             .put(StatNames.HISTORICAL_SINGLE_ENTITY_DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
@@ -706,7 +706,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                         new SystemIndexDescriptor(AnomalyDetector.ANOMALY_DETECTORS_INDEX, "detector definition"),
                         new SystemIndexDescriptor(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, "detector job"),
                         new SystemIndexDescriptor(CommonName.CHECKPOINT_INDEX_NAME, "model checkpoint"),
-                        new SystemIndexDescriptor(DetectorInternalState.DETECTOR_STATE_INDEX, "detector information like total rcf updates")
+                        new SystemIndexDescriptor(CommonName.DETECTION_STATE_INDEX, "detector information like total rcf updates")
                     )
             );
     }

@@ -700,7 +700,7 @@ public class FeatureManager implements CleanState {
         }
     }
 
-    public void getFeatureDataPoints(
+    public void getFeatureDataPointsByBatch(
         AnomalyDetector detector,
         long startTime,
         long endTime,
@@ -733,7 +733,6 @@ public class FeatureManager implements CleanState {
         });
         shingle.clear();
 
-        shingle.clear();
         getFullShingleEndTimes(endTime, detector.getDetectorIntervalInMilliseconds(), detector.getShingleSize())
             .mapToObj(time -> featuresMap.getOrDefault(time, new SimpleImmutableEntry<>(time, Optional.empty())))
             .forEach(e -> shingle.add(e));

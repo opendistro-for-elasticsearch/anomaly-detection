@@ -49,7 +49,7 @@ import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
-import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.google.common.collect.ImmutableList;
 
 public class MockReindexPlugin extends Plugin implements ActionPlugin {
@@ -172,7 +172,7 @@ public class MockReindexPlugin extends Plugin implements ActionPlugin {
                 Iterator<SearchHit> iterator = r.getHits().iterator();
                 while (iterator.hasNext()) {
                     String id = iterator.next().getId();
-                    DeleteRequest deleteRequest = new DeleteRequest(ADTask.DETECTION_STATE_INDEX, id)
+                    DeleteRequest deleteRequest = new DeleteRequest(CommonName.DETECTION_STATE_INDEX, id)
                         .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
                     client.delete(deleteRequest, delegateListener);
                 }

@@ -39,6 +39,7 @@ import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
@@ -149,7 +150,7 @@ public abstract class HistoricalDetectorIntegTestCase extends ADIntegTestCase {
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder.query(query).sort(EXECUTION_START_TIME_FIELD, SortOrder.DESC).trackTotalHits(true).size(size);
-        searchRequest.source(sourceBuilder).indices(ADTask.DETECTION_STATE_INDEX);
+        searchRequest.source(sourceBuilder).indices(CommonName.DETECTION_STATE_INDEX);
         SearchResponse searchResponse = client().search(searchRequest).actionGet();
         Iterator<SearchHit> iterator = searchResponse.getHits().iterator();
 

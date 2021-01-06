@@ -86,7 +86,6 @@ public class PreviewAnomalyDetectorTransportAction extends
 
     @Override
     protected void doExecute(Task task, PreviewAnomalyDetectorRequest request, ActionListener<PreviewAnomalyDetectorResponse> listener) {
-        AnomalyDetector detector = request.getDetector();
         String detectorId = request.getDetectorId();
         User user = getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {

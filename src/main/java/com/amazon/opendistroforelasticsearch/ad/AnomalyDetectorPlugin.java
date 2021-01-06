@@ -94,6 +94,7 @@ import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyDetectorAc
 import com.amazon.opendistroforelasticsearch.ad.rest.RestExecuteAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestGetAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestIndexAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.rest.RestPreviewAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyDetectorInfoAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyResultAction;
@@ -129,6 +130,8 @@ import com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorActi
 import com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.PreviewAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.PreviewAnomalyDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingAction;
@@ -232,14 +235,11 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction();
         RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction();
         RestDeleteAnomalyDetectorAction deleteAnomalyDetectorAction = new RestDeleteAnomalyDetectorAction();
-        RestExecuteAnomalyDetectorAction executeAnomalyDetectorAction = new RestExecuteAnomalyDetectorAction(
-            settings,
-            clusterService,
-            anomalyDetectorRunner
-        );
+        RestExecuteAnomalyDetectorAction executeAnomalyDetectorAction = new RestExecuteAnomalyDetectorAction(settings, clusterService);
         RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(adStats, this.nodeFilter);
         RestAnomalyDetectorJobAction anomalyDetectorJobAction = new RestAnomalyDetectorJobAction(settings, clusterService);
         RestSearchAnomalyDetectorInfoAction searchAnomalyDetectorInfoAction = new RestSearchAnomalyDetectorInfoAction();
+        RestPreviewAnomalyDetectorAction previewAnomalyDetectorAction = new RestPreviewAnomalyDetectorAction();
 
         return ImmutableList
             .of(
@@ -251,7 +251,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 executeAnomalyDetectorAction,
                 anomalyDetectorJobAction,
                 statsAnomalyDetectorAction,
-                searchAnomalyDetectorInfoAction
+                searchAnomalyDetectorInfoAction,
+                previewAnomalyDetectorAction
             );
     }
 
@@ -613,7 +614,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(ADResultBulkAction.INSTANCE, ADResultBulkTransportAction.class),
                 new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class),
                 new ActionHandler<>(EntityProfileAction.INSTANCE, EntityProfileTransportAction.class),
-                new ActionHandler<>(SearchAnomalyDetectorInfoAction.INSTANCE, SearchAnomalyDetectorInfoTransportAction.class)
+                new ActionHandler<>(SearchAnomalyDetectorInfoAction.INSTANCE, SearchAnomalyDetectorInfoTransportAction.class),
+                new ActionHandler<>(PreviewAnomalyDetectorAction.INSTANCE, PreviewAnomalyDetectorTransportAction.class)
             );
     }
 

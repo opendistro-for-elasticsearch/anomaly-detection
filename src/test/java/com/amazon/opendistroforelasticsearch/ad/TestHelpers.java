@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -108,6 +109,9 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
+
+import com.amazon.opendistroforelasticsearch.ad.feature.Features;
+import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
@@ -464,6 +468,25 @@ public class TestHelpers {
             throw new RuntimeException();
         }
         return new Feature(randomAlphaOfLength(5), featureName, enabled, testAggregation);
+    }
+
+    public static Features randomFeatures() {
+        List<Map.Entry<Long, Long>> ranges = Arrays.asList(new AbstractMap.SimpleEntry<>(0L, 1L));
+        double[][] unprocessed = new double[][] { { randomDouble(), randomDouble() } };
+        double[][] processed = new double[][] { { randomDouble(), randomDouble() } };
+
+        return new Features(ranges, unprocessed, processed);
+    }
+
+    public static List<ThresholdingResult> randomThresholdingResults() {
+        double grade = 1.;
+        double confidence = 0.5;
+        double score = 1.;
+
+        ThresholdingResult thresholdingResult = new ThresholdingResult(grade, confidence, score);
+        List<ThresholdingResult> results = new ArrayList<>();
+        results.add(thresholdingResult);
+        return results;
     }
 
     public static User randomUser() {

@@ -118,7 +118,7 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
             listener.onResponse(builder.build());
         } else {
             // redirect
-            LOG.debug("Sending RCF polling request to {} for detector {}, entity {}", nodeId, adID, entityValue);
+            LOG.debug("Sending entity profile request to {} for detector {}, entity {}", nodeId, adID, entityValue);
 
             try {
                 transportService

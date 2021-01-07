@@ -227,8 +227,13 @@ public class EntityProfileRunner extends AbstractProfileRunner {
 
                             delegateListener.onResponse(builder.build());
                         }, exception -> {
-                            logger.warn("fail to get last sample time", exception);
                             // sth wrong like result index not created. Return what we have
+                            if (exception instanceof IndexNotFoundException) {
+                                // don't print out stack trace since it is not helpful
+                                logger.info("Result index hasn't been created", exception.getMessage());
+                            } else {
+                                logger.warn("fail to get last sample time", exception);
+                            }
                             delegateListener.onResponse(builder.build());
                         }));
                     }

@@ -187,7 +187,7 @@ public class ADBatchTaskRunner {
         });
 
         adTaskManager
-            .updateADTask(adTask.getTaskId(), updatedFields, ActionListener.wrap(r -> getNodeStats(adTask, ActionListener.wrap(node -> {
+            .updateADTask(adTask.getTaskId(), updatedFields, ActionListener.wrap(r -> dispatchTask(adTask, ActionListener.wrap(node -> {
                 if (clusterService.localNode().getId().equals(node.getId())) {
                     // Execute batch task locally
                     logger
@@ -219,7 +219,7 @@ public class ADBatchTaskRunner {
             }, e -> delegatedListener.onFailure(e))), e -> delegatedListener.onFailure(e)));
     }
 
-    private void getNodeStats(ADTask adTask, ActionListener<DiscoveryNode> listener) {
+    private void dispatchTask(ADTask adTask, ActionListener<DiscoveryNode> listener) {
         DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
         ADStatsRequest adStatsRequest = new ADStatsRequest(dataNodes);
         adStatsRequest.addAll(ImmutableSet.of(AD_EXECUTING_BATCH_TASK_COUNT.getName(), JVM_HEAP_USAGE.getName()));
@@ -251,31 +251,21 @@ public class ADBatchTaskRunner {
                 listener.onFailure(new LimitExceededException(adTask.getDetectorId(), errorMessage));
                 return;
             }
-            candidateNodeResponse = candidateNodeResponse
+            Optional<ADStatsNodeResponse> targetNode = candidateNodeResponse
                 .stream()
-                .sorted(
-                    (ADStatsNodeResponse r1, ADStatsNodeResponse r2) -> ((Long) r1
-                        .getStatsMap()
-                        .get(AD_EXECUTING_BATCH_TASK_COUNT.getName()))
-                            .compareTo((Long) r2.getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName()))
-                )
-                .collect(Collectors.toList());
-
-            if (candidateNodeResponse.size() == 1) {
-                listener.onResponse(candidateNodeResponse.get(0).getNode());
-            } else {
-                // if multiple nodes have same running task count, choose the one with least JVM heap usage.
-                Long minTaskCount = (Long) candidateNodeResponse.get(0).getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName());
-                Optional<ADStatsNodeResponse> first = candidateNodeResponse
-                    .stream()
-                    .filter(c -> minTaskCount.equals(c.getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName())))
-                    .sorted(
-                        (ADStatsNodeResponse r1, ADStatsNodeResponse r2) -> ((Long) r1.getStatsMap().get(JVM_HEAP_USAGE.getName()))
-                            .compareTo((Long) r2.getStatsMap().get(JVM_HEAP_USAGE.getName()))
-                    )
-                    .findFirst();
-                listener.onResponse(first.get().getNode());
-            }
+                .sorted((ADStatsNodeResponse r1, ADStatsNodeResponse r2) -> {
+                    int result = ((Long) r1.getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName()))
+                        .compareTo((Long) r2.getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName()));
+                    if (result == 0) {
+                        // if multiple nodes have same running task count, choose the one with least
+                        // JVM heap usage.
+                        return ((Long) r1.getStatsMap().get(JVM_HEAP_USAGE.getName()))
+                            .compareTo((Long) r2.getStatsMap().get(JVM_HEAP_USAGE.getName()));
+                    }
+                    return result;
+                })
+                .findFirst();
+            listener.onResponse(targetNode.get().getNode());
         }, exception -> {
             logger.error("Failed to get node's task stats", exception);
             listener.onFailure(exception);
@@ -347,6 +337,7 @@ public class ADBatchTaskRunner {
 
         // start to run first piece
         Instant executeStartTime = Instant.now();
+        // TODO: refactor to make the workflow more clear
         runFirstPiece(adTask, executeStartTime, internalListener);
     }
 
@@ -518,10 +509,12 @@ public class ADBatchTaskRunner {
                 internalListener.onFailure(e);
             }
         }, exception -> {
-            logger.error("Fail to execute onFeatureResponseLocalRCF", exception);
+            logger.debug("Fail to get feature data by batch for this piece with end time: " + pieceEndTime);
+            // TODO: Exception may be caused by wrong feature query or some bad data. Differentiate these
+            // and skip current piece if error caused by bad data.
             internalListener.onFailure(exception);
         });
-        ThreadedActionListener threadedActionListener = new ThreadedActionListener<>(
+        ThreadedActionListener<Map<Long, Optional<double[]>>> threadedActionListener = new ThreadedActionListener<>(
             logger,
             threadPool,
             AD_BATCH_TASK_THREAD_POOL_NAME,

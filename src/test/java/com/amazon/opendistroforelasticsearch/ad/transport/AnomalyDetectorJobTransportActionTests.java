@@ -181,7 +181,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
             response.set(r);
         }, e -> { latch.countDown(); }));
         latch.await();
-
+        Thread.sleep(10000);
         count = countDocs(CommonName.DETECTION_STATE_INDEX);
         // we have one latest task, so total count should add 1
         assertEquals(maxOldAdTaskDocsPerDetector + 1, count);

@@ -335,7 +335,6 @@ public class ADTaskManager {
             .from(maxAdTaskDocsPerDetector - 1)
             .trackTotalHits(true)
             .size(1);
-        String s = sourceBuilder.toString();
         searchRequest.source(sourceBuilder).indices(CommonName.DETECTION_STATE_INDEX);
         String detectorId = adTask.getDetectorId();
 

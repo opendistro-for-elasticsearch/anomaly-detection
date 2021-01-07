@@ -616,6 +616,7 @@ public final class ParseUtils {
      * @param xContentRegistry content registry
      * @return search source builder
      * @throws IOException throw IO exception if fail to parse feature aggregation
+     * @throws AnomalyDetectionException throw AD exception if no enabled feature
      */
     public static SearchSourceBuilder batchFeatureQuery(
         AnomalyDetector detector,

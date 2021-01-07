@@ -172,7 +172,7 @@ public class FeatureManager implements CleanState {
                 listener.onFailure(new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));
             }
         } else {
-            getProcessedFeatures(shingle, detector, endTime, listener);
+            listener.onResponse(getProcessedFeatures(shingle, detector, endTime));
         }
     }
 
@@ -220,26 +220,7 @@ public class FeatureManager implements CleanState {
             .mapToObj(time -> featuresMap.getOrDefault(time, new SimpleImmutableEntry<>(time, Optional.empty())))
             .forEach(e -> shingle.add(e));
 
-        getProcessedFeatures(shingle, detector, endTime, listener);
-    }
-
-    private void getProcessedFeatures(
-        Deque<Entry<Long, Optional<double[]>>> shingle,
-        AnomalyDetector detector,
-        long endTime,
-        ActionListener<SinglePointFeatures> listener
-    ) {
-        int shingleSize = detector.getShingleSize();
-        Optional<double[]> currentPoint = shingle.peekLast().getValue();
-        listener
-            .onResponse(
-                new SinglePointFeatures(
-                    currentPoint,
-                    Optional
-                        .ofNullable(currentPoint.isPresent() ? filterAndFill(shingle, endTime, detector) : null)
-                        .map(points -> batchShingle(points, shingleSize)[0])
-                )
-            );
+        listener.onResponse(getProcessedFeatures(shingle, detector, endTime));
     }
 
     private double[][] filterAndFill(Deque<Entry<Long, Optional<double[]>>> shingle, long endTime, AnomalyDetector detector) {
@@ -708,11 +689,12 @@ public class FeatureManager implements CleanState {
     ) {
         try {
             searchFeatureDao.getFeaturesForPeriodByBatch(detector, startTime, endTime, ActionListener.wrap(points -> {
-                logger.info("features size: {}", points.size());
+                logger.debug("features size: {}", points.size());
                 listener.onResponse(points);
             }, listener::onFailure));
         } catch (Exception e) {
             logger.error("Failed to get features for detector: " + detector.getDetectorId());
+            listener.onFailure(e);
         }
     }
 

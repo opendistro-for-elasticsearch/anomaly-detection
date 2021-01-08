@@ -15,7 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -46,15 +49,19 @@ import org.elasticsearch.transport.TransportService;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRunner;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
+import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 public class PreviewAnomalyDetectorTransportAction extends
     HandledTransportAction<PreviewAnomalyDetectorRequest, PreviewAnomalyDetectorResponse> {
     private final Logger logger = LogManager.getLogger(PreviewAnomalyDetectorTransportAction.class);
     private final AnomalyDetectorRunner anomalyDetectorRunner;
+    private final ClusterService clusterService;
     private final Client client;
     private final NamedXContentRegistry xContentRegistry;
     private volatile Integer maxAnomalyFeatures;
+    private volatile Boolean filterByEnabled;
 
     @Inject
     public PreviewAnomalyDetectorTransportAction(
@@ -67,16 +74,39 @@ public class PreviewAnomalyDetectorTransportAction extends
         NamedXContentRegistry xContentRegistry
     ) {
         super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
+        this.clusterService = clusterService;
         this.client = client;
         this.anomalyDetectorRunner = anomalyDetectorRunner;
         this.xContentRegistry = xContentRegistry;
         maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
+        filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
     }
 
     @Override
     protected void doExecute(Task task, PreviewAnomalyDetectorRequest request, ActionListener<PreviewAnomalyDetectorResponse> listener) {
+        String detectorId = request.getDetectorId();
+        User user = getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            resolveUserAndExecute(
+                user,
+                detectorId,
+                filterByEnabled,
+                listener,
+                () -> previewExecute(request, listener),
+                client,
+                clusterService,
+                xContentRegistry
+            );
+        } catch (Exception e) {
+            logger.error(e);
+            listener.onFailure(e);
+        }
+    }
+
+    void previewExecute(PreviewAnomalyDetectorRequest request, ActionListener<PreviewAnomalyDetectorResponse> listener) {
+        try {
             AnomalyDetector detector = request.getDetector();
             String detectorId = request.getDetectorId();
             Instant startTime = request.getStartTime();

@@ -44,12 +44,14 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.test.ESSingleNodeTestCase;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 import org.junit.Assert;
 import org.junit.Before;
@@ -65,6 +67,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import com.google.common.collect.ImmutableMap;
 
 public class PreviewAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase {
@@ -84,7 +87,12 @@ public class PreviewAnomalyDetectorTransportActionTests extends ESSingleNodeTest
         clusterService = mock(ClusterService.class);
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_ANOMALY_FEATURES)))
+            Collections
+                .unmodifiableSet(
+                    new HashSet<>(
+                        Arrays.asList(AnomalyDetectorSettings.MAX_ANOMALY_FEATURES, AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)
+                    )
+                )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         featureManager = mock(FeatureManager.class);
@@ -244,9 +252,15 @@ public class PreviewAnomalyDetectorTransportActionTests extends ESSingleNodeTest
     @Test
     public void testPreviewTransportActionNoContext() throws IOException, InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         Client client = mock(Client.class);
+        ThreadContext threadContext = new ThreadContext(settings);
+        threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
+        org.elasticsearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
+        when(client.threadPool()).thenReturn(mockThreadPool);
+        when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
         PreviewAnomalyDetectorTransportAction previewAction = new PreviewAnomalyDetectorTransportAction(
-            Settings.EMPTY,
+            settings,
             mock(TransportService.class),
             clusterService,
             mock(ActionFilters.class),

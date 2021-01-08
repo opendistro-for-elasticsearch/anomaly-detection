@@ -16,18 +16,21 @@
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.rest.RestStatus;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRestTestCase;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder;
 
 public class SecureADRestIT extends AnomalyDetectorRestTestCase {
@@ -178,6 +181,58 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Assert
             .assertTrue(
                 exception.getMessage().contains("Filter by backend roles is enabled and User dog does not have backend roles configured")
+            );
+    }
+
+    public void testPreviewAnomalyDetectorWithWriteAccess() throws IOException {
+        // User Alice has AD full access, should be able to create/preview a detector
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
+            aliceDetector.getDetectorId(),
+            Instant.now().minusSeconds(60 * 10),
+            Instant.now(),
+            null
+        );
+        Response response = previewAnomalyDetector(aliceDetector.getDetectorId(), aliceClient, input);
+        Assert.assertEquals(RestStatus.OK, restStatus(response));
+    }
+
+    public void testPreviewAnomalyDetectorWithReadAccess() throws IOException {
+        // User Alice has AD full access, should be able to create a detector
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
+            randomAlphaOfLength(5),
+            Instant.now().minusSeconds(60 * 10),
+            Instant.now(),
+            null
+        );
+        // User bob has AD read access, should not be able to preview a detector
+        Exception exception = expectThrows(
+            IOException.class,
+            () -> { previewAnomalyDetector(aliceDetector.getDetectorId(), bobClient, input); }
+        );
+        Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/preview]"));
+    }
+
+    public void testPreviewAnomalyDetectorWithFilterEnabled() throws IOException {
+        // User Alice has AD full access, should be able to create a detector
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
+            aliceDetector.getDetectorId(),
+            Instant.now().minusSeconds(60 * 10),
+            Instant.now(),
+            null
+        );
+        enableFilterBy();
+        // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
+        // Alice detector
+        Exception exception = expectThrows(
+            IOException.class,
+            () -> { previewAnomalyDetector(aliceDetector.getDetectorId(), catClient, input); }
+        );
+        Assert
+            .assertTrue(
+                exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())
             );
     }
 }

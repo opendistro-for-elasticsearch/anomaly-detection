@@ -45,6 +45,7 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.RestStatus;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.google.common.collect.ImmutableList;
@@ -133,6 +134,19 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
 
     protected Response deleteAnomalyDetector(String detectorId, RestClient client) throws IOException {
         return TestHelpers.makeRequest(client, "DELETE", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId, ImmutableMap.of(), "", null);
+    }
+
+    protected Response previewAnomalyDetector(String detectorId, RestClient client, AnomalyDetectorExecutionInput input)
+        throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client,
+                "POST",
+                String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                ImmutableMap.of(),
+                toHttpEntity(input),
+                null
+            );
     }
 
     public AnomalyDetector getAnomalyDetector(String detectorId, RestClient client) throws IOException {

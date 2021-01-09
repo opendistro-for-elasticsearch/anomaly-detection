@@ -545,8 +545,10 @@ public class ADBatchTaskRunner {
 
         long intervalEndTime = pieceStartTime;
         for (int i = 0; i < pieceSize && intervalEndTime < dataEndTime; i++) {
+            Optional<double[]> dataPoint = dataPoints.containsKey(intervalEndTime) ? dataPoints.get(intervalEndTime) : Optional.empty();
             intervalEndTime = intervalEndTime + interval;
-            SinglePointFeatures feature = featureManager.getShingledFeature(adTask.getDetector(), shingle, dataPoints, intervalEndTime);
+            SinglePointFeatures feature = featureManager
+                .getShingledFeatureForHistoricalDetector(adTask.getDetector(), shingle, dataPoint, intervalEndTime);
             List<FeatureData> featureData = null;
             if (feature.getUnprocessedFeatures().isPresent()) {
                 featureData = ParseUtils.getFeatureData(feature.getUnprocessedFeatures().get(), adTask.getDetector());

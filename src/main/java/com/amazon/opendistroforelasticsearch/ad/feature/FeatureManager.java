@@ -23,6 +23,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.AbstractMap;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -698,26 +699,16 @@ public class FeatureManager implements CleanState {
         }
     }
 
-    public SinglePointFeatures getShingledFeature(
+    public SinglePointFeatures getShingledFeatureForHistoricalDetector(
         AnomalyDetector detector,
         Deque<Entry<Long, Optional<double[]>>> shingle,
-        Map<Long, Optional<double[]>> dataPoints,
+        Optional<double[]> dataPoint,
         long endTime
     ) {
-        long maxTimeDifference = detector.getDetectorIntervalInMilliseconds() / 2;
-        Map<Long, Entry<Long, Optional<double[]>>> featuresMap = getNearbyPointsForShingle(detector, shingle, endTime, maxTimeDifference)
-            .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-        List<Entry<Long, Long>> missingRanges = getMissingRangesInShingle(detector, featuresMap, endTime);
-        missingRanges.stream().forEach(r -> {
-            if (dataPoints.containsKey(r.getKey())) {
-                featuresMap.put(r.getValue(), new SimpleImmutableEntry<>(r.getValue(), dataPoints.get(r.getKey())));
-            }
-        });
-        shingle.clear();
-
-        getFullShingleEndTimes(endTime, detector.getDetectorIntervalInMilliseconds(), detector.getShingleSize())
-            .mapToObj(time -> featuresMap.getOrDefault(time, new SimpleImmutableEntry<>(time, Optional.empty())))
-            .forEach(e -> shingle.add(e));
+        while (shingle.size() >= detector.getShingleSize()) {
+            shingle.poll();
+        }
+        shingle.add(new AbstractMap.SimpleEntry<>(endTime, dataPoint));
 
         return getProcessedFeatures(shingle, detector, endTime);
     }

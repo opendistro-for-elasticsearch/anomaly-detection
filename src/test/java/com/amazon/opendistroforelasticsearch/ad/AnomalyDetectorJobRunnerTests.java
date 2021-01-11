@@ -162,7 +162,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
             client,
             settings,
             threadPool,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initDetectorStateIndex),
+            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initDetectionStateIndex),
             anomalyDetectionIndices::doesDetectorStateIndexExist,
             this.clientUtil,
             indexUtils,

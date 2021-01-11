@@ -474,4 +474,27 @@ public class AnomalyDetectorTests extends AbstractADTest {
         );
         assertEquals((int) anomalyDetector.getShingleSize(), AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
     }
+
+    public void testNullFeatureAttributes() throws IOException {
+        AnomalyDetector anomalyDetector = new AnomalyDetector(
+            randomAlphaOfLength(5),
+            randomLong(),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(5)),
+            null,
+            TestHelpers.randomQuery(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            null,
+            null,
+            1,
+            Instant.now(),
+            null,
+            TestHelpers.randomUser()
+        );
+        assertNotNull(anomalyDetector.getFeatureAttributes());
+        assertEquals(0, anomalyDetector.getFeatureAttributes().size());
+    }
 }

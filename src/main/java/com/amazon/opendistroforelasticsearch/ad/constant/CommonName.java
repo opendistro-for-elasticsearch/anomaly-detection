@@ -21,6 +21,9 @@ public class CommonName {
     // ======================================
     // index name for anomaly checkpoint of each model. One model one document.
     public static final String CHECKPOINT_INDEX_NAME = ".opendistro-anomaly-checkpoints";
+    // index name for anomaly detection state. Will store AD task in this index as well.
+    public static final String DETECTION_STATE_INDEX = ".opendistro-anomaly-detection-state";
+    // TODO: move other index name here
 
     // The alias of the index in which to write AD result history
     public static final String ANOMALY_RESULT_INDEX_ALIAS = ".opendistro-anomaly-results";
@@ -83,5 +86,11 @@ public class CommonName {
     // Query
     // ======================================
     // Used in finding the max timestamp
-    public static final String AGG_NAME_MAX = "max_timefield";
+    public static final String AGG_NAME_MAX_TIME = "max_timefield";
+    // Used in finding the min timestamp
+    public static final String AGG_NAME_MIN_TIME = "min_timefield";
+    // date histogram aggregation name
+    public static final String DATE_HISTOGRAM = "date_histogram";
+    // feature aggregation name
+    public static final String FEATURE_AGGS = "feature_aggs";
 }

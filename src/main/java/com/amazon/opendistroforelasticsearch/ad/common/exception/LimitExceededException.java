@@ -37,7 +37,17 @@ public class LimitExceededException extends EndRunException {
      * @param message explanation for the limit
      */
     public LimitExceededException(String message) {
-        super(null, message, true);
+        super(message, true);
+    }
+
+    /**
+     * Constructor with error message.
+     *
+     * @param message explanation for the limit
+     * @param endRun end detector run or not
+     */
+    public LimitExceededException(String message, boolean endRun) {
+        super(null, message, endRun);
     }
 
     /**

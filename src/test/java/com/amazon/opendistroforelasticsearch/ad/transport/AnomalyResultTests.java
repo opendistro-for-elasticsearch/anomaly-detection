@@ -284,14 +284,12 @@ public class AnomalyResultTests extends AbstractADTest {
             GetRequest request = (GetRequest) args[0];
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
-            if (request.index().equals(DetectorInternalState.DETECTOR_STATE_INDEX)) {
+            if (request.index().equals(CommonName.DETECTION_STATE_INDEX)) {
 
                 DetectorInternalState.Builder result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
 
                 listener
-                    .onResponse(
-                        TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), DetectorInternalState.DETECTOR_STATE_INDEX)
-                    );
+                    .onResponse(TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), CommonName.DETECTION_STATE_INDEX));
 
             }
 

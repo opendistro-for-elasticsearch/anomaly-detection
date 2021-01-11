@@ -19,6 +19,7 @@ import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.addUserBa
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
@@ -29,7 +30,9 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.test.ESTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorType;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.collect.ImmutableList;
@@ -181,5 +184,99 @@ public class ParseUtilsTests extends ESTestCase {
                 + "\"adjust_pure_negative\":true,\"boost\":1.0}}}",
             searchSourceBuilder.toString()
         );
+    }
+
+    public void testBatchFeatureQuery() throws IOException {
+        String index = randomAlphaOfLength(5);
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        Feature feature1 = TestHelpers.randomFeature(true);
+        Feature feature2 = TestHelpers.randomFeature(false);
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(index),
+                ImmutableList.of(feature1, feature2),
+                null,
+                now,
+                AnomalyDetectorType.HISTORICAL_MULTI_ENTITY.name(),
+                1,
+                TestHelpers.randomDetectionDateRange(),
+                false
+            );
+
+        long startTime = now.minus(10, ChronoUnit.DAYS).toEpochMilli();
+        long endTime = now.plus(10, ChronoUnit.DAYS).toEpochMilli();
+        SearchSourceBuilder searchSourceBuilder = ParseUtils
+            .batchFeatureQuery(detector, startTime, endTime, TestHelpers.xContentRegistry());
+        assertEquals(
+            "{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"range\":{\""
+                + detector.getTimeField()
+                + "\":{\"from\":"
+                + startTime
+                + ",\"to\":"
+                + endTime
+                + ",\"include_lower\":true,\"include_upper\":false,\"format\":\"epoch_millis\",\"boost\""
+                + ":1.0}}},{\"bool\":{\"must\":[{\"term\":{\"user\":{\"value\":\"kimchy\",\"boost\":1.0}}}],\"filter\":"
+                + "[{\"term\":{\"tag\":{\"value\":\"tech\",\"boost\":1.0}}}],\"must_not\":[{\"range\":{\"age\":{\"from\":10,"
+                + "\"to\":20,\"include_lower\":true,\"include_upper\":true,\"boost\":1.0}}}],\"should\":[{\"term\":{\"tag\":"
+                + "{\"value\":\"wow\",\"boost\":1.0}}},{\"term\":{\"tag\":{\"value\":\"elasticsearch\",\"boost\":1.0}}}],"
+                + "\"adjust_pure_negative\":true,\"minimum_should_match\":\"1\",\"boost\":1.0}}],\"adjust_pure_negative"
+                + "\":true,\"boost\":1.0}},\"aggregations\":{\"feature_aggs\":{\"composite\":{\"size\":1000,\"sources\":"
+                + "[{\"date_histogram\":{\"date_histogram\":{\"field\":\""
+                + detector.getTimeField()
+                + "\",\"missing_bucket\":false,\"order\":\"asc\","
+                + "\"fixed_interval\":\"60s\"}}}]},\"aggregations\":{\""
+                + feature1.getId()
+                + "\":{\"value_count\":{\"field\":\"ok\"}}}}}}",
+            searchSourceBuilder.toString()
+        );
+    }
+
+    public void testBatchFeatureQueryWithoutEnabledFeature() throws IOException {
+        String index = randomAlphaOfLength(5);
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(index),
+                ImmutableList.of(TestHelpers.randomFeature(false)),
+                null,
+                now,
+                AnomalyDetectorType.HISTORICAL_MULTI_ENTITY.name(),
+                1,
+                TestHelpers.randomDetectionDateRange(),
+                false
+            );
+
+        long startTime = now.minus(10, ChronoUnit.DAYS).toEpochMilli();
+        long endTime = now.plus(10, ChronoUnit.DAYS).toEpochMilli();
+
+        AnomalyDetectionException exception = expectThrows(
+            AnomalyDetectionException.class,
+            () -> ParseUtils.batchFeatureQuery(detector, startTime, endTime, TestHelpers.xContentRegistry())
+        );
+        assertEquals("No enabled feature configured", exception.getMessage());
+    }
+
+    public void testBatchFeatureQueryWithoutFeature() throws IOException {
+        String index = randomAlphaOfLength(5);
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(index),
+                ImmutableList.of(),
+                null,
+                now,
+                AnomalyDetectorType.HISTORICAL_MULTI_ENTITY.name(),
+                1,
+                TestHelpers.randomDetectionDateRange(),
+                false
+            );
+
+        long startTime = now.minus(10, ChronoUnit.DAYS).toEpochMilli();
+        long endTime = now.plus(10, ChronoUnit.DAYS).toEpochMilli();
+        AnomalyDetectionException exception = expectThrows(
+            AnomalyDetectionException.class,
+            () -> ParseUtils.batchFeatureQuery(detector, startTime, endTime, TestHelpers.xContentRegistry())
+        );
+        assertEquals("No enabled feature configured", exception.getMessage());
     }
 }

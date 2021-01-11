@@ -22,11 +22,11 @@ import org.elasticsearch.monitor.jvm.JvmService;
  */
 public class MemoryCircuitBreaker extends ThresholdCircuitBreaker<Short> {
 
-    private static final short defaultThreshold = 85;
+    public static final short DEFAULT_JVM_HEAP_USAGE_THRESHOLD = 85;
     private final JvmService jvmService;
 
     public MemoryCircuitBreaker(JvmService jvmService) {
-        super(defaultThreshold);
+        super(DEFAULT_JVM_HEAP_USAGE_THRESHOLD);
         this.jvmService = jvmService;
     }
 

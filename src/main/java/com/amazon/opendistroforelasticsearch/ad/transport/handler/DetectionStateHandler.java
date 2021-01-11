@@ -40,6 +40,7 @@ import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
@@ -97,7 +98,7 @@ public class DetectionStateHandler extends AnomalyIndexHandler<DetectorInternalS
             client,
             settings,
             threadPool,
-            DetectorInternalState.DETECTOR_STATE_INDEX,
+            CommonName.DETECTION_STATE_INDEX,
             createIndex,
             indexExists,
             clientUtil,

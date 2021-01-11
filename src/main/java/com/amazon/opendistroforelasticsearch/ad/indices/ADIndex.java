@@ -20,7 +20,6 @@ import java.util.function.Supplier;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.util.ThrowingSupplierWrapper;
 
 /**
@@ -51,9 +50,9 @@ public enum ADIndex {
         ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getCheckpointMappings)
     ),
     STATE(
-        DetectorInternalState.DETECTOR_STATE_INDEX,
+        CommonName.DETECTION_STATE_INDEX,
         false,
-        ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getDetectorStateMappings)
+        ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getDetectionStateMappings)
     );
 
     private final String indexName;

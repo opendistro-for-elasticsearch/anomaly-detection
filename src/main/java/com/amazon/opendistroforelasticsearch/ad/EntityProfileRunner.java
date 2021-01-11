@@ -349,7 +349,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
 
         SearchSourceBuilder source = new SearchSourceBuilder()
             .query(boolQueryBuilder)
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX).field(AnomalyResult.EXECUTION_END_TIME_FIELD))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(AnomalyResult.EXECUTION_END_TIME_FIELD))
             .trackTotalHits(false)
             .size(0);
 

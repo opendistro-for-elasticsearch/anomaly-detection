@@ -47,6 +47,7 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.junit.Before;
 
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
@@ -113,11 +114,9 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
             if (indexName.equals(ANOMALY_DETECTORS_INDEX)) {
                 listener
                     .onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX));
-            } else if (indexName.equals(DetectorInternalState.DETECTOR_STATE_INDEX)) {
+            } else if (indexName.equals(CommonName.DETECTION_STATE_INDEX)) {
                 listener
-                    .onResponse(
-                        TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), DetectorInternalState.DETECTOR_STATE_INDEX)
-                    );
+                    .onResponse(TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), CommonName.DETECTION_STATE_INDEX));
             } else if (indexName.equals(ANOMALY_DETECTOR_JOB_INDEX)) {
                 listener
                     .onResponse(

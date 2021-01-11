@@ -145,7 +145,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                 }
             } else {
                 if (errorResultStatus == ErrorResultStatus.INDEX_NOT_EXIT) {
-                    listener.onFailure(new IndexNotFoundException(DetectorInternalState.DETECTOR_STATE_INDEX));
+                    listener.onFailure(new IndexNotFoundException(CommonName.DETECTION_STATE_INDEX));
                     return null;
                 }
                 DetectorInternalState.Builder result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
@@ -164,9 +164,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                         break;
                 }
                 listener
-                    .onResponse(
-                        TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), DetectorInternalState.DETECTOR_STATE_INDEX)
-                    );
+                    .onResponse(TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), CommonName.DETECTION_STATE_INDEX));
 
             }
 

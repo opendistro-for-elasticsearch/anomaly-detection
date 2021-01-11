@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
+import static com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil.getShardsFailure;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -44,7 +45,6 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.action.support.replication.ReplicationResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.unit.TimeValue;
@@ -448,7 +448,9 @@ public class IndexAnomalyDetectorActionHandler {
             anomalyDetector.getSchemaVersion(),
             Instant.now(),
             anomalyDetector.getCategoryField(),
-            user
+            user,
+            anomalyDetector.getDetectorType(),
+            anomalyDetector.getDetectionDateRange()
         );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)
@@ -462,7 +464,7 @@ public class IndexAnomalyDetectorActionHandler {
         client.index(indexRequest, new ActionListener<IndexResponse>() {
             @Override
             public void onResponse(IndexResponse indexResponse) {
-                String errorMsg = checkShardsFailure(indexResponse);
+                String errorMsg = getShardsFailure(indexResponse);
                 if (errorMsg != null) {
                     listener.onFailure(new ElasticsearchStatusException(errorMsg, indexResponse.status()));
                     return;
@@ -503,14 +505,4 @@ public class IndexAnomalyDetectorActionHandler {
         }
     }
 
-    private String checkShardsFailure(IndexResponse response) {
-        StringBuilder failureReasons = new StringBuilder();
-        if (response.getShardInfo().getFailed() > 0) {
-            for (ReplicationResponse.ShardInfo.Failure failure : response.getShardInfo().getFailures()) {
-                failureReasons.append(failure);
-            }
-            return failureReasons.toString();
-        }
-        return null;
-    }
 }

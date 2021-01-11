@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.feature;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE;
 import static java.util.Arrays.asList;
 import static java.util.Optional.empty;
 import static java.util.Optional.ofNullable;
@@ -42,8 +43,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -1012,5 +1015,104 @@ public class FeatureManagerTests {
         assertTrue(listenerResponse.getProcessedFeatures().isPresent());
         assertEquals(listenerResponse.getProcessedFeatures().get().length, shingleSize);
         assertEquals(featureManager.getShingleSize(detector.getDetectorId()), shingleSize);
+    }
+
+    @Test
+    public void testGetShingledFeatureForHistoricalDetectorFromEmptyShingleWithoutMissingData() {
+        long millisecondsPerMinute = 60000;
+        int shingleSize = 8;
+        when(detector.getShingleSize()).thenReturn(shingleSize);
+
+        Deque<Entry<Long, Optional<double[]>>> shingle = new ArrayDeque<>();
+
+        long endTime = Instant.now().toEpochMilli();
+        int i = 0;
+        for (; i < shingleSize - MAX_IMPUTATION_NEIGHBOR_DISTANCE; i++) {
+            double[] testData = new double[] { i };
+            Optional<double[]> dataPoint = Optional.of(testData);
+            SinglePointFeatures feature = featureManager.getShingledFeatureForHistoricalDetector(detector, shingle, dataPoint, endTime);
+            endTime += millisecondsPerMinute;
+
+            assertTrue(Arrays.equals(testData, feature.getUnprocessedFeatures().get()));
+            assertFalse(feature.getProcessedFeatures().isPresent());
+        }
+
+        double[] testData = new double[] { i++ };
+        Optional<double[]> dataPoint = Optional.of(testData);
+        SinglePointFeatures feature = featureManager.getShingledFeatureForHistoricalDetector(detector, shingle, dataPoint, endTime);
+        assertTrue(feature.getProcessedFeatures().isPresent());
+        assertTrue(Arrays.equals(new double[] { 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 }, feature.getProcessedFeatures().get()));
+
+        endTime += millisecondsPerMinute;
+        testData = new double[] { i++ };
+        dataPoint = Optional.of(testData);
+        feature = featureManager.getShingledFeatureForHistoricalDetector(detector, shingle, dataPoint, endTime);
+        assertTrue(feature.getProcessedFeatures().isPresent());
+        assertTrue(Arrays.equals(new double[] { 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0 }, feature.getProcessedFeatures().get()));
+
+        for (; i < 2 * shingleSize; i++) {
+            endTime += millisecondsPerMinute;
+            SinglePointFeatures singlePointFeatures = featureManager
+                .getShingledFeatureForHistoricalDetector(detector, shingle, Optional.of(new double[] { i }), endTime);
+            assertTrue(singlePointFeatures.getProcessedFeatures().isPresent());
+            assertTrue(
+                Arrays
+                    .equals(
+                        new double[] { i - 7, i - 6, i - 5, i - 4, i - 3, i - 2, i - 1, i },
+                        singlePointFeatures.getProcessedFeatures().get()
+                    )
+            );
+        }
+    }
+
+    @Test
+    public void testGetShingledFeatureForHistoricalDetectorWithTooManyMissingData() {
+        long millisecondsPerMinute = 60000;
+        int shingleSize = 8;
+        when(detector.getShingleSize()).thenReturn(shingleSize);
+
+        Deque<Entry<Long, Optional<double[]>>> shingle = new ArrayDeque<>();
+
+        long endTime = Instant.now().toEpochMilli();
+        int i = 0;
+        for (; i < shingleSize; i++) {
+            featureManager.getShingledFeatureForHistoricalDetector(detector, shingle, Optional.of(new double[] { i }), endTime);
+            endTime += millisecondsPerMinute;
+        }
+
+        for (int j = 0; j < MAX_IMPUTATION_NEIGHBOR_DISTANCE + 1; j++) {
+            SinglePointFeatures feature = featureManager
+                .getShingledFeatureForHistoricalDetector(detector, shingle, Optional.empty(), endTime);
+            endTime += millisecondsPerMinute;
+            assertFalse(feature.getProcessedFeatures().isPresent());
+        }
+        SinglePointFeatures feature = featureManager
+            .getShingledFeatureForHistoricalDetector(detector, shingle, Optional.of(new double[] { i }), endTime);
+        assertFalse(feature.getProcessedFeatures().isPresent());
+    }
+
+    @Test
+    public void testGetShingledFeatureForHistoricalDetectorWithOneMissingData() {
+        long millisecondsPerMinute = 60000;
+        int shingleSize = 8;
+        when(detector.getShingleSize()).thenReturn(shingleSize);
+
+        Deque<Entry<Long, Optional<double[]>>> shingle = new ArrayDeque<>();
+
+        long endTime = Instant.now().toEpochMilli();
+        int i = 0;
+        for (; i < shingleSize; i++) {
+            featureManager.getShingledFeatureForHistoricalDetector(detector, shingle, Optional.of(new double[] { i }), endTime);
+            endTime += millisecondsPerMinute;
+        }
+
+        SinglePointFeatures feature1 = featureManager.getShingledFeatureForHistoricalDetector(detector, shingle, Optional.empty(), endTime);
+        assertFalse(feature1.getProcessedFeatures().isPresent());
+
+        endTime += millisecondsPerMinute;
+        SinglePointFeatures feature2 = featureManager
+            .getShingledFeatureForHistoricalDetector(detector, shingle, Optional.of(new double[] { i }), endTime);
+        assertTrue(feature2.getProcessedFeatures().isPresent());
+        assertTrue(Arrays.equals(new double[] { 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 8.0 }, feature2.getProcessedFeatures().get()));
     }
 }

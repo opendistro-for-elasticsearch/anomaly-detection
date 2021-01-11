@@ -50,7 +50,6 @@ import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileNodeResponse;
@@ -109,7 +108,7 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
                         assertTrue("should not reach here", false);
                         break;
                 }
-            } else if (request.index().equals(DetectorInternalState.DETECTOR_STATE_INDEX)) {
+            } else if (request.index().equals(CommonName.DETECTION_STATE_INDEX)) {
                 switch (errorResultStatus) {
                     case NO_ERROR:
                         listener.onResponse(null);

@@ -237,7 +237,7 @@ public class SearchFeatureDaoTests {
         aggsMap = new HashMap<>();
         // aggsList = new ArrayList<>();
 
-        when(max.getName()).thenReturn(CommonName.AGG_NAME_MAX);
+        when(max.getName()).thenReturn(CommonName.AGG_NAME_MAX_TIME);
         List<Aggregation> list = new ArrayList<>();
         list.add(max);
         Aggregations aggregations = new Aggregations(list);
@@ -276,12 +276,12 @@ public class SearchFeatureDaoTests {
     public void test_getLatestDataTime_returnExpectedTime_givenData() {
         // pre-conditions
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
             .size(0);
         searchRequest.source(searchSourceBuilder);
 
         long epochTime = 100L;
-        aggsMap.put(CommonName.AGG_NAME_MAX, max);
+        aggsMap.put(CommonName.AGG_NAME_MAX_TIME, max);
         when(max.getValue()).thenReturn((double) epochTime);
 
         // test
@@ -295,7 +295,7 @@ public class SearchFeatureDaoTests {
     public void test_getLatestDataTime_returnEmpty_givenNoData() {
         // pre-conditions
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
             .size(0);
         searchRequest.source(searchSourceBuilder);
 
@@ -312,11 +312,11 @@ public class SearchFeatureDaoTests {
     @SuppressWarnings("unchecked")
     public void getLatestDataTime_returnExpectedToListener() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
             .size(0);
         searchRequest.source(searchSourceBuilder);
         long epochTime = 100L;
-        aggsMap.put(CommonName.AGG_NAME_MAX, max);
+        aggsMap.put(CommonName.AGG_NAME_MAX_TIME, max);
         when(max.getValue()).thenReturn((double) epochTime);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);

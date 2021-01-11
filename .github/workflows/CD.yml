@@ -1,11 +1,8 @@
 name: Build and Release AD
 on:
-  # push:
-  #   tags:
-  #     - v*
   push:
-    branches:
-      - "release-workflow-patch"
+    tags:
+      - v*
 
 jobs:
   Build-AD:

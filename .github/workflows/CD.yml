@@ -35,7 +35,6 @@ jobs:
       - name: Run build
         run: |
           ./gradlew buildPackages --console=plain -Dbuild.snapshot=false
-          
       - name: Upload to S3
         shell: bash
         run: |

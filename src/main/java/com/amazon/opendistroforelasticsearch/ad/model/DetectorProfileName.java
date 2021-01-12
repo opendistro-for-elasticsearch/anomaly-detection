@@ -30,7 +30,8 @@ public enum DetectorProfileName implements Name {
     MODELS(CommonName.MODELS),
     INIT_PROGRESS(CommonName.INIT_PROGRESS),
     TOTAL_ENTITIES(CommonName.TOTAL_ENTITIES),
-    ACTIVE_ENTITIES(CommonName.ACTIVE_ENTITIES);
+    ACTIVE_ENTITIES(CommonName.ACTIVE_ENTITIES),
+    AD_TASK(CommonName.AD_TASK);
 
     private String name;
 
@@ -68,6 +69,8 @@ public enum DetectorProfileName implements Name {
                 return TOTAL_ENTITIES;
             case CommonName.ACTIVE_ENTITIES:
                 return ACTIVE_ENTITIES;
+            case CommonName.AD_TASK:
+                return AD_TASK;
             default:
                 throw new IllegalArgumentException("Unsupported profile types");
         }

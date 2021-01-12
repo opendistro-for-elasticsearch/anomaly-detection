@@ -227,10 +227,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {
-        detectorId = input.readString();
-        version = input.readLong();
+        detectorId = input.readOptionalString();
+        version = input.readOptionalLong();
         name = input.readString();
-        description = input.readString();
+        description = input.readOptionalString();
         timeField = input.readString();
         indices = input.readStringList();
         featureAttributes = input.readList(Feature::new);
@@ -265,10 +265,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
 
     @Override
     public void writeTo(StreamOutput output) throws IOException {
-        output.writeString(detectorId);
-        output.writeLong(version);
+        output.writeOptionalString(detectorId);
+        output.writeOptionalLong(version);
         output.writeString(name);
-        output.writeString(description);
+        output.writeOptionalString(description);
         output.writeString(timeField);
         output.writeStringCollection(indices);
         output.writeList(featureAttributes);

@@ -302,7 +302,13 @@ public class IndexAnomalyDetectorJobActionHandler {
             public void onResponse(StopDetectorResponse stopDetectorResponse) {
                 if (stopDetectorResponse.success()) {
                     logger.info("AD model deleted successfully for detector {}", detectorId);
-                    AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(null, 0, 0, 0, RestStatus.OK);
+                    AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(
+                        detectorId,
+                        0,
+                        0,
+                        0,
+                        RestStatus.OK
+                    );
                     listener.onResponse(anomalyDetectorJobResponse);
                 } else {
                     logger.error("Failed to delete AD model for detector {}", detectorId);

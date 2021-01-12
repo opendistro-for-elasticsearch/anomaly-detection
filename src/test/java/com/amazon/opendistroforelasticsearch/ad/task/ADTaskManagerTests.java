@@ -19,6 +19,7 @@ import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomDetecto
 import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomFeature;
 import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomUser;
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -42,18 +43,24 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 
 import com.amazon.opendistroforelasticsearch.ad.ADUnitTestCase;
+import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobResponse;
+import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.google.common.collect.ImmutableList;
 
 public class ADTaskManagerTests extends ADUnitTestCase {
 
     private Settings settings;
     private Client client;
+    private ClusterService clusterService;
     private ClusterSettings clusterSettings;
+    private DiscoveryNodeFilterer nodeFilter;
     private AnomalyDetectionIndices anomalyDetectionIndices;
+    private ADTaskCacheManager adTaskCacheManager;
+    private HashRing hashRing;
     private ADTaskManager adTaskManager;
 
     private Instant startTime;
@@ -67,15 +74,32 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         startTime = now.minus(10, ChronoUnit.DAYS);
         endTime = now.minus(1, ChronoUnit.DAYS);
 
-        settings = Settings.builder().put(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.getKey(), 2).build();
+        settings = Settings
+            .builder()
+            .put(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.getKey(), 2)
+            .put(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 1)
+            .build();
 
-        clusterSettings = clusterSetting(settings, MAX_OLD_AD_TASK_DOCS_PER_DETECTOR);
+        clusterSettings = clusterSetting(settings, MAX_OLD_AD_TASK_DOCS_PER_DETECTOR, BATCH_TASK_PIECE_INTERVAL_SECONDS);
 
-        final ClusterService clusterService = new ClusterService(settings, clusterSettings, null);
+        clusterService = new ClusterService(settings, clusterSettings, null);
 
         client = mock(Client.class);
+        nodeFilter = mock(DiscoveryNodeFilterer.class);
         anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
-        adTaskManager = new ADTaskManager(settings, clusterService, client, NamedXContentRegistry.EMPTY, anomalyDetectionIndices);
+        adTaskCacheManager = mock(ADTaskCacheManager.class);
+        hashRing = mock(HashRing.class);
+
+        adTaskManager = new ADTaskManager(
+            settings,
+            clusterService,
+            client,
+            NamedXContentRegistry.EMPTY,
+            anomalyDetectionIndices,
+            nodeFilter,
+            hashRing,
+            adTaskCacheManager
+        );
 
         listener = spy(new ActionListener<AnomalyDetectorJobResponse>() {
             @Override
@@ -100,7 +124,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             randomAlphaOfLength(5)
         );
 
-        adTaskManager.createADTaskIndex(detector, randomUser(), listener);
+        adTaskManager.startHistoricalDetector(detector, randomUser(), listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
         assertEquals(
             "Create index .opendistro-anomaly-detection-state with mappings not acknowledged",
@@ -122,7 +146,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             randomAlphaOfLength(5)
         );
 
-        adTaskManager.createADTaskIndex(detector, randomUser(), listener);
+        adTaskManager.startHistoricalDetector(detector, randomUser(), listener);
         verify(listener, never()).onFailure(any());
     }
 
@@ -141,7 +165,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             randomAlphaOfLength(5)
         );
 
-        adTaskManager.createADTaskIndex(detector, randomUser(), listener);
+        adTaskManager.startHistoricalDetector(detector, randomUser(), listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
         assertEquals(error, exceptionCaptor.getValue().getMessage());
     }

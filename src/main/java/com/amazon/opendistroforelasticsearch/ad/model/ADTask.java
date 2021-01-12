@@ -322,6 +322,7 @@ public class ADTask implements ToXContentObject, Writeable {
         String taskType = null;
         String checkpointId = null;
         AnomalyDetector detector = null;
+        String parsedTaskId = taskId;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -374,13 +375,16 @@ public class ADTask implements ToXContentObject, Writeable {
                 case DETECTOR_FIELD:
                     detector = AnomalyDetector.parse(parser);
                     break;
+                case TASK_ID_FIELD:
+                    parsedTaskId = parser.text();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
             }
         }
         return new Builder()
-            .taskId(taskId)
+            .taskId(parsedTaskId)
             .lastUpdateTime(lastUpdateTime)
             .startedBy(startedBy)
             .stoppedBy(stoppedBy)
@@ -475,6 +479,10 @@ public class ADTask implements ToXContentObject, Writeable {
 
     public String getState() {
         return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
     }
 
     public String getDetectorId() {

@@ -46,10 +46,12 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.EntityProfile;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.google.common.collect.ImmutableMap;
@@ -58,6 +60,7 @@ public class GetAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase
     private GetAnomalyDetectorTransportAction action;
     private Task task;
     private ActionListener<GetAnomalyDetectorResponse> response;
+    private ADTaskManager adTaskManager;
 
     @Override
     @Before
@@ -69,6 +72,7 @@ public class GetAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase
             Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        adTaskManager = mock(ADTaskManager.class);
         action = new GetAnomalyDetectorTransportAction(
             Mockito.mock(TransportService.class),
             Mockito.mock(DiscoveryNodeFilterer.class),
@@ -76,7 +80,8 @@ public class GetAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase
             clusterService,
             client(),
             Settings.EMPTY,
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
         task = Mockito.mock(Task.class);
         response = new ActionListener<GetAnomalyDetectorResponse>() {
@@ -102,6 +107,7 @@ public class GetAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase
             "1234",
             4321,
             false,
+            false,
             "nonempty",
             "",
             false,
@@ -112,7 +118,16 @@ public class GetAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase
 
     @Test
     public void testGetTransportActionWithReturnJob() throws IOException {
-        GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest("1234", 4321, true, "", "abcd", false, null);
+        GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest(
+            "1234",
+            4321,
+            true,
+            false,
+            "",
+            "abcd",
+            false,
+            null
+        );
         action.doExecute(task, getAnomalyDetectorRequest, response);
     }
 
@@ -124,7 +139,7 @@ public class GetAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase
 
     @Test
     public void testGetAnomalyDetectorRequest() throws IOException {
-        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest("1234", 4321, true, "", "abcd", false, "value");
+        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest("1234", 4321, true, false, "", "abcd", false, "value");
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
@@ -136,7 +151,7 @@ public class GetAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase
 
     @Test
     public void testGetAnomalyDetectorRequestNoEntityValue() throws IOException {
-        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest("1234", 4321, true, "", "abcd", false, null);
+        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest("1234", 4321, true, false, "", "abcd", false, null);
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
@@ -157,6 +172,8 @@ public class GetAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase
             9867,
             detector,
             adJob,
+            false,
+            mock(ADTask.class),
             false,
             RestStatus.OK,
             null,
@@ -188,6 +205,8 @@ public class GetAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase
             9867,
             detector,
             adJob,
+            false,
+            mock(ADTask.class),
             false,
             RestStatus.OK,
             null,

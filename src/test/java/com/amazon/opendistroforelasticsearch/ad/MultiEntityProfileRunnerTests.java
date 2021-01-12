@@ -55,6 +55,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorState;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileResponse;
@@ -83,6 +84,7 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
 
     private int shingleSize;
     private AnomalyDetectorJob job;
+    private ADTaskManager adTaskManager;
 
     enum InittedEverResultStatus {
         INITTED,
@@ -102,8 +104,9 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a"));
         result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
         job = TestHelpers.randomAnomalyDetectorJob(true);
+        adTaskManager = mock(ADTaskManager.class);
 
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples);
+        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, adTaskManager);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();

@@ -16,21 +16,27 @@
 package com.amazon.opendistroforelasticsearch.ad.task;
 
 import static com.amazon.opendistroforelasticsearch.ad.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DETECTOR;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.DETECTOR_ALREADY_RUNNING;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.util.set.Sets;
 
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.DuplicateTaskException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
@@ -43,6 +49,7 @@ public class ADTaskCacheManager {
     private volatile Integer maxAdBatchTaskPerNode;
     private final MemoryTracker memoryTracker;
     private final int numberSize = 8;
+    private Set<String> detectors;
 
     /**
      * Constructor to create AD task cache manager.
@@ -56,6 +63,7 @@ public class ADTaskCacheManager {
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_BATCH_TASK_PER_NODE, it -> maxAdBatchTaskPerNode = it);
         taskCaches = new ConcurrentHashMap<>();
         this.memoryTracker = memoryTracker;
+        this.detectors = Sets.newConcurrentHashSet();
     }
 
     /**
@@ -72,7 +80,7 @@ public class ADTaskCacheManager {
             throw new IllegalArgumentException("AD task is already running");
         }
         if (containsTaskOfDetector(adTask.getDetectorId())) {
-            throw new IllegalArgumentException("There is one task executing for detector");
+            throw new DuplicateTaskException("There is one task executing for detector");
         }
         checkRunningTaskLimit();
         long neededCacheSize = calculateADTaskCacheSize(adTask);
@@ -83,6 +91,19 @@ public class ADTaskCacheManager {
         ADBatchTaskCache taskCache = new ADBatchTaskCache(adTask);
         taskCache.getCacheMemorySize().set(neededCacheSize);
         taskCaches.put(taskId, taskCache);
+    }
+
+    /**
+     * Put detector id in running detector cache.
+     *
+     * @param detectorId detector id
+     * @throws LimitExceededException throw limit exceed exception when the detector id already in cache
+     */
+    public synchronized void put(String detectorId) {
+        if (detectors.contains(detectorId)) {
+            throw new LimitExceededException(detectorId, DETECTOR_ALREADY_RUNNING).countedInStats(false);
+        }
+        this.detectors.add(detectorId);
     }
 
     /**
@@ -220,6 +241,10 @@ public class ADTaskCacheManager {
         return taskCaches.get(taskId);
     }
 
+    private List<ADBatchTaskCache> getBatchTaskCacheByDetectorId(String detectorId) {
+        return taskCaches.values().stream().filter(v -> Objects.equals(detectorId, v.getDetectorId())).collect(Collectors.toList());
+    }
+
     /**
      * Calculate AD task cache memory usage.
      *
@@ -239,8 +264,14 @@ public class ADTaskCacheManager {
      */
     public void remove(String taskId) {
         if (contains(taskId)) {
-            memoryTracker.releaseMemory(getBatchTaskCache(taskId).getCacheMemorySize().get(), true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
+            ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
+            String detectorId = taskCache.getDetectorId();
+            memoryTracker.releaseMemory(taskCache.getCacheMemorySize().get(), true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
             taskCaches.remove(taskId);
+            List<ADBatchTaskCache> taskCaches = getBatchTaskCacheByDetectorId(detectorId);
+            if (taskCaches.isEmpty()) {
+                detectors.remove(detectorId);
+            }
         }
     }
 
@@ -250,9 +281,42 @@ public class ADTaskCacheManager {
      * @param taskId AD task id
      * @param reason why need to cancel task
      * @param userName user name
+     * @return AD task cancellation state
      */
-    public void cancel(String taskId, String reason, String userName) {
+    public ADTaskCancellationState cancel(String taskId, String reason, String userName) {
+        if (!contains(taskId)) {
+            return ADTaskCancellationState.NOT_FOUND;
+        }
+        if (isCancelled(taskId)) {
+            return ADTaskCancellationState.ALREADY_CANCELLED;
+        }
         getBatchTaskCache(taskId).cancel(reason, userName);
+        return ADTaskCancellationState.CANCELLED;
+    }
+
+    /**
+     * Cancel AD task by detector id.
+     *
+     * @param detectorId detector id
+     * @param reason why need to cancel task
+     * @param userName user name
+     * @return AD task cancellation state
+     */
+    public ADTaskCancellationState cancelByDetectorId(String detectorId, String reason, String userName) {
+        List<ADBatchTaskCache> taskCaches = getBatchTaskCacheByDetectorId(detectorId);
+
+        if (taskCaches.isEmpty()) {
+            return ADTaskCancellationState.NOT_FOUND;
+        }
+
+        ADTaskCancellationState cancellationState = ADTaskCancellationState.ALREADY_CANCELLED;
+        for (ADBatchTaskCache cache : taskCaches) {
+            if (!cache.isCancelled()) {
+                cancellationState = ADTaskCancellationState.CANCELLED;
+                cache.cancel(reason, userName);
+            }
+        }
+        return cancellationState;
     }
 
     /**
@@ -300,6 +364,7 @@ public class ADTaskCacheManager {
      */
     public void clear() {
         taskCaches.clear();
+        detectors.clear();
     }
 
     /**

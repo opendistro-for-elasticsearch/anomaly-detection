@@ -40,6 +40,7 @@ import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.DuplicateTaskException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
@@ -108,7 +109,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
                 adTask1.getDetectorId(),
                 adTask1.getDetector()
             );
-        IllegalArgumentException e2 = expectThrows(IllegalArgumentException.class, () -> adTaskCacheManager.put(adTask2));
+        DuplicateTaskException e2 = expectThrows(DuplicateTaskException.class, () -> adTaskCacheManager.put(adTask2));
         assertEquals("There is one task executing for detector", e2.getMessage());
     }
 

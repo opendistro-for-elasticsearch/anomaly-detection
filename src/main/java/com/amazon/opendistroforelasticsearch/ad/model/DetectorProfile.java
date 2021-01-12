@@ -39,19 +39,28 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
     private InitProgressProfile initProgress;
     private Long totalEntities;
     private Long activeEntities;
+    private ADTaskProfile adTaskProfile;
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
         return toXContent(builder, ToXContent.EMPTY_PARAMS);
     }
 
     public DetectorProfile(StreamInput in) throws IOException {
-        this.state = in.readEnum(DetectorState.class);
-        this.error = in.readString();
-        this.modelProfile = in.readArray(ModelProfile::new, ModelProfile[]::new);
-        this.shingleSize = in.readInt();
-        this.coordinatingNode = in.readString();
-        this.totalSizeInBytes = in.readLong();
-        this.initProgress = new InitProgressProfile(in);
+        if (in.readBoolean()) {
+            this.state = in.readEnum(DetectorState.class);
+        }
+
+        this.error = in.readOptionalString();
+        this.modelProfile = in.readOptionalArray(ModelProfile::new, ModelProfile[]::new);
+        this.shingleSize = in.readOptionalInt();
+        this.coordinatingNode = in.readOptionalString();
+        this.totalSizeInBytes = in.readOptionalLong();
+        if (in.readBoolean()) {
+            this.initProgress = new InitProgressProfile(in);
+        }
+        if (in.readBoolean()) {
+            this.adTaskProfile = new ADTaskProfile(in);
+        }
     }
 
     private DetectorProfile() {}
@@ -66,6 +75,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         private InitProgressProfile initProgress = null;
         private Long totalEntities;
         private Long activeEntities;
+        private ADTaskProfile adTaskProfile;
 
         public Builder() {}
 
@@ -114,6 +124,11 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             return this;
         }
 
+        public Builder adTaskProfile(ADTaskProfile adTaskProfile) {
+            this.adTaskProfile = adTaskProfile;
+            return this;
+        }
+
         public DetectorProfile build() {
             DetectorProfile profile = new DetectorProfile();
             profile.state = this.state;
@@ -125,6 +140,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             profile.initProgress = initProgress;
             profile.totalEntities = totalEntities;
             profile.activeEntities = activeEntities;
+            profile.adTaskProfile = adTaskProfile;
 
             return profile;
         }
@@ -132,13 +148,30 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeEnum(state);
-        out.writeString(error);
-        out.writeArray(modelProfile);
-        out.writeInt(shingleSize);
-        out.writeString(coordinatingNode);
-        out.writeLong(totalSizeInBytes);
-        initProgress.writeTo(out);
+        if (state == null) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            out.writeEnum(state);
+        }
+
+        out.writeOptionalString(error);
+        out.writeOptionalArray(modelProfile);
+        out.writeOptionalInt(shingleSize);
+        out.writeOptionalString(coordinatingNode);
+        out.writeOptionalLong(totalSizeInBytes);
+        if (initProgress == null) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            initProgress.writeTo(out);
+        }
+        if (adTaskProfile == null) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            adTaskProfile.writeTo(out);
+        }
     }
 
     @Override
@@ -175,6 +208,9 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         }
         if (activeEntities != null) {
             xContentBuilder.field(CommonName.ACTIVE_ENTITIES, activeEntities);
+        }
+        if (adTaskProfile != null) {
+            xContentBuilder.field(CommonName.AD_TASK, adTaskProfile);
         }
         return xContentBuilder.endObject();
     }
@@ -251,6 +287,14 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         this.activeEntities = activeEntities;
     }
 
+    public ADTaskProfile getAdTaskProfile() {
+        return adTaskProfile;
+    }
+
+    public void setAdTaskProfile(ADTaskProfile adTaskProfile) {
+        this.adTaskProfile = adTaskProfile;
+    }
+
     @Override
     public void merge(Mergeable other) {
         if (this == other || other == null || getClass() != other.getClass()) {
@@ -283,6 +327,9 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         }
         if (otherProfile.getActiveEntities() != null) {
             this.activeEntities = otherProfile.getActiveEntities();
+        }
+        if (otherProfile.getAdTaskProfile() != null) {
+            this.adTaskProfile = otherProfile.getAdTaskProfile();
         }
     }
 
@@ -325,6 +372,9 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             if (activeEntities != null) {
                 equalsBuilder.append(activeEntities, other.activeEntities);
             }
+            if (adTaskProfile != null) {
+                equalsBuilder.append(adTaskProfile, other.adTaskProfile);
+            }
             return equalsBuilder.isEquals();
         }
         return false;
@@ -342,6 +392,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             .append(initProgress)
             .append(totalEntities)
             .append(activeEntities)
+            .append(adTaskProfile)
             .toHashCode();
     }
 
@@ -375,6 +426,9 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         }
         if (activeEntities != null) {
             toStringBuilder.append(CommonName.ACTIVE_ENTITIES, activeEntities);
+        }
+        if (adTaskProfile != null) {
+            toStringBuilder.append(CommonName.AD_TASK, adTaskProfile);
         }
         return toStringBuilder.toString();
     }

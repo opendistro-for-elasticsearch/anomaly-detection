@@ -115,10 +115,14 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ADBatchAnomalyResultAc
 import com.amazon.opendistroforelasticsearch.ad.transport.ADBatchAnomalyResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADBatchTaskRemoteExecutionAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADBatchTaskRemoteExecutionTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADResultBulkAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADResultBulkTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADTaskProfileAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADTaskProfileTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultAction;
@@ -133,6 +137,8 @@ import com.amazon.opendistroforelasticsearch.ad.transport.EntityProfileAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.EntityProfileTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.EntityResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.EntityResultTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ForwardADTaskAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.ForwardADTaskTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorAction;
@@ -508,7 +514,16 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
 
         adTaskCacheManager = new ADTaskCacheManager(settings, clusterService, memoryTracker);
-        adTaskManager = new ADTaskManager(settings, clusterService, client, xContentRegistry, anomalyDetectionIndices);
+        adTaskManager = new ADTaskManager(
+            settings,
+            clusterService,
+            client,
+            xContentRegistry,
+            anomalyDetectionIndices,
+            nodeFilter,
+            hashRing,
+            adTaskCacheManager
+        );
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
             client,
             settings,
@@ -671,7 +686,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(SearchAnomalyDetectorInfoAction.INSTANCE, SearchAnomalyDetectorInfoTransportAction.class),
                 new ActionHandler<>(PreviewAnomalyDetectorAction.INSTANCE, PreviewAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(ADBatchAnomalyResultAction.INSTANCE, ADBatchAnomalyResultTransportAction.class),
-                new ActionHandler<>(ADBatchTaskRemoteExecutionAction.INSTANCE, ADBatchTaskRemoteExecutionTransportAction.class)
+                new ActionHandler<>(ADBatchTaskRemoteExecutionAction.INSTANCE, ADBatchTaskRemoteExecutionTransportAction.class),
+                new ActionHandler<>(ADTaskProfileAction.INSTANCE, ADTaskProfileTransportAction.class),
+                new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class),
+                new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class)
             );
     }
 

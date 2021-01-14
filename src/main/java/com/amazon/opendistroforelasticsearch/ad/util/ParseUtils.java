@@ -445,7 +445,7 @@ public final class ParseUtils {
     }
 
     public static User getUserContext(Client client) {
-        String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES);
+        String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT);
         logger.debug("Filtering result by " + userStr);
         return User.parse(userStr);
     }

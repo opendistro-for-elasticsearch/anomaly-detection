@@ -737,7 +737,7 @@ public class ADTaskManager {
         });
         try {
             // Put detector id in cache. If detector id already in cache, will throw
-            // LimitExceededException. This is to solve race condition when user send
+            // DuplicateTaskException. This is to solve race condition when user send
             // multiple start request for one historical detector.
             adTaskCacheManager.put(adTask.getDetectorId());
         } catch (Exception e) {

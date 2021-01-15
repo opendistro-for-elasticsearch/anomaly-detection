@@ -28,6 +28,7 @@ public class ADBatchTaskRemoteExecutionTransportAction extends
     HandledTransportAction<ADBatchAnomalyResultRequest, ADBatchAnomalyResultResponse> {
 
     private final ADBatchTaskRunner adBatchTaskRunner;
+    private final TransportService transportService;
 
     @Inject
     public ADBatchTaskRemoteExecutionTransportAction(
@@ -37,10 +38,11 @@ public class ADBatchTaskRemoteExecutionTransportAction extends
     ) {
         super(ADBatchTaskRemoteExecutionAction.NAME, transportService, actionFilters, ADBatchAnomalyResultRequest::new);
         this.adBatchTaskRunner = adBatchTaskRunner;
+        this.transportService = transportService;
     }
 
     @Override
     protected void doExecute(Task task, ADBatchAnomalyResultRequest request, ActionListener<ADBatchAnomalyResultResponse> listener) {
-        adBatchTaskRunner.startADBatchTask(request.getAdTask(), true, listener);
+        adBatchTaskRunner.startADBatchTask(request.getAdTask(), true, transportService, listener);
     }
 }

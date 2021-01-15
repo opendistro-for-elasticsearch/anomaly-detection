@@ -30,28 +30,23 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 
 public class ADTaskProfileRequest extends BaseNodesRequest<ADTaskProfileRequest> {
 
-    private String adTaskId;
+    private String detectorId;
 
     public ADTaskProfileRequest(StreamInput in) throws IOException {
         super(in);
-        this.adTaskId = in.readString();
+        this.detectorId = in.readString();
     }
 
-    public ADTaskProfileRequest(String adTaskId, String... nodeIds) {
-        super(nodeIds);
-        this.adTaskId = adTaskId;
-    }
-
-    public ADTaskProfileRequest(String adTaskId, DiscoveryNode... nodes) {
+    public ADTaskProfileRequest(String detectorId, DiscoveryNode... nodes) {
         super(nodes);
-        this.adTaskId = adTaskId;
+        this.detectorId = detectorId;
     }
 
     @Override
     public ActionRequestValidationException validate() {
         ActionRequestValidationException validationException = null;
-        if (Strings.isEmpty(adTaskId)) {
-            validationException = addValidationError(CommonErrorMessages.AD_TASK_ID_MISSING, validationException);
+        if (Strings.isEmpty(detectorId)) {
+            validationException = addValidationError(CommonErrorMessages.AD_ID_MISSING_MSG, validationException);
         }
         return validationException;
     }
@@ -59,10 +54,10 @@ public class ADTaskProfileRequest extends BaseNodesRequest<ADTaskProfileRequest>
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeString(adTaskId);
+        out.writeString(detectorId);
     }
 
-    public String getAdTaskId() {
-        return adTaskId;
+    public String getDetectorId() {
+        return detectorId;
     }
 }

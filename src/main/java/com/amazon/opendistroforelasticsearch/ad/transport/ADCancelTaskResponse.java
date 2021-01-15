@@ -43,9 +43,4 @@ public class ADCancelTaskResponse extends BaseNodesResponse<ADCancelTaskNodeResp
     public List<ADCancelTaskNodeResponse> readNodesFrom(StreamInput in) throws IOException {
         return in.readList(ADCancelTaskNodeResponse::readNodeResponse);
     }
-
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
-    }
 }

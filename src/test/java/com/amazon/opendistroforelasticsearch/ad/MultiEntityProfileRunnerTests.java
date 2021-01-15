@@ -45,6 +45,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.transport.TransportAddress;
+import org.elasticsearch.transport.TransportService;
 import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
@@ -84,6 +85,7 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
 
     private int shingleSize;
     private AnomalyDetectorJob job;
+    private TransportService transportService;
     private ADTaskManager adTaskManager;
 
     enum InittedEverResultStatus {
@@ -105,8 +107,8 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
         result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
         job = TestHelpers.randomAnomalyDetectorJob(true);
         adTaskManager = mock(ADTaskManager.class);
-
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, adTaskManager);
+        transportService = mock(TransportService.class);
+        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, transportService, adTaskManager);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();

@@ -129,7 +129,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
             adTaskManager.startDetector(detectorId, handler, user, transportService, listener);
         } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
             // Stop detector
-            adTaskManager.stopDetector(detectorId, handler, user, listener);
+            adTaskManager.stopDetector(detectorId, handler, user, transportService, listener);
         }
     }
 }

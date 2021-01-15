@@ -194,7 +194,7 @@ public class MemoryTracker {
      * @param numSamples The number of samples in RCF
      * @return estimated model size in bytes
      */
-    private long estimateModelSize(int dimension, int numberOfTrees, int numSamples) {
+    public long estimateModelSize(int dimension, int numberOfTrees, int numSamples) {
         long totalSamples = (long) numberOfTrees * (long) numSamples;
         long rcfSize = totalSamples * (40 * dimension + 132);
         long samplerSize = totalSamples * 36;

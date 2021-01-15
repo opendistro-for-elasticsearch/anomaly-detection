@@ -15,13 +15,15 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.CANCEL_TASK;
+
 import org.elasticsearch.action.ActionType;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class ADCancelTaskAction extends ActionType<ADCancelTaskResponse> {
 
-    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detectors/_cancel_task";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detectors/" + CANCEL_TASK;
     public static final ADCancelTaskAction INSTANCE = new ADCancelTaskAction();
 
     private ADCancelTaskAction() {

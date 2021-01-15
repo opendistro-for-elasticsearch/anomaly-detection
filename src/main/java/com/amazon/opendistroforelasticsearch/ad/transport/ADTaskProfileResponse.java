@@ -44,8 +44,4 @@ public class ADTaskProfileResponse extends BaseNodesResponse<ADTaskProfileNodeRe
         return in.readList(ADTaskProfileNodeResponse::readNodeResponse);
     }
 
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
-    }
 }

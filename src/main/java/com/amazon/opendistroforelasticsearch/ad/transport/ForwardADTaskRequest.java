@@ -25,16 +25,19 @@ import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskAction;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 public class ForwardADTaskRequest extends ActionRequest {
     private AnomalyDetector detector;
     private User user;
+    private ADTaskAction adTaskAction;
 
-    public ForwardADTaskRequest(AnomalyDetector detector, User user) {
+    public ForwardADTaskRequest(AnomalyDetector detector, User user, ADTaskAction adTaskAction) {
         this.detector = detector;
         this.user = user;
+        this.adTaskAction = adTaskAction;
     }
 
     public ForwardADTaskRequest(StreamInput in) throws IOException {
@@ -43,6 +46,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         if (in.readBoolean()) {
             this.user = new User(in);
         }
+        this.adTaskAction = in.readEnum(ADTaskAction.class);
     }
 
     @Override
@@ -55,6 +59,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         } else {
             out.writeBoolean(false);
         }
+        out.writeEnum(adTaskAction);
     }
 
     @Override
@@ -62,6 +67,11 @@ public class ForwardADTaskRequest extends ActionRequest {
         ActionRequestValidationException validationException = null;
         if (detector == null) {
             validationException = addValidationError(CommonErrorMessages.DETECTOR_MISSING, validationException);
+        } else if (detector.getDetectorId() == null) {
+            validationException = addValidationError(CommonErrorMessages.AD_ID_MISSING_MSG, validationException);
+        }
+        if (adTaskAction == null) {
+            validationException = addValidationError(CommonErrorMessages.AD_TASK_ACTION_MISSING, validationException);
         }
         return validationException;
     }
@@ -72,5 +82,9 @@ public class ForwardADTaskRequest extends ActionRequest {
 
     public User getUser() {
         return user;
+    }
+
+    public ADTaskAction getAdTaskAction() {
+        return adTaskAction;
     }
 }

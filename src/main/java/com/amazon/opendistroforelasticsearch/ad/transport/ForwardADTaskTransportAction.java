@@ -15,27 +15,48 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskAction;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 
 public class ForwardADTaskTransportAction extends HandledTransportAction<ForwardADTaskRequest, AnomalyDetectorJobResponse> {
 
     private final ADTaskManager adTaskManager;
+    private final TransportService transportService;
 
     @Inject
     public ForwardADTaskTransportAction(ActionFilters actionFilters, TransportService transportService, ADTaskManager adTaskManager) {
         super(ForwardADTaskAction.NAME, transportService, actionFilters, ForwardADTaskRequest::new);
         this.adTaskManager = adTaskManager;
+        this.transportService = transportService;
     }
 
     @Override
     protected void doExecute(Task task, ForwardADTaskRequest request, ActionListener<AnomalyDetectorJobResponse> listener) {
-        adTaskManager.startHistoricalDetector(request.getDetector(), request.getUser(), listener);
+        ADTaskAction adTaskAction = request.getAdTaskAction();
+        AnomalyDetector detector = request.getDetector();
+
+        switch (adTaskAction) {
+            case START:
+                adTaskManager.startHistoricalDetector(request.getDetector(), request.getUser(), transportService, listener);
+                break;
+            case STOP:
+                adTaskManager.removeDetectorFromCache(request.getDetector().getDetectorId());
+                listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
+                break;
+            default:
+                listener.onFailure(new ElasticsearchStatusException("Unsupported AD task action " + adTaskAction, RestStatus.BAD_REQUEST));
+                break;
+        }
+
     }
 }

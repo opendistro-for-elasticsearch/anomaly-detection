@@ -30,6 +30,7 @@ import org.elasticsearch.test.InternalSettingsPlugin;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskAction;
 import com.google.common.collect.ImmutableMap;
 
 public class ForwardADTaskTests extends ESSingleNodeTestCase {
@@ -47,18 +48,23 @@ public class ForwardADTaskTests extends ESSingleNodeTestCase {
     public void testForwardADTaskRequest() throws IOException {
         ForwardADTaskRequest request = new ForwardADTaskRequest(
             TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now()),
-            TestHelpers.randomUser()
+            TestHelpers.randomUser(),
+            ADTaskAction.START
         );
         testForwardADTaskRequest(request);
     }
 
     public void testForwardADTaskRequestWithoutUser() throws IOException {
-        ForwardADTaskRequest request = new ForwardADTaskRequest(TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now()), null);
+        ForwardADTaskRequest request = new ForwardADTaskRequest(
+            TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now()),
+            null,
+            ADTaskAction.START
+        );
         testForwardADTaskRequest(request);
     }
 
     public void testInvalidForwardADTaskRequest() {
-        ForwardADTaskRequest request = new ForwardADTaskRequest(null, TestHelpers.randomUser());
+        ForwardADTaskRequest request = new ForwardADTaskRequest(null, TestHelpers.randomUser(), ADTaskAction.START);
 
         ActionRequestValidationException exception = request.validate();
         assertTrue(exception.getMessage().contains(CommonErrorMessages.DETECTOR_MISSING));

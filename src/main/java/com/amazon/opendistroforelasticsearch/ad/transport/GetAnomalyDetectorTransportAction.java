@@ -84,6 +84,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
     private final Set<EntityProfileName> defaultEntityProfileTypes;
     private final NamedXContentRegistry xContentRegistry;
     private final DiscoveryNodeFilterer nodeFilter;
+    private final TransportService transportService;
     private volatile Boolean filterByEnabled;
     private final ADTaskManager adTaskManager;
 
@@ -118,6 +119,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         this.nodeFilter = nodeFilter;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        this.transportService = transportService;
         this.adTaskManager = adTaskManager;
     }
 
@@ -198,6 +200,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                         xContentRegistry,
                         nodeFilter,
                         AnomalyDetectorSettings.NUM_MIN_SAMPLES,
+                        transportService,
                         adTaskManager
                     );
                     profileRunner.profile(detectorID, getProfileActionListener(listener), profilesToCollect);
@@ -208,6 +211,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                         .getLatestADTask(
                             detectorID,
                             (adTask) -> getDetectorAndJob(detectorID, returnJob, returnTask, adTask, listener),
+                            transportService,
                             listener
                         );
                 } else {

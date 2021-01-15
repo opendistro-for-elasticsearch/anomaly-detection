@@ -24,6 +24,7 @@ import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.EXECUTION_EN
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.INIT_PROGRESS_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.STATE_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.TASK_PROGRESS_FIELD;
+import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.WORKER_NODE_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
@@ -197,7 +198,7 @@ public class ADBatchTaskRunner {
                             node.getId(),
                             adTask.getDetectorId()
                         );
-                    startADBatchTask(adTask, false, delegatedListener);
+                    startADBatchTask(adTask, false, transportService, delegatedListener);
                 } else {
                     // Execute batch task remotely
                     logger
@@ -273,19 +274,25 @@ public class ADBatchTaskRunner {
     }
 
     /**
-     * Start AD task in dedicated batch task thread pool.
+     * Start AD task in dedicated batch task thread pool on worker node.
      *
      * @param adTask ad task
      * @param runTaskRemotely run task remotely or not
+     * @param transportService transport service
      * @param listener action listener
      */
-    public void startADBatchTask(ADTask adTask, boolean runTaskRemotely, ActionListener<ADBatchAnomalyResultResponse> listener) {
+    public void startADBatchTask(
+        ADTask adTask,
+        boolean runTaskRemotely,
+        TransportService transportService,
+        ActionListener<ADBatchAnomalyResultResponse> listener
+    ) {
         try {
             // check if cluster is eligible to run AD currently, if not eligible like
             // circuit breaker open, will throw exception.
             checkClusterState(adTask);
             threadPool.executor(AD_BATCH_TASK_THREAD_POOL_NAME).execute(() -> {
-                ActionListener<String> internalListener = internalBatchTaskListener(adTask);
+                ActionListener<String> internalListener = internalBatchTaskListener(adTask, transportService);
                 try {
                     executeADBatchTask(adTask, internalListener);
                 } catch (Exception e) {
@@ -299,23 +306,29 @@ public class ADBatchTaskRunner {
         }
     }
 
-    private ActionListener<String> internalBatchTaskListener(ADTask adTask) {
+    private ActionListener<String> internalBatchTaskListener(ADTask adTask, TransportService transportService) {
         String taskId = adTask.getTaskId();
         ActionListener<String> listener = ActionListener.wrap(response -> {
             // If batch task finished normally, remove task from cache and decrease executing task count by 1.
             adTaskCacheManager.remove(taskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
+
+            adTaskManager
+                .cleanDetectorCache(
+                    adTask,
+                    transportService,
+                    () -> adTaskManager.updateADTask(taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()))
+                );
         }, e -> {
             // If batch task failed, remove task from cache and decrease executing task count by 1.
             adTaskCacheManager.remove(taskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
-            handleException(adTask, e);
+            adTaskManager.cleanDetectorCache(adTask, transportService, () -> handleException(adTask, e));
         });
         return listener;
     }
 
     private void handleException(ADTask adTask, Exception e) {
-        logger.debug("Failed to run task " + adTask.getTaskId() + " for detector " + adTask.getDetectorId(), e);
         // Check if batch task was cancelled or not by exception type.
         // If it's cancelled, then increase cancelled task count by 1, otherwise increase failure count by 1.
         if (e instanceof ADTaskCancelledException) {
@@ -378,7 +391,9 @@ public class ADBatchTaskRunner {
                             TASK_PROGRESS_FIELD,
                             0.0f,
                             INIT_PROGRESS_FIELD,
-                            0.0f
+                            0.0f,
+                            WORKER_NODE_FIELD,
+                            clusterService.localNode().getId()
                         ),
                     ActionListener.wrap(r -> {
                         try {
@@ -697,8 +712,6 @@ public class ADBatchTaskRunner {
                     taskId,
                     ImmutableMap
                         .of(
-                            STATE_FIELD,
-                            ADTaskState.FINISHED.name(),
                             CURRENT_PIECE_FIELD,
                             dataEndTime,
                             TASK_PROGRESS_FIELD,

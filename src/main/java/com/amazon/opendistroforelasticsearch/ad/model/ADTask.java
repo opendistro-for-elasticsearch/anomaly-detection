@@ -51,6 +51,8 @@ public class ADTask implements ToXContentObject, Writeable {
     public static final String IS_LATEST_FIELD = "is_latest";
     public static final String TASK_TYPE_FIELD = "task_type";
     public static final String CHECKPOINT_ID_FIELD = "checkpoint_id";
+    public static final String COORDINATING_NODE_FIELD = "coordinating_node";
+    public static final String WORKER_NODE_FIELD = "worker_node";
     public static final String DETECTOR_FIELD = "detector";
 
     private String taskId = null;
@@ -69,6 +71,9 @@ public class ADTask implements ToXContentObject, Writeable {
     private String taskType = null;
     private String checkpointId = null;
     private AnomalyDetector detector = null;
+
+    private String coordinatingNode = null;
+    private String workerNode = null;
 
     private ADTask() {}
 
@@ -93,6 +98,8 @@ public class ADTask implements ToXContentObject, Writeable {
         this.lastUpdateTime = input.readOptionalInstant();
         this.startedBy = input.readOptionalString();
         this.stoppedBy = input.readOptionalString();
+        this.coordinatingNode = input.readOptionalString();
+        this.workerNode = input.readOptionalString();
     }
 
     @Override
@@ -118,6 +125,8 @@ public class ADTask implements ToXContentObject, Writeable {
         out.writeOptionalInstant(lastUpdateTime);
         out.writeOptionalString(startedBy);
         out.writeOptionalString(stoppedBy);
+        out.writeOptionalString(coordinatingNode);
+        out.writeOptionalString(workerNode);
     }
 
     public static Builder builder() {
@@ -141,6 +150,8 @@ public class ADTask implements ToXContentObject, Writeable {
         private Instant lastUpdateTime = null;
         private String startedBy = null;
         private String stoppedBy = null;
+        private String coordinatingNode = null;
+        private String workerNode = null;
 
         public Builder() {}
 
@@ -224,6 +235,16 @@ public class ADTask implements ToXContentObject, Writeable {
             return this;
         }
 
+        public Builder coordinatingNode(String coordinatingNode) {
+            this.coordinatingNode = coordinatingNode;
+            return this;
+        }
+
+        public Builder workerNode(String workerNode) {
+            this.workerNode = workerNode;
+            return this;
+        }
+
         public ADTask build() {
             ADTask adTask = new ADTask();
             adTask.taskId = this.taskId;
@@ -242,6 +263,8 @@ public class ADTask implements ToXContentObject, Writeable {
             adTask.detector = this.detector;
             adTask.startedBy = this.startedBy;
             adTask.stoppedBy = this.stoppedBy;
+            adTask.coordinatingNode = this.coordinatingNode;
+            adTask.workerNode = this.workerNode;
 
             return adTask;
         }
@@ -296,6 +319,12 @@ public class ADTask implements ToXContentObject, Writeable {
         if (checkpointId != null) {
             xContentBuilder.field(CHECKPOINT_ID_FIELD, checkpointId);
         }
+        if (coordinatingNode != null) {
+            xContentBuilder.field(COORDINATING_NODE_FIELD, coordinatingNode);
+        }
+        if (workerNode != null) {
+            xContentBuilder.field(WORKER_NODE_FIELD, workerNode);
+        }
         if (detector != null) {
             xContentBuilder.field(DETECTOR_FIELD, detector);
         }
@@ -323,6 +352,8 @@ public class ADTask implements ToXContentObject, Writeable {
         String checkpointId = null;
         AnomalyDetector detector = null;
         String parsedTaskId = taskId;
+        String coordinatingNode = null;
+        String workerNode = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -378,11 +409,39 @@ public class ADTask implements ToXContentObject, Writeable {
                 case TASK_ID_FIELD:
                     parsedTaskId = parser.text();
                     break;
+                case COORDINATING_NODE_FIELD:
+                    coordinatingNode = parser.text();
+                    break;
+                case WORKER_NODE_FIELD:
+                    workerNode = parser.text();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
             }
         }
+        AnomalyDetector anomalyDetector = detector == null
+            ? null
+            : new AnomalyDetector(
+                detectorId,
+                detector.getVersion(),
+                detector.getName(),
+                detector.getDescription(),
+                detector.getTimeField(),
+                detector.getIndices(),
+                detector.getFeatureAttributes(),
+                detector.getFilterQuery(),
+                detector.getDetectionInterval(),
+                detector.getWindowDelay(),
+                detector.getShingleSize(),
+                detector.getUiMetadata(),
+                detector.getSchemaVersion(),
+                detector.getLastUpdateTime(),
+                detector.getCategoryField(),
+                detector.getUser(),
+                detector.getDetectorType(),
+                detector.getDetectionDateRange()
+            );
         return new Builder()
             .taskId(parsedTaskId)
             .lastUpdateTime(lastUpdateTime)
@@ -399,7 +458,9 @@ public class ADTask implements ToXContentObject, Writeable {
             .isLatest(isLatest)
             .taskType(taskType)
             .checkpointId(checkpointId)
-            .detector(detector)
+            .coordinatingNode(coordinatingNode)
+            .workerNode(workerNode)
+            .detector(anomalyDetector)
             .build();
     }
 
@@ -426,6 +487,8 @@ public class ADTask implements ToXContentObject, Writeable {
             && Objects.equal(getLatest(), that.getLatest())
             && Objects.equal(getTaskType(), that.getTaskType())
             && Objects.equal(getCheckpointId(), that.getCheckpointId())
+            && Objects.equal(getCoordinatingNode(), that.getCoordinatingNode())
+            && Objects.equal(getWorkerNode(), that.getWorkerNode())
             && Objects.equal(getDetector(), that.getDetector());
     }
 
@@ -449,6 +512,8 @@ public class ADTask implements ToXContentObject, Writeable {
                 isLatest,
                 taskType,
                 checkpointId,
+                coordinatingNode,
+                workerNode,
                 detector
             );
     }
@@ -524,4 +589,13 @@ public class ADTask implements ToXContentObject, Writeable {
     public AnomalyDetector getDetector() {
         return detector;
     }
+
+    public String getCoordinatingNode() {
+        return coordinatingNode;
+    }
+
+    public String getWorkerNode() {
+        return workerNode;
+    }
+
 }

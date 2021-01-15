@@ -15,13 +15,15 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.AD_TASK;
+
 import org.elasticsearch.action.ActionType;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class ForwardADTaskAction extends ActionType<AnomalyDetectorJobResponse> {
     // Internal Action which is not used for public facing RestAPIs.
-    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "task/forward";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detector/" + AD_TASK + "/_forward";
     public static final ForwardADTaskAction INSTANCE = new ForwardADTaskAction();
 
     private ForwardADTaskAction() {

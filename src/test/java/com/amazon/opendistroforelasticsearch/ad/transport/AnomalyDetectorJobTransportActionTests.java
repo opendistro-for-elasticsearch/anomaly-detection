@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.DETECTOR_ALREADY_RUNNING;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
@@ -176,8 +176,8 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
             ElasticsearchStatusException.class,
             () -> client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000)
         );
-        assertTrue(exception.getMessage().contains(DETECTOR_ALREADY_RUNNING));
-        assertEquals(DETECTOR_ALREADY_RUNNING, exception.getMessage());
+        assertTrue(exception.getMessage().contains(DETECTOR_IS_RUNNING));
+        assertEquals(DETECTOR_IS_RUNNING, exception.getMessage());
         Thread.sleep(10000);
         List<ADTask> adTasks = searchADTasks(detectorId, null, 100);
         assertEquals(1, adTasks.size());
@@ -198,10 +198,12 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
         client().execute(AnomalyDetectorJobAction.INSTANCE, request);
         client().execute(AnomalyDetectorJobAction.INSTANCE, request);
 
-        Thread.sleep(3000);
+        Thread.sleep(5000);
         List<ADTask> adTasks = searchADTasks(detectorId, null, 100);
+
         assertEquals(1, adTasks.size());
         assertTrue(adTasks.get(0).getLatest());
+        assertNotEquals(ADTaskState.FAILED.name(), adTasks.get(0).getState());
     }
 
     public void testCleanOldTaskDocs() throws InterruptedException, IOException {

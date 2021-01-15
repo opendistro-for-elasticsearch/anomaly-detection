@@ -68,6 +68,8 @@ public class CommonName {
     public static final String ENTITY_INFO = "entity_info";
     public static final String TOTAL_UPDATES = "total_updates";
     public static final String AD_TASK = "ad_task";
+    public static final String AD_TASK_REMOTE = "ad_task_remote";
+    public static final String CANCEL_TASK = "_cancel_task";
 
     // ======================================
     // Index mapping

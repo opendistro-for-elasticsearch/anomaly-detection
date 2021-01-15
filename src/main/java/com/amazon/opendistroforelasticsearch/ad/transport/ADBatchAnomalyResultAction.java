@@ -15,12 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.AD_TASK;
+
 import org.elasticsearch.action.ActionType;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class ADBatchAnomalyResultAction extends ActionType<ADBatchAnomalyResultResponse> {
-    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/ad_task";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detector/" + AD_TASK;
     public static final ADBatchAnomalyResultAction INSTANCE = new ADBatchAnomalyResultAction();
 
     private ADBatchAnomalyResultAction() {

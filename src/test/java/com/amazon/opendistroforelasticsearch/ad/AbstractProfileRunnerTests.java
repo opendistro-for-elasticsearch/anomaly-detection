@@ -32,6 +32,7 @@ import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.transport.TransportAddress;
+import org.elasticsearch.transport.TransportService;
 import org.junit.Before;
 import org.junit.BeforeClass;
 
@@ -66,6 +67,7 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
     protected DiscoveryNodeFilterer nodeFilter;
     protected AnomalyDetector detector;
     protected ClusterService clusterService;
+    protected TransportService transportService;
     protected ADTaskManager adTaskManager;
 
     protected static Set<DetectorProfileName> stateOnly;
@@ -152,7 +154,7 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
         requiredSamples = 128;
         neededSamples = 5;
 
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, adTaskManager);
+        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, transportService, adTaskManager);
 
         detectorIntervalMin = 3;
         detectorGetReponse = mock(GetResponse.class);

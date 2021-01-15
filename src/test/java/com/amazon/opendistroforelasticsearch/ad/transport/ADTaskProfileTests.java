@@ -57,18 +57,25 @@ public class ADTaskProfileTests extends ESSingleNodeTestCase {
         request.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         ADTaskProfileRequest parsedRequest = new ADTaskProfileRequest(input);
-        assertEquals(request.getAdTaskId(), parsedRequest.getAdTaskId());
+        assertEquals(request.getDetectorId(), parsedRequest.getDetectorId());
     }
 
     public void testInvalidADTaskProfileRequest() {
         DiscoveryNode node = new DiscoveryNode(UUIDs.randomBase64UUID(), buildNewFakeTransportAddress(), Version.CURRENT);
         ADTaskProfileRequest request = new ADTaskProfileRequest(null, node);
         ActionRequestValidationException validationException = request.validate();
-        assertTrue(validationException.getMessage().contains(CommonErrorMessages.AD_TASK_ID_MISSING));
+        assertTrue(validationException.getMessage().contains(CommonErrorMessages.AD_ID_MISSING_MSG));
     }
 
     public void testADTaskProfileNodeResponse() throws IOException {
-        ADTaskProfile adTaskProfile = new ADTaskProfile(randomInt(), randomLong(), randomBoolean(), randomInt(), randomAlphaOfLength(5));
+        ADTaskProfile adTaskProfile = new ADTaskProfile(
+            randomInt(),
+            randomLong(),
+            randomBoolean(),
+            randomInt(),
+            randomLong(),
+            randomAlphaOfLength(5)
+        );
         ADTaskProfileNodeResponse response = new ADTaskProfileNodeResponse(randomDiscoveryNode(), adTaskProfile);
         testADTaskProfileResponse(response);
     }
@@ -79,7 +86,14 @@ public class ADTaskProfileTests extends ESSingleNodeTestCase {
     }
 
     public void testADTaskProfileNodeResponseReadMethod() throws IOException {
-        ADTaskProfile adTaskProfile = new ADTaskProfile(randomInt(), randomLong(), randomBoolean(), randomInt(), randomAlphaOfLength(5));
+        ADTaskProfile adTaskProfile = new ADTaskProfile(
+            randomInt(),
+            randomLong(),
+            randomBoolean(),
+            randomInt(),
+            randomLong(),
+            randomAlphaOfLength(5)
+        );
         ADTaskProfileNodeResponse response = new ADTaskProfileNodeResponse(randomDiscoveryNode(), adTaskProfile);
         testADTaskProfileResponse(response);
     }
@@ -109,6 +123,7 @@ public class ADTaskProfileTests extends ESSingleNodeTestCase {
             randomLong(),
             randomBoolean(),
             randomInt(),
+            randomLong(),
             randomAlphaOfLength(5)
         );
         ADTaskProfileNodeResponse nodeResponse = new ADTaskProfileNodeResponse(node, profile);

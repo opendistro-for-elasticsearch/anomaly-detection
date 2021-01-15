@@ -22,25 +22,25 @@ import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
 public class ADTaskProfileNodeRequest extends BaseNodeRequest {
-    private String adTaskId;
+    private String detectorId;
 
     public ADTaskProfileNodeRequest(StreamInput in) throws IOException {
         super(in);
-        this.adTaskId = in.readString();
+        this.detectorId = in.readString();
     }
 
     public ADTaskProfileNodeRequest(ADTaskProfileRequest request) {
-        this.adTaskId = request.getAdTaskId();
+        this.detectorId = request.getDetectorId();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeString(adTaskId);
+        out.writeString(detectorId);
     }
 
-    public String getAdTaskId() {
-        return adTaskId;
+    public String getDetectorId() {
+        return detectorId;
     }
 
 }

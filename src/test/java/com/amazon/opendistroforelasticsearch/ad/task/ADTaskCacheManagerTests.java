@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.task;
 
 import static com.amazon.opendistroforelasticsearch.ad.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DETECTOR;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -97,8 +98,8 @@ public class ADTaskCacheManagerTests extends ESTestCase {
         ADTask adTask1 = TestHelpers.randomAdTask();
         adTaskCacheManager.put(adTask1);
         assertEquals(1, adTaskCacheManager.size());
-        IllegalArgumentException e1 = expectThrows(IllegalArgumentException.class, () -> adTaskCacheManager.put(adTask1));
-        assertEquals("AD task is already running", e1.getMessage());
+        DuplicateTaskException e1 = expectThrows(DuplicateTaskException.class, () -> adTaskCacheManager.put(adTask1));
+        assertEquals(DETECTOR_IS_RUNNING, e1.getMessage());
 
         ADTask adTask2 = TestHelpers
             .randomAdTask(
@@ -110,7 +111,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
                 adTask1.getDetector()
             );
         DuplicateTaskException e2 = expectThrows(DuplicateTaskException.class, () -> adTaskCacheManager.put(adTask2));
-        assertEquals("There is one task executing for detector", e2.getMessage());
+        assertEquals(DETECTOR_IS_RUNNING, e2.getMessage());
     }
 
     public void testPutTaskWithMemoryExceedLimit() {

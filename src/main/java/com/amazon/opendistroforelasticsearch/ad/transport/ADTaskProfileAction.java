@@ -15,13 +15,15 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.AD_TASK;
+
 import org.elasticsearch.action.ActionType;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class ADTaskProfileAction extends ActionType<ADTaskProfileResponse> {
 
-    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detectors/profile/ad_task";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detectors/profile/" + AD_TASK;
     public static final ADTaskProfileAction INSTANCE = new ADTaskProfileAction();
 
     private ADTaskProfileAction() {

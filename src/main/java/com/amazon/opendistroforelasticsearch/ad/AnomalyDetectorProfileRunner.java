@@ -49,6 +49,7 @@ import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.metrics.CardinalityAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.InternalCardinality;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
@@ -78,6 +79,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     private Client client;
     private NamedXContentRegistry xContentRegistry;
     private DiscoveryNodeFilterer nodeFilter;
+    private final TransportService transportService;
     private final ADTaskManager adTaskManager;
 
     public AnomalyDetectorProfileRunner(
@@ -85,6 +87,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         NamedXContentRegistry xContentRegistry,
         DiscoveryNodeFilterer nodeFilter,
         long requiredSamples,
+        TransportService transportService,
         ADTaskManager adTaskManager
     ) {
         super(requiredSamples);
@@ -94,6 +97,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         if (requiredSamples <= 0) {
             throw new IllegalArgumentException("required samples should be a positive number, but was " + requiredSamples);
         }
+        this.transportService = transportService;
         this.adTaskManager = adTaskManager;
     }
 
@@ -122,7 +126,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, xContentParser.nextToken(), xContentParser);
                     AnomalyDetector detector = AnomalyDetector.parse(xContentParser, detectorId);
                     if (!detector.isRealTimeDetector() && profilesToCollect.contains(DetectorProfileName.AD_TASK)) {
-                        adTaskManager.getLatestADTaskProfile(detectorId, listener);
+                        adTaskManager.getLatestADTaskProfile(detectorId, transportService, listener);
                         return;
                     }
                     prepareProfile(detector, listener, profilesToCollect);

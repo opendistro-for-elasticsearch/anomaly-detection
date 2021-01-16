@@ -339,8 +339,10 @@ public class ADTaskManager {
         searchRequest.indices(CommonName.DETECTION_STATE_INDEX);
 
         client.search(searchRequest, ActionListener.wrap(r -> {
-            long totalTasks = r.getHits().getTotalHits().value;
-            if (totalTasks < 1) {
+            // https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/359#discussion_r558653132
+            // getTotalHits will be null when we track_total_hits is false in the query request.
+            // Add more checking here to cover some unknown cases.
+            if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value == 0) {
                 // don't throw exception here as consumer functions need to handle missing task
                 // in different way.
                 function.accept(Optional.empty());

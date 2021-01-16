@@ -146,7 +146,6 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
 
     protected void getExecute(GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> listener) {
         String detectorID = request.getDetectorID();
-        Long version = request.getVersion();
         String typesStr = request.getTypeStr();
         String rawPath = request.getRawPath();
         String entityValue = request.getEntityValue();

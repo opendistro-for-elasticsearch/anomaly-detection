@@ -23,7 +23,7 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class ForwardADTaskAction extends ActionType<AnomalyDetectorJobResponse> {
     // Internal Action which is not used for public facing RestAPIs.
-    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detector/" + AD_TASK + "/_forward";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detector/" + AD_TASK + "/forward";
     public static final ForwardADTaskAction INSTANCE = new ForwardADTaskAction();
 
     private ForwardADTaskAction() {

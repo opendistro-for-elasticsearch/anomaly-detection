@@ -43,6 +43,7 @@ import org.junit.Test;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 
 public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
@@ -52,6 +53,7 @@ public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
     private ActionListener<IndexAnomalyDetectorResponse> response;
     private ClusterService clusterService;
     private ClusterSettings clusterSettings;
+    private ADTaskManager adTaskManager;
 
     @Override
     @Before
@@ -64,6 +66,7 @@ public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
+        adTaskManager = mock(ADTaskManager.class);
         action = new IndexAnomalyDetectorTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
@@ -71,7 +74,8 @@ public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
             clusterService,
             indexSettings(),
             mock(AnomalyDetectionIndices.class),
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
         task = mock(Task.class);
         request = new IndexAnomalyDetectorRequest(
@@ -123,7 +127,8 @@ public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
             clusterService,
             settings,
             mock(AnomalyDetectionIndices.class),
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
         transportAction.doExecute(task, request, response);
     }
@@ -146,7 +151,8 @@ public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
             clusterService,
             settings,
             mock(AnomalyDetectionIndices.class),
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
         transportAction.doExecute(task, request, response);
     }

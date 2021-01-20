@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad;
 
 import static org.apache.http.entity.ContentType.APPLICATION_JSON;
 import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import static org.elasticsearch.test.ESTestCase.buildNewFakeTransportAddress;
@@ -61,6 +62,7 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
 import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.client.AdminClient;
@@ -97,6 +99,8 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.get.GetResult;
 import org.elasticsearch.index.mapper.MapperService;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
@@ -946,5 +950,47 @@ public class TestHelpers {
 
     public static DiscoveryNode randomDiscoveryNode() {
         return new DiscoveryNode(UUIDs.randomBase64UUID(), buildNewFakeTransportAddress(), Version.CURRENT);
+    }
+
+    public static SearchRequest matchAllRequest() {
+        BoolQueryBuilder query = new BoolQueryBuilder().filter(new MatchAllQueryBuilder());
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query);
+        return new SearchRequest().source(searchSourceBuilder);
+    }
+
+    public static Map<String, Object> parseStatsResult(String statsResult) throws IOException {
+        XContentParser parser = TestHelpers.parser(statsResult);
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
+        Map<String, Object> adStats = new HashMap<>();
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            String fieldName = parser.currentName();
+            parser.nextToken();
+            if (fieldName.equals("nodes")) {
+                Map<String, Object> nodesAdStats = new HashMap<>();
+                adStats.put("nodes", nodesAdStats);
+                while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+                    String nodeId = parser.currentName();
+                    Map<String, Object> nodeAdStats = new HashMap<>();
+                    nodesAdStats.put(nodeId, nodeAdStats);
+                    parser.nextToken();
+                    while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+                        String nodeStatName = parser.currentName();
+                        XContentParser.Token token = parser.nextToken();
+                        if (nodeStatName.equals("models")) {
+                            parser.skipChildren();
+                        } else if (nodeStatName.contains("_count")) {
+                            nodeAdStats.put(nodeStatName, parser.longValue());
+                        } else {
+                            nodeAdStats.put(nodeStatName, parser.text());
+                        }
+                    }
+                }
+            } else if (fieldName.contains("_count")) {
+                adStats.put(fieldName, parser.longValue());
+            } else {
+                adStats.put(fieldName, parser.text());
+            }
+        }
+        return adStats;
     }
 }

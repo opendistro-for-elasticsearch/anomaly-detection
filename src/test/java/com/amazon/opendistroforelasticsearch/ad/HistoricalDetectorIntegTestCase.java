@@ -18,11 +18,16 @@ package com.amazon.opendistroforelasticsearch.ad;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.EXECUTION_START_TIME_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.IS_LATEST_FIELD;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.START_JOB;
+import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_PRIMARY_TERM;
+import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -33,13 +38,16 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
+import org.elasticsearch.test.transport.MockTransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.mock.plugin.MockReindexPlugin;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
@@ -47,6 +55,10 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
+import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobResponse;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 public abstract class HistoricalDetectorIntegTestCase extends ADIntegTestCase {
@@ -54,6 +66,15 @@ public abstract class HistoricalDetectorIntegTestCase extends ADIntegTestCase {
     protected String testIndex = "test_historical_data";
     protected int detectionIntervalInMinutes = 1;
     protected int DEFAULT_TEST_DATA_DOCS = 3000;
+
+    @Override
+    protected Collection<Class<? extends Plugin>> getMockPlugins() {
+        final ArrayList<Class<? extends Plugin>> plugins = new ArrayList<>();
+        plugins.add(MockReindexPlugin.class);
+        plugins.addAll(super.getMockPlugins());
+        plugins.remove(MockTransportService.TestPlugin.class);
+        return Collections.unmodifiableList(plugins);
+    }
 
     public void ingestTestData(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type) {
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_TEST_DATA_DOCS);
@@ -179,5 +200,20 @@ public abstract class HistoricalDetectorIntegTestCase extends ADIntegTestCase {
 
     public AnomalyDetectorJob toADJob(GetResponse doc) throws IOException {
         return AnomalyDetectorJob.parse(TestHelpers.parser(doc.getSourceAsString()));
+    }
+
+    public ADTask startHistoricalDetector(Instant startTime, Instant endTime) throws IOException {
+        DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
+        AnomalyDetector detector = TestHelpers
+            .randomDetector(dateRange, ImmutableList.of(maxValueFeature()), testIndex, detectionIntervalInMinutes, timeField);
+        String detectorId = createDetector(detector);
+        AnomalyDetectorJobRequest request = new AnomalyDetectorJobRequest(
+            detectorId,
+            UNASSIGNED_SEQ_NO,
+            UNASSIGNED_PRIMARY_TERM,
+            START_JOB
+        );
+        AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
+        return getADTask(response.getId());
     }
 }

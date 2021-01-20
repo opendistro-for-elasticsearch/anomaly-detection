@@ -15,102 +15,65 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.DETECTOR_TYPE_FIELD;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
-import org.apache.lucene.index.IndexNotFoundException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.test.ESIntegTestCase;
-import org.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.transport.TransportService;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchAllQueryBuilder;
+import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 
-import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorType;
+import com.google.common.collect.ImmutableList;
 
-public class SearchAnomalyDetectorActionTests extends ESIntegTestCase {
-    private SearchAnomalyDetectorTransportAction action;
-    private Task task;
-    private ActionListener<SearchResponse> response;
-    private ClusterService clusterService;
-    private Client client;
+public class SearchAnomalyDetectorActionTests extends HistoricalDetectorIntegTestCase {
 
-    @Override
-    @Before
-    public void setUp() throws Exception {
-        super.setUp();
-        clusterService = mock(ClusterService.class);
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
-        );
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
-        ThreadPool threadPool = mock(ThreadPool.class);
-        client = mock(Client.class);
-        ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
-        when(client.threadPool()).thenReturn(threadPool);
-        when(client.threadPool().getThreadContext()).thenReturn(threadContext);
+    private String indexName = "test-data";
+    private Instant startTime = Instant.now().minus(2, ChronoUnit.DAYS);
 
-        action = new SearchAnomalyDetectorTransportAction(
-            Settings.EMPTY,
-            mock(TransportService.class),
-            clusterService,
-            mock(ActionFilters.class),
-            client
-        );
-        task = mock(Task.class);
-        response = new ActionListener<SearchResponse>() {
-            @Override
-            public void onResponse(SearchResponse searchResponse) {
-                Assert.assertEquals(searchResponse.getSuccessfulShards(), 5);
-            }
+    public void testSearchDetectorAction() throws IOException {
+        ingestTestData(indexName, startTime, 1, "test", 3000);
+        String detectorType = AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name();
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(indexName),
+                ImmutableList.of(TestHelpers.randomFeature(true)),
+                null,
+                Instant.now(),
+                detectorType,
+                1,
+                null,
+                false
+            );
+        createDetectorIndex();
+        String detectorId = createDetector(detector);
 
-            @Override
-            public void onFailure(Exception e) {
-                Assert.assertFalse(IndexNotFoundException.class == e.getClass());
-            }
-        };
+        BoolQueryBuilder query = new BoolQueryBuilder().filter(new TermQueryBuilder(DETECTOR_TYPE_FIELD, detectorType));
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query);
+        SearchRequest request = new SearchRequest().source(searchSourceBuilder);
+
+        SearchResponse searchResponse = client().execute(SearchAnomalyDetectorAction.INSTANCE, request).actionGet(10000);
+        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(detectorId, searchResponse.getInternalResponse().hits().getAt(0).getId());
     }
 
-    // Ignoring this test as this is flaky.
-    @Ignore
-    @Test
-    public void testSearchResponse() throws IOException {
-        // Will call response.onResponse as Index exists
-        Settings indexSettings = Settings.builder().put("index.number_of_shards", 5).put("index.number_of_replicas", 1).build();
-        CreateIndexRequest indexRequest = new CreateIndexRequest("my-test-index", indexSettings);
-        client().admin().indices().create(indexRequest).actionGet();
-        SearchRequest searchRequest = new SearchRequest("my-test-index");
-        action.doExecute(task, searchRequest, response);
+    public void testNoIndex() {
+        deleteIndexIfExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+
+        BoolQueryBuilder query = new BoolQueryBuilder().filter(new MatchAllQueryBuilder());
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query);
+        SearchRequest request = new SearchRequest().source(searchSourceBuilder);
+
+        SearchResponse searchResponse = client().execute(SearchAnomalyDetectorAction.INSTANCE, request).actionGet(10000);
+        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
     }
 
-    @Test
-    public void testSearchDetectorAction() {
-        Assert.assertNotNull(SearchAnomalyDetectorAction.INSTANCE.name());
-        Assert.assertEquals(SearchAnomalyDetectorAction.INSTANCE.name(), SearchAnomalyDetectorAction.NAME);
-    }
-
-    @Test
-    public void testNoIndex() throws IOException {
-        // No Index, will call response.onFailure
-        SearchRequest searchRequest = new SearchRequest("my-test-index");
-        action.doExecute(task, searchRequest, response);
-    }
 }

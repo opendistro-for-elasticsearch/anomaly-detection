@@ -52,6 +52,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
@@ -60,7 +61,9 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
     private static final Logger LOG = LogManager.getLogger(DeleteAnomalyDetectorTransportAction.class);
     private final Client client;
     private final ClusterService clusterService;
+    private final TransportService transportService;
     private NamedXContentRegistry xContentRegistry;
+    private final ADTaskManager adTaskManager;
     private volatile Boolean filterByEnabled;
 
     @Inject
@@ -70,12 +73,15 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
         Client client,
         ClusterService clusterService,
         Settings settings,
-        NamedXContentRegistry xContentRegistry
+        NamedXContentRegistry xContentRegistry,
+        ADTaskManager adTaskManager
     ) {
         super(DeleteAnomalyDetectorAction.NAME, transportService, actionFilters, DeleteAnomalyDetectorRequest::new);
+        this.transportService = transportService;
         this.client = client;
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
+        this.adTaskManager = adTaskManager;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
     }
@@ -92,7 +98,28 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                 detectorId,
                 filterByEnabled,
                 listener,
-                () -> getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener)),
+                () -> adTaskManager
+                    .getDetector(
+                        detectorId,
+                        // realtime detector
+                        detector -> getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener)),
+                        // historical detector
+                        detector -> adTaskManager.getLatestADTask(detectorId, adTask -> {
+                            if (adTask.isPresent()) {
+                                if (!adTaskManager.isADTaskEnded(adTask.get())) {
+                                    listener
+                                        .onFailure(
+                                            new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR)
+                                        );
+                                } else {
+                                    adTaskManager.deleteADTasks(detectorId, r -> deleteDetectorStateDoc(detectorId, listener), listener);
+                                }
+                            } else {
+                                deleteDetectorStateDoc(detectorId, listener);
+                            }
+                        }, transportService, listener),
+                        listener
+                    ),
                 client,
                 clusterService,
                 xContentRegistry

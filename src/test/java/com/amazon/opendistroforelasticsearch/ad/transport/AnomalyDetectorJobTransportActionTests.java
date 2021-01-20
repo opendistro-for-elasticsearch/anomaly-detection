@@ -28,9 +28,6 @@ import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -44,16 +41,13 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.common.lucene.uid.Versions;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.test.ESIntegTestCase;
-import org.elasticsearch.test.transport.MockTransportService;
 import org.junit.After;
 import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
-import com.amazon.opendistroforelasticsearch.ad.mock.plugin.MockReindexPlugin;
 import com.amazon.opendistroforelasticsearch.ad.mock.transport.MockAnomalyDetectorJobAction;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskProfile;
@@ -93,15 +87,6 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
             .build();
     }
 
-    @Override
-    protected Collection<Class<? extends Plugin>> getMockPlugins() {
-        final ArrayList<Class<? extends Plugin>> plugins = new ArrayList<>();
-        plugins.add(MockReindexPlugin.class);
-        plugins.addAll(super.getMockPlugins());
-        plugins.remove(MockTransportService.TestPlugin.class);
-        return Collections.unmodifiableList(plugins);
-    }
-
     public void testDetectorIndexNotFound() {
         deleteDetectorIndex();
         String detectorId = randomAlphaOfLength(5);
@@ -124,25 +109,10 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
     }
 
     public void testValidHistoricalDetector() throws IOException, InterruptedException {
-        ADTask adTask = startHistoricalDetector();
+        ADTask adTask = startHistoricalDetector(startTime, endTime);
         Thread.sleep(10000);
         ADTask finishedTask = getADTask(adTask.getTaskId());
         assertEquals(ADTaskState.FINISHED.name(), finishedTask.getState());
-    }
-
-    private ADTask startHistoricalDetector() throws IOException {
-        DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
-        AnomalyDetector detector = TestHelpers
-            .randomDetector(dateRange, ImmutableList.of(maxValueFeature()), testIndex, detectionIntervalInMinutes, timeField);
-        String detectorId = createDetector(detector);
-        AnomalyDetectorJobRequest request = new AnomalyDetectorJobRequest(
-            detectorId,
-            UNASSIGNED_SEQ_NO,
-            UNASSIGNED_PRIMARY_TERM,
-            START_JOB
-        );
-        AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
-        return getADTask(response.getId());
     }
 
     public void testStartHistoricalDetectorWithUser() throws IOException, InterruptedException {
@@ -327,7 +297,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
     }
 
     public void testStopHistoricalDetector() throws IOException, InterruptedException {
-        ADTask adTask = startHistoricalDetector();
+        ADTask adTask = startHistoricalDetector(startTime, endTime);
         assertEquals(ADTaskState.INIT.name(), adTask.getState());
         AnomalyDetectorJobRequest request = stopDetectorJobRequest(adTask.getDetectorId());
         client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
@@ -338,7 +308,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
     }
 
     public void testProfileHistoricalDetector() throws IOException, InterruptedException {
-        ADTask adTask = startHistoricalDetector();
+        ADTask adTask = startHistoricalDetector(startTime, endTime);
         GetAnomalyDetectorRequest request = taskProfileRequest(adTask.getDetectorId());
         GetAnomalyDetectorResponse response = client().execute(GetAnomalyDetectorAction.INSTANCE, request).actionGet(10000);
         assertNotNull(response.getDetectorProfile().getAdTaskProfile());
@@ -362,8 +332,8 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
     }
 
     public void testProfileWithMultipleRunningTask() throws IOException {
-        ADTask adTask1 = startHistoricalDetector();
-        ADTask adTask2 = startHistoricalDetector();
+        ADTask adTask1 = startHistoricalDetector(startTime, endTime);
+        ADTask adTask2 = startHistoricalDetector(startTime, endTime);
 
         GetAnomalyDetectorRequest request1 = taskProfileRequest(adTask1.getDetectorId());
         GetAnomalyDetectorRequest request2 = taskProfileRequest(adTask2.getDetectorId());

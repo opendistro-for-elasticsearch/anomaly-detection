@@ -26,16 +26,12 @@ import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.ADSearchHandler;
 
-public class SearchAnomalyDetectorTransportAction extends HandledTransportAction<SearchRequest, SearchResponse> {
+public class SearchADTasksTransportAction extends HandledTransportAction<SearchRequest, SearchResponse> {
     private ADSearchHandler searchHandler;
 
     @Inject
-    public SearchAnomalyDetectorTransportAction(
-        TransportService transportService,
-        ActionFilters actionFilters,
-        ADSearchHandler searchHandler
-    ) {
-        super(SearchAnomalyDetectorAction.NAME, transportService, actionFilters, SearchRequest::new);
+    public SearchADTasksTransportAction(TransportService transportService, ActionFilters actionFilters, ADSearchHandler searchHandler) {
+        super(SearchADTasksAction.NAME, transportService, actionFilters, SearchRequest::new);
         this.searchHandler = searchHandler;
     }
 

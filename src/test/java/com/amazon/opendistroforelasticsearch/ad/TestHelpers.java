@@ -19,6 +19,7 @@ import static org.apache.http.entity.ContentType.APPLICATION_JSON;
 import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
+import static org.elasticsearch.test.ESTestCase.buildNewFakeTransportAddress;
 import static org.elasticsearch.test.ESTestCase.randomAlphaOfLength;
 import static org.elasticsearch.test.ESTestCase.randomBoolean;
 import static org.elasticsearch.test.ESTestCase.randomDouble;
@@ -135,6 +136,7 @@ import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 public class TestHelpers {
 
@@ -142,6 +144,8 @@ public class TestHelpers {
     public static final String AD_BASE_RESULT_URI = "/_opendistro/_anomaly_detection/detectors/results";
     public static final String AD_BASE_PREVIEW_URI = "/_opendistro/_anomaly_detection/detectors/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_opendistro/_anomaly_detection/stats";
+    public static ImmutableSet<String> historicalDetectorRunningStats = ImmutableSet
+        .of(ADTaskState.CREATED.name(), ADTaskState.INIT.name(), ADTaskState.RUNNING.name());
     private static final Logger logger = LogManager.getLogger(TestHelpers.class);
     public static final Random random = new Random(42);
 
@@ -938,5 +942,9 @@ public class TestHelpers {
         IntStream.range(0, totalHits).forEach(i -> hitList.add(new SearchHit(i)));
         SearchHit[] hitArray = new SearchHit[hitList.size()];
         return new SearchHits(hitList.toArray(hitArray), new TotalHits(totalHits, TotalHits.Relation.EQUAL_TO), 1.0F);
+    }
+
+    public static DiscoveryNode randomDiscoveryNode() {
+        return new DiscoveryNode(UUIDs.randomBase64UUID(), buildNewFakeTransportAddress(), Version.CURRENT);
     }
 }

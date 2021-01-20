@@ -53,6 +53,12 @@
     "checkpoint_id": {
       "type": "keyword"
     },
+    "coordinating_node": {
+      "type": "keyword"
+    },
+    "worker_node": {
+      "type": "keyword"
+    },
     "detector": {
       "properties": {
         "schema_version": {

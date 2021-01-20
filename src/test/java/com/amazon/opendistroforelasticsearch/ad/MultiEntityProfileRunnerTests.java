@@ -45,6 +45,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.transport.TransportAddress;
+import org.elasticsearch.transport.TransportService;
 import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
@@ -55,6 +56,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorState;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileResponse;
@@ -83,6 +85,8 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
 
     private int shingleSize;
     private AnomalyDetectorJob job;
+    private TransportService transportService;
+    private ADTaskManager adTaskManager;
 
     enum InittedEverResultStatus {
         INITTED,
@@ -102,8 +106,9 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a"));
         result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
         job = TestHelpers.randomAnomalyDetectorJob(true);
-
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples);
+        adTaskManager = mock(ADTaskManager.class);
+        transportService = mock(TransportService.class);
+        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, transportService, adTaskManager);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();

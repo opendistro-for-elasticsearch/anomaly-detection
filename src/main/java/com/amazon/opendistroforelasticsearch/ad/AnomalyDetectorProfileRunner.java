@@ -49,6 +49,7 @@ import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.metrics.CardinalityAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.InternalCardinality;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
@@ -62,6 +63,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorState;
 import com.amazon.opendistroforelasticsearch.ad.model.InitProgressProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileRequest;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileResponse;
@@ -77,12 +79,16 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     private Client client;
     private NamedXContentRegistry xContentRegistry;
     private DiscoveryNodeFilterer nodeFilter;
+    private final TransportService transportService;
+    private final ADTaskManager adTaskManager;
 
     public AnomalyDetectorProfileRunner(
         Client client,
         NamedXContentRegistry xContentRegistry,
         DiscoveryNodeFilterer nodeFilter,
-        long requiredSamples
+        long requiredSamples,
+        TransportService transportService,
+        ADTaskManager adTaskManager
     ) {
         super(requiredSamples);
         this.client = client;
@@ -91,6 +97,8 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         if (requiredSamples <= 0) {
             throw new IllegalArgumentException("required samples should be a positive number, but was " + requiredSamples);
         }
+        this.transportService = transportService;
+        this.adTaskManager = adTaskManager;
     }
 
     public void profile(String detectorId, ActionListener<DetectorProfile> listener, Set<DetectorProfileName> profilesToCollect) {
@@ -117,7 +125,10 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, xContentParser.nextToken(), xContentParser);
                     AnomalyDetector detector = AnomalyDetector.parse(xContentParser, detectorId);
-
+                    if (!detector.isRealTimeDetector() && profilesToCollect.contains(DetectorProfileName.AD_TASK)) {
+                        adTaskManager.getLatestADTaskProfile(detectorId, transportService, listener);
+                        return;
+                    }
                     prepareProfile(detector, listener, profilesToCollect);
                 } catch (Exception e) {
                     listener.onFailure(new RuntimeException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId, e));

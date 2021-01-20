@@ -44,6 +44,7 @@ import org.junit.BeforeClass;
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 public class GetAnomalyDetectorTests extends AbstractADTest {
@@ -58,6 +59,7 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
     private String typeStr;
     private String rawPath;
     private PlainActionFuture<GetAnomalyDetectorResponse> future;
+    private ADTaskManager adTaskManager;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -96,6 +98,8 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
         client = mock(Client.class);
         when(client.threadPool()).thenReturn(threadPool);
 
+        adTaskManager = mock(ADTaskManager.class);
+
         action = new GetAnomalyDetectorTransportAction(
             transportService,
             nodeFilter,
@@ -103,7 +107,8 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
             clusterService,
             client,
             Settings.EMPTY,
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
     }
 
@@ -112,7 +117,7 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
 
         rawPath = "_opendistro/_anomaly_detection/detectors/T4c3dXUBj-2IZN7itix_/_profile";
 
-        request = new GetAnomalyDetectorRequest(detectorId, 0L, false, typeStr, rawPath, false, entityValue);
+        request = new GetAnomalyDetectorRequest(detectorId, 0L, false, false, typeStr, rawPath, false, entityValue);
 
         future = new PlainActionFuture<>();
         action.doExecute(null, request, future);
@@ -137,7 +142,7 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
 
         rawPath = "_opendistro/_anomaly_detection/detectors/T4c3dXUBj-2IZN7itix_/_profile";
 
-        request = new GetAnomalyDetectorRequest(detectorId, 0L, false, typeStr, rawPath, false, entityValue);
+        request = new GetAnomalyDetectorRequest(detectorId, 0L, false, false, typeStr, rawPath, false, entityValue);
 
         future = new PlainActionFuture<>();
         action.doExecute(null, request, future);

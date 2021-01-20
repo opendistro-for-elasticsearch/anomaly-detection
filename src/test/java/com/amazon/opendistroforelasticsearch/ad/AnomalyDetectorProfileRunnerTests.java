@@ -577,7 +577,10 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
     }
 
     public void testInvalidRequiredSamples() {
-        expectThrows(IllegalArgumentException.class, () -> new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, 0));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, 0, transportService, adTaskManager)
+        );
     }
 
     public void testFailRCFPolling() throws IOException, InterruptedException {

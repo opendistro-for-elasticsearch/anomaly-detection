@@ -27,6 +27,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
     private String detectorID;
     private long version;
     private boolean returnJob;
+    private boolean returnTask;
     private String typeStr;
     private String rawPath;
     private boolean all;
@@ -37,6 +38,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         detectorID = in.readString();
         version = in.readLong();
         returnJob = in.readBoolean();
+        returnTask = in.readBoolean();
         typeStr = in.readString();
         rawPath = in.readString();
         all = in.readBoolean();
@@ -49,16 +51,17 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         String detectorID,
         long version,
         boolean returnJob,
+        boolean returnTask,
         String typeStr,
         String rawPath,
         boolean all,
         String entityValue
-    )
-        throws IOException {
+    ) {
         super();
         this.detectorID = detectorID;
         this.version = version;
         this.returnJob = returnJob;
+        this.returnTask = returnTask;
         this.typeStr = typeStr;
         this.rawPath = rawPath;
         this.all = all;
@@ -75,6 +78,10 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
 
     public boolean isReturnJob() {
         return returnJob;
+    }
+
+    public boolean isReturnTask() {
+        return returnTask;
     }
 
     public String getTypeStr() {
@@ -99,6 +106,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         out.writeString(detectorID);
         out.writeLong(version);
         out.writeBoolean(returnJob);
+        out.writeBoolean(returnTask);
         out.writeString(typeStr);
         out.writeString(rawPath);
         out.writeBoolean(all);

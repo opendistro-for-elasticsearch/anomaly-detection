@@ -64,11 +64,13 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         String entityValue = request.param(ENTITY);
         String rawPath = request.rawPath();
         boolean returnJob = request.paramAsBoolean("job", false);
+        boolean returnTask = request.paramAsBoolean("task", false);
         boolean all = request.paramAsBoolean("_all", false);
         GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest(
             detectorId,
             RestActions.parseVersion(request),
             returnJob,
+            returnTask,
             typesStr,
             rawPath,
             all,

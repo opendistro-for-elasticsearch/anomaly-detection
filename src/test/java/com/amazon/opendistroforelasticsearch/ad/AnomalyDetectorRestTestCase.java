@@ -44,6 +44,7 @@ import org.elasticsearch.common.xcontent.XContentParserUtils;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.RestStatus;
 
+import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
@@ -118,7 +119,9 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
             detector.getCategoryField(),
-            detector.getUser()
+            detector.getUser(),
+            detector.getDetectorType(),
+            detector.getDetectionDateRange()
         );
     }
 
@@ -154,21 +157,26 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     }
 
     public AnomalyDetector getAnomalyDetector(String detectorId, BasicHeader header, RestClient client) throws IOException {
-        return (AnomalyDetector) getAnomalyDetector(detectorId, header, false, client)[0];
+        return (AnomalyDetector) getAnomalyDetector(detectorId, header, false, false, client)[0];
     }
 
     public ToXContentObject[] getAnomalyDetector(String detectorId, boolean returnJob, RestClient client) throws IOException {
         BasicHeader header = new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-        return getAnomalyDetector(detectorId, header, returnJob, client);
+        return getAnomalyDetector(detectorId, header, returnJob, false, client);
     }
 
-    public ToXContentObject[] getAnomalyDetector(String detectorId, BasicHeader header, boolean returnJob, RestClient client)
-        throws IOException {
+    public ToXContentObject[] getAnomalyDetector(
+        String detectorId,
+        BasicHeader header,
+        boolean returnJob,
+        boolean returnTask,
+        RestClient client
+    ) throws IOException {
         Response response = TestHelpers
             .makeRequest(
                 client,
                 "GET",
-                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "?job=" + returnJob,
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "?job=" + returnJob + "&task=" + returnTask,
                 null,
                 "",
                 ImmutableList.of(header)
@@ -182,6 +190,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         Long version = null;
         AnomalyDetector detector = null;
         AnomalyDetectorJob detectorJob = null;
+        ADTask adTask = null;
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();
@@ -197,6 +206,9 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                     break;
                 case "anomaly_detector_job":
                     detectorJob = AnomalyDetectorJob.parse(parser);
+                    break;
+                case "anomaly_detection_task":
+                    adTask = ADTask.parse(parser);
                     break;
             }
         }
@@ -218,9 +230,12 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getSchemaVersion(),
                 detector.getLastUpdateTime(),
                 null,
-                detector.getUser()
+                detector.getUser(),
+                detector.getDetectorType(),
+                detector.getDetectionDateRange()
             ),
-            detectorJob };
+            detectorJob,
+            adTask };
     }
 
     protected HttpEntity toHttpEntity(ToXContentObject object) throws IOException {

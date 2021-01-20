@@ -51,6 +51,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
     private final NamedXContentRegistry xContentRegistry;
     private volatile Boolean filterByEnabled;
     private final ADTaskManager adTaskManager;
+    private final TransportService transportService;
 
     @Inject
     public AnomalyDetectorJobTransportAction(
@@ -64,6 +65,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         ADTaskManager adTaskManager
     ) {
         super(AnomalyDetectorJobAction.NAME, transportService, actionFilters, AnomalyDetectorJobRequest::new);
+        this.transportService = transportService;
         this.client = client;
         this.clusterService = clusterService;
         this.settings = settings;
@@ -121,10 +123,9 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
             xContentRegistry
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
-            adTaskManager.startDetector(detectorId, handler, user, listener);
+            adTaskManager.startDetector(detectorId, handler, user, transportService, listener);
         } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
-            // TODO: change to adTaskManager.stopDetector
-            handler.stopAnomalyDetectorJob(detectorId);
+            adTaskManager.stopDetector(detectorId, handler, user, transportService, listener);
         }
     }
 }

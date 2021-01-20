@@ -55,6 +55,9 @@ import com.google.common.collect.ImmutableList;
 
 /**
  * An AnomalyDetector is used to represent anomaly detection model(RCF) related parameters.
+ * NOTE: If change detector config index mapping, you should change AD task index mapping as well.
+ * TODO: Will replace detector config mapping in AD task with detector config setting directly \
+ *      in code rather than config it in anomaly-detection-state.json file.
  */
 public class AnomalyDetector implements Writeable, ToXContentObject {
 
@@ -227,10 +230,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {
-        detectorId = input.readString();
-        version = input.readLong();
+        detectorId = input.readOptionalString();
+        version = input.readOptionalLong();
         name = input.readString();
-        description = input.readString();
+        description = input.readOptionalString();
         timeField = input.readString();
         indices = input.readStringList();
         featureAttributes = input.readList(Feature::new);
@@ -265,10 +268,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
 
     @Override
     public void writeTo(StreamOutput output) throws IOException {
-        output.writeString(detectorId);
-        output.writeLong(version);
+        output.writeOptionalString(detectorId);
+        output.writeOptionalLong(version);
         output.writeString(name);
-        output.writeString(description);
+        output.writeOptionalString(description);
         output.writeString(timeField);
         output.writeStringCollection(indices);
         output.writeList(featureAttributes);

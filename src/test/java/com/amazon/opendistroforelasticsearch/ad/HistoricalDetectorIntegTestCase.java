@@ -163,6 +163,16 @@ public abstract class HistoricalDetectorIntegTestCase extends ADIntegTestCase {
         return adTasks;
     }
 
+    public ADTask getADTask(String taskId) throws IOException {
+        ADTask adTask = toADTask(getDoc(CommonName.DETECTION_STATE_INDEX, taskId));
+        adTask.setTaskId(taskId);
+        return adTask;
+    }
+
+    public AnomalyDetectorJob getADJob(String detectorId) throws IOException {
+        return toADJob(getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId));
+    }
+
     public ADTask toADTask(GetResponse doc) throws IOException {
         return ADTask.parse(TestHelpers.parser(doc.getSourceAsString()));
     }

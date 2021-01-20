@@ -32,11 +32,13 @@ import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.transport.TransportAddress;
+import org.elasticsearch.transport.TransportService;
 import org.junit.Before;
 import org.junit.BeforeClass;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
 public class AbstractProfileRunnerTests extends AbstractADTest {
@@ -65,6 +67,8 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
     protected DiscoveryNodeFilterer nodeFilter;
     protected AnomalyDetector detector;
     protected ClusterService clusterService;
+    protected TransportService transportService;
+    protected ADTaskManager adTaskManager;
 
     protected static Set<DetectorProfileName> stateOnly;
     protected static Set<DetectorProfileName> stateNError;
@@ -150,7 +154,7 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
         requiredSamples = 128;
         neededSamples = 5;
 
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples);
+        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, transportService, adTaskManager);
 
         detectorIntervalMin = 3;
         detectorGetReponse = mock(GetResponse.class);

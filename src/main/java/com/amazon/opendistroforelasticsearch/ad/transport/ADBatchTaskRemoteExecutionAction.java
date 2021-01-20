@@ -15,12 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.AD_TASK_REMOTE;
+
 import org.elasticsearch.action.ActionType;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class ADBatchTaskRemoteExecutionAction extends ActionType<ADBatchAnomalyResultResponse> {
-    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/ad_task_remote";
+    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detector/" + AD_TASK_REMOTE;
     public static final ADBatchTaskRemoteExecutionAction INSTANCE = new ADBatchTaskRemoteExecutionAction();
 
     private ADBatchTaskRemoteExecutionAction() {

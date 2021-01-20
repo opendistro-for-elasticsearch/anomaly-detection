@@ -16,21 +16,30 @@
 package com.amazon.opendistroforelasticsearch.ad.task;
 
 import static com.amazon.opendistroforelasticsearch.ad.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DETECTOR;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.util.set.Sets;
 
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.DuplicateTaskException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
@@ -38,11 +47,20 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.randomcutforest.RandomCutForest;
 
 public class ADTaskCacheManager {
-
+    private final Logger logger = LogManager.getLogger(ADTaskCacheManager.class);
     private final Map<String, ADBatchTaskCache> taskCaches;
     private volatile Integer maxAdBatchTaskPerNode;
     private final MemoryTracker memoryTracker;
     private final int numberSize = 8;
+
+    // We use this field to record all detectors which running on the
+    // coordinating node to resolve race condition. We will check if
+    // detector id exists in cache or not first. If user starts
+    // multiple tasks for the same detector, we will put the first
+    // task in cache. For other tasks, we find the detector id exists,
+    // that means there is already one task running for this detector,
+    // so we will reject the task.
+    private Set<String> detectors;
 
     /**
      * Constructor to create AD task cache manager.
@@ -56,6 +74,7 @@ public class ADTaskCacheManager {
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_BATCH_TASK_PER_NODE, it -> maxAdBatchTaskPerNode = it);
         taskCaches = new ConcurrentHashMap<>();
         this.memoryTracker = memoryTracker;
+        this.detectors = Sets.newConcurrentHashSet();
     }
 
     /**
@@ -66,13 +85,13 @@ public class ADTaskCacheManager {
      *
      * @param adTask AD task
      */
-    public synchronized void put(ADTask adTask) {
+    public synchronized void add(ADTask adTask) {
         String taskId = adTask.getTaskId();
         if (contains(taskId)) {
-            throw new IllegalArgumentException("AD task is already running");
+            throw new DuplicateTaskException(DETECTOR_IS_RUNNING);
         }
         if (containsTaskOfDetector(adTask.getDetectorId())) {
-            throw new IllegalArgumentException("There is one task executing for detector");
+            throw new DuplicateTaskException(DETECTOR_IS_RUNNING);
         }
         checkRunningTaskLimit();
         long neededCacheSize = calculateADTaskCacheSize(adTask);
@@ -83,6 +102,21 @@ public class ADTaskCacheManager {
         ADBatchTaskCache taskCache = new ADBatchTaskCache(adTask);
         taskCache.getCacheMemorySize().set(neededCacheSize);
         taskCaches.put(taskId, taskCache);
+    }
+
+    /**
+     * Put detector id in running detector cache.
+     *
+     * @param detectorId detector id
+     * @throws LimitExceededException throw limit exceed exception when the detector id already in cache
+     */
+    public synchronized void add(String detectorId) {
+        if (detectors.contains(detectorId)) {
+            logger.debug("detector is already in running detector cache, detectorId: " + detectorId);
+            throw new DuplicateTaskException(DETECTOR_IS_RUNNING);
+        }
+        logger.debug("add detector in running detector cache, detectorId: " + detectorId);
+        this.detectors.add(detectorId);
     }
 
     /**
@@ -131,10 +165,23 @@ public class ADTaskCacheManager {
         return getBatchTaskCache(taskId).getThresholdModelTrainingData();
     }
 
+    /**
+     * Get threshhold model training data size in bytes.
+     *
+     * @param taskId task id
+     * @return training data size in bytes
+     */
     public int getThresholdModelTrainingDataSize(String taskId) {
         return getBatchTaskCache(taskId).getThresholdModelTrainingDataSize().get();
     }
 
+    /**
+     * Add threshold model training data.
+     *
+     * @param taskId task id
+     * @param data training data
+     * @return latest threshold model training data size after adding new data
+     */
     public int addThresholdModelTrainingData(String taskId, double... data) {
         ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
         double[] thresholdModelTrainingData = taskCache.getThresholdModelTrainingData();
@@ -204,6 +251,21 @@ public class ADTaskCacheManager {
     }
 
     /**
+     * Get task id list of detector.
+     *
+     * @param detectorId detector id
+     * @return list of task id
+     */
+    public List<String> getTasksOfDetector(String detectorId) {
+        return taskCaches
+            .values()
+            .stream()
+            .filter(v -> Objects.equals(detectorId, v.getDetectorId()))
+            .map(c -> c.getTaskId())
+            .collect(Collectors.toList());
+    }
+
+    /**
      * Get batch task cache. If task doesn't exist in cache, will throw
      * {@link java.lang.IllegalArgumentException}
      * We throw exception rather than return {@code Optional.empty} or null
@@ -220,6 +282,10 @@ public class ADTaskCacheManager {
         return taskCaches.get(taskId);
     }
 
+    private List<ADBatchTaskCache> getBatchTaskCacheByDetectorId(String detectorId) {
+        return taskCaches.values().stream().filter(v -> Objects.equals(detectorId, v.getDetectorId())).collect(Collectors.toList());
+    }
+
     /**
      * Calculate AD task cache memory usage.
      *
@@ -233,14 +299,44 @@ public class ADTaskCacheManager {
     }
 
     /**
+     * Get RCF model size in bytes.
+     *
+     * @param taskId task id
+     * @return model size in bytes
+     */
+    public long getModelSize(String taskId) {
+        ADBatchTaskCache batchTaskCache = getBatchTaskCache(taskId);
+        int dimensions = batchTaskCache.getRcfModel().getDimensions();
+        int numberOfTrees = batchTaskCache.getRcfModel().getNumberOfTrees();
+        return memoryTracker.estimateModelSize(dimensions, numberOfTrees, NUM_SAMPLES_PER_TREE);
+    }
+
+    /**
      * Remove task from cache.
      *
      * @param taskId AD task id
      */
     public void remove(String taskId) {
         if (contains(taskId)) {
-            memoryTracker.releaseMemory(getBatchTaskCache(taskId).getCacheMemorySize().get(), true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
+            ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
+            memoryTracker.releaseMemory(taskCache.getCacheMemorySize().get(), true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
             taskCaches.remove(taskId);
+            // can't remove detector id from cache here as it's possible that some task running on
+            // other worker nodes
+        }
+    }
+
+    /**
+     * Remove detector id from running detector cache
+     *
+     * @param detectorId detector id
+     */
+    public void removeDetector(String detectorId) {
+        if (detectors.contains(detectorId)) {
+            detectors.remove(detectorId);
+            logger.debug("Removed detector from AD task coordinating node cache, detectorId: " + detectorId);
+        } else {
+            logger.debug("Detector is not in AD task coordinating node cache");
         }
     }
 
@@ -250,9 +346,42 @@ public class ADTaskCacheManager {
      * @param taskId AD task id
      * @param reason why need to cancel task
      * @param userName user name
+     * @return AD task cancellation state
      */
-    public void cancel(String taskId, String reason, String userName) {
+    public ADTaskCancellationState cancel(String taskId, String reason, String userName) {
+        if (!contains(taskId)) {
+            return ADTaskCancellationState.NOT_FOUND;
+        }
+        if (isCancelled(taskId)) {
+            return ADTaskCancellationState.ALREADY_CANCELLED;
+        }
         getBatchTaskCache(taskId).cancel(reason, userName);
+        return ADTaskCancellationState.CANCELLED;
+    }
+
+    /**
+     * Cancel AD task by detector id.
+     *
+     * @param detectorId detector id
+     * @param reason why need to cancel task
+     * @param userName user name
+     * @return AD task cancellation state
+     */
+    public ADTaskCancellationState cancelByDetectorId(String detectorId, String reason, String userName) {
+        List<ADBatchTaskCache> taskCaches = getBatchTaskCacheByDetectorId(detectorId);
+
+        if (taskCaches.isEmpty()) {
+            return ADTaskCancellationState.NOT_FOUND;
+        }
+
+        ADTaskCancellationState cancellationState = ADTaskCancellationState.ALREADY_CANCELLED;
+        for (ADBatchTaskCache cache : taskCaches) {
+            if (!cache.isCancelled()) {
+                cancellationState = ADTaskCancellationState.CANCELLED;
+                cache.cancel(reason, userName);
+            }
+        }
+        return cancellationState;
     }
 
     /**
@@ -300,6 +429,7 @@ public class ADTaskCacheManager {
      */
     public void clear() {
         taskCaches.clear();
+        detectors.clear();
     }
 
     /**

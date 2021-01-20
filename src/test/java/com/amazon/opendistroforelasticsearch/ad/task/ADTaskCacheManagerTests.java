@@ -80,7 +80,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     public void testPutTask() throws IOException {
         when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(true);
         ADTask adTask = TestHelpers.randomAdTask();
-        adTaskCacheManager.put(adTask);
+        adTaskCacheManager.add(adTask);
         assertEquals(1, adTaskCacheManager.size());
         assertTrue(adTaskCacheManager.contains(adTask.getTaskId()));
         assertTrue(adTaskCacheManager.containsTaskOfDetector(adTask.getDetectorId()));
@@ -96,9 +96,9 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     public void testPutDuplicateTask() throws IOException {
         when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(true);
         ADTask adTask1 = TestHelpers.randomAdTask();
-        adTaskCacheManager.put(adTask1);
+        adTaskCacheManager.add(adTask1);
         assertEquals(1, adTaskCacheManager.size());
-        DuplicateTaskException e1 = expectThrows(DuplicateTaskException.class, () -> adTaskCacheManager.put(adTask1));
+        DuplicateTaskException e1 = expectThrows(DuplicateTaskException.class, () -> adTaskCacheManager.add(adTask1));
         assertEquals(DETECTOR_IS_RUNNING, e1.getMessage());
 
         ADTask adTask2 = TestHelpers
@@ -110,7 +110,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
                 adTask1.getDetectorId(),
                 adTask1.getDetector()
             );
-        DuplicateTaskException e2 = expectThrows(DuplicateTaskException.class, () -> adTaskCacheManager.put(adTask2));
+        DuplicateTaskException e2 = expectThrows(DuplicateTaskException.class, () -> adTaskCacheManager.add(adTask2));
         assertEquals(DETECTOR_IS_RUNNING, e2.getMessage());
     }
 
@@ -118,7 +118,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
         when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(false);
         LimitExceededException exception = expectThrows(
             LimitExceededException.class,
-            () -> adTaskCacheManager.put(TestHelpers.randomAdTask())
+            () -> adTaskCacheManager.add(TestHelpers.randomAdTask())
         );
         assertEquals("No enough memory to run detector", exception.getMessage());
     }
@@ -126,7 +126,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     public void testThresholdModelTrained() throws IOException {
         when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(true);
         ADTask adTask = TestHelpers.randomAdTask();
-        adTaskCacheManager.put(adTask);
+        adTaskCacheManager.add(adTask);
         assertEquals(1, adTaskCacheManager.size());
         int size = adTaskCacheManager.addThresholdModelTrainingData(adTask.getTaskId(), randomDouble(), randomDouble());
         long cacheSize = adTaskCacheManager.trainingDataMemorySize(size);
@@ -139,7 +139,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     public void testCancel() throws IOException {
         when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(true);
         ADTask adTask = TestHelpers.randomAdTask();
-        adTaskCacheManager.put(adTask);
+        adTaskCacheManager.add(adTask);
         assertEquals(1, adTaskCacheManager.size());
         assertEquals(false, adTaskCacheManager.isCancelled(adTask.getTaskId()));
         String cancelReason = randomAlphaOfLength(10);
@@ -165,10 +165,10 @@ public class ADTaskCacheManagerTests extends ESTestCase {
 
     public void testExceedRunningTaskLimit() throws IOException {
         when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(true);
-        adTaskCacheManager.put(TestHelpers.randomAdTask());
-        adTaskCacheManager.put(TestHelpers.randomAdTask());
+        adTaskCacheManager.add(TestHelpers.randomAdTask());
+        adTaskCacheManager.add(TestHelpers.randomAdTask());
         assertEquals(2, adTaskCacheManager.size());
-        LimitExceededException e = expectThrows(LimitExceededException.class, () -> adTaskCacheManager.put(TestHelpers.randomAdTask()));
+        LimitExceededException e = expectThrows(LimitExceededException.class, () -> adTaskCacheManager.add(TestHelpers.randomAdTask()));
         assertEquals("Can't run more than 2 historical detectors per data node", e.getMessage());
     }
 }

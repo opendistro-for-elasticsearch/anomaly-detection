@@ -346,7 +346,7 @@ public class ADBatchTaskRunner {
         adStats.getStat(StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT.getName()).increment();
 
         // put AD task into cache
-        adTaskCacheManager.put(adTask);
+        adTaskCacheManager.add(adTask);
 
         // start to run first piece
         Instant executeStartTime = Instant.now();

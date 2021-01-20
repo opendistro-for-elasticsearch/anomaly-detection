@@ -85,7 +85,7 @@ public class ADTaskCacheManager {
      *
      * @param adTask AD task
      */
-    public synchronized void put(ADTask adTask) {
+    public synchronized void add(ADTask adTask) {
         String taskId = adTask.getTaskId();
         if (contains(taskId)) {
             throw new DuplicateTaskException(DETECTOR_IS_RUNNING);
@@ -110,7 +110,7 @@ public class ADTaskCacheManager {
      * @param detectorId detector id
      * @throws LimitExceededException throw limit exceed exception when the detector id already in cache
      */
-    public synchronized void put(String detectorId) {
+    public synchronized void add(String detectorId) {
         if (detectors.contains(detectorId)) {
             logger.debug("detector is already in running detector cache, detectorId: " + detectorId);
             throw new DuplicateTaskException(DETECTOR_IS_RUNNING);

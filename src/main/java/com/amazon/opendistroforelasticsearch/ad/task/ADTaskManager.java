@@ -442,6 +442,18 @@ public class ADTaskManager {
         }
     }
 
+    /**
+     * Clean detector cache on coordinating node.
+     * If task's coordinating node is still in cluster, will forward stop
+     * task request to coordinating node, then coordinating node will
+     * remove detector from cache.
+     * If task's coordinating node is not in cluster, we don't need to
+     * forward stop task request to coordinating node.
+     *
+     * @param adTask AD task
+     * @param transportService transport service
+     * @param function will execute it when detector cache cleaned successfully or coordinating node left cluster
+     */
     protected void cleanDetectorCache(ADTask adTask, TransportService transportService, AnomalyDetectorFunction function) {
         String coordinatingNode = adTask.getCoordinatingNode();
         DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
@@ -741,7 +753,7 @@ public class ADTaskManager {
             // Put detector id in cache. If detector id already in cache, will throw
             // DuplicateTaskException. This is to solve race condition when user send
             // multiple start request for one historical detector.
-            adTaskCacheManager.put(adTask.getDetectorId());
+            adTaskCacheManager.add(adTask.getDetectorId());
         } catch (Exception e) {
             delegatedListener.onFailure(e);
             return;
@@ -929,7 +941,14 @@ public class ADTaskManager {
      */
     public ADTaskCancellationState cancelLocalTaskByDetectorId(String detectorId, String reason, String userName) {
         ADTaskCancellationState cancellationState = adTaskCacheManager.cancelByDetectorId(detectorId, reason, userName);
-        logger.debug("Cancelled AD task for detector: " + detectorId + ", state: " + cancellationState);
+        logger
+            .debug(
+                "Cancelled AD task for detector: {}, state: {}, cancelled by: {}, reason: {}",
+                detectorId,
+                cancellationState,
+                userName,
+                reason
+            );
         return cancellationState;
     }
 

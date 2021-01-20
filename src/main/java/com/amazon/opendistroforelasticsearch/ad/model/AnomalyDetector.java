@@ -55,6 +55,9 @@ import com.google.common.collect.ImmutableList;
 
 /**
  * An AnomalyDetector is used to represent anomaly detection model(RCF) related parameters.
+ * NOTE: If change detector config index mapping, you should change AD task index mapping as well.
+ * TODO: Will replace detector config mapping in AD task with detector config setting directly \
+ *      in code rather than config it in anomaly-detection-state.json file.
  */
 public class AnomalyDetector implements Writeable, ToXContentObject {
 

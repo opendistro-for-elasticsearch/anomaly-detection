@@ -64,38 +64,21 @@ public class ADSearchHandler {
     }
 
     private void validateRole(SearchRequest request, User user, ActionListener<SearchResponse> listener) {
-        if (user == null) {
-            // Auth Header is empty when 1. Security is disabled. 2. When user is super-admin
-            // Proceed with search
-            searchDocs(request, listener);
-        } else if (!filterEnabled) {
-            // Security is enabled and filter is disabled
-            // Proceed with search as user is already authenticated to hit this API.
-            searchDocs(request, listener);
+        if (user == null || !filterEnabled) {
+            // Case 1: user == null when 1. Security is disabled. 2. When user is super-admin
+            // Case 2: If Security is enabled and filter is disabled, proceed with search as
+            // user is already authenticated to hit this API.
+            client.search(request, listener);
         } else {
             // Security is enabled and filter is enabled
             try {
                 addUserBackendRolesFilter(user, request.source());
                 logger.debug("Filtering result by " + user.getBackendRoles());
-                searchDocs(request, listener);
+                client.search(request, listener);
             } catch (Exception e) {
                 listener.onFailure(e);
             }
         }
-    }
-
-    private void searchDocs(SearchRequest request, ActionListener<SearchResponse> listener) {
-        client.search(request, new ActionListener<SearchResponse>() {
-            @Override
-            public void onResponse(SearchResponse searchResponse) {
-                listener.onResponse(searchResponse);
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                listener.onFailure(e);
-            }
-        });
     }
 
 }

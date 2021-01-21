@@ -237,14 +237,14 @@ public class IndexAnomalyDetectorActionHandler {
             }
 
             if (existingDetector.isRealTimeDetector()) {
-                validateHCDetector(existingDetector);
+                validateDetector(existingDetector);
             } else {
                 adTaskManager.getLatestADTask(detectorId, (adTask) -> {
                     if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
                         // can't update detector if there is AD task running
                         listener.onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
                     } else {
-                        // TODO: change to validateHCDetector method when we support HC historical detector
+                        // TODO: change to validateDetector method when we support HC historical detector
                         searchAdInputIndices(detectorId);
                     }
                 }, transportService, listener);
@@ -257,7 +257,7 @@ public class IndexAnomalyDetectorActionHandler {
 
     }
 
-    private void validateHCDetector(AnomalyDetector existingDetector) {
+    private void validateDetector(AnomalyDetector existingDetector) {
         if (!hasCategoryField(existingDetector) && hasCategoryField(this.anomalyDetector)) {
             validateAgainstExistingMultiEntityAnomalyDetector(detectorId);
         } else {

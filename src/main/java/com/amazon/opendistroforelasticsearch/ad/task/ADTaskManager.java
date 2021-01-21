@@ -873,7 +873,7 @@ public class ADTaskManager {
             return;
         }
         if (e instanceof ADTaskCancelledException) {
-            logger.warn("AD task cancelled: " + adTask.getTaskId());
+            logger.info("AD task cancelled, taskId: {}, detectorId: {}", adTask.getTaskId(), adTask.getDetectorId());
             state = ADTaskState.STOPPED.name();
             String stoppedBy = ((ADTaskCancelledException) e).getCancelledBy();
             if (stoppedBy != null) {

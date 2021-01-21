@@ -956,10 +956,10 @@ public class ADTaskManager {
      * Delete AD tasks docs.
      *
      * @param detectorId detector id
-     * @param consumer consumer function
+     * @param function AD function
      * @param listener action listener
      */
-    public void deleteADTasks(String detectorId, Consumer consumer, ActionListener<DeleteResponse> listener) {
+    public void deleteADTasks(String detectorId, AnomalyDetectorFunction function, ActionListener<DeleteResponse> listener) {
         DeleteByQueryRequest request = new DeleteByQueryRequest(CommonName.DETECTION_STATE_INDEX);
 
         BoolQueryBuilder query = new BoolQueryBuilder();
@@ -968,8 +968,14 @@ public class ADTaskManager {
         request.setQuery(query);
         client.execute(DeleteByQueryAction.INSTANCE, request, ActionListener.wrap(r -> {
             logger.info("AD tasks deleted for detector {}", detectorId);
-            consumer.accept(r);
-        }, e -> listener.onFailure(e)));
+            function.execute();
+        }, e -> {
+            if (e instanceof IndexNotFoundException) {
+                function.execute();
+            } else {
+                listener.onFailure(e);
+            }
+        }));
     }
 
     /**

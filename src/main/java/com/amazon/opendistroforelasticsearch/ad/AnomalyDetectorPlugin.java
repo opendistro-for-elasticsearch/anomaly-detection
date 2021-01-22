@@ -96,6 +96,7 @@ import com.amazon.opendistroforelasticsearch.ad.rest.RestExecuteAnomalyDetectorA
 import com.amazon.opendistroforelasticsearch.ad.rest.RestGetAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestIndexAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestPreviewAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchADTasksAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyDetectorInfoAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestSearchAnomalyResultAction;
@@ -152,6 +153,8 @@ import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFPollingTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.RCFResultTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.SearchADTasksAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.SearchADTasksTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorInfoAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorInfoTransportAction;
@@ -164,6 +167,7 @@ import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ThresholdResultTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.handler.ADSearchHandler;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler;
@@ -254,6 +258,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(settings, clusterService);
         RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction();
         RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction();
+        RestSearchADTasksAction searchADTasksAction = new RestSearchADTasksAction();
         RestDeleteAnomalyDetectorAction deleteAnomalyDetectorAction = new RestDeleteAnomalyDetectorAction();
         RestExecuteAnomalyDetectorAction executeAnomalyDetectorAction = new RestExecuteAnomalyDetectorAction(settings, clusterService);
         RestStatsAnomalyDetectorAction statsAnomalyDetectorAction = new RestStatsAnomalyDetectorAction(adStats, this.nodeFilter);
@@ -267,6 +272,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 restIndexAnomalyDetectorAction,
                 searchAnomalyDetectorAction,
                 searchAnomalyResultAction,
+                searchADTasksAction,
                 deleteAnomalyDetectorAction,
                 executeAnomalyDetectorAction,
                 anomalyDetectorJobAction,
@@ -552,6 +558,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             adTaskCacheManager
         );
 
+        ADSearchHandler adSearchHandler = new ADSearchHandler(settings, clusterService, client);
+
         // return objects used by Guice to inject dependencies for e.g.,
         // transport action handler constructors
         return ImmutableList
@@ -578,7 +586,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 modelPartitioner,
                 cacheProvider,
                 adTaskManager,
-                adBatchTaskRunner
+                adBatchTaskRunner,
+                adSearchHandler
             );
     }
 
@@ -676,6 +685,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(RCFPollingAction.INSTANCE, RCFPollingTransportAction.class),
                 new ActionHandler<>(SearchAnomalyDetectorAction.INSTANCE, SearchAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(SearchAnomalyResultAction.INSTANCE, SearchAnomalyResultTransportAction.class),
+                new ActionHandler<>(SearchADTasksAction.INSTANCE, SearchADTasksTransportAction.class),
                 new ActionHandler<>(StatsAnomalyDetectorAction.INSTANCE, StatsAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(DeleteAnomalyDetectorAction.INSTANCE, DeleteAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(GetAnomalyDetectorAction.INSTANCE, GetAnomalyDetectorTransportAction.class),

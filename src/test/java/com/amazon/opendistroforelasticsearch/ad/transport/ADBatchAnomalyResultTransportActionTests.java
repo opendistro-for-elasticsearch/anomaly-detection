@@ -140,6 +140,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
 
     public void testHistoricalDetectorExceedsMaxRunningTaskLimit() throws IOException, InterruptedException {
         updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 1));
+        updateTransientSettings(ImmutableMap.of(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 5));
         DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
         for (int i = 0; i < getDataNodes().size(); i++) {
             client().execute(ADBatchAnomalyResultAction.INSTANCE, adBatchAnomalyResultRequest(dateRange));

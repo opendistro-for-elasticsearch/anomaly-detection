@@ -227,6 +227,11 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.user = user;
         this.detectorType = detectorType;
         this.detectionDateRange = detectionDateRange;
+
+        // TODO: remove this check when we support HC historical detector
+        if (!isRealTimeDetector(detectionDateRange) && categoryFields != null && categoryFields.size() > 0) {
+            throw new IllegalArgumentException("Don't support high cardinality historical detector now");
+        }
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {

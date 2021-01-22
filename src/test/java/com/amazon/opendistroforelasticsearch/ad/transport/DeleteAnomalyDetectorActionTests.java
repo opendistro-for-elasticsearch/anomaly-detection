@@ -40,10 +40,12 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 
 public class DeleteAnomalyDetectorActionTests extends ESIntegTestCase {
     private DeleteAnomalyDetectorTransportAction action;
     private ActionListener<DeleteResponse> response;
+    private ADTaskManager adTaskManager;
 
     @Override
     @Before
@@ -55,13 +57,15 @@ public class DeleteAnomalyDetectorActionTests extends ESIntegTestCase {
             Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        adTaskManager = mock(ADTaskManager.class);
         action = new DeleteAnomalyDetectorTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
             client(),
             clusterService,
             Settings.EMPTY,
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
         response = new ActionListener<DeleteResponse>() {
             @Override

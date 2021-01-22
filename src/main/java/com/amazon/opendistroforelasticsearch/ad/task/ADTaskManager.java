@@ -275,11 +275,11 @@ public class ADTaskManager {
         );
     }
 
-    private void getDetector(
+    public <T> void getDetector(
         String detectorId,
         Consumer<AnomalyDetector> realTimeDetectorConsumer,
         Consumer<AnomalyDetector> historicalDetectorConsumer,
-        ActionListener<AnomalyDetectorJobResponse> listener
+        ActionListener<T> listener
     ) {
         GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
         client.get(getRequest, ActionListener.wrap(response -> {
@@ -425,7 +425,7 @@ public class ADTaskManager {
         return adTask.getLastUpdateTime().plus(2 * pieceIntervalSeconds, ChronoUnit.SECONDS).isBefore(Instant.now());
     }
 
-    private boolean isADTaskEnded(ADTask adTask) {
+    public boolean isADTaskEnded(ADTask adTask) {
         return ADTaskState.STOPPED.name().equals(adTask.getState())
             || ADTaskState.FINISHED.name().equals(adTask.getState())
             || ADTaskState.FAILED.name().equals(adTask.getState());
@@ -512,7 +512,7 @@ public class ADTaskManager {
                     listener.onFailure(e);
                 }));
             } else {
-                listener.onFailure(new ResourceNotFoundException(detectorId, "Can't find task for detector"));
+                listener.onFailure(new ResourceNotFoundException(detectorId, "Can't find latest task for detector"));
             }
         }, transportService, listener);
     }
@@ -873,7 +873,7 @@ public class ADTaskManager {
             return;
         }
         if (e instanceof ADTaskCancelledException) {
-            logger.warn("AD task cancelled: " + adTask.getTaskId());
+            logger.info("AD task cancelled, taskId: {}, detectorId: {}", adTask.getTaskId(), adTask.getDetectorId());
             state = ADTaskState.STOPPED.name();
             String stoppedBy = ((ADTaskCancelledException) e).getCancelledBy();
             if (stoppedBy != null) {
@@ -950,6 +950,32 @@ public class ADTaskManager {
                 reason
             );
         return cancellationState;
+    }
+
+    /**
+     * Delete AD tasks docs.
+     *
+     * @param detectorId detector id
+     * @param function AD function
+     * @param listener action listener
+     */
+    public void deleteADTasks(String detectorId, AnomalyDetectorFunction function, ActionListener<DeleteResponse> listener) {
+        DeleteByQueryRequest request = new DeleteByQueryRequest(CommonName.DETECTION_STATE_INDEX);
+
+        BoolQueryBuilder query = new BoolQueryBuilder();
+        query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
+
+        request.setQuery(query);
+        client.execute(DeleteByQueryAction.INSTANCE, request, ActionListener.wrap(r -> {
+            logger.info("AD tasks deleted for detector {}", detectorId);
+            function.execute();
+        }, e -> {
+            if (e instanceof IndexNotFoundException) {
+                function.execute();
+            } else {
+                listener.onFailure(e);
+            }
+        }));
     }
 
     /**

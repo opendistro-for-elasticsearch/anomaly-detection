@@ -26,23 +26,22 @@ import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 
-public class SearchAnomalyResultActionTests extends HistoricalDetectorIntegTestCase {
+public class SearchADTasksActionTests extends HistoricalDetectorIntegTestCase {
 
     @Test
-    public void testSearchResultAction() throws IOException {
-        createADResultIndex();
-        String adResultId = createADResult(TestHelpers.randomAnomalyDetectResult());
+    public void testSearchADTasksAction() throws IOException {
+        createDetectionStateIndex();
+        String adTaskId = createADTask(TestHelpers.randomAdTask());
 
-        SearchResponse searchResponse = client().execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest()).actionGet(10000);
+        SearchResponse searchResponse = client().execute(SearchADTasksAction.INSTANCE, matchAllRequest()).actionGet(10000);
         assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value);
-
-        assertEquals(adResultId, searchResponse.getInternalResponse().hits().getAt(0).getId());
+        assertEquals(adTaskId, searchResponse.getInternalResponse().hits().getAt(0).getId());
     }
 
     @Test
     public void testNoIndex() {
-        deleteIndexIfExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
-        SearchResponse searchResponse = client().execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest()).actionGet(10000);
+        deleteIndexIfExists(CommonName.DETECTION_STATE_INDEX);
+        SearchResponse searchResponse = client().execute(SearchADTasksAction.INSTANCE, matchAllRequest()).actionGet(10000);
         assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
     }
 

@@ -153,4 +153,12 @@ public class AnomalyDetectionIndicesTests extends ESIntegTestCase {
         IndexResponse indexResponse = client().index(new IndexRequest(indexName).source(xContentBuilder)).actionGet();
         assertEquals("Doc was not created", RestStatus.CREATED, indexResponse.status());
     }
+
+    public void testGetDetectionStateIndexMapping() throws IOException {
+        String detectorIndexMappings = AnomalyDetectionIndices.getAnomalyDetectorMappings();
+        detectorIndexMappings = detectorIndexMappings
+            .substring(detectorIndexMappings.indexOf("\"properties\""), detectorIndexMappings.lastIndexOf("}"));
+        String detectionStateIndexMapping = AnomalyDetectionIndices.getDetectionStateMappings();
+        assertTrue(detectionStateIndexMapping.contains(detectorIndexMappings));
+    }
 }

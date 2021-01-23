@@ -698,6 +698,7 @@ public class ADTaskManager {
             .lastUpdateTime(now)
             .startedBy(userName)
             .coordinatingNode(clusterService.localNode().getId())
+            .user(user)
             .build();
 
         IndexRequest request = new IndexRequest(CommonName.DETECTION_STATE_INDEX);

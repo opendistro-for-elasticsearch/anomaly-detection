@@ -115,7 +115,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
         assertEquals(ADTaskState.FINISHED.name(), finishedTask.getState());
     }
 
-    public void testStartHistoricalDetectorWithUser() throws IOException, InterruptedException {
+    public void testStartHistoricalDetectorWithUser() throws IOException {
         DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
         AnomalyDetector detector = TestHelpers
             .randomDetector(dateRange, ImmutableList.of(maxValueFeature()), testIndex, detectionIntervalInMinutes, timeField);
@@ -131,6 +131,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
             AnomalyDetectorJobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100000);
             ADTask adTask = getADTask(response.getId());
             assertNotNull(adTask.getStartedBy());
+            assertNotNull(adTask.getUser());
         }
     }
 
@@ -299,6 +300,8 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
     public void testStopHistoricalDetector() throws IOException, InterruptedException {
         ADTask adTask = startHistoricalDetector(startTime, endTime);
         assertEquals(ADTaskState.INIT.name(), adTask.getState());
+        assertNull(adTask.getStartedBy());
+        assertNull(adTask.getUser());
         AnomalyDetectorJobRequest request = stopDetectorJobRequest(adTask.getDetectorId());
         client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         Thread.sleep(10000);

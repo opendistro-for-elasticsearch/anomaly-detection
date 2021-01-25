@@ -212,7 +212,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public static String getDetectionStateMappings() throws IOException {
         URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(ANOMALY_DETECTION_STATE_INDEX_MAPPING_FILE);
-        return Resources.toString(url, Charsets.UTF_8);
+        String detectionStateMappings = Resources.toString(url, Charsets.UTF_8);
+        String detectorIndexMappings = AnomalyDetectionIndices.getAnomalyDetectorMappings();
+        detectorIndexMappings = detectorIndexMappings
+            .substring(detectorIndexMappings.indexOf("\"properties\""), detectorIndexMappings.lastIndexOf("}"));
+        return detectionStateMappings.replace("DETECTOR_INDEX_MAPPING_PLACE_HOLDER", detectorIndexMappings);
     }
 
     /**

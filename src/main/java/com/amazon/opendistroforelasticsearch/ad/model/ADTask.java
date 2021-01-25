@@ -29,6 +29,7 @@ import org.elasticsearch.common.xcontent.XContentParser;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.base.Objects;
 
 /**
@@ -54,6 +55,7 @@ public class ADTask implements ToXContentObject, Writeable {
     public static final String COORDINATING_NODE_FIELD = "coordinating_node";
     public static final String WORKER_NODE_FIELD = "worker_node";
     public static final String DETECTOR_FIELD = "detector";
+    public static final String USER_FIELD = "user";
 
     private String taskId = null;
     private Instant lastUpdateTime = null;
@@ -74,6 +76,7 @@ public class ADTask implements ToXContentObject, Writeable {
 
     private String coordinatingNode = null;
     private String workerNode = null;
+    private User user = null;
 
     private ADTask() {}
 
@@ -100,6 +103,11 @@ public class ADTask implements ToXContentObject, Writeable {
         this.stoppedBy = input.readOptionalString();
         this.coordinatingNode = input.readOptionalString();
         this.workerNode = input.readOptionalString();
+        if (input.readBoolean()) {
+            this.user = new User(input);
+        } else {
+            user = null;
+        }
     }
 
     @Override
@@ -127,6 +135,12 @@ public class ADTask implements ToXContentObject, Writeable {
         out.writeOptionalString(stoppedBy);
         out.writeOptionalString(coordinatingNode);
         out.writeOptionalString(workerNode);
+        if (user != null) {
+            out.writeBoolean(true); // user exists
+            user.writeTo(out);
+        } else {
+            out.writeBoolean(false); // user does not exist
+        }
     }
 
     public static Builder builder() {
@@ -152,6 +166,7 @@ public class ADTask implements ToXContentObject, Writeable {
         private String stoppedBy = null;
         private String coordinatingNode = null;
         private String workerNode = null;
+        private User user = null;
 
         public Builder() {}
 
@@ -245,6 +260,11 @@ public class ADTask implements ToXContentObject, Writeable {
             return this;
         }
 
+        public Builder user(User user) {
+            this.user = user;
+            return this;
+        }
+
         public ADTask build() {
             ADTask adTask = new ADTask();
             adTask.taskId = this.taskId;
@@ -265,6 +285,7 @@ public class ADTask implements ToXContentObject, Writeable {
             adTask.stoppedBy = this.stoppedBy;
             adTask.coordinatingNode = this.coordinatingNode;
             adTask.workerNode = this.workerNode;
+            adTask.user = this.user;
 
             return adTask;
         }
@@ -328,6 +349,9 @@ public class ADTask implements ToXContentObject, Writeable {
         if (detector != null) {
             xContentBuilder.field(DETECTOR_FIELD, detector);
         }
+        if (user != null) {
+            xContentBuilder.field(USER_FIELD, user);
+        }
         return xContentBuilder.endObject();
     }
 
@@ -354,6 +378,7 @@ public class ADTask implements ToXContentObject, Writeable {
         String parsedTaskId = taskId;
         String coordinatingNode = null;
         String workerNode = null;
+        User user = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -415,6 +440,9 @@ public class ADTask implements ToXContentObject, Writeable {
                 case WORKER_NODE_FIELD:
                     workerNode = parser.text();
                     break;
+                case USER_FIELD:
+                    user = User.parse(parser);
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -461,6 +489,7 @@ public class ADTask implements ToXContentObject, Writeable {
             .coordinatingNode(coordinatingNode)
             .workerNode(workerNode)
             .detector(anomalyDetector)
+            .user(user)
             .build();
     }
 
@@ -489,7 +518,8 @@ public class ADTask implements ToXContentObject, Writeable {
             && Objects.equal(getCheckpointId(), that.getCheckpointId())
             && Objects.equal(getCoordinatingNode(), that.getCoordinatingNode())
             && Objects.equal(getWorkerNode(), that.getWorkerNode())
-            && Objects.equal(getDetector(), that.getDetector());
+            && Objects.equal(getDetector(), that.getDetector())
+            && Objects.equal(getUser(), that.getUser());
     }
 
     @Generated
@@ -514,7 +544,8 @@ public class ADTask implements ToXContentObject, Writeable {
                 checkpointId,
                 coordinatingNode,
                 workerNode,
-                detector
+                detector,
+                user
             );
     }
 
@@ -598,4 +629,7 @@ public class ADTask implements ToXContentObject, Writeable {
         return workerNode;
     }
 
+    public User getUser() {
+        return user;
+    }
 }

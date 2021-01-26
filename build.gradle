@@ -451,7 +451,6 @@ spotless {
     java {
         removeUnusedImports()
         importOrder 'java', 'javax', 'org', 'com'
-        licenseHeaderFile 'spotless.license.java'
 
         eclipse().configFile rootProject.file('.eclipseformat.xml')
     }

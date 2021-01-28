@@ -460,6 +460,7 @@ public class IndexAnomalyDetectorActionHandler {
         if (response.getHits().getTotalHits().value > 0) {
             String errorMsg = String
                 .format(
+                    Locale.ROOT,
                     "Cannot create anomaly detector with name [%s] as it's already used by detector %s",
                     name,
                     Arrays.stream(response.getHits().getHits()).map(hit -> hit.getId()).collect(Collectors.toList())

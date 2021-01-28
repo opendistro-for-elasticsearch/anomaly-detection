@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.util;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
@@ -110,7 +111,7 @@ public class IndexUtils {
             clusterService.state().getRoutingTable().index(indexOrAliasName)
         );
 
-        return indexHealth.getStatus().name().toLowerCase();
+        return indexHealth.getStatus().name().toLowerCase(Locale.ROOT);
     }
 
     /**

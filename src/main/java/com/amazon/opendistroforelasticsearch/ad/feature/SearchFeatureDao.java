@@ -429,6 +429,7 @@ public class SearchFeatureDao {
                     .info(
                         String
                             .format(
+                                Locale.ROOT,
                                 "Get features for detector %s finishes with features present %b, current stride %d",
                                 detector.getDetectorId(),
                                 features.isPresent(),
@@ -564,6 +565,7 @@ public class SearchFeatureDao {
                 .info(
                     String
                         .format(
+                            Locale.ROOT,
                             "Get features for detector %s finishes without any features present, current stride %d",
                             detector.getDetectorId(),
                             currentStride
@@ -575,6 +577,7 @@ public class SearchFeatureDao {
                 .info(
                     String
                         .format(
+                            Locale.ROOT,
                             "Get features for detector %s finishes with %d samples, current stride %d",
                             detector.getDetectorId(),
                             features.get().length,

@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.ad;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE;
 
 import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
@@ -101,6 +102,7 @@ public class MemoryTracker {
                 detectorId,
                 String
                     .format(
+                        Locale.ROOT,
                         "Exceeded memory limit. New size is %d bytes and max limit is %d bytes",
                         reservedMemoryBytes + requiredBytes,
                         heapLimitBytes
@@ -246,6 +248,7 @@ public class MemoryTracker {
             .info(
                 String
                     .format(
+                        Locale.ROOT,
                         "Memory states do not match.  Recorded: total bytes %d, reserved bytes %d."
                             + "Actual: total bytes %d, reserved bytes: %d",
                         recordedTotalBytes,

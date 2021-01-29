@@ -437,7 +437,7 @@ public class ModelManager implements DetectorModelSize {
      */
     @Deprecated
     public void stopModel(String detectorId, String modelId) {
-        logger.info(String.format("Stopping detector %s model %s", detectorId, modelId));
+        logger.info(String.format(Locale.ROOT, "Stopping detector %s model %s", detectorId, modelId));
         stopModel(forests, modelId, this::toCheckpoint);
         stopModel(thresholds, modelId, this::toCheckpoint);
     }
@@ -458,7 +458,7 @@ public class ModelManager implements DetectorModelSize {
      * @param listener onResponse is called with null when the operation is completed
      */
     public void stopModel(String detectorId, String modelId, ActionListener<Void> listener) {
-        logger.info(String.format("Stopping detector %s model %s", detectorId, modelId));
+        logger.info(String.format(Locale.ROOT, "Stopping detector %s model %s", detectorId, modelId));
         stopModel(
             forests,
             modelId,

@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.ml;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.Locale;
 import java.util.Map.Entry;
 
 import org.apache.logging.log4j.LogManager;
@@ -133,7 +134,7 @@ public class ModelPartitioner {
      * @return ID for the RCF model partition
      */
     public String getRcfModelId(String detectorId, int partitionNumber) {
-        return String.format(RCF_MODEL_ID_PATTERN, detectorId, partitionNumber);
+        return String.format(Locale.ROOT, RCF_MODEL_ID_PATTERN, detectorId, partitionNumber);
     }
 
     /**
@@ -143,6 +144,6 @@ public class ModelPartitioner {
      * @return ID for the thresholding model
      */
     public String getThresholdModelId(String detectorId) {
-        return String.format(THRESHOLD_MODEL_ID_PATTERN, detectorId);
+        return String.format(Locale.ROOT, THRESHOLD_MODEL_ID_PATTERN, detectorId);
     }
 }

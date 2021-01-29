@@ -20,6 +20,7 @@ import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.IndexingPressure.MAX_INDEXING_BYTES;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
@@ -121,7 +122,7 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
             IndexRequest indexRequest = new IndexRequest(indexName).source(result.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
             bulkRequest.add(indexRequest);
         } catch (IOException e) {
-            LOG.error(String.format("Failed to prepare bulk %s", indexName), e);
+            LOG.error(String.format(Locale.ROOT, "Failed to prepare bulk %s", indexName), e);
         }
     }
 }

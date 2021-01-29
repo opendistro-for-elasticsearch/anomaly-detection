@@ -27,6 +27,7 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -223,7 +224,7 @@ public class CheckpointDao {
                     saveModelCheckpointSync(source, modelId);
                 }
             } else {
-                logger.error(String.format("Unexpected error creating index %s", indexName), exception);
+                logger.error(String.format(Locale.ROOT, "Unexpected error creating index %s", indexName), exception);
             }
         }));
     }
@@ -271,7 +272,7 @@ public class CheckpointDao {
                             // It is possible the index has been created while we sending the create request
                             flush(bulkRequest);
                         } else {
-                            logger.error(String.format("Unexpected error creating index %s", indexName), exception);
+                            logger.error(String.format(Locale.ROOT, "Unexpected error creating index %s", indexName), exception);
                         }
                     }));
                 }

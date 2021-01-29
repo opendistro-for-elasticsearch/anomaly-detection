@@ -932,7 +932,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
 
         if (stateManager.isMuted(thresholdNodeId)) {
-            listener.onFailure(new InternalFailure(adID, String.format(NODE_UNRESPONSIVE_ERR_MSG + " %s", thresholdModelID)));
+            listener.onFailure(new InternalFailure(adID, String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s", thresholdModelID)));
             return false;
         }
 
@@ -1060,7 +1060,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.info("Trigger cold start for {}", detectorId);
                 coldStart(detector);
             } else {
-                String errorMsg = String.format("Fail to get checkpoint state for %s", detectorId);
+                String errorMsg = String.format(Locale.ROOT, "Fail to get checkpoint state for %s", detectorId);
                 LOG.error(errorMsg, exception);
                 stateManager.setLastColdStartException(detectorId, new AnomalyDetectionException(errorMsg, exception));
             }

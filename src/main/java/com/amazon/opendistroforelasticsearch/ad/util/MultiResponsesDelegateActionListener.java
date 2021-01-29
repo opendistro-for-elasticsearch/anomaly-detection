@@ -90,7 +90,7 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
     private void finish() {
         if (this.returnOnPartialResults || this.exceptions.size() == 0) {
             if (this.exceptions.size() > 0) {
-                LOG.error(String.format("Although returning result, there exists exceptions: %s", this.exceptions));
+                LOG.error(String.format(Locale.ROOT, "Although returning result, there exists exceptions: %s", this.exceptions));
             }
             handleSavedResponses();
         } else {

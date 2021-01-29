@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -87,7 +88,7 @@ public final class AnomalyDetectorRunner {
                     new MultiResponsesDelegateActionListener<EntityAnomalyResult>(
                         entityAnomalyResultListener,
                         entities.size(),
-                        String.format("Fail to get preview result for multi entity detector %s", detector.getDetectorId()),
+                        String.format(Locale.ROOT, "Fail to get preview result for multi entity detector %s", detector.getDetectorId()),
                         true
                     );
                 for (Entity entity : entities) {

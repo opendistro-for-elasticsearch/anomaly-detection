@@ -75,7 +75,7 @@ public class RestSearchAnomalyDetectorInfoAction extends BaseRestHandler {
                 // get if a detector name exists with name
                 new RestHandler.Route(
                     RestRequest.Method.GET,
-                    String.format(Locale.US, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, MATCH)
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, MATCH)
                 )
             );
     }

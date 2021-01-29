@@ -122,7 +122,7 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
             IndexRequest indexRequest = new IndexRequest(indexName).source(result.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
             bulkRequest.add(indexRequest);
         } catch (IOException e) {
-            LOG.error(String.format(Locale.US, "Failed to prepare bulk %s", indexName), e);
+            LOG.error(String.format(Locale.ROOT, "Failed to prepare bulk %s", indexName), e);
         }
     }
 }

@@ -419,7 +419,7 @@ public class SearchFeatureDao {
         Map<Long, double[]> cache = new HashMap<>();
         int currentStride = maxStride;
         Optional<double[][]> features = Optional.empty();
-        logger.info(String.format(Locale.US, "Getting features for detector %s starting %d", detector.getDetectorId(), endTime));
+        logger.info(String.format(Locale.ROOT, "Getting features for detector %s starting %d", detector.getDetectorId(), endTime));
         while (currentStride >= 1) {
             boolean isInterpolatable = currentStride < maxStride;
             features = getFeaturesForSampledPeriods(detector, maxSamples, currentStride, endTime, cache, isInterpolatable);
@@ -513,7 +513,7 @@ public class SearchFeatureDao {
         ActionListener<Optional<Entry<double[][], Integer>>> listener
     ) {
         Map<Long, double[]> cache = new HashMap<>();
-        logger.info(String.format(Locale.US, "Getting features for detector %s ending at %d", detector.getDetectorId(), endTime));
+        logger.info(String.format(Locale.ROOT, "Getting features for detector %s ending at %d", detector.getDetectorId(), endTime));
         getFeatureSamplesWithCache(detector, maxSamples, maxStride, endTime, cache, maxStride, listener);
     }
 

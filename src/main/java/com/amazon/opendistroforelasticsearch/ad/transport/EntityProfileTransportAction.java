@@ -153,7 +153,7 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
                         }
                     );
             } catch (Exception e) {
-                LOG.error(String.format(Locale.US, "Fail to get entity profile for detector {}, entity {}", adID, entityValue), e);
+                LOG.error(String.format(Locale.ROOT, "Fail to get entity profile for detector {}, entity {}", adID, entityValue), e);
                 listener.onFailure(new AnomalyDetectionException(adID, FAIL_TO_GET_ENTITY_PROFILE_MSG, e));
             }
 

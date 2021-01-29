@@ -224,7 +224,7 @@ public class CheckpointDao {
                     saveModelCheckpointSync(source, modelId);
                 }
             } else {
-                logger.error(String.format(Locale.US, "Unexpected error creating index %s", indexName), exception);
+                logger.error(String.format(Locale.ROOT, "Unexpected error creating index %s", indexName), exception);
             }
         }));
     }
@@ -272,7 +272,7 @@ public class CheckpointDao {
                             // It is possible the index has been created while we sending the create request
                             flush(bulkRequest);
                         } else {
-                            logger.error(String.format(Locale.US, "Unexpected error creating index %s", indexName), exception);
+                            logger.error(String.format(Locale.ROOT, "Unexpected error creating index %s", indexName), exception);
                         }
                     }));
                 }

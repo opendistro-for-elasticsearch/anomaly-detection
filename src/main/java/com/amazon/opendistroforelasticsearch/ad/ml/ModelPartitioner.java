@@ -134,7 +134,7 @@ public class ModelPartitioner {
      * @return ID for the RCF model partition
      */
     public String getRcfModelId(String detectorId, int partitionNumber) {
-        return String.format(Locale.US, RCF_MODEL_ID_PATTERN, detectorId, partitionNumber);
+        return String.format(Locale.ROOT, RCF_MODEL_ID_PATTERN, detectorId, partitionNumber);
     }
 
     /**
@@ -144,6 +144,6 @@ public class ModelPartitioner {
      * @return ID for the thresholding model
      */
     public String getThresholdModelId(String detectorId) {
-        return String.format(Locale.US, THRESHOLD_MODEL_ID_PATTERN, detectorId);
+        return String.format(Locale.ROOT, THRESHOLD_MODEL_ID_PATTERN, detectorId);
     }
 }

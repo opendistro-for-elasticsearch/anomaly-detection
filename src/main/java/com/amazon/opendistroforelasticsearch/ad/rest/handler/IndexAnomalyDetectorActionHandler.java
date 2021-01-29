@@ -392,13 +392,13 @@ public class IndexAnomalyDetectorActionHandler {
             }
 
             if (foundField == false) {
-                listener.onFailure(new IllegalArgumentException(String.format(Locale.US, NOT_FOUND_ERR_MSG, categoryField0)));
+                listener.onFailure(new IllegalArgumentException(String.format(Locale.ROOT, NOT_FOUND_ERR_MSG, categoryField0)));
                 return;
             }
 
             searchAdInputIndices(detectorId);
         }, error -> {
-            String message = String.format(Locale.US, "Fail to get the index mapping of %s", anomalyDetector.getIndices());
+            String message = String.format(Locale.ROOT, "Fail to get the index mapping of %s", anomalyDetector.getIndices());
             logger.error(message, error);
             listener.onFailure(new IllegalArgumentException(message));
         });

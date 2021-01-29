@@ -31,9 +31,9 @@ public abstract class AbstractProfileRunner {
         int neededPoints = (int) (requiredSamples - totalUpdates);
         return new InitProgressProfile(
             // rounding: 93.456 => 93%, 93.556 => 94%
-            // Without Locale.US, sometimes conversions use localized decimal digits
+            // Without Locale.ROOT, sometimes conversions use localized decimal digits
             // rather than the usual ASCII digits. See https://tinyurl.com/y5sdr5tp
-            String.format(Locale.US, "%.0f%%", percent),
+            String.format(Locale.ROOT, "%.0f%%", percent),
             intervalMins * neededPoints,
             neededPoints
         );

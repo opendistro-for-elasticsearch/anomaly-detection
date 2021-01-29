@@ -88,7 +88,7 @@ public final class AnomalyDetectorRunner {
                     new MultiResponsesDelegateActionListener<EntityAnomalyResult>(
                         entityAnomalyResultListener,
                         entities.size(),
-                        String.format(Locale.US, "Fail to get preview result for multi entity detector %s", detector.getDetectorId()),
+                        String.format(Locale.ROOT, "Fail to get preview result for multi entity detector %s", detector.getDetectorId()),
                         true
                     );
                 for (Entity entity : entities) {

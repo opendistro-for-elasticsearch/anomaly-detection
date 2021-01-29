@@ -132,7 +132,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
                                 } else {
                                     throw new AnomalyDetectionException(
                                         detectorId,
-                                        String.format(Locale.US, "Unexpected error creating index %s", indexName),
+                                        String.format(Locale.ROOT, "Unexpected error creating index %s", indexName),
                                         exception
                                     );
                                 }
@@ -167,8 +167,8 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
                 ADResultBulkAction.INSTANCE,
                 currentBulkRequest,
                 ActionListener
-                    .<BulkResponse>wrap(response -> LOG.debug(String.format(Locale.US, SUCCESS_SAVING_MSG, detectorId)), exception -> {
-                        LOG.error(String.format(Locale.US, FAIL_TO_SAVE_ERR_MSG, detectorId), exception);
+                    .<BulkResponse>wrap(response -> LOG.debug(String.format(Locale.ROOT, SUCCESS_SAVING_MSG, detectorId)), exception -> {
+                        LOG.error(String.format(Locale.ROOT, FAIL_TO_SAVE_ERR_MSG, detectorId), exception);
                         Throwable cause = Throwables.getRootCause(exception);
                         // too much indexing pressure
                         // TODO: pause indexing a bit before trying again, ideally with randomized exponential backoff.

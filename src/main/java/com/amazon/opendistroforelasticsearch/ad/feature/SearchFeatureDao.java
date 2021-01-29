@@ -31,6 +31,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -418,7 +419,7 @@ public class SearchFeatureDao {
         Map<Long, double[]> cache = new HashMap<>();
         int currentStride = maxStride;
         Optional<double[][]> features = Optional.empty();
-        logger.info(String.format("Getting features for detector %s starting %d", detector.getDetectorId(), endTime));
+        logger.info(String.format(Locale.ROOT, "Getting features for detector %s starting %d", detector.getDetectorId(), endTime));
         while (currentStride >= 1) {
             boolean isInterpolatable = currentStride < maxStride;
             features = getFeaturesForSampledPeriods(detector, maxSamples, currentStride, endTime, cache, isInterpolatable);
@@ -428,6 +429,7 @@ public class SearchFeatureDao {
                     .info(
                         String
                             .format(
+                                Locale.ROOT,
                                 "Get features for detector %s finishes with features present %b, current stride %d",
                                 detector.getDetectorId(),
                                 features.isPresent(),
@@ -511,7 +513,7 @@ public class SearchFeatureDao {
         ActionListener<Optional<Entry<double[][], Integer>>> listener
     ) {
         Map<Long, double[]> cache = new HashMap<>();
-        logger.info(String.format("Getting features for detector %s ending at %d", detector.getDetectorId(), endTime));
+        logger.info(String.format(Locale.ROOT, "Getting features for detector %s ending at %d", detector.getDetectorId(), endTime));
         getFeatureSamplesWithCache(detector, maxSamples, maxStride, endTime, cache, maxStride, listener);
     }
 
@@ -563,6 +565,7 @@ public class SearchFeatureDao {
                 .info(
                     String
                         .format(
+                            Locale.ROOT,
                             "Get features for detector %s finishes without any features present, current stride %d",
                             detector.getDetectorId(),
                             currentStride
@@ -574,6 +577,7 @@ public class SearchFeatureDao {
                 .info(
                     String
                         .format(
+                            Locale.ROOT,
                             "Get features for detector %s finishes with %d samples, current stride %d",
                             detector.getDetectorId(),
                             features.get().length,

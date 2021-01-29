@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -118,7 +119,7 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
             listener.onResponse(builder.build());
         } else {
             // redirect
-            LOG.debug("Sending RCF polling request to {} for detector {}, entity {}", nodeId, adID, entityValue);
+            LOG.debug("Sending entity profile request to {} for detector {}, entity {}", nodeId, adID, entityValue);
 
             try {
                 transportService
@@ -152,7 +153,7 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
                         }
                     );
             } catch (Exception e) {
-                LOG.error(String.format("Fail to get entity profile for detector {}, entity {}", adID, entityValue), e);
+                LOG.error(String.format(Locale.ROOT, "Fail to get entity profile for detector {}, entity {}", adID, entityValue), e);
                 listener.onFailure(new AnomalyDetectionException(adID, FAIL_TO_GET_ENTITY_PROFILE_MSG, e));
             }
 

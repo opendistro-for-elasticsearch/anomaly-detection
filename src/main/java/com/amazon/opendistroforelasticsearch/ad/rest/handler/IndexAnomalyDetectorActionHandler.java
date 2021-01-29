@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -391,13 +392,13 @@ public class IndexAnomalyDetectorActionHandler {
             }
 
             if (foundField == false) {
-                listener.onFailure(new IllegalArgumentException(String.format(NOT_FOUND_ERR_MSG, categoryField0)));
+                listener.onFailure(new IllegalArgumentException(String.format(Locale.ROOT, NOT_FOUND_ERR_MSG, categoryField0)));
                 return;
             }
 
             searchAdInputIndices(detectorId);
         }, error -> {
-            String message = String.format("Fail to get the index mapping of %s", anomalyDetector.getIndices());
+            String message = String.format(Locale.ROOT, "Fail to get the index mapping of %s", anomalyDetector.getIndices());
             logger.error(message, error);
             listener.onFailure(new IllegalArgumentException(message));
         });
@@ -459,6 +460,7 @@ public class IndexAnomalyDetectorActionHandler {
         if (response.getHits().getTotalHits().value > 0) {
             String errorMsg = String
                 .format(
+                    Locale.ROOT,
                     "Cannot create anomaly detector with name [%s] as it's already used by detector %s",
                     name,
                     Arrays.stream(response.getHits().getHits()).map(hit -> hit.getId()).collect(Collectors.toList())

@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
+import java.util.Locale;
+
 import com.amazon.opendistroforelasticsearch.ad.model.InitProgressProfile;
 
 public abstract class AbstractProfileRunner {
@@ -29,7 +31,9 @@ public abstract class AbstractProfileRunner {
         int neededPoints = (int) (requiredSamples - totalUpdates);
         return new InitProgressProfile(
             // rounding: 93.456 => 93%, 93.556 => 94%
-            String.format("%.0f%%", percent),
+            // Without Locale.ROOT, sometimes conversions use localized decimal digits
+            // rather than the usual ASCII digits. See https://tinyurl.com/y5sdr5tp
+            String.format(Locale.ROOT, "%.0f%%", percent),
             intervalMins * neededPoints,
             neededPoints
         );

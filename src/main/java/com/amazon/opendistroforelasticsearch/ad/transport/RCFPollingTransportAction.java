@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
@@ -139,7 +140,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
 
                     });
             } catch (Exception e) {
-                LOG.error(String.format("Fail to poll RCF models for {}", adID), e);
+                LOG.error(String.format(Locale.ROOT, "Fail to poll RCF models for {}", adID), e);
                 listener.onFailure(new AnomalyDetectionException(adID, FAIL_TO_GET_RCF_UPDATE_MSG, e));
             }
 

@@ -132,7 +132,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
                                 } else {
                                     throw new AnomalyDetectionException(
                                         detectorId,
-                                        String.format("Unexpected error creating index %s", indexName),
+                                        String.format(Locale.ROOT, "Unexpected error creating index %s", indexName),
                                         exception
                                     );
                                 }
@@ -166,15 +166,16 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
             .execute(
                 ADResultBulkAction.INSTANCE,
                 currentBulkRequest,
-                ActionListener.<BulkResponse>wrap(response -> LOG.debug(String.format(SUCCESS_SAVING_MSG, detectorId)), exception -> {
-                    LOG.error(String.format(FAIL_TO_SAVE_ERR_MSG, detectorId), exception);
-                    Throwable cause = Throwables.getRootCause(exception);
-                    // too much indexing pressure
-                    // TODO: pause indexing a bit before trying again, ideally with randomized exponential backoff.
-                    if (cause instanceof RejectedExecutionException) {
-                        nodeStateManager.setLastIndexThrottledTime(clock.instant());
-                    }
-                })
+                ActionListener
+                    .<BulkResponse>wrap(response -> LOG.debug(String.format(Locale.ROOT, SUCCESS_SAVING_MSG, detectorId)), exception -> {
+                        LOG.error(String.format(Locale.ROOT, FAIL_TO_SAVE_ERR_MSG, detectorId), exception);
+                        Throwable cause = Throwables.getRootCause(exception);
+                        // too much indexing pressure
+                        // TODO: pause indexing a bit before trying again, ideally with randomized exponential backoff.
+                        if (cause instanceof RejectedExecutionException) {
+                            nodeStateManager.setLastIndexThrottledTime(clock.instant());
+                        }
+                    })
             );
     }
 }

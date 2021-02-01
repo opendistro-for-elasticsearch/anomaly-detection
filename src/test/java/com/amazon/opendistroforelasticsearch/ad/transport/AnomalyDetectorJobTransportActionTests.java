@@ -58,6 +58,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 @ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.TEST, numDataNodes = 2)
@@ -299,6 +300,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
     }
 
     public void testStopHistoricalDetector() throws IOException, InterruptedException {
+        updateTransientSettings(ImmutableMap.of(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 5));
         ADTask adTask = startHistoricalDetector(startTime, endTime);
         assertEquals(ADTaskState.INIT.name(), adTask.getState());
         assertNull(adTask.getStartedBy());

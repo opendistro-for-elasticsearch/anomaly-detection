@@ -181,10 +181,13 @@ public class ADTaskManager {
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
-        getDetector(
-            detectorId,
-            (detector) -> handler.startAnomalyDetectorJob(detector), // run realtime detector
-            (detector) -> {
+        getDetector(detectorId, (detector) -> {
+            if (validateDetector(detector, listener)) {
+                // run realtime detector
+                handler.startAnomalyDetectorJob(detector);
+            }
+        }, (detector) -> {
+            if (validateDetector(detector, listener)) {
                 // run historical detector
                 Optional<DiscoveryNode> owningNode = hashRing.getOwningNode(detector.getDetectorId());
                 if (!owningNode.isPresent()) {
@@ -194,9 +197,8 @@ public class ADTaskManager {
                     return;
                 }
                 forwardToCoordinatingNode(detector, user, ADTaskAction.START, transportService, owningNode.get(), listener);
-            },
-            listener
-        );
+            }
+        }, listener);
     }
 
     /**
@@ -292,12 +294,6 @@ public class ADTaskManager {
             ) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
-
-                String error = validateDetector(detector);
-                if (error != null) {
-                    listener.onFailure(new ElasticsearchStatusException(error, RestStatus.BAD_REQUEST));
-                    return;
-                }
 
                 if (detector.isRealTimeDetector()) {
                     // run realtime detector
@@ -595,14 +591,18 @@ public class ADTaskManager {
         return adTaskProfile;
     }
 
-    private String validateDetector(AnomalyDetector detector) {
+    private boolean validateDetector(AnomalyDetector detector, ActionListener<AnomalyDetectorJobResponse> listener) {
+        String error = null;
         if (detector.getFeatureAttributes().size() == 0) {
-            return "Can't start detector job as no features configured";
+            error = "Can't start detector job as no features configured";
+        } else if (detector.getEnabledFeatureIds().size() == 0) {
+            error = "Can't start detector job as no enabled features configured";
         }
-        if (detector.getEnabledFeatureIds().size() == 0) {
-            return "Can't start detector job as no enabled features configured";
+        if (error != null) {
+            listener.onFailure(new ElasticsearchStatusException(error, RestStatus.BAD_REQUEST));
+            return false;
         }
-        return null;
+        return true;
     }
 
     /**

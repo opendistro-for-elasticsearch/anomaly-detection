@@ -31,6 +31,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -304,7 +305,14 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
         assertNull(adTask.getUser());
         AnomalyDetectorJobRequest request = stopDetectorJobRequest(adTask.getDetectorId());
         client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
-        Thread.sleep(10000);
+        waitUntil(() -> {
+            try {
+                ADTask task = getADTask(adTask.getTaskId());
+                return !TestHelpers.historicalDetectorRunningStats.contains(task.getState());
+            } catch (IOException e) {
+                return false;
+            }
+        }, 20, TimeUnit.SECONDS);
         ADTask stoppedTask = getADTask(adTask.getTaskId());
         assertEquals(ADTaskState.STOPPED.name(), stoppedTask.getState());
         assertEquals(0, getExecutingADTask());

@@ -40,6 +40,7 @@ Compatible with Elasticsearch 7.10.2
 
 * Updating Readme to include Secure tests ([#334](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/334))
 * remove spotless header file; remove copyright year in new files for h… ([#372](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/372))
+* Add release notes for version 1.13.0.0 ([#382](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/382))
 
 ### Maintenance
 

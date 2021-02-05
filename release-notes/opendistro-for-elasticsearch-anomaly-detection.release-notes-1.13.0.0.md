@@ -20,6 +20,7 @@ Compatible with Elasticsearch 7.10.2
 * filter out exceptions which should not be counted in failure stats ([#341](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/341))
 * Moving Preview Anomaly Detectors to Transport layer ([#321](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/321))
 * Adding role based filtering for Preview API ([#356](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/356))
+* change the backend role filtering to keep consistent with alerting plugin ([#383](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/383))
 
 ### Bug Fixes
 

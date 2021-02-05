@@ -50,7 +50,6 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.ExistsQueryBuilder;
 import org.elasticsearch.index.query.NestedQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -79,6 +78,7 @@ import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunc
 import com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorResponse;
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
+import com.google.common.collect.ImmutableList;
 
 /**
  * Parsing utility functions.
@@ -425,31 +425,17 @@ public final class ParseUtils {
     }
 
     public static SearchSourceBuilder addUserBackendRolesFilter(User user, SearchSourceBuilder searchSourceBuilder) {
+        if (user == null) {
+            return searchSourceBuilder;
+        }
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
         String userFieldName = "user";
         String userBackendRoleFieldName = "user.backend_roles.keyword";
-        if (user == null) {
-            // For old monitor and detector, they have no user field, user = null
-            ExistsQueryBuilder userRolesFilterQuery = QueryBuilders.existsQuery(userFieldName);
-            NestedQueryBuilder nestedQueryBuilder = new NestedQueryBuilder(userFieldName, userRolesFilterQuery, ScoreMode.None);
-            boolQueryBuilder.mustNot(nestedQueryBuilder);
-        } else if (user.getBackendRoles() == null || user.getBackendRoles().size() == 0) {
-            // For simple FGAC user, they may have no backend roles, these users should be able to see detectors
-            // of other users whose backend role is empty. user != null, user.backend_role == null
-            ExistsQueryBuilder userRolesFilterQuery = QueryBuilders.existsQuery(userBackendRoleFieldName);
-            NestedQueryBuilder nestedQueryBuilder = new NestedQueryBuilder(userFieldName, userRolesFilterQuery, ScoreMode.None);
-
-            ExistsQueryBuilder userExistsQuery = QueryBuilders.existsQuery(userFieldName);
-            NestedQueryBuilder userExistsNestedQueryBuilder = new NestedQueryBuilder(userFieldName, userExistsQuery, ScoreMode.None);
-
-            boolQueryBuilder.mustNot(nestedQueryBuilder);
-            boolQueryBuilder.must(userExistsNestedQueryBuilder);
-        } else {
-            // For normal case, user should have backend roles.
-            TermsQueryBuilder userRolesFilterQuery = QueryBuilders.termsQuery(userBackendRoleFieldName, user.getBackendRoles());
-            NestedQueryBuilder nestedQueryBuilder = new NestedQueryBuilder(userFieldName, userRolesFilterQuery, ScoreMode.None);
-            boolQueryBuilder.must(nestedQueryBuilder);
-        }
+        List<String> backendRoles = user.getBackendRoles() != null ? user.getBackendRoles() : ImmutableList.of();
+        // For normal case, user should have backend roles.
+        TermsQueryBuilder userRolesFilterQuery = QueryBuilders.termsQuery(userBackendRoleFieldName, backendRoles);
+        NestedQueryBuilder nestedQueryBuilder = new NestedQueryBuilder(userFieldName, userRolesFilterQuery, ScoreMode.None);
+        boolQueryBuilder.must(nestedQueryBuilder);
         QueryBuilder query = searchSourceBuilder.query();
         if (query == null) {
             searchSourceBuilder.query(boolQueryBuilder);

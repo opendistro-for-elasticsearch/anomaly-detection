@@ -117,12 +117,7 @@ public class ParseUtilsTests extends ESTestCase {
     public void testAddUserRoleFilterWithNullUser() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         addUserBackendRolesFilter(null, searchSourceBuilder);
-        assertEquals(
-            "{\"query\":{\"bool\":{\"must_not\":[{\"nested\":{\"query\":{\"exists\":{\"field\":\"user\",\"boost\":1.0}},"
-                + "\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],\"adjust_pure_negative\":true,"
-                + "\"boost\":1.0}}}",
-            searchSourceBuilder.toString()
-        );
+        assertEquals("{}", searchSourceBuilder.toString());
     }
 
     public void testAddUserRoleFilterWithNullUserBackendRole() {
@@ -132,10 +127,9 @@ public class ParseUtilsTests extends ESTestCase {
             searchSourceBuilder
         );
         assertEquals(
-            "{\"query\":{\"bool\":{\"must\":[{\"nested\":{\"query\":{\"exists\":{\"field\":\"user\",\"boost\":1.0}},"
-                + "\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],\"must_not\":[{\"nested\":"
-                + "{\"query\":{\"exists\":{\"field\":\"user.backend_roles.keyword\",\"boost\":1.0}},\"path\":\"user\",\"ignore_unmapped\""
-                + ":false,\"score_mode\":\"none\",\"boost\":1.0}}],\"adjust_pure_negative\":true,\"boost\":1.0}}}",
+            "{\"query\":{\"bool\":{\"must\":[{\"nested\":{\"query\":{\"terms\":{\"user.backend_roles.keyword\":[],"
+                + "\"boost\":1.0}},\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],"
+                + "\"adjust_pure_negative\":true,\"boost\":1.0}}}",
             searchSourceBuilder.toString()
         );
     }
@@ -152,10 +146,9 @@ public class ParseUtilsTests extends ESTestCase {
             searchSourceBuilder
         );
         assertEquals(
-            "{\"query\":{\"bool\":{\"must\":[{\"nested\":{\"query\":{\"exists\":{\"field\":\"user\",\"boost\":1.0}},"
-                + "\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],\"must_not\":[{\"nested\":"
-                + "{\"query\":{\"exists\":{\"field\":\"user.backend_roles.keyword\",\"boost\":1.0}},\"path\":\"user\",\"ignore_unmapped\""
-                + ":false,\"score_mode\":\"none\",\"boost\":1.0}}],\"adjust_pure_negative\":true,\"boost\":1.0}}}",
+            "{\"query\":{\"bool\":{\"must\":[{\"nested\":{\"query\":{\"terms\":{\"user.backend_roles.keyword\":[],"
+                + "\"boost\":1.0}},\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],"
+                + "\"adjust_pure_negative\":true,\"boost\":1.0}}}",
             searchSourceBuilder.toString()
         );
     }

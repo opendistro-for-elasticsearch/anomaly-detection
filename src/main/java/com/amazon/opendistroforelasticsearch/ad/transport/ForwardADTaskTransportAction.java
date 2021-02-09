@@ -47,7 +47,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
 
         switch (adTaskAction) {
             case START:
-                adTaskManager.startHistoricalDetector(request.getDetector(), request.getUser(), transportService, listener);
+                adTaskManager.startHistoricalDetector(request.getDetector(), request.getDetectionDateRange(), request.getUser(), transportService, listener);
                 break;
             case STOP:
                 adTaskManager.removeDetectorFromCache(request.getDetector().getDetectorId());

@@ -20,6 +20,7 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.resolveUserAndExecute;
 
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -79,6 +80,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
     @Override
     protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<AnomalyDetectorJobResponse> listener) {
         String detectorId = request.getDetectorID();
+        DetectionDateRange detectionDateRange = request.getDetectionDateRange();
         long seqNo = request.getSeqNo();
         long primaryTerm = request.getPrimaryTerm();
         String rawPath = request.getRawPath();
@@ -92,7 +94,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
                 detectorId,
                 filterByEnabled,
                 listener,
-                () -> executeDetector(listener, detectorId, seqNo, primaryTerm, rawPath, requestTimeout, user),
+                () -> executeDetector(listener, detectorId, detectionDateRange, seqNo, primaryTerm, rawPath, requestTimeout, user),
                 client,
                 clusterService,
                 xContentRegistry
@@ -106,6 +108,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
     private void executeDetector(
         ActionListener<AnomalyDetectorJobResponse> listener,
         String detectorId,
+        DetectionDateRange detectionDateRange,
         long seqNo,
         long primaryTerm,
         String rawPath,
@@ -123,8 +126,9 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
             xContentRegistry
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
-            adTaskManager.startDetector(detectorId, handler, user, transportService, listener);
+            adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, listener);
         } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
+            // TODO: stop realtime or historical?
             adTaskManager.stopDetector(detectorId, handler, user, transportService, listener);
         }
     }

@@ -55,6 +55,7 @@ public class ADTask implements ToXContentObject, Writeable {
     public static final String COORDINATING_NODE_FIELD = "coordinating_node";
     public static final String WORKER_NODE_FIELD = "worker_node";
     public static final String DETECTOR_FIELD = "detector";
+    public static final String DETECTION_DATE_RANGE_FIELD = "detection_date_range";
     public static final String USER_FIELD = "user";
 
     private String taskId = null;
@@ -76,6 +77,7 @@ public class ADTask implements ToXContentObject, Writeable {
 
     private String coordinatingNode = null;
     private String workerNode = null;
+    private DetectionDateRange detectionDateRange = null;
     private User user = null;
 
     private ADTask() {}
@@ -103,6 +105,11 @@ public class ADTask implements ToXContentObject, Writeable {
         this.stoppedBy = input.readOptionalString();
         this.coordinatingNode = input.readOptionalString();
         this.workerNode = input.readOptionalString();
+        if (input.readBoolean()) {
+            this.detectionDateRange = new DetectionDateRange(input);
+        } else {
+            this.detectionDateRange = null;
+        }
         if (input.readBoolean()) {
             this.user = new User(input);
         } else {
@@ -135,6 +142,12 @@ public class ADTask implements ToXContentObject, Writeable {
         out.writeOptionalString(stoppedBy);
         out.writeOptionalString(coordinatingNode);
         out.writeOptionalString(workerNode);
+        if (detectionDateRange != null) {
+            out.writeBoolean(true);
+            detectionDateRange.writeTo(out);
+        } else {
+            out.writeBoolean(false);
+        }
         if (user != null) {
             out.writeBoolean(true); // user exists
             user.writeTo(out);
@@ -166,6 +179,7 @@ public class ADTask implements ToXContentObject, Writeable {
         private String stoppedBy = null;
         private String coordinatingNode = null;
         private String workerNode = null;
+        private DetectionDateRange detectionDateRange = null;
         private User user = null;
 
         public Builder() {}
@@ -260,6 +274,11 @@ public class ADTask implements ToXContentObject, Writeable {
             return this;
         }
 
+        public Builder detectionDateRange(DetectionDateRange detectionDateRange) {
+            this.detectionDateRange = detectionDateRange;
+            return this;
+        }
+
         public Builder user(User user) {
             this.user = user;
             return this;
@@ -285,6 +304,7 @@ public class ADTask implements ToXContentObject, Writeable {
             adTask.stoppedBy = this.stoppedBy;
             adTask.coordinatingNode = this.coordinatingNode;
             adTask.workerNode = this.workerNode;
+            adTask.detectionDateRange = this.detectionDateRange;
             adTask.user = this.user;
 
             return adTask;
@@ -349,6 +369,9 @@ public class ADTask implements ToXContentObject, Writeable {
         if (detector != null) {
             xContentBuilder.field(DETECTOR_FIELD, detector);
         }
+        if (detectionDateRange != null) {
+            xContentBuilder.field(DETECTION_DATE_RANGE_FIELD, detectionDateRange);
+        }
         if (user != null) {
             xContentBuilder.field(USER_FIELD, user);
         }
@@ -378,6 +401,7 @@ public class ADTask implements ToXContentObject, Writeable {
         String parsedTaskId = taskId;
         String coordinatingNode = null;
         String workerNode = null;
+        DetectionDateRange detectionDateRange = null;
         User user = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
@@ -440,6 +464,9 @@ public class ADTask implements ToXContentObject, Writeable {
                 case WORKER_NODE_FIELD:
                     workerNode = parser.text();
                     break;
+                case DETECTION_DATE_RANGE_FIELD:
+                    detectionDateRange = DetectionDateRange.parse(parser);
+                    break;
                 case USER_FIELD:
                     user = User.parse(parser);
                     break;
@@ -467,8 +494,7 @@ public class ADTask implements ToXContentObject, Writeable {
                 detector.getLastUpdateTime(),
                 detector.getCategoryField(),
                 detector.getUser(),
-                detector.getDetectorType(),
-                detector.getDetectionDateRange()
+                detector.getDetectorType()
             );
         return new Builder()
             .taskId(parsedTaskId)
@@ -489,6 +515,7 @@ public class ADTask implements ToXContentObject, Writeable {
             .coordinatingNode(coordinatingNode)
             .workerNode(workerNode)
             .detector(anomalyDetector)
+            .detectionDateRange(detectionDateRange)
             .user(user)
             .build();
     }
@@ -519,6 +546,7 @@ public class ADTask implements ToXContentObject, Writeable {
             && Objects.equal(getCoordinatingNode(), that.getCoordinatingNode())
             && Objects.equal(getWorkerNode(), that.getWorkerNode())
             && Objects.equal(getDetector(), that.getDetector())
+            && Objects.equal(getDetectionDateRange(), that.getDetectionDateRange())
             && Objects.equal(getUser(), that.getUser());
     }
 
@@ -545,6 +573,7 @@ public class ADTask implements ToXContentObject, Writeable {
                 coordinatingNode,
                 workerNode,
                 detector,
+                detectionDateRange,
                 user
             );
     }
@@ -627,6 +656,10 @@ public class ADTask implements ToXContentObject, Writeable {
 
     public String getWorkerNode() {
         return workerNode;
+    }
+
+    public DetectionDateRange getDetectionDateRange() {
+        return detectionDateRange;
     }
 
     public User getUser() {

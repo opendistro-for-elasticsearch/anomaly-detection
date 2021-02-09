@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import java.io.IOException;
 
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.common.io.stream.StreamInput;
@@ -25,6 +26,7 @@ import org.elasticsearch.common.io.stream.StreamOutput;
 public class AnomalyDetectorJobRequest extends ActionRequest {
 
     private String detectorID;
+    private DetectionDateRange detectionDateRange;
     private long seqNo;
     private long primaryTerm;
     private String rawPath;
@@ -32,14 +34,22 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
     public AnomalyDetectorJobRequest(StreamInput in) throws IOException {
         super(in);
         detectorID = in.readString();
+        if (in.readBoolean()) {
+            detectionDateRange = new DetectionDateRange(in);
+        }
         seqNo = in.readLong();
         primaryTerm = in.readLong();
         rawPath = in.readString();
     }
 
     public AnomalyDetectorJobRequest(String detectorID, long seqNo, long primaryTerm, String rawPath) {
+        this(detectorID, null, seqNo, primaryTerm, rawPath);
+    }
+
+    public AnomalyDetectorJobRequest(String detectorID, DetectionDateRange detectionDateRange, long seqNo, long primaryTerm, String rawPath) {
         super();
         this.detectorID = detectorID;
+        this.detectionDateRange = detectionDateRange;
         this.seqNo = seqNo;
         this.primaryTerm = primaryTerm;
         this.rawPath = rawPath;
@@ -47,6 +57,10 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
 
     public String getDetectorID() {
         return detectorID;
+    }
+
+    public DetectionDateRange getDetectionDateRange() {
+        return detectionDateRange;
     }
 
     public long getSeqNo() {
@@ -65,6 +79,13 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(detectorID);
+        if (detectionDateRange != null) {
+            out.writeBoolean(true);
+            detectionDateRange.writeTo(out);
+        } else {
+            out.writeBoolean(false);
+        }
+
         out.writeLong(seqNo);
         out.writeLong(primaryTerm);
         out.writeString(rawPath);

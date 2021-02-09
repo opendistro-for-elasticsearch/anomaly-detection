@@ -163,7 +163,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             lastUpdateTime,
             categoryFields,
             user,
-            null,
             null
         );
     }
@@ -185,8 +184,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Instant lastUpdateTime,
         List<String> categoryFields,
         User user,
-        String detectorType,
-        DetectionDateRange detectionDateRange
+        String detectorType
     ) {
         if (Strings.isBlank(name)) {
             throw new IllegalArgumentException("Detector name should be set");
@@ -229,9 +227,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.detectionDateRange = detectionDateRange;
 
         // TODO: remove this check when we support HC historical detector
-        if (!isRealTimeDetector(detectionDateRange) && categoryFields != null && categoryFields.size() > 0) {
-            throw new IllegalArgumentException("Don't support high cardinality historical detector now");
-        }
+//        if (!isRealTimeDetector(detectionDateRange) && categoryFields != null && categoryFields.size() > 0) {
+//            throw new IllegalArgumentException("Don't support high cardinality historical detector now");
+//        }
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {
@@ -481,15 +479,18 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             }
         }
         String detectorType;
-        if (AnomalyDetector.isRealTimeDetector(detectionDateRange)) {
-            detectorType = AnomalyDetector.isMultientityDetector(categoryField)
-                ? AnomalyDetectorType.REALTIME_MULTI_ENTITY.name()
-                : AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name();
-        } else {
-            detectorType = AnomalyDetector.isMultientityDetector(categoryField)
-                ? AnomalyDetectorType.HISTORICAL_MULTI_ENTITY.name()
-                : AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name();
-        }
+//        if (AnomalyDetector.isRealTimeDetector(detectionDateRange)) {
+//            detectorType = AnomalyDetector.isMultientityDetector(categoryField)
+//                ? AnomalyDetectorType.REALTIME_MULTI_ENTITY.name()
+//                : AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name();
+//        } else {
+//            detectorType = AnomalyDetector.isMultientityDetector(categoryField)
+//                ? AnomalyDetectorType.HISTORICAL_MULTI_ENTITY.name()
+//                : AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name();
+//        }
+        detectorType = AnomalyDetector.isMultientityDetector(categoryField)
+                ? AnomalyDetectorType.SINGLE_ENTITY.name()
+                : AnomalyDetectorType.MULTI_ENTITY.name();
         return new AnomalyDetector(
             detectorId,
             version,
@@ -507,8 +508,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             lastUpdateTime,
             categoryField,
             user,
-            detectorType,
-            detectionDateRange
+            detectorType
         );
     }
 
@@ -530,8 +530,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             && Objects.equal(getWindowDelay(), detector.getWindowDelay())
             && Objects.equal(getShingleSize(), detector.getShingleSize())
             && Objects.equal(getCategoryField(), detector.getCategoryField())
-            && Objects.equal(getUser(), detector.getUser())
-            && Objects.equal(getDetectionDateRange(), detector.getDetectionDateRange());
+            && Objects.equal(getUser(), detector.getUser());
+//            && Objects.equal(getDetectionDateRange(), detector.getDetectionDateRange());
     }
 
     @Generated
@@ -671,9 +671,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return detectorType;
     }
 
-    public DetectionDateRange getDetectionDateRange() {
-        return detectionDateRange;
-    }
+//    public DetectionDateRange getDetectionDateRange() {
+//        return detectionDateRange;
+//    }
 
     public boolean isMultientityDetector() {
         return AnomalyDetector.isMultientityDetector(getCategoryField());
@@ -683,11 +683,11 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return categoryFields != null && categoryFields.size() > 0;
     }
 
-    public boolean isRealTimeDetector() {
-        return AnomalyDetector.isRealTimeDetector(getDetectionDateRange());
-    }
+//    public boolean isRealTimeDetector() {
+//        return AnomalyDetector.isRealTimeDetector(getDetectionDateRange());
+//    }
 
-    private static boolean isRealTimeDetector(DetectionDateRange detectionDateRange) {
-        return detectionDateRange == null || detectionDateRange.getEndTime() == null;
-    }
+//    private static boolean isRealTimeDetector(DetectionDateRange detectionDateRange) {
+//        return detectionDateRange == null || detectionDateRange.getEndTime() == null;
+//    }
 }

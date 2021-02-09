@@ -43,6 +43,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchStatusException;
@@ -169,6 +170,7 @@ public class ADTaskManager {
      * and start AD task for historical detector.
      *
      * @param detectorId detector id
+     * @param detectionDateRange historical analysis date range
      * @param handler anomaly detector job action handler
      * @param user user
      * @param transportService transport service
@@ -176,27 +178,47 @@ public class ADTaskManager {
      */
     public void startDetector(
         String detectorId,
+        DetectionDateRange detectionDateRange,
         IndexAnomalyDetectorJobActionHandler handler,
         User user,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
+//        getDetector(detectorId, (detector) -> {
+//            if (validateDetector(detector, listener)) {
+//                // run realtime detector
+//                handler.startAnomalyDetectorJob(detector);
+//            }
+//        }, (detector) -> {
+//            if (validateDetector(detector, listener)) {
+//                // run historical detector
+//                Optional<DiscoveryNode> owningNode = hashRing.getOwningNode(detector.getDetectorId());
+//                if (!owningNode.isPresent()) {
+//                    logger.debug("Can't find eligible node to run as AD task's coordinating node");
+//                    listener
+//                        .onFailure(new ElasticsearchStatusException("No eligible node to run detector", RestStatus.INTERNAL_SERVER_ERROR));
+//                    return;
+//                }
+//                forwardToCoordinatingNode(detector, user, ADTaskAction.START, transportService, owningNode.get(), listener);
+//            }
+//        }, listener);
+
         getDetector(detectorId, (detector) -> {
-            if (validateDetector(detector, listener)) {
-                // run realtime detector
-                handler.startAnomalyDetectorJob(detector);
-            }
-        }, (detector) -> {
-            if (validateDetector(detector, listener)) {
-                // run historical detector
-                Optional<DiscoveryNode> owningNode = hashRing.getOwningNode(detector.getDetectorId());
-                if (!owningNode.isPresent()) {
-                    logger.debug("Can't find eligible node to run as AD task's coordinating node");
-                    listener
-                        .onFailure(new ElasticsearchStatusException("No eligible node to run detector", RestStatus.INTERNAL_SERVER_ERROR));
-                    return;
+            if (validateDetector(detector, listener)) { // validate if detector is ready to start
+                if (detectionDateRange == null) {
+                    // run realtime detector
+                    handler.startAnomalyDetectorJob(detector);
+                } else {
+                    // run historical detector
+                    Optional<DiscoveryNode> owningNode = hashRing.getOwningNode(detector.getDetectorId());
+                    if (!owningNode.isPresent()) {
+                        logger.debug("Can't find eligible node to run as AD task's coordinating node");
+                        listener
+                                .onFailure(new ElasticsearchStatusException("No eligible node to run detector", RestStatus.INTERNAL_SERVER_ERROR));
+                        return;
+                    }
+                    forwardToCoordinatingNode(detector, detectionDateRange, user, ADTaskAction.START, transportService, owningNode.get(), listener);
                 }
-                forwardToCoordinatingNode(detector, user, ADTaskAction.START, transportService, owningNode.get(), listener);
             }
         }, listener);
     }
@@ -223,6 +245,7 @@ public class ADTaskManager {
      */
     protected void forwardToCoordinatingNode(
         AnomalyDetector detector,
+        DetectionDateRange detectionDateRange,
         User user,
         ADTaskAction adTaskAction,
         TransportService transportService,
@@ -238,7 +261,7 @@ public class ADTaskManager {
             .sendRequest(
                 node,
                 ForwardADTaskAction.NAME,
-                new ForwardADTaskRequest(detector, user, adTaskAction),
+                new ForwardADTaskRequest(detector, detectionDateRange, user, adTaskAction),
                 option,
                 new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
             );
@@ -262,22 +285,56 @@ public class ADTaskManager {
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
-        getDetector(
-            detectorId,
-            // stop realtime detector job
-            (detector) -> handler.stopAnomalyDetectorJob(detectorId),
-            // stop historical detector AD task
-            (detector) -> getLatestADTask(
-                detectorId,
-                (task) -> stopHistoricalDetector(detectorId, task, user, listener),
-                transportService,
-                listener
-            ),
-            listener
-        );
+        //TODO: change to get latest AD task to
+//        getDetector(
+//            detectorId,
+//            // stop realtime detector job
+//            (detector) -> handler.stopAnomalyDetectorJob(detectorId),
+//            // stop historical detector AD task
+//            (detector) -> getLatestADTask(
+//                detectorId,
+//                (task) -> stopHistoricalDetector(detectorId, task, user, listener),
+//                transportService,
+//                listener
+//            ),
+//            listener
+//        );
     }
 
     public <T> void getDetector(
+            String detectorId,
+            Consumer<AnomalyDetector> consumer,
+            ActionListener<T> listener
+    ) {
+        GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
+        client.get(getRequest, ActionListener.wrap(response -> {
+            if (!response.isExists()) {
+                listener.onFailure(new ElasticsearchStatusException("AnomalyDetector is not found", RestStatus.NOT_FOUND));
+                return;
+            }
+            try (
+                    XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
+            ) {
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
+
+                consumer.accept(detector);
+//                if (detector.isRealTimeDetector()) {
+//                    // run realtime detector
+//                    realTimeDetectorConsumer.accept(detector);
+//                } else {
+//                    // run historical detector
+//                    historicalDetectorConsumer.accept(detector);
+//                }
+            } catch (Exception e) {
+                String message = "Failed to start anomaly detector " + detectorId;
+                logger.error(message, e);
+                listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+            }
+        }, exception -> listener.onFailure(exception)));
+    }
+
+    /*public <T> void getDetector(
         String detectorId,
         Consumer<AnomalyDetector> realTimeDetectorConsumer,
         Consumer<AnomalyDetector> historicalDetectorConsumer,
@@ -308,7 +365,7 @@ public class ADTaskManager {
                 listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
         }, exception -> listener.onFailure(exception)));
-    }
+    }*/
 
     /**
      * Get latest AD task and execute consumer function.
@@ -465,6 +522,7 @@ public class ADTaskManager {
             logger.debug("coordinatingNode found, will clean detector cache on it, detectorId: " + adTask.getDetectorId());
             forwardToCoordinatingNode(
                 adTask.getDetector(),
+                adTask.getDetectionDateRange(),
                 null,
                 ADTaskAction.STOP,
                 transportService,
@@ -619,6 +677,7 @@ public class ADTaskManager {
      */
     public void startHistoricalDetector(
         AnomalyDetector detector,
+        DetectionDateRange detectionDateRange,
         User user,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
@@ -628,7 +687,7 @@ public class ADTaskManager {
                 // If detection index exist, check if latest AD task is running
                 getLatestADTask(detector.getDetectorId(), (adTask) -> {
                     if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
-                        executeHistoricalDetector(detector, user, listener);
+                        executeHistoricalDetector(detector, detectionDateRange, user, listener);
                     } else {
                         listener.onFailure(new ElasticsearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
                     }
@@ -638,7 +697,7 @@ public class ADTaskManager {
                 detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
                     if (r.isAcknowledged()) {
                         logger.info("Created {} with mappings.", CommonName.DETECTION_STATE_INDEX);
-                        executeHistoricalDetector(detector, user, listener);
+                        executeHistoricalDetector(detector, detectionDateRange, user, listener);
                     } else {
                         String error = "Create index " + CommonName.DETECTION_STATE_INDEX + " with mappings not acknowledged";
                         logger.warn(error);
@@ -646,7 +705,7 @@ public class ADTaskManager {
                     }
                 }, e -> {
                     if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
-                        executeHistoricalDetector(detector, user, listener);
+                        executeHistoricalDetector(detector, detectionDateRange, user, listener);
                     } else {
                         logger.error("Failed to init anomaly detection state index", e);
                         listener.onFailure(e);
@@ -659,7 +718,7 @@ public class ADTaskManager {
         }
     }
 
-    private void executeHistoricalDetector(AnomalyDetector detector, User user, ActionListener<AnomalyDetectorJobResponse> listener) {
+    private void executeHistoricalDetector(AnomalyDetector detector, DetectionDateRange detectionDateRange, User user, ActionListener<AnomalyDetectorJobResponse> listener) {
         UpdateByQueryRequest updateByQueryRequest = new UpdateByQueryRequest();
         updateByQueryRequest.indices(CommonName.DETECTION_STATE_INDEX);
         BoolQueryBuilder query = new BoolQueryBuilder();
@@ -672,7 +731,7 @@ public class ADTaskManager {
         client.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
             List<BulkItemResponse.Failure> bulkFailures = r.getBulkFailures();
             if (bulkFailures.isEmpty()) {
-                createNewADTask(detector, user, listener);
+                createNewADTask(detector, detectionDateRange, user, listener);
             } else {
                 logger.error("Failed to update old task's state for detector: {}, response: {} ", detector.getDetectorId(), r.toString());
                 listener.onFailure(bulkFailures.get(0).getCause());
@@ -683,7 +742,7 @@ public class ADTaskManager {
         }));
     }
 
-    private void createNewADTask(AnomalyDetector detector, User user, ActionListener<AnomalyDetectorJobResponse> listener) {
+    private void createNewADTask(AnomalyDetector detector, DetectionDateRange detectionDateRange, User user, ActionListener<AnomalyDetectorJobResponse> listener) {
         String userName = user == null ? null : user.getName();
         Instant now = Instant.now();
         ADTask adTask = new ADTask.Builder()
@@ -698,6 +757,7 @@ public class ADTaskManager {
             .lastUpdateTime(now)
             .startedBy(userName)
             .coordinatingNode(clusterService.localNode().getId())
+            .detectionDateRange(detectionDateRange)
             .user(user)
             .build();
 

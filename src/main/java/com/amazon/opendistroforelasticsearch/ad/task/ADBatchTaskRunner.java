@@ -387,7 +387,7 @@ public class ADBatchTaskRunner {
                             STATE_FIELD,
                             ADTaskState.INIT.name(),
                             CURRENT_PIECE_FIELD,
-                            adTask.getDetector().getDetectionDateRange().getStartTime().toEpochMilli(),
+                            adTask.getDetectionDateRange().getStartTime().toEpochMilli(),
                             TASK_PROGRESS_FIELD,
                             0.0f,
                             INIT_PROGRESS_FIELD,
@@ -403,7 +403,7 @@ public class ADBatchTaskRunner {
                                     .toDuration()
                                     .toMillis();
 
-                                DetectionDateRange detectionDateRange = adTask.getDetector().getDetectionDateRange();
+                                DetectionDateRange detectionDateRange = adTask.getDetectionDateRange();
                                 long dataStartTime = detectionDateRange.getStartTime().toEpochMilli();
                                 long dataEndTime = detectionDateRange.getEndTime().toEpochMilli();
 

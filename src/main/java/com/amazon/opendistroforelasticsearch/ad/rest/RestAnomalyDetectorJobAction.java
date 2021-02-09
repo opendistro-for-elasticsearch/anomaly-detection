@@ -21,15 +21,19 @@ import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.IF_
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.START_JOB;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.STOP_JOB;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
+import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.seqno.SequenceNumbers;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.RestRequest;
@@ -71,10 +75,24 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
         String rawPath = request.rawPath();
 
-        AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(detectorId, seqNo, primaryTerm, rawPath);
+        DetectionDateRange detectionDateRange = null;
+        if (request.hasContent()) {
+            detectionDateRange = getDetectionDateRange(request);
+        }
+
+        System.out.println(detectionDateRange);
+
+        AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(detectorId, detectionDateRange, seqNo, primaryTerm, rawPath);
 
         return channel -> client
             .execute(AnomalyDetectorJobAction.INSTANCE, anomalyDetectorJobRequest, new RestToXContentListener<>(channel));
+    }
+
+    private DetectionDateRange getDetectionDateRange(RestRequest request) throws IOException {
+        XContentParser parser = request.contentParser();
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+        DetectionDateRange dateRange = DetectionDateRange.parse(parser);
+        return dateRange;
     }
 
     @Override

@@ -71,10 +71,10 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         List<JsonObject> data = getData(dataFileName);
         List<Entry<Instant, Instant>> anomalies = getAnomalyWindows(labelFileName);
 
-        bulkIndexTrainData(datasetName, data, trainTestSplit, adminClient());
+        bulkIndexTrainData(datasetName, data, trainTestSplit, client);
         String detectorId = createDetector(datasetName, intervalMinutes, client);
         startDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
-        bulkIndexTestData(data, datasetName, trainTestSplit, adminClient());
+        bulkIndexTestData(data, datasetName, trainTestSplit, client);
         double[] testResults = getTestResults(detectorId, data, trainTestSplit, intervalMinutes, anomalies, client);
         verifyTestResults(testResults, anomalies, minPrecision, minRecall, maxError);
     }

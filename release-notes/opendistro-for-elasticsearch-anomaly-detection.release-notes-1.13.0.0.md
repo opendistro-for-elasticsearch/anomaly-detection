@@ -36,6 +36,7 @@ Compatible with Elasticsearch 7.10.2
 * fix flaky test case ([#376](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/376))
 * Change release workflow to use new staging bucket for artifacts ([#358](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/358))
 * Update draft release notes config ([#379](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/379))
+* fix failed integration cases ([#385](https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/385))
 
 ### Documentation
 

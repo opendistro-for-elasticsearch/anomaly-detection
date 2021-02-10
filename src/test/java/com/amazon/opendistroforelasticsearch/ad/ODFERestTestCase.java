@@ -87,7 +87,7 @@ public abstract class ODFERestTestCase extends ESRestTestCase {
             // disable the warning exception for admin client since it's only used for cleanup.
             .put("strictDeprecationMode", false)
             .put("http.port", 9200)
-            .put(OPENDISTRO_SECURITY_SSL_HTTP_ENABLED, true)
+            .put(OPENDISTRO_SECURITY_SSL_HTTP_ENABLED, isHttps())
             .put(OPENDISTRO_SECURITY_SSL_HTTP_PEMCERT_FILEPATH, "sample.pem")
             .put(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH, "test-kirk.jks")
             .put(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_PASSWORD, "changeit")

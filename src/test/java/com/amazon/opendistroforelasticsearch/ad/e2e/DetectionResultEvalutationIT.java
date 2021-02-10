@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.ad.e2e;
 
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.toHttpEntity;
+
 import java.io.File;
 import java.io.FileReader;
 import java.time.Instant;
@@ -29,12 +31,16 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.apache.http.HttpHeaders;
+import org.apache.http.message.BasicHeader;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.WarningsHandler;
 
 import com.amazon.opendistroforelasticsearch.ad.ODFERestTestCase;
+import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -42,7 +48,10 @@ import com.google.gson.JsonParser;
 public class DetectionResultEvalutationIT extends ODFERestTestCase {
 
     public void testDataset() throws Exception {
-        verifyAnomaly("synthetic", 1, 1500, 8, .9, .9, 10);
+        // TODO: this test case will run for a much longer time and timeout with security enabled
+        if (!isHttps()) {
+            verifyAnomaly("synthetic", 1, 1500, 8, .9, .9, 10);
+        }
     }
 
     private void verifyAnomaly(
@@ -54,7 +63,6 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         double minRecall,
         double maxError
     ) throws Exception {
-
         RestClient client = client();
 
         String dataFileName = String.format("data/%s.data", datasetName);
@@ -63,11 +71,10 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         List<JsonObject> data = getData(dataFileName);
         List<Entry<Instant, Instant>> anomalies = getAnomalyWindows(labelFileName);
 
-        indexTrainData(datasetName, data, trainTestSplit, client);
+        bulkIndexTrainData(datasetName, data, trainTestSplit, client);
         String detectorId = createDetector(datasetName, intervalMinutes, client);
         startDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
-
-        indexTestData(data, datasetName, trainTestSplit, client);
+        bulkIndexTestData(data, datasetName, trainTestSplit, client);
         double[] testResults = getTestResults(detectorId, data, trainTestSplit, intervalMinutes, anomalies, client);
         verifyTestResults(testResults, anomalies, minPrecision, minRecall, maxError);
     }
@@ -139,22 +146,6 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             }
         }
         return new double[] { positives, truePositives, positiveAnomalies.size(), errors };
-    }
-
-    private void indexTestData(List<JsonObject> data, String datasetName, int trainTestSplit, RestClient client) throws Exception {
-        data.stream().skip(trainTestSplit).forEach(r -> {
-            try {
-                Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
-                RequestOptions.Builder options = RequestOptions.DEFAULT.toBuilder();
-                options.setWarningsHandler(WarningsHandler.PERMISSIVE);
-                req.setOptions(options.build());
-                req.setJsonEntity(r.toString());
-                client.performRequest(req);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-        Thread.sleep(1_000);
     }
 
     private void startDetector(
@@ -229,24 +220,54 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         return anomalies;
     }
 
-    private void indexTrainData(String datasetName, List<JsonObject> data, int trainTestSplit, RestClient client) throws Exception {
+    private void bulkIndexTrainData(String datasetName, List<JsonObject> data, int trainTestSplit, RestClient client) throws Exception {
         Request request = new Request("PUT", datasetName);
         String requestBody = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
             + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" } } } }";
         request.setJsonEntity(requestBody);
+        setWarningHandler(request, false);
         client.performRequest(request);
         Thread.sleep(1_000);
 
-        data.stream().limit(trainTestSplit).forEach(r -> {
-            try {
-                Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
-                req.setJsonEntity(r.toString());
-                client.performRequest(req);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+        StringBuilder bulkRequestBuilder = new StringBuilder();
+        for (int i = 0; i < trainTestSplit; i++) {
+            bulkRequestBuilder.append("{ \"index\" : { \"_index\" : \"" + datasetName + "\", \"_id\" : \"" + i + "\" } }\n");
+            bulkRequestBuilder.append(data.get(i).toString()).append("\n");
+        }
+        TestHelpers
+            .makeRequest(
+                client,
+                "POST",
+                "_bulk?refresh=true",
+                null,
+                toHttpEntity(bulkRequestBuilder.toString()),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
         Thread.sleep(1_000);
+    }
+
+    private void bulkIndexTestData(List<JsonObject> data, String datasetName, int trainTestSplit, RestClient client) throws Exception {
+        StringBuilder bulkRequestBuilder = new StringBuilder();
+        for (int i = trainTestSplit; i < data.size(); i++) {
+            bulkRequestBuilder.append("{ \"index\" : { \"_index\" : \"" + datasetName + "\", \"_id\" : \"" + i + "\" } }\n");
+            bulkRequestBuilder.append(data.get(i).toString()).append("\n");
+        }
+        TestHelpers
+            .makeRequest(
+                client,
+                "POST",
+                "_bulk?refresh=true",
+                null,
+                toHttpEntity(bulkRequestBuilder.toString()),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+        Thread.sleep(1_000);
+    }
+
+    private void setWarningHandler(Request request, boolean strictDeprecationMode) {
+        RequestOptions.Builder options = RequestOptions.DEFAULT.toBuilder();
+        options.setWarningsHandler(strictDeprecationMode ? WarningsHandler.STRICT : WarningsHandler.PERMISSIVE);
+        request.setOptions(options.build());
     }
 
     private List<JsonObject> getData(String datasetFileName) throws Exception {

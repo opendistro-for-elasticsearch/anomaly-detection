@@ -165,7 +165,7 @@ integTest {
         }
     }
 
-    if (System.getProperty("https") == null) {
+    if (System.getProperty("https") == null || System.getProperty("https") == "false") {
         filter {
             excludeTestsMatching "com.amazon.opendistroforelasticsearch.ad.rest.SecureADRestIT"
         }

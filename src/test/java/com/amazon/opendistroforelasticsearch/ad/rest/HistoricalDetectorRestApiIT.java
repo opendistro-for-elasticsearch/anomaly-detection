@@ -116,6 +116,8 @@ public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase 
         assertEquals(ADTaskState.STOPPED.name(), stoppedAdTask.getState());
         updateClusterSettings(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 1);
 
+        waitUntilTaskFinished(detectorId);
+
         // get AD stats
         Response statsResponse = TestHelpers.makeRequest(client(), "GET", AD_BASE_STATS_URI, ImmutableMap.of(), "", null);
         String statsResult = EntityUtils.toString(statsResponse.getEntity());
@@ -127,7 +129,7 @@ public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase 
             Map<String, Object> nodeStats = (Map<String, Object>) nodes.get(key);
             cancelledTaskCount += (long) nodeStats.get("ad_canceled_batch_task_count");
         }
-        assertTrue(cancelledTaskCount == 1);
+        assertTrue(cancelledTaskCount >= 1);
     }
 
     public void testUpdateHistoricalDetector() throws IOException {

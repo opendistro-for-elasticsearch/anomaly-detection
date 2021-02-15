@@ -2,11 +2,11 @@ name: Build and Test Anomaly detection
 on:
   push:
     branches:
-      - master
+      - main
       - opendistro-*
   pull_request:
     branches:
-      - master
+      - main
       - opendistro-*
 
 jobs:
@@ -84,4 +84,3 @@ jobs:
         with:
           file: ./build/reports/jacoco/test/jacocoTestReport.xml
           flags: plugin
-

@@ -173,7 +173,7 @@ public class TestHelpers {
         HttpEntity entity,
         List<Header> headers
     ) throws IOException {
-        return makeRequest(client, method, endpoint, params, entity, headers, true);
+        return makeRequest(client, method, endpoint, params, entity, headers, false);
     }
 
     public static Response makeRequest(

@@ -79,7 +79,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 ImmutableList.of(TestHelpers.randomFeature()),
                 TestHelpers.randomUiMetadata(),
                 Instant.now(),
-                AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name(),
+                AnomalyDetectorType.SINGLE_ENTITY.name(),
                 TestHelpers.randomDetectionDateRange()
             );
         String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
@@ -96,7 +96,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 ImmutableList.of(TestHelpers.randomFeature()),
                 TestHelpers.randomUiMetadata(),
                 Instant.now(),
-                AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name(),
+                AnomalyDetectorType.SINGLE_ENTITY.name(),
                 TestHelpers.randomDetectionDateRange(),
                 false
             );
@@ -382,7 +382,6 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 Instant.now(),
                 null,
                 null,
-                null,
                 null
             )
         );
@@ -407,7 +406,6 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 null,
                 randomInt(),
                 Instant.now(),
-                null,
                 null,
                 null,
                 null
@@ -518,8 +516,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 Instant.now(),
                 ImmutableList.of(randomAlphaOfLength(5)),
                 TestHelpers.randomUser(),
-                null,
-                TestHelpers.randomDetectionDateRange()
+                null
             )
         );
     }

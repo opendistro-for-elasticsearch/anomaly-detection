@@ -592,6 +592,7 @@ public class ADBatchTaskRunner {
             } else {
                 double[] point = feature.getProcessedFeatures().get();
                 double score = rcf.getAnomalyScore(point);
+                //TODO:don't put back the anomalous data points?
                 rcf.update(point);
                 double grade = 0d;
                 double confidence = 0d;

@@ -226,30 +226,41 @@ public class IndexAnomalyDetectorActionHandler {
             AnomalyDetector existingDetector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
             // We have separate flows for realtime and historical detector currently. User
             // can't change detector from realtime to historical, vice versa.
-            if (existingDetector.isRealTimeDetector() != anomalyDetector.isRealTimeDetector()) {
-                listener
-                    .onFailure(
-                        new ElasticsearchStatusException(
-                            "Can't change detector type between realtime and historical detector",
-                            RestStatus.BAD_REQUEST
-                        )
-                    );
-                return;
-            }
+//            if (existingDetector.isRealTimeDetector() != anomalyDetector.isRealTimeDetector()) {
+//                listener
+//                    .onFailure(
+//                        new ElasticsearchStatusException(
+//                            "Can't change detector type between realtime and historical detector",
+//                            RestStatus.BAD_REQUEST
+//                        )
+//                    );
+//                return;
+//            }
 
-            if (existingDetector.isRealTimeDetector()) {
-                validateDetector(existingDetector);
-            } else {
-                adTaskManager.getLatestADTask(detectorId, (adTask) -> {
-                    if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
-                        // can't update detector if there is AD task running
-                        listener.onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
-                    } else {
-                        // TODO: change to validateDetector method when we support HC historical detector
-                        searchAdInputIndices(detectorId);
-                    }
-                }, transportService, listener);
-            }
+//            if (existingDetector.isRealTimeDetector()) {
+//                validateDetector(existingDetector);
+//            } else {
+//                adTaskManager.getLatestADTask(detectorId, (adTask) -> {
+//                    if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
+//                        // can't update detector if there is AD task running
+//                        listener.onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+//                    } else {
+//                        // TODO: change to validateDetector method when we support HC historical detector
+//                        searchAdInputIndices(detectorId);
+//                    }
+//                }, transportService, listener);
+//            }
+//            validateDetector(existingDetector);
+            //TODO: check if realtime job or historical analysis is executing
+            adTaskManager.getLatestADTask(detectorId, (adTask) -> {
+                if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
+                    // can't update detector if there is AD task running
+                    listener.onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+                } else {
+                    // TODO: change to validateDetector method when we support HC historical detector
+                    searchAdInputIndices(detectorId);
+                }
+            }, transportService, listener);
         } catch (IOException e) {
             String message = "Failed to parse anomaly detector " + detectorId;
             logger.error(message, e);
@@ -490,8 +501,7 @@ public class IndexAnomalyDetectorActionHandler {
             Instant.now(),
             anomalyDetector.getCategoryField(),
             user,
-            anomalyDetector.getDetectorType(),
-            anomalyDetector.getDetectionDateRange()
+            anomalyDetector.getDetectorType()
         );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)

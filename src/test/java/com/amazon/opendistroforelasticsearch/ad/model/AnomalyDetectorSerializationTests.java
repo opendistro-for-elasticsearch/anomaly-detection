@@ -85,7 +85,7 @@ public class AnomalyDetectorSerializationTests extends ESSingleNodeTestCase {
                 ImmutableList.of(TestHelpers.randomFeature()),
                 ImmutableMap.of(randomAlphaOfLength(5), randomAlphaOfLength(5)),
                 Instant.now(),
-                AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name(),
+                AnomalyDetectorType.SINGLE_ENTITY.name(),
                 TestHelpers.randomDetectionDateRange()
             );
         BytesStreamOutput output = new BytesStreamOutput();

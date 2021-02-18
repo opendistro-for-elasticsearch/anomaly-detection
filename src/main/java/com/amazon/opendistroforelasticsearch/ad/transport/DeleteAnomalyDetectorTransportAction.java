@@ -102,8 +102,9 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                     .getDetector(
                         detectorId,
                         // realtime detector
-                        detector -> getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener)),
+//                        detector -> getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener)),
                         // historical detector
+                            //TODO: check if there is running realtime or historical job before deleting
                         detector -> adTaskManager.getLatestADTask(detectorId, adTask -> {
                             if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
                                 listener

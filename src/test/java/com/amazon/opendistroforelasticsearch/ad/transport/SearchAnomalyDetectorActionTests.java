@@ -41,7 +41,7 @@ public class SearchAnomalyDetectorActionTests extends HistoricalDetectorIntegTes
 
     public void testSearchDetectorAction() throws IOException {
         ingestTestData(indexName, startTime, 1, "test", 3000);
-        String detectorType = AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name();
+        String detectorType = AnomalyDetectorType.SINGLE_ENTITY.name();
         AnomalyDetector detector = TestHelpers
             .randomAnomalyDetector(
                 ImmutableList.of(indexName),

@@ -73,6 +73,7 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
         String detectorId = request.param(DETECTOR_ID);
         long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
+        boolean historical = request.paramAsBoolean("historical", false);
         String rawPath = request.rawPath();
 
         DetectionDateRange detectionDateRange = null;
@@ -82,7 +83,7 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
 
         System.out.println(detectionDateRange);
 
-        AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(detectorId, detectionDateRange, seqNo, primaryTerm, rawPath);
+        AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(detectorId, detectionDateRange, historical, seqNo, primaryTerm, rawPath);
 
         return channel -> client
             .execute(AnomalyDetectorJobAction.INSTANCE, anomalyDetectorJobRequest, new RestToXContentListener<>(channel));

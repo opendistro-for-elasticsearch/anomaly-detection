@@ -120,8 +120,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             detector.getLastUpdateTime(),
             detector.getCategoryField(),
             detector.getUser(),
-            detector.getDetectorType(),
-            detector.getDetectionDateRange()
+            detector.getDetectorType()
         );
     }
 
@@ -231,8 +230,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getLastUpdateTime(),
                 null,
                 detector.getUser(),
-                detector.getDetectorType(),
-                detector.getDetectionDateRange()
+                detector.getDetectorType()
             ),
             detectorJob,
             adTask };

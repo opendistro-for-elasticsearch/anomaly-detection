@@ -280,6 +280,7 @@ public class ADTaskManager {
      */
     public void stopDetector(
         String detectorId,
+        boolean historical,
         IndexAnomalyDetectorJobActionHandler handler,
         User user,
         TransportService transportService,
@@ -299,6 +300,23 @@ public class ADTaskManager {
 //            ),
 //            listener
 //        );
+
+        getDetector(
+                detectorId,
+                detector -> {
+                  if (historical) {
+                      getLatestADTask(
+                              detectorId,
+                              (task) -> stopHistoricalDetector(detectorId, task, user, listener),
+                              transportService,
+                              listener
+                      );
+                  } else {
+                      handler.stopAnomalyDetectorJob(detectorId);
+                  }
+                },
+                listener
+        );
     }
 
     public <T> void getDetector(
@@ -529,8 +547,12 @@ public class ADTaskManager {
                 targetNode,
                 ActionListener
                     .wrap(
-                        r -> { function.execute(); },
-                        e -> { logger.error("Failed to clear detector cache on coordinating node " + coordinatingNode, e); }
+                        r -> {
+                            function.execute();
+                            },
+                        e -> {
+                            logger.error("Failed to clear detector cache on coordinating node " + coordinatingNode, e);
+                        }
                     )
             );
         } else {

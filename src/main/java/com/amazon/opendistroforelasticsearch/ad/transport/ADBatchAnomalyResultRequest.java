@@ -60,9 +60,10 @@ public class ADBatchAnomalyResultRequest extends ActionRequest {
         AnomalyDetector detector = adTask.getDetector();
         if (detector == null) {
             validationException = addValidationError("Detector can't be null", validationException);
-        } else if (detector.isRealTimeDetector()) {
-            validationException = addValidationError("Can't run batch task for realtime detector", validationException);
         }
+//        else if (detector.isRealTimeDetector()) {
+//            validationException = addValidationError("Can't run batch task for realtime detector", validationException);
+//        }
         return validationException;
     }
 

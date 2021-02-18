@@ -252,8 +252,7 @@ public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase 
             detector.getLastUpdateTime(),
             detector.getCategoryField(),
             detector.getUser(),
-            detector.getDetectorType(),
-            detector.getDetectionDateRange()
+            detector.getDetectorType()
         );
     }
 

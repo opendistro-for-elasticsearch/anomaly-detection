@@ -27,6 +27,7 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
 
     private String detectorID;
     private DetectionDateRange detectionDateRange;
+    private boolean historical;
     private long seqNo;
     private long primaryTerm;
     private String rawPath;
@@ -37,19 +38,21 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
         if (in.readBoolean()) {
             detectionDateRange = new DetectionDateRange(in);
         }
+        historical = in.readBoolean();
         seqNo = in.readLong();
         primaryTerm = in.readLong();
         rawPath = in.readString();
     }
 
     public AnomalyDetectorJobRequest(String detectorID, long seqNo, long primaryTerm, String rawPath) {
-        this(detectorID, null, seqNo, primaryTerm, rawPath);
+        this(detectorID, null, false, seqNo, primaryTerm, rawPath);
     }
 
-    public AnomalyDetectorJobRequest(String detectorID, DetectionDateRange detectionDateRange, long seqNo, long primaryTerm, String rawPath) {
+    public AnomalyDetectorJobRequest(String detectorID, DetectionDateRange detectionDateRange, boolean historical, long seqNo, long primaryTerm, String rawPath) {
         super();
         this.detectorID = detectorID;
         this.detectionDateRange = detectionDateRange;
+        this.historical = historical;
         this.seqNo = seqNo;
         this.primaryTerm = primaryTerm;
         this.rawPath = rawPath;
@@ -75,6 +78,10 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
         return rawPath;
     }
 
+    public boolean isHistorical() {
+        return historical;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
@@ -85,7 +92,7 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
         } else {
             out.writeBoolean(false);
         }
-
+        out.writeBoolean(historical);
         out.writeLong(seqNo);
         out.writeLong(primaryTerm);
         out.writeString(rawPath);

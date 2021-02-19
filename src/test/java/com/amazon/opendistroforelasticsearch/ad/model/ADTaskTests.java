@@ -18,7 +18,9 @@ package com.amazon.opendistroforelasticsearch.ad.model;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
@@ -50,6 +52,17 @@ public class ADTaskTests extends ESSingleNodeTestCase {
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         ADTask parsedADTask = new ADTask(input);
         assertEquals("AD task serialization doesn't work", adTask, parsedADTask);
+    }
+
+    public void testAbc() {
+        List<String> a = new ArrayList<>();
+        a.add("a");
+        a.add("b");
+        a.add("c");
+        while(a.size() > 0){
+            a.remove(0);
+        }
+        System.out.println(a.size());
     }
 
     public void testAdTaskSerializationWithNullDetector() throws IOException {

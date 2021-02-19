@@ -20,8 +20,10 @@ import static com.amazon.opendistroforelasticsearch.ad.breaker.MemoryCircuitBrea
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.AGG_NAME_MAX_TIME;
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.AGG_NAME_MIN_TIME;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.CURRENT_PIECE_FIELD;
+import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.ENTITY_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.EXECUTION_END_TIME_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.INIT_PROGRESS_FIELD;
+import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.PARENT_TASK_ID_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.STATE_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.TASK_PROGRESS_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.WORKER_NODE_FIELD;
@@ -43,6 +45,9 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
+import com.amazon.opendistroforelasticsearch.ad.model.Entity;
+import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -187,37 +192,93 @@ public class ADBatchTaskRunner {
             handleException(adTask, e);
         });
 
-        adTaskManager
-            .updateADTask(adTask.getTaskId(), updatedFields, ActionListener.wrap(r -> dispatchTask(adTask, ActionListener.wrap(node -> {
-                if (clusterService.localNode().getId().equals(node.getId())) {
-                    // Execute batch task locally
-                    logger
-                        .info(
-                            "execute AD task {} locally on node {} for detector {}",
-                            adTask.getTaskId(),
-                            node.getId(),
-                            adTask.getDetectorId()
-                        );
-                    startADBatchTask(adTask, false, transportService, delegatedListener);
-                } else {
-                    // Execute batch task remotely
-                    logger
-                        .info(
-                            "execute AD task {} remotely on node {} for detector {}",
-                            adTask.getTaskId(),
-                            node.getId(),
-                            adTask.getDetectorId()
-                        );
-                    transportService
-                        .sendRequest(
-                            node,
-                            ADBatchTaskRemoteExecutionAction.NAME,
-                            new ADBatchAnomalyResultRequest(adTask),
-                            option,
-                            new ActionListenerResponseHandler<>(delegatedListener, ADBatchAnomalyResultResponse::new)
-                        );
+        String detectorId = adTask.getDetectorId();
+        boolean isHCDetector = adTask.getDetector().isMultientityDetector();
+        String entity = isHCDetector? adTaskCacheManager.pollEntity(detectorId) : null;
+        if (isHCDetector && entity == null) {
+            adTaskManager
+                    .cleanDetectorCache(
+                            adTask,
+                            transportService,
+                            () -> adTaskManager.updateADTask(adTask.getTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()))
+                    );
+            return;
+        }
+        if (adTask.getDetector().isMultientityDetector() && entity != null) {
+            Instant now = Instant.now();
+            boolean isEntityTask = adTask.getParentTaskId() != null;
+            String parentTaskId = isEntityTask ? adTask.getParentTaskId() : adTask.getTaskId();
+            ADTask adEntityTask = new ADTask.Builder()
+                    .detectorId(adTask.getDetectorId())
+                    .detector(adTask.getDetector())
+                    .isLatest(true)
+                    .taskType(ADTaskType.HISTORICAL_HC_ENTITY.name())
+                    .executionStartTime(now)
+                    .taskProgress(0.0f)
+                    .initProgress(0.0f)
+                    .state(ADTaskState.INIT.name()) //TODO where to set INIT state
+                    .initProgress(0.0f) //TODO where to set INIT state
+                    .lastUpdateTime(now)
+                    .startedBy(adTask.getStartedBy())
+                    .coordinatingNode(clusterService.localNode().getId())
+                    .detectionDateRange(adTask.getDetectionDateRange())
+                    .user(adTask.getUser())
+                    .entity(ImmutableList.of(new Entity(adTask.getDetector().getCategoryField().get(0), entity)))
+                    .parentTaskId(parentTaskId)
+                    .build();
+            adTaskManager.createADTask(adEntityTask, r -> {
+                adEntityTask.setTaskId(r.getId());
+//                executeSingleEntityTask(adEntityTask, transportService, delegatedListener);
+//                updatedFields.put(ENTITY_FIELD, ImmutableList.of(entity));
+                if (isEntityTask) {
+                    updatedFields.remove(INIT_PROGRESS_FIELD);
+                    updatedFields.put(STATE_FIELD, ADTaskState.RUNNING.name());
+                    updatedFields.put(TASK_PROGRESS_FIELD, 1 - adTaskCacheManager.entityCount(adTask.getDetectorId()) / 10.0);
                 }
-            }, e -> delegatedListener.onFailure(e))), e -> delegatedListener.onFailure(e)));
+                adTaskManager
+                        .updateADTask(parentTaskId, updatedFields, ActionListener.wrap(res ->{
+                            executeSingleEntityTask(adEntityTask, transportService, delegatedListener);}
+                        , e -> delegatedListener.onFailure(e)));
+
+            }, listener);
+        } else {
+//            executeSingleEntityTask(adTask, transportService, updatedFields, delegatedListener);
+            adTaskManager
+                    .updateADTask(adTask.getTaskId(), updatedFields, ActionListener.wrap(r -> executeSingleEntityTask(adTask, transportService, delegatedListener), e -> delegatedListener.onFailure(e)));
+        }
+    }
+
+    private void executeSingleEntityTask(ADTask adTask, TransportService transportService, ActionListener<ADBatchAnomalyResultResponse> delegatedListener) {
+        dispatchTask(adTask, ActionListener.wrap(node -> {
+            if (clusterService.localNode().getId().equals(node.getId())) {
+                // Execute batch task locally
+                logger
+                        .info(
+                                "execute AD task {} locally on node {} for detector {}",
+                                adTask.getTaskId(),
+                                node.getId(),
+                                adTask.getDetectorId()
+                        );
+                startADBatchTask(adTask,false, transportService, delegatedListener);
+            } else {
+                // Execute batch task remotely
+                logger
+                        .info(
+                                "execute AD task {} remotely on node {} for detector {}",
+                                adTask.getTaskId(),
+                                node.getId(),
+                                adTask.getDetectorId()
+                        );
+                transportService
+                        .sendRequest(
+                                node,
+                                ADBatchTaskRemoteExecutionAction.NAME,
+                                new ADBatchAnomalyResultRequest(adTask),
+                                option,
+                                new ActionListenerResponseHandler<>(delegatedListener, ADBatchAnomalyResultResponse::new)
+                        );
+            }
+        }, e -> delegatedListener.onFailure(e)));
     }
 
     private void dispatchTask(ADTask adTask, ActionListener<DiscoveryNode> listener) {
@@ -313,12 +374,21 @@ public class ADBatchTaskRunner {
             adTaskCacheManager.remove(taskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
 
-            adTaskManager
-                .cleanDetectorCache(
-                    adTask,
-                    transportService,
-                    () -> adTaskManager.updateADTask(taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()))
-                );
+            if (!adTask.getDetector().isMultientityDetector()) {
+                adTaskManager
+                        .cleanDetectorCache(
+                                adTask,
+                                transportService,
+                                () -> adTaskManager.updateADTask(taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()))
+                        );
+            } else {
+                adTaskManager.updateADTask(adTask.getTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()));
+                String state = adTaskManager.hcDetectorDone(adTask.getDetectorId()) ? ADTaskState.FINISHED.name() : ADTaskState.RUNNING.name();
+                adTaskManager.entityTaskDone(adTask, transportService, () -> {
+                    adTaskManager.updateADTask(adTask.getParentTaskId(), ImmutableMap.of(STATE_FIELD, state));
+                });
+            }
+
         }, e -> {
             // If batch task failed, remove task from cache and decrease executing task count by 1.
             adTaskCacheManager.remove(taskId);
@@ -327,7 +397,7 @@ public class ADBatchTaskRunner {
         });
         return listener;
     }
-
+//TODO: entity task state not change from INIT to RUNNING
     private void handleException(ADTask adTask, Exception e) {
         // Check if batch task was cancelled or not by exception type.
         // If it's cancelled, then increase cancelled task count by 1, otherwise increase failure count by 1.
@@ -537,7 +607,7 @@ public class ADBatchTaskRunner {
             false
         );
 
-        featureManager.getFeatureDataPointsByBatch(adTask.getDetector(), pieceStartTime, pieceEndTime, threadedActionListener);
+        featureManager.getFeatureDataPointsByBatch(adTask.getDetector(), adTask.getEntity(), pieceStartTime, pieceEndTime, threadedActionListener);
     }
 
     private void detectAnomaly(
@@ -572,9 +642,10 @@ public class ADBatchTaskRunner {
                 String error = feature.getUnprocessedFeatures().isPresent()
                     ? "No full shingle in current detection window"
                     : "No data in current detection window";
+                String resultTaskId = adTask.getParentTaskId() != null? adTask.getParentTaskId() : adTask.getTaskId();
                 AnomalyResult anomalyResult = new AnomalyResult(
                     adTask.getDetectorId(),
-                    taskId,
+                    resultTaskId,
                     Double.NaN,
                     Double.NaN,
                     Double.NaN,
@@ -584,7 +655,7 @@ public class ADBatchTaskRunner {
                     executeStartTime,
                     Instant.now(),
                     error,
-                    null,
+                    adTask.getEntity(),
                     adTask.getDetector().getUser(),
                     anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
                 );
@@ -613,10 +684,10 @@ public class ADBatchTaskRunner {
                         threshold.update(score);
                     }
                 }
-
+                String resultTaskId = adTask.getParentTaskId() != null? adTask.getParentTaskId() : adTask.getTaskId();
                 AnomalyResult anomalyResult = new AnomalyResult(
                     adTask.getDetectorId(),
-                    taskId,
+                    resultTaskId,
                     score,
                     grade,
                     confidence,
@@ -626,7 +697,7 @@ public class ADBatchTaskRunner {
                     executeStartTime,
                     Instant.now(),
                     null,
-                    null,
+                    adTask.getEntity(),
                     adTask.getDetector().getUser(),
                     anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
                 );
@@ -692,7 +763,7 @@ public class ADBatchTaskRunner {
                         ),
                     ActionListener
                         .wrap(
-                            r -> getFeatureData(
+                            r -> {getFeatureData(
                                 adTask,
                                 pieceStartTime,
                                 pieceEndTime,
@@ -701,7 +772,12 @@ public class ADBatchTaskRunner {
                                 interval,
                                 Instant.now(),
                                 internalListener
-                            ),
+                            );
+                            if(adTask.getParentTaskId() != null && taskState.equals(ADTaskState.RUNNING.name())) {
+                                adTaskManager.updateADTask(adTask.getParentTaskId(), ImmutableMap.of(STATE_FIELD,
+                                        taskState));
+                            }
+                            },
                             e -> internalListener.onFailure(e)
                         )
                 );

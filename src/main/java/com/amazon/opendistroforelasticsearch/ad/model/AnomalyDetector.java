@@ -489,8 +489,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
 //                : AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name();
 //        }
         detectorType = AnomalyDetector.isMultientityDetector(categoryField)
-                ? AnomalyDetectorType.SINGLE_ENTITY.name()
-                : AnomalyDetectorType.MULTI_ENTITY.name();
+                ? AnomalyDetectorType.MULTI_ENTITY.name()
+                : AnomalyDetectorType.SINGLE_ENTITY.name();
         return new AnomalyDetector(
             detectorId,
             version,

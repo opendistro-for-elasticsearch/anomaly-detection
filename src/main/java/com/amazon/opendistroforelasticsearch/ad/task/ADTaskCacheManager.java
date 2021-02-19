@@ -27,11 +27,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -62,6 +65,9 @@ public class ADTaskCacheManager {
     // so we will reject the task.
     private Set<String> detectors;
 
+    //TODO: cualculate memory usage, support multiple category field
+    private Map<String, Queue<String>> entities;
+
     /**
      * Constructor to create AD task cache manager.
      *
@@ -75,6 +81,7 @@ public class ADTaskCacheManager {
         taskCaches = new ConcurrentHashMap<>();
         this.memoryTracker = memoryTracker;
         this.detectors = Sets.newConcurrentHashSet();
+        this.entities = new ConcurrentHashMap<>();
     }
 
     /**
@@ -117,6 +124,25 @@ public class ADTaskCacheManager {
         }
         logger.debug("add detector in running detector cache, detectorId: " + detectorId);
         this.detectors.add(detectorId);
+    }
+
+    //TODO: support multiple category field
+    public void addEntities(String detectorId, Set<String> newEntities) {
+        if (newEntities == null || newEntities.size() == 0) {
+            return;
+        }
+        if (this.entities.containsKey(detectorId)) {
+            Queue<String> queue = this.entities.get(detectorId);
+            for (String entity : newEntities) {
+                if (!queue.contains(entity)) {
+                    queue.add(entity);
+                }
+            }
+        } else {
+            ConcurrentLinkedQueue<String> queue = new ConcurrentLinkedQueue<>();
+            queue.addAll(newEntities);
+            this.entities.put(detectorId, queue);
+        }
     }
 
     /**
@@ -460,4 +486,22 @@ public class ADTaskCacheManager {
         return (80 + numberSize * enabledFeatureSize) * shingleSize;
     }
 
+    /**
+     * Poll one entity from HC detector entities cache.
+     * Will return null if no entities in cache.
+     *
+     * @param detectorId detector id
+     * @return one entity
+     */
+    public String pollEntity(String detectorId) {
+        return entities.containsKey(detectorId)? entities.get(detectorId).poll() : null;
+    }
+
+    public boolean hasEntity(String detectorId) {
+        return entities.containsKey(detectorId) ? entities.get(detectorId).isEmpty() : false;
+    }
+
+    public int entityCount(String detectorId) {
+        return entities.containsKey(detectorId) ? entities.get(detectorId).size() : 0;
+    }
 }

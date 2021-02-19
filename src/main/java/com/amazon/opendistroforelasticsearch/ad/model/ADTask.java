@@ -19,6 +19,8 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
@@ -56,7 +58,9 @@ public class ADTask implements ToXContentObject, Writeable {
     public static final String WORKER_NODE_FIELD = "worker_node";
     public static final String DETECTOR_FIELD = "detector";
     public static final String DETECTION_DATE_RANGE_FIELD = "detection_date_range";
+    public static final String ENTITY_FIELD = "entity";//TODO: is it possible to query by entity
     public static final String USER_FIELD = "user";
+    public static final String PARENT_TASK_ID_FIELD = "parent_task_id";
 
     private String taskId = null;
     private Instant lastUpdateTime = null;
@@ -78,6 +82,8 @@ public class ADTask implements ToXContentObject, Writeable {
     private String coordinatingNode = null;
     private String workerNode = null;
     private DetectionDateRange detectionDateRange = null;
+    private List<Entity> entity = null;
+    private String parentTaskId = null;
     private User user = null;
 
     private ADTask() {}
@@ -110,6 +116,16 @@ public class ADTask implements ToXContentObject, Writeable {
         } else {
             this.detectionDateRange = null;
         }
+        if (input.readBoolean()) {
+            int entitySize = input.readVInt();
+            this.entity = new ArrayList<>(entitySize);
+            for (int i = 0; i < entitySize; i++) {
+                entity.add(new Entity(input));
+            }
+        } else {
+            this.entity = null;
+        }
+        this.parentTaskId = input.readOptionalString();
         if (input.readBoolean()) {
             this.user = new User(input);
         } else {
@@ -148,6 +164,16 @@ public class ADTask implements ToXContentObject, Writeable {
         } else {
             out.writeBoolean(false);
         }
+        if (entity != null) {
+            out.writeBoolean(true);
+            out.writeVInt(entity.size());
+            for (Entity entityItem : entity) {
+                entityItem.writeTo(out);
+            }
+        } else {
+            out.writeBoolean(false);
+        }
+        out.writeOptionalString(parentTaskId);
         if (user != null) {
             out.writeBoolean(true); // user exists
             user.writeTo(out);
@@ -180,6 +206,8 @@ public class ADTask implements ToXContentObject, Writeable {
         private String coordinatingNode = null;
         private String workerNode = null;
         private DetectionDateRange detectionDateRange = null;
+        private List<Entity> entity;
+        private String parentTaskId;
         private User user = null;
 
         public Builder() {}
@@ -279,6 +307,16 @@ public class ADTask implements ToXContentObject, Writeable {
             return this;
         }
 
+        public Builder entity(List<Entity> entity) {
+            this.entity = entity;
+            return this;
+        }
+
+        public Builder parentTaskId(String parentTaskId) {
+            this.parentTaskId = parentTaskId;
+            return this;
+        }
+
         public Builder user(User user) {
             this.user = user;
             return this;
@@ -305,6 +343,8 @@ public class ADTask implements ToXContentObject, Writeable {
             adTask.coordinatingNode = this.coordinatingNode;
             adTask.workerNode = this.workerNode;
             adTask.detectionDateRange = this.detectionDateRange;
+            adTask.entity = this.entity;
+            adTask.parentTaskId = this.parentTaskId;
             adTask.user = this.user;
 
             return adTask;
@@ -372,6 +412,12 @@ public class ADTask implements ToXContentObject, Writeable {
         if (detectionDateRange != null) {
             xContentBuilder.field(DETECTION_DATE_RANGE_FIELD, detectionDateRange);
         }
+        if (entity != null) {
+            xContentBuilder.field(ENTITY_FIELD, entity.toArray());
+        }
+        if (parentTaskId != null) {
+            xContentBuilder.field(PARENT_TASK_ID_FIELD, parentTaskId);
+        }
         if (user != null) {
             xContentBuilder.field(USER_FIELD, user);
         }
@@ -402,6 +448,8 @@ public class ADTask implements ToXContentObject, Writeable {
         String coordinatingNode = null;
         String workerNode = null;
         DetectionDateRange detectionDateRange = null;
+        List<Entity> entityList = null;
+        String parentTaskId = null;
         User user = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
@@ -467,6 +515,16 @@ public class ADTask implements ToXContentObject, Writeable {
                 case DETECTION_DATE_RANGE_FIELD:
                     detectionDateRange = DetectionDateRange.parse(parser);
                     break;
+                case ENTITY_FIELD:
+                    entityList = new ArrayList<>();
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        entityList.add(Entity.parse(parser));
+                    }
+                    break;
+                case PARENT_TASK_ID_FIELD:
+                    parentTaskId = parser.text();
+                    break;
                 case USER_FIELD:
                     user = User.parse(parser);
                     break;
@@ -516,6 +574,8 @@ public class ADTask implements ToXContentObject, Writeable {
             .workerNode(workerNode)
             .detector(anomalyDetector)
             .detectionDateRange(detectionDateRange)
+            .entity(entityList)
+            .parentTaskId(parentTaskId)
             .user(user)
             .build();
     }
@@ -547,6 +607,8 @@ public class ADTask implements ToXContentObject, Writeable {
             && Objects.equal(getWorkerNode(), that.getWorkerNode())
             && Objects.equal(getDetector(), that.getDetector())
             && Objects.equal(getDetectionDateRange(), that.getDetectionDateRange())
+            && Objects.equal(getEntity(), that.getEntity())
+            && Objects.equal(getParentTaskId(), that.getParentTaskId())
             && Objects.equal(getUser(), that.getUser());
     }
 
@@ -574,6 +636,8 @@ public class ADTask implements ToXContentObject, Writeable {
                 workerNode,
                 detector,
                 detectionDateRange,
+                entity,
+                parentTaskId,
                 user
             );
     }
@@ -660,6 +724,14 @@ public class ADTask implements ToXContentObject, Writeable {
 
     public DetectionDateRange getDetectionDateRange() {
         return detectionDateRange;
+    }
+
+    public List<Entity> getEntity() {
+        return entity;
+    }
+
+    public String getParentTaskId() {
+        return parentTaskId;
     }
 
     public User getUser() {

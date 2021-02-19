@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.ad.model;
 
 public enum ADTaskType {
-    REALTIME,
-    HISTORICAL
+    REALTIME_SINGLE_ENTITY,
+    REALTIME_MULTI_ENTITY,
+    HISTORICAL_SINGLE_ENTITY,
+    HISTORICAL_HC_DETECTOR,
+    HISTORICAL_HC_ENTITY
 }

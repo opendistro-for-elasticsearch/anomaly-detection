@@ -33,6 +33,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.regex.Matcher;
 
+import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.join.ScoreMode;
@@ -606,6 +607,7 @@ public final class ParseUtils {
      */
     public static SearchSourceBuilder batchFeatureQuery(
         AnomalyDetector detector,
+        List<Entity> entity,
         long startTime,
         long endTime,
         NamedXContentRegistry xContentRegistry
@@ -617,7 +619,14 @@ public final class ParseUtils {
             .includeLower(true)
             .includeUpper(false);
 
+
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(detector.getFilterQuery());
+
+        if (detector.isMultientityDetector() && entity != null && entity.size() > 0) {
+            for (Entity e : entity) {
+                internalFilterQuery.must(new TermQueryBuilder(e.getName(), e.getValue()));
+            }
+        }
 
         long intervalSeconds = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().getSeconds();
 
@@ -651,6 +660,9 @@ public final class ParseUtils {
         searchSourceBuilder.query(internalFilterQuery);
         searchSourceBuilder.size(0);
 
+        System.out.println("++++++++++----------");
+        System.out.println(searchSourceBuilder.toString());
+        System.out.println("++++++++++----------");
         return searchSourceBuilder;
     }
 

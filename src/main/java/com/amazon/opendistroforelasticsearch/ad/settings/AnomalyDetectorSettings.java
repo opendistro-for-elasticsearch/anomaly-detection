@@ -334,7 +334,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static int THRESHOLD_MODEL_TRAINING_SIZE = 1000;
+    public static int THRESHOLD_MODEL_TRAINING_SIZE = 135; //128 data points rcf with shingle size 8
 
     public static final Setting<Integer> MAX_OLD_AD_TASK_DOCS_PER_DETECTOR = Setting
         .intSetting(
@@ -362,7 +362,7 @@ public final class AnomalyDetectorSettings {
     public static final Setting<Integer> BATCH_TASK_PIECE_INTERVAL_SECONDS = Setting
         .intSetting(
             "opendistro.anomaly_detection.batch_task_piece_interval_seconds",
-            5,
+            1,
             1,
             600,
             Setting.Property.NodeScope,

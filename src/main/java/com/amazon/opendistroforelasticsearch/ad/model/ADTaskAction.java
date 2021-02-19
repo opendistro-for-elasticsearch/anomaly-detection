@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.model;
 
 public enum ADTaskAction {
-    START,
-    STOP
+    START, // start detector
+    STOP, // stop detector or entity task run
+    NEXT_ENTITY
 }

@@ -199,7 +199,7 @@ public class ParseUtilsTests extends ESTestCase {
         long startTime = now.minus(10, ChronoUnit.DAYS).toEpochMilli();
         long endTime = now.plus(10, ChronoUnit.DAYS).toEpochMilli();
         SearchSourceBuilder searchSourceBuilder = ParseUtils
-            .batchFeatureQuery(detector, startTime, endTime, TestHelpers.xContentRegistry());
+            .batchFeatureQuery(detector, null, startTime, endTime, TestHelpers.xContentRegistry());
         assertEquals(
             "{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"range\":{\""
                 + detector.getTimeField()
@@ -244,7 +244,7 @@ public class ParseUtilsTests extends ESTestCase {
 
         AnomalyDetectionException exception = expectThrows(
             AnomalyDetectionException.class,
-            () -> ParseUtils.batchFeatureQuery(detector, startTime, endTime, TestHelpers.xContentRegistry())
+            () -> ParseUtils.batchFeatureQuery(detector, null, startTime, endTime, TestHelpers.xContentRegistry())
         );
         assertEquals("No enabled feature configured", exception.getMessage());
     }
@@ -268,7 +268,7 @@ public class ParseUtilsTests extends ESTestCase {
         long endTime = now.plus(10, ChronoUnit.DAYS).toEpochMilli();
         AnomalyDetectionException exception = expectThrows(
             AnomalyDetectionException.class,
-            () -> ParseUtils.batchFeatureQuery(detector, startTime, endTime, TestHelpers.xContentRegistry())
+            () -> ParseUtils.batchFeatureQuery(detector, null, startTime, endTime, TestHelpers.xContentRegistry())
         );
         assertEquals("No enabled feature configured", exception.getMessage());
     }

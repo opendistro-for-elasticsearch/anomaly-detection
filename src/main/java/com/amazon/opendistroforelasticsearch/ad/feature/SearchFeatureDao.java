@@ -305,11 +305,12 @@ public class SearchFeatureDao {
 
     public void getFeaturesForPeriodByBatch(
         AnomalyDetector detector,
+        List<Entity> entity,
         long startTime,
         long endTime,
         ActionListener<Map<Long, Optional<double[]>>> listener
     ) throws IOException {
-        SearchSourceBuilder searchSourceBuilder = batchFeatureQuery(detector, startTime, endTime, xContent);
+        SearchSourceBuilder searchSourceBuilder = batchFeatureQuery(detector, entity, startTime, endTime, xContent);
         logger.debug("Batch query for detector {}: {} ", detector.getDetectorId(), searchSourceBuilder);
 
         SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);

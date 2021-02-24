@@ -660,9 +660,9 @@ public final class ParseUtils {
         searchSourceBuilder.query(internalFilterQuery);
         searchSourceBuilder.size(0);
 
-        System.out.println("++++++++++----------");
-        System.out.println(searchSourceBuilder.toString());
-        System.out.println("++++++++++----------");
+//        System.out.println("++++++++++----------");
+//        System.out.println(searchSourceBuilder.toString());
+//        System.out.println("++++++++++----------");
         return searchSourceBuilder;
     }
 

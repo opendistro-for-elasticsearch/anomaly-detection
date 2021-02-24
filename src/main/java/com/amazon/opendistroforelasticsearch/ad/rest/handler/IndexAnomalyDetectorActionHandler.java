@@ -27,6 +27,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -250,9 +252,10 @@ public class IndexAnomalyDetectorActionHandler {
 //                    }
 //                }, transportService, listener);
 //            }
-//            validateDetector(existingDetector);
+//            validateDetector(exisADTaskManager.javatingDetector);
             //TODO: check if realtime job or historical analysis is executing
-            adTaskManager.getLatestADTask(detectorId, (adTask) -> {
+            adTaskManager.getLatestADTask(detectorId, ImmutableList.of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.HISTORICAL_SINGLE_ENTITY),
+                    (adTask) -> {
                 if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
                     // can't update detector if there is AD task running
                     listener.onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));

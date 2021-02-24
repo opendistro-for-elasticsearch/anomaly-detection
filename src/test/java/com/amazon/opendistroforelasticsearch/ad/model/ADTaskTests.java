@@ -54,17 +54,6 @@ public class ADTaskTests extends ESSingleNodeTestCase {
         assertEquals("AD task serialization doesn't work", adTask, parsedADTask);
     }
 
-    public void testAbc() {
-        List<String> a = new ArrayList<>();
-        a.add("a");
-        a.add("b");
-        a.add("c");
-        while(a.size() > 0){
-            a.remove(0);
-        }
-        System.out.println(a.size());
-    }
-
     public void testAdTaskSerializationWithNullDetector() throws IOException {
         ADTask adTask = TestHelpers.randomAdTask(randomAlphaOfLength(5), ADTaskState.STOPPED, Instant.now(), randomAlphaOfLength(5), false);
         BytesStreamOutput output = new BytesStreamOutput();

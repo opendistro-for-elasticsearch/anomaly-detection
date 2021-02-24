@@ -195,6 +195,7 @@ public class ADBatchTaskRunner {
         String detectorId = adTask.getDetectorId();
         boolean isHCDetector = adTask.getDetector().isMultientityDetector();
         String entity = isHCDetector? adTaskCacheManager.pollEntity(detectorId) : null;
+        logger.info("ylwudebug : entity is {}", entity);
         if (isHCDetector && entity == null) {
             adTaskManager
                     .cleanDetectorCache(
@@ -348,6 +349,7 @@ public class ADBatchTaskRunner {
         TransportService transportService,
         ActionListener<ADBatchAnomalyResultResponse> listener
     ) {
+//        logger.info("ylwudebug: start entity {}", adTask.getEntity().get(0).getValue());
         try {
             // check if cluster is eligible to run AD currently, if not eligible like
             // circuit breaker open, will throw exception.

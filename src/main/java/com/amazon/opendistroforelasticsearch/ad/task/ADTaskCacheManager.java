@@ -127,7 +127,25 @@ public class ADTaskCacheManager {
     }
 
     //TODO: support multiple category field
-    public void addEntities(String detectorId, Set<String> newEntities) {
+//    public void addEntities(String detectorId, Set<String> newEntities) {
+//        if (newEntities == null || newEntities.size() == 0) {
+//            return;
+//        }
+//        if (this.entities.containsKey(detectorId)) {
+//            Queue<String> queue = this.entities.get(detectorId);
+//            for (String entity : newEntities) {
+//                if (!queue.contains(entity)) {
+//                    queue.add(entity);
+//                }
+//            }
+//        } else {
+//            ConcurrentLinkedQueue<String> queue = new ConcurrentLinkedQueue<>();
+//            queue.addAll(newEntities);
+//            this.entities.put(detectorId, queue);
+//        }
+//    }
+
+    public void addEntities(String detectorId, List<String> newEntities) {
         if (newEntities == null || newEntities.size() == 0) {
             return;
         }
@@ -363,6 +381,10 @@ public class ADTaskCacheManager {
             logger.debug("Removed detector from AD task coordinating node cache, detectorId: " + detectorId);
         } else {
             logger.debug("Detector is not in AD task coordinating node cache");
+        }
+        if (entities.containsKey(detectorId)) {
+            entities.remove(detectorId);
+            logger.debug("Removed detector from AD task coordinating node entities cache, detectorId: " + detectorId);
         }
     }
 

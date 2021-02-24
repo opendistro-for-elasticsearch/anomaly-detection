@@ -23,6 +23,8 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 
 import java.io.IOException;
 
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
+import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchStatusException;
@@ -102,17 +104,37 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                     .getDetector(
                         detectorId,
                         // realtime detector
-//                        detector -> getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener)),
+                        detector -> getDetectorJob(detectorId, listener, () -> {
+
+                            adTaskManager.getLatestADTask(detectorId, ImmutableList.of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.HISTORICAL_SINGLE_ENTITY), adTask -> {
+
+//                                if (adTask.isPresent()) {
+//                                    if (!adTaskManager.isADTaskEnded(adTask.get())) {
+//                                        listener
+//                                                .onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+//                                    } else {
+//                                        if (adTask.get().getDetectionDateRange() == null) {
+//                                            adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);
+//                                        } else {
+//                                            adTaskManager.deleteADTasks(detectorId, () -> deleteDetectorStateDoc(detectorId, listener), listener);
+//                                        }
+//                                    }
+//                                } else {
+//                                    adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);
+//                                }
+                                if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
+                                    listener
+                                            .onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+                                } else {
+                                    adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);
+                                }
+
+                            }, transportService, listener);
+
+                        }),
                         // historical detector
                             //TODO: check if there is running realtime or historical job before deleting
-                        detector -> adTaskManager.getLatestADTask(detectorId, adTask -> {
-                            if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
-                                listener
-                                    .onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
-                            } else {
-                                adTaskManager.deleteADTasks(detectorId, () -> deleteDetectorStateDoc(detectorId, listener), listener);
-                            }
-                        }, transportService, listener),
+
                         listener
                     ),
                 client,

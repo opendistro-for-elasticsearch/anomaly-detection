@@ -31,6 +31,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
+import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchStatusException;
@@ -207,8 +209,9 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
             } else {
                 if (returnTask) {
                     adTaskManager
-                        .getLatestADTask(
+                        .getLatestADTask( //TODO: don't return realtime task now as frontend doesn't need it
                             detectorID,
+                            ImmutableList.of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.HISTORICAL_SINGLE_ENTITY),
                             (adTask) -> getDetectorAndJob(detectorID, returnJob, returnTask, adTask, listener),
                             transportService,
                             listener

@@ -28,6 +28,11 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
+import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
+import com.google.common.collect.ImmutableMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -88,6 +93,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     private ConcurrentHashMap<String, Integer> detectorEndRunExceptionCount;
     private DetectionStateHandler detectionStateHandler;
     private AnomalyDetectionIndices indexUtil;
+    private ADTaskManager adTaskManager;
 
     public static AnomalyDetectorJobRunner getJobRunnerInstance() {
         if (INSTANCE != null) {
@@ -130,6 +136,10 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
 
     public void setDetectionStateHandler(DetectionStateHandler detectionStateHandler) {
         this.detectionStateHandler = detectionStateHandler;
+    }
+
+    public void setAdTaskManager(ADTaskManager adTaskManager) {
+        this.adTaskManager = adTaskManager;
     }
 
     public void setIndexUtil(AnomalyDetectionIndices indexUtil) {
@@ -430,6 +440,10 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                                         if (indexResponse != null
                                             && (indexResponse.getResult() == CREATED || indexResponse.getResult() == UPDATED)) {
                                             log.info("AD Job was disabled by JobRunner for " + detectorId);
+                                            adTaskManager.updateLatestADTask(detectorId,
+                                                    ImmutableList.of(ADTaskType.REALTIME_HC_DETECTOR, ADTaskType.REALTIME_SINGLE_ENTITY),
+                                                    ImmutableMap.of(ADTask.STATE_FIELD, ADTaskState.STOPPED.name())
+                                            );
                                         } else {
                                             log.warn("Failed to disable AD job for " + detectorId);
                                         }

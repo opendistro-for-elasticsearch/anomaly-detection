@@ -81,8 +81,6 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
             detectionDateRange = getDetectionDateRange(request);
         }
 
-        System.out.println(detectionDateRange);
-
         AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(detectorId, detectionDateRange, historical, seqNo, primaryTerm, rawPath);
 
         return channel -> client

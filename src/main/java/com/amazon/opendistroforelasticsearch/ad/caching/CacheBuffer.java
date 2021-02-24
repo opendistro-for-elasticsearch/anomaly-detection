@@ -59,6 +59,9 @@ import com.amazon.opendistroforelasticsearch.ad.model.InitProgressProfile;
 public class CacheBuffer implements ExpiringState, MaintenanceState {
     private static final Logger LOG = LogManager.getLogger(CacheBuffer.class);
 
+    // max entities to track per detector
+    private final int MAX_TRACKING_ENTITIES = 1000000;
+
     private final int minimumCapacity;
     // key -> value
     private final ConcurrentHashMap<String, ModelState<EntityModel>> items;
@@ -100,7 +103,7 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
 
         this.reservedBytes = memoryConsumptionPerEntity * minimumCapacity;
         this.clock = clock;
-        this.priorityTracker = new PriorityTracker(clock, intervalSecs, clock.instant().getEpochSecond());
+        this.priorityTracker = new PriorityTracker(clock, intervalSecs, clock.instant().getEpochSecond(), MAX_TRACKING_ENTITIES);
     }
 
     /**
@@ -204,7 +207,7 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
         // The removed one loses references and soon GC will collect it.
         // We have memory tracking correction to fix incorrect memory usage record.
         // put: not a problem as it is unlikely we are removing and putting the same thing
-        Optional<String> key = priorityTracker.getMinimumPriorityEntityModelId();
+        Optional<String> key = priorityTracker.getMinimumPriorityEntityId();
         if (key.isPresent()) {
             return remove(key.get());
         }

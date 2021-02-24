@@ -534,7 +534,7 @@ public class PriorityCache implements EntityCache {
         return Optional
             .of(activeEnities)
             .map(entities -> entities.get(detectorId))
-            .map(buffer -> buffer.getPriorityTracker().getHighestPriorityEntityModelId())
+            .map(buffer -> buffer.getPriorityTracker().getHighestPriorityEntityId())
             .map(entityModelIdOptional -> entityModelIdOptional.get())
             .map(entityModelId -> getTotalUpdates(detectorId, entityModelId))
             .orElse(0L);

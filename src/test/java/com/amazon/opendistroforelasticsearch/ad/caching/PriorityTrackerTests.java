@@ -38,7 +38,7 @@ public class PriorityTrackerTests extends ESTestCase {
         super.setUp();
         clock = mock(Clock.class);
         now = Instant.now();
-        tracker = new PriorityTracker(clock, 1, now.getEpochSecond());
+        tracker = new PriorityTracker(clock, 1, now.getEpochSecond(), 3);
         entity1 = "entity1";
         entity2 = "entity2";
         entity3 = "entity3";
@@ -82,5 +82,16 @@ public class PriorityTrackerTests extends ESTestCase {
         tracker.updatePriority(entity1);
         // overflow happens, we use increment as the new priority
         assertEquals(0, tracker.getMinimumScaledPriority().getValue().floatValue(), 0.001);
+    }
+
+    public void testTooManyEntities() {
+        when(clock.instant()).thenReturn(now);
+        tracker = new PriorityTracker(clock, 1, now.getEpochSecond(), 2);
+        tracker.updatePriority(entity1);
+        tracker.updatePriority(entity3);
+        assertEquals(2, tracker.size());
+        tracker.updatePriority(entity2);
+        // one entity is kicked out due to the size limit is reached.
+        assertEquals(2, tracker.size());
     }
 }

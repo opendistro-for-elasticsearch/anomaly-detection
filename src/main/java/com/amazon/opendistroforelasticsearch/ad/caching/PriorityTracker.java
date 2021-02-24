@@ -149,21 +149,26 @@ public class PriorityTracker {
     // We chose 0.125 because multiplying 0.125 can be implemented efficiently using 3 right
     // shift and the half life is not too fast or slow .
     private final int DECAY_CONSTANT;
+    // the max number of entities to track
+    private final int maxEntities;
 
     /**
-     * Constructor
+     * Create a priority tracker for a detector.  Detector and priority tracker
+     * have 1:1 mapping.
      *
      * @param clock Used to get current time.
      * @param intervalSecs Detector interval seconds.
      * @param landmarkEpoch The epoch time when the priority tracking starts.
+     * @param maxEntities the max number of entities to track
      */
-    public PriorityTracker(Clock clock, long intervalSecs, long landmarkEpoch) {
+    public PriorityTracker(Clock clock, long intervalSecs, long landmarkEpoch, int maxEntities) {
         this.key2Priority = new ConcurrentHashMap<>();
         this.clock = clock;
         this.intervalSecs = intervalSecs;
         this.landmarkEpoch = landmarkEpoch;
         this.priorityList = new ConcurrentSkipListSet<>(new PriorityNodeComparator());
         this.DECAY_CONSTANT = 3;
+        this.maxEntities = maxEntities;
     }
 
     /**
@@ -188,51 +193,67 @@ public class PriorityTracker {
 
     /**
      *
-     * @return the minimum priority entity's model Id
+     * @return the minimum priority entity's Id
      */
-    public Optional<String> getMinimumPriorityEntityModelId() {
+    public Optional<String> getMinimumPriorityEntityId() {
         return Optional.of(priorityList).map(list -> list.first()).map(node -> node.key);
     }
 
     /**
     *
-    * @return Get maximum priority entity's model Id
+    * @return Get maximum priority entity's Id
     */
-    public Optional<String> getHighestPriorityEntityModelId() {
+    public Optional<String> getHighestPriorityEntityId() {
         return Optional.of(priorityList).map(list -> list.last()).map(node -> node.key);
     }
 
     /**
      * Update an entity's priority with count increment
-     * @param entityModelId Entity model Id
+     * @param entityId Entity Id
      */
-    protected void updatePriority(String entityModelId) {
-        PriorityNode node = key2Priority.computeIfAbsent(entityModelId, k -> new PriorityNode(entityModelId, 0f));
+    public void updatePriority(String entityId) {
+        PriorityNode node = key2Priority.computeIfAbsent(entityId, k -> new PriorityNode(entityId, 0f));
         // reposition this node
         this.priorityList.remove(node);
         node.priority = getUpdatedPriority(node.priority);
         this.priorityList.add(node);
+
+        adjustSizeIfRequired();
     }
 
     /**
-     * Associate the specified priority with the entity model Id
-     * @param entityModelId Entity model Id
+     * Associate the specified priority with the entity Id
+     * @param entityId Entity Id
      * @param priority priority
      */
-    protected void addPriority(String entityModelId, float priority) {
-        PriorityNode node = new PriorityNode(entityModelId, priority);
-        key2Priority.put(entityModelId, node);
+    protected void addPriority(String entityId, float priority) {
+        PriorityNode node = new PriorityNode(entityId, priority);
+        key2Priority.put(entityId, node);
         priorityList.add(node);
+
+        adjustSizeIfRequired();
+    }
+
+    /**
+     * Adjust tracking list if the size exceeded the limit
+     */
+    private void adjustSizeIfRequired() {
+        if (key2Priority.size() > maxEntities) {
+            Optional<String> minPriorityId = getMinimumPriorityEntityId();
+            if (minPriorityId.isPresent()) {
+                removePriority(minPriorityId.get());
+            }
+        }
     }
 
     /**
      * Remove an entity in the tracker
-     * @param entityModelId Entity model Id
+     * @param entityId Entity Id
      */
-    protected void removePriority(String entityModelId) {
+    protected void removePriority(String entityId) {
         // remove if the key matches; priority does not matter
-        priorityList.remove(new PriorityNode(entityModelId, 0));
-        key2Priority.remove(entityModelId);
+        priorityList.remove(new PriorityNode(entityId, 0));
+        key2Priority.remove(entityId);
     }
 
     /**
@@ -254,7 +275,7 @@ public class PriorityTracker {
      * detector is enabled. i - L measures the elapsed periods since detector starts.
      * 0.125 is the decay constant.
      *
-     * Since g(p−L) is changing and they are the same for all entities of the same detector,
+     * Since g(i−L) is changing and they are the same for all entities of the same detector,
      * we can compare entities' priorities by considering the accumulated sum of g(i−L).
      *
      * @param oldPriority Existing priority
@@ -316,5 +337,13 @@ public class PriorityTracker {
             entities.add(entityIterator.next().key);
         }
         return entities;
+    }
+
+    /**
+     *
+     * @return the number of tracked entities
+     */
+    public int size() {
+        return key2Priority.size();
     }
 }

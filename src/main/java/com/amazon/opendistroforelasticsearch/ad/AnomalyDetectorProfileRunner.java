@@ -20,6 +20,7 @@ import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -309,7 +310,7 @@ public class AnomalyDetectorProfileRunner {
         int neededPoints = (int) (requiredSamples - totalUpdates);
         return new InitProgressProfile(
             // rounding: 93.456 => 93%, 93.556 => 94%
-            String.format("%.0f%%", percent),
+            String.format(Locale.ROOT, "%.0f%%", percent),
             intervalMins * neededPoints,
             neededPoints
         );

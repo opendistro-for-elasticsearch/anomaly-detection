@@ -89,16 +89,16 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         AnomalyDetectorExecutionInput input = AnomalyDetectorExecutionInput.parse(parser, detectorId);
-        if (detectorId != null) {
-            input.setDetectorId(detectorId);
-        }
+//        if (detectorId != null) {
+//            input.setDetectorId(detectorId);
+//        }
         return input;
     }
 
     private String validateAdExecutionInput(AnomalyDetectorExecutionInput input) {
-        if (StringUtils.isBlank(input.getDetectorId())) {
-            return "Must set anomaly detector id";
-        }
+//        if (StringUtils.isBlank(input.getDetectorId())) {
+//            return "Must set anomaly detector id";
+//        }
         if (input.getPeriodStart() == null || input.getPeriodEnd() == null) {
             return "Must set both period start and end date with epoch of milliseconds";
         }
@@ -123,7 +123,18 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
                             RestHandlerUtils.DETECTOR_ID,
                             PREVIEW
                         )
-                )
+                ),
+                    // preview detector
+                    new Route(
+                            RestRequest.Method.POST,
+                            String
+                                    .format(
+                                            Locale.ROOT,
+                                            "%s/%s",
+                                            AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI,
+                                            PREVIEW
+                                    )
+                    )
             );
     }
 }

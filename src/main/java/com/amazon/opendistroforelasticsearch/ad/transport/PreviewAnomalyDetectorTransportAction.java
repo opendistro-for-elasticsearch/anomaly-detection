@@ -89,16 +89,20 @@ public class PreviewAnomalyDetectorTransportAction extends
         String detectorId = request.getDetectorId();
         User user = getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
-                user,
-                detectorId,
-                filterByEnabled,
-                listener,
-                () -> previewExecute(request, listener),
-                client,
-                clusterService,
-                xContentRegistry
-            );
+            if (detectorId != null) {
+                resolveUserAndExecute(
+                        user,
+                        detectorId,
+                        filterByEnabled,
+                        listener,
+                        () -> previewExecute(request, listener),
+                        client,
+                        clusterService,
+                        xContentRegistry
+                );
+            } else {
+                previewExecute(request, listener);
+            }
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);
@@ -119,7 +123,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                 }
                 anomalyDetectorRunner.executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(listener, detector));
             } else {
-                previewAnomalyDetector(listener, detectorId, startTime, endTime);
+                previewAnomalyDetector(listener, detectorId, detector, startTime, endTime);
             }
         } catch (Exception e) {
             logger.error(e);
@@ -158,16 +162,18 @@ public class PreviewAnomalyDetectorTransportAction extends
     }
 
     private void previewAnomalyDetector(
-        ActionListener<PreviewAnomalyDetectorResponse> listener,
-        String detectorId,
-        Instant startTime,
-        Instant endTime
-    ) {
+            ActionListener<PreviewAnomalyDetectorResponse> listener,
+            String detectorId,
+            AnomalyDetector detector, Instant startTime,
+            Instant endTime
+    ) throws IOException {
         if (!StringUtils.isBlank(detectorId)) {
             GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
             client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime));
         } else {
-            listener.onFailure(new ElasticsearchException("Wrong input, no detector id", RestStatus.BAD_REQUEST));
+//            listener.onFailure(new ElasticsearchException("Wrong input, no detector id", RestStatus.BAD_REQUEST));
+            anomalyDetectorRunner
+                    .executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(listener, detector));
         }
     }
 

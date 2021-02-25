@@ -106,9 +106,9 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
     }
 
     private String validateAdExecutionInput(AnomalyDetectorExecutionInput input) {
-        if (StringUtils.isBlank(input.getDetectorId())) {
-            return "Must set anomaly detector id";
-        }
+//        if (StringUtils.isBlank(input.getDetectorId())) {
+//            return "Must set anomaly detector id";
+//        }
         if (input.getPeriodStart() == null || input.getPeriodEnd() == null) {
             return "Must set both period start and end date with epoch of milliseconds";
         }

@@ -187,7 +187,7 @@ public class PriorityCache implements EntityCache {
             if (state != null) {
                 priority = state.getPriority();
             }
-            priority = buffer.getUpdatedPriority(priority);
+            priority = buffer.getPriorityTracker().getUpdatedPriority(priority);
 
             // update state using new priority or create a new one
             if (state != null) {
@@ -254,7 +254,7 @@ public class PriorityCache implements EntityCache {
             // it is fine we exceed a little. We have regular maintenance to remove
             // extra memory usage.
             buffer.put(modelId, state);
-        } else if (buffer.canReplace(priority)) {
+        } else if (buffer.canReplaceWithinDetector(priority)) {
             // can replace an entity in the same CacheBuffer living in reserved
             // or shared cache
             // thread safe as each detector has one thread at one time and only the
@@ -268,7 +268,8 @@ public class PriorityCache implements EntityCache {
         } else {
             // If two threads try to remove the same entity and add their own state, the 2nd remove
             // returns null and only the first one succeeds.
-            Entry<CacheBuffer, String> bufferToRemoveEntity = canReplaceInSharedCache(buffer, priority);
+            float scaledPriority = buffer.getPriorityTracker().getScaledPriority(priority);
+            Entry<CacheBuffer, String> bufferToRemoveEntity = canReplaceInSharedCache(buffer, scaledPriority);
             CacheBuffer bufferToRemove = bufferToRemoveEntity.getKey();
             String entityModelId = bufferToRemoveEntity.getValue();
             ModelState<EntityModel> removed = null;
@@ -357,19 +358,19 @@ public class PriorityCache implements EntityCache {
      *
      *
      * @param originBuffer the CacheBuffer that the entity belongs to (with the same detector Id)
-     * @param candicatePriority the candidate entity's priority
+     * @param candidatePriority the candidate entity's priority
      * @return the CacheBuffer if we can find a CacheBuffer to make room for the candidate entity
      */
-    private Entry<CacheBuffer, String> canReplaceInSharedCache(CacheBuffer originBuffer, float candicatePriority) {
+    private Entry<CacheBuffer, String> canReplaceInSharedCache(CacheBuffer originBuffer, float candidatePriority) {
         CacheBuffer minPriorityBuffer = null;
         float minPriority = Float.MAX_VALUE;
         String minPriorityEntityModelId = null;
         for (Map.Entry<String, CacheBuffer> entry : activeEnities.entrySet()) {
             CacheBuffer buffer = entry.getValue();
             if (buffer != originBuffer && buffer.canRemove()) {
-                Entry<String, Float> priorityEntry = buffer.getMinimumPriority();
+                Entry<String, Float> priorityEntry = buffer.getPriorityTracker().getMinimumScaledPriority();
                 float priority = priorityEntry.getValue();
-                if (candicatePriority > priority && priority < minPriority) {
+                if (candidatePriority > priority && priority < minPriority) {
                     minPriority = priority;
                     minPriorityBuffer = buffer;
                     minPriorityEntityModelId = priorityEntry.getKey();
@@ -408,7 +409,7 @@ public class PriorityCache implements EntityCache {
         while (memoryToShed > 0) {
             for (Map.Entry<String, CacheBuffer> entry : activeEnities.entrySet()) {
                 CacheBuffer buffer = entry.getValue();
-                Entry<String, Float> priorityEntry = buffer.getMinimumPriority();
+                Entry<String, Float> priorityEntry = buffer.getPriorityTracker().getMinimumScaledPriority();
                 float priority = priorityEntry.getValue();
                 if (buffer.canRemove() && priority < minPriority) {
                     minPriority = priority;
@@ -533,7 +534,7 @@ public class PriorityCache implements EntityCache {
         return Optional
             .of(activeEnities)
             .map(entities -> entities.get(detectorId))
-            .map(buffer -> buffer.getHighestPriorityEntityModelId())
+            .map(buffer -> buffer.getPriorityTracker().getHighestPriorityEntityId())
             .map(entityModelIdOptional -> entityModelIdOptional.get())
             .map(entityModelId -> getTotalUpdates(detectorId, entityModelId))
             .orElse(0L);

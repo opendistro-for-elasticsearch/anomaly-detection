@@ -238,6 +238,37 @@ public class NodeStateManagerTests extends ESTestCase {
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
+    /**
+     * Test that we caches anomaly detector definition after the first call
+     * @throws IOException if client throws exception
+     * @throws InterruptedException  if the current thread is interrupted while waiting
+     */
+    @SuppressWarnings("unchecked")
+    public void testRepeatedGetAnomalyDetector() throws IOException, InterruptedException {
+        String detectorId = setupDetector();
+        final CountDownLatch inProgressLatch = new CountDownLatch(2);
+
+        stateManager.getAnomalyDetector(detectorId, ActionListener.wrap(asDetector -> {
+            assertEquals(detectorToCheck, asDetector.get());
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue(false);
+            inProgressLatch.countDown();
+        }));
+
+        stateManager.getAnomalyDetector(detectorId, ActionListener.wrap(asDetector -> {
+            assertEquals(detectorToCheck, asDetector.get());
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue(false);
+            inProgressLatch.countDown();
+        }));
+
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+
+        verify(client, times(1)).get(any(), any(ActionListener.class));
+    }
+
     public void getCheckpointTestTemplate(boolean exists) throws IOException {
         setupCheckpoint(exists);
         when(clock.instant()).thenReturn(Instant.MIN);

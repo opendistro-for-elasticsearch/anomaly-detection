@@ -175,7 +175,7 @@ public class PriorityCacheTests extends ESTestCase {
             detectorId
         );
 
-        initialPriority = cacheBuffer.getUpdatedPriority(0);
+        initialPriority = cacheBuffer.getPriorityTracker().getUpdatedPriority(0);
         point = new double[] { 0.1 };
         entityName = "1.2.3.4";
     }

@@ -68,7 +68,7 @@ public class CacheBufferTests extends ESTestCase {
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             detectorId
         );
-        initialPriority = cacheBuffer.getUpdatedPriority(0);
+        initialPriority = cacheBuffer.getPriorityTracker().getUpdatedPriority(0);
     }
 
     // cache.put(1, 1);
@@ -90,13 +90,13 @@ public class CacheBufferTests extends ESTestCase {
         cacheBuffer.put(modelId1, MLUtil.randomModelState(initialPriority, modelId1));
         cacheBuffer.put(modelId2, MLUtil.randomModelState(initialPriority, modelId2));
         assertEquals(modelId1, cacheBuffer.get(modelId1).getModelId());
-        Entry<String, Float> removalCandidate = cacheBuffer.getMinimumPriority();
+        Entry<String, Float> removalCandidate = cacheBuffer.getPriorityTracker().getMinimumScaledPriority();
         assertEquals(modelId2, removalCandidate.getKey());
         cacheBuffer.remove();
         cacheBuffer.put(modelId3, MLUtil.randomModelState(initialPriority, modelId3));
         assertEquals(null, cacheBuffer.get(modelId2));
         assertEquals(modelId3, cacheBuffer.get(modelId3).getModelId());
-        removalCandidate = cacheBuffer.getMinimumPriority();
+        removalCandidate = cacheBuffer.getPriorityTracker().getMinimumScaledPriority();
         assertEquals(modelId1, removalCandidate.getKey());
         cacheBuffer.remove(modelId1);
         assertEquals(null, cacheBuffer.get(modelId1));
@@ -114,7 +114,7 @@ public class CacheBufferTests extends ESTestCase {
         String modelId2 = "2";
         String modelId3 = "3";
         String modelId4 = "4";
-        float initialPriority = cacheBuffer.getUpdatedPriority(0);
+        float initialPriority = cacheBuffer.getPriorityTracker().getUpdatedPriority(0);
         cacheBuffer.put(modelId3, MLUtil.randomModelState(initialPriority, modelId3));
         cacheBuffer.put(modelId2, MLUtil.randomModelState(initialPriority, modelId2));
         cacheBuffer.put(modelId2, MLUtil.randomModelState(initialPriority, modelId2));
@@ -143,10 +143,10 @@ public class CacheBufferTests extends ESTestCase {
         String modelId2 = "2";
         String modelId3 = "3";
         assertTrue(cacheBuffer.dedicatedCacheAvailable());
-        assertTrue(!cacheBuffer.canReplace(100));
+        assertTrue(!cacheBuffer.canReplaceWithinDetector(100));
 
         cacheBuffer.put(modelId1, MLUtil.randomModelState(initialPriority, modelId1));
-        assertTrue(cacheBuffer.canReplace(100));
+        assertTrue(cacheBuffer.canReplaceWithinDetector(100));
         assertTrue(!cacheBuffer.dedicatedCacheAvailable());
         assertTrue(!cacheBuffer.canRemove());
         cacheBuffer.put(modelId2, MLUtil.randomModelState(initialPriority, modelId2));
@@ -154,7 +154,7 @@ public class CacheBufferTests extends ESTestCase {
         cacheBuffer.replace(modelId3, MLUtil.randomModelState(initialPriority, modelId3));
         assertTrue(cacheBuffer.isActive(modelId2));
         assertTrue(cacheBuffer.isActive(modelId3));
-        assertEquals(modelId3, cacheBuffer.getHighestPriorityEntityModelId().get());
+        assertEquals(modelId3, cacheBuffer.getPriorityTracker().getHighestPriorityEntityId().get());
         assertEquals(2, cacheBuffer.getActiveEntities());
     }
 

@@ -15,10 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
+import static org.apache.http.entity.ContentType.APPLICATION_JSON;
 import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import static org.elasticsearch.test.ESTestCase.randomAlphaOfLength;
+import static org.elasticsearch.test.ESTestCase.randomBoolean;
 import static org.elasticsearch.test.ESTestCase.randomDouble;
 import static org.elasticsearch.test.ESTestCase.randomInt;
 import static org.elasticsearch.test.ESTestCase.randomIntBetween;
@@ -44,7 +46,7 @@ import java.util.stream.IntStream;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
-import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.nio.entity.NStringEntity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -53,11 +55,13 @@ import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.client.AdminClient;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
@@ -109,7 +113,6 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
-
 import com.amazon.opendistroforelasticsearch.ad.feature.Features;
 import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -144,7 +147,7 @@ public class TestHelpers {
         String jsonEntity,
         List<Header> headers
     ) throws IOException {
-        HttpEntity httpEntity = Strings.isBlank(jsonEntity) ? null : new NStringEntity(jsonEntity, ContentType.APPLICATION_JSON);
+        HttpEntity httpEntity = Strings.isBlank(jsonEntity) ? null : new NStringEntity(jsonEntity, APPLICATION_JSON);
         return makeRequest(client, method, endpoint, params, httpEntity, headers);
     }
 
@@ -220,35 +223,12 @@ public class TestHelpers {
 
     public static AnomalyDetector randomAnomalyDetector(List<Feature> features, Map<String, Object> uiMetadata, Instant lastUpdateTime)
         throws IOException {
-        return randomAnomalyDetector(features, uiMetadata, lastUpdateTime, null, null);
-    }
-
-    public static AnomalyDetector randomAnomalyDetector(
-        List<Feature> features,
-        Map<String, Object> uiMetadata,
-        Instant lastUpdateTime,
-        String detectorType,
-        DetectionDateRange dateRange
-    ) throws IOException {
-        return randomAnomalyDetector(features, uiMetadata, lastUpdateTime, detectorType, dateRange, true);
-    }
-
-    public static AnomalyDetector randomAnomalyDetector(
-        List<Feature> features,
-        Map<String, Object> uiMetadata,
-        Instant lastUpdateTime,
-        String detectorType,
-        DetectionDateRange dateRange,
-        boolean withUser
-    ) throws IOException {
         return randomAnomalyDetector(
             ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
             features,
             uiMetadata,
             lastUpdateTime,
-            detectorType,
-            dateRange,
-            withUser
+            randomBoolean()
         );
     }
 
@@ -257,8 +237,6 @@ public class TestHelpers {
         List<Feature> features,
         Map<String, Object> uiMetadata,
         Instant lastUpdateTime,
-        String detectorType,
-        DetectionDateRange dateRange,
         boolean withUser
     ) throws IOException {
         User user = withUser ? randomUser() : null;
@@ -683,6 +661,11 @@ public class TestHelpers {
                 data,
                 null
             );
+    }
+
+    public static CreateIndexResponse createIndex(AdminClient adminClient, String indexName, String indexMapping) {
+        CreateIndexRequest request = new CreateIndexRequest(indexName).mapping(AnomalyDetector.TYPE, indexMapping, XContentType.JSON);
+        return adminClient.indices().create(request).actionGet(5_000);
     }
 
     public static GetResponse createGetResponse(ToXContentObject o, String id, String indexName) throws IOException {

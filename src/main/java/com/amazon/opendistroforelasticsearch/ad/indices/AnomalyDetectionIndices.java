@@ -114,6 +114,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     private boolean allUpdated;
     // we only want one update at a time
     private final AtomicBoolean updateRunning;
+    // AD index settings
+    private final Settings setting;
 
     class IndexState {
         // keep track of whether the mapping version is up-to-date
@@ -170,6 +172,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
 
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
+
+        this.setting = Settings.builder().put("index.hidden", true).build();
     }
 
     /**
@@ -325,7 +329,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public void initAnomalyDetectorIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
         CreateIndexRequest request = new CreateIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-            .mapping(AnomalyDetector.TYPE, getAnomalyDetectorMappings(), XContentType.JSON);
+            .mapping(AnomalyDetector.TYPE, getAnomalyDetectorMappings(), XContentType.JSON)
+            .settings(setting);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CONFIG, actionListener));
     }
 
@@ -367,6 +372,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         String mapping = getAnomalyResultMappings();
         CreateIndexRequest request = new CreateIndexRequest(AD_RESULT_HISTORY_INDEX_PATTERN)
             .mapping(CommonName.MAPPING_TYPE, mapping, XContentType.JSON)
+            .settings(setting)
             .alias(new Alias(CommonName.ANOMALY_RESULT_INDEX_ALIAS));
         choosePrimaryShards(request);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.RESULT, actionListener));
@@ -381,7 +387,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
         // TODO: specify replica setting
         CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-            .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON);
+            .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON)
+            .settings(setting);
         choosePrimaryShards(request);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
     }
@@ -394,7 +401,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public void initDetectorStateIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
         CreateIndexRequest request = new CreateIndexRequest(DetectorInternalState.DETECTOR_STATE_INDEX)
-            .mapping(AnomalyDetector.TYPE, getDetectorStateMappings(), XContentType.JSON);
+            .mapping(AnomalyDetector.TYPE, getDetectorStateMappings(), XContentType.JSON)
+            .settings(setting);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.STATE, actionListener));
     }
 
@@ -412,7 +420,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             throw new EndRunException("", "Cannot find checkpoint mapping file", true);
         }
         CreateIndexRequest request = new CreateIndexRequest(CommonName.CHECKPOINT_INDEX_NAME)
-            .mapping(CommonName.MAPPING_TYPE, mapping, XContentType.JSON);
+            .mapping(CommonName.MAPPING_TYPE, mapping, XContentType.JSON)
+            .settings(setting);
         choosePrimaryShards(request);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CHECKPOINT, actionListener));
     }
@@ -470,7 +479,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         request
             .getCreateIndexRequest()
             .index(AD_RESULT_HISTORY_INDEX_PATTERN)
-            .mapping(CommonName.MAPPING_TYPE, adResultMapping, XContentType.JSON);
+            .mapping(CommonName.MAPPING_TYPE, adResultMapping, XContentType.JSON)
+            .settings(setting);
+
         request.addMaxIndexDocsCondition(historyMaxDocs);
         adminClient.indices().rolloverIndex(request, ActionListener.wrap(response -> {
             if (!response.isRolledOver()) {

@@ -4,10 +4,12 @@ on:
     branches:
       - main
       - opendistro-*
+      - 7.10.2-no-workbench
   pull_request:
     branches:
       - main
       - opendistro-*
+      - 7.10.2-no-workbench
 
 jobs:
   Build-ad:

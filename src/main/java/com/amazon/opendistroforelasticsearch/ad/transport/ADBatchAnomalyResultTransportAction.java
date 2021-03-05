@@ -42,6 +42,6 @@ public class ADBatchAnomalyResultTransportAction extends HandledTransportAction<
 
     @Override
     protected void doExecute(Task task, ADBatchAnomalyResultRequest request, ActionListener<ADBatchAnomalyResultResponse> actionListener) {
-        adBatchTaskRunner.run(request.getAdTask(), transportService, actionListener);
+        adBatchTaskRunner.initTopEntities(request.getAdTask(), transportService, actionListener);
     }
 }

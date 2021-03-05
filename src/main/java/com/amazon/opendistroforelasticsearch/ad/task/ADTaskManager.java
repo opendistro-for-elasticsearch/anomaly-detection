@@ -33,6 +33,7 @@ import static com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil.getSha
 import static org.elasticsearch.action.DocWriteResponse.Result.CREATED;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -41,20 +42,26 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import com.amazon.opendistroforelasticsearch.ad.caching.PriorityTracker;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchStatusException;
+import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
+import org.elasticsearch.action.LatchedActionListener;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.delete.DeleteResponse;
@@ -62,6 +69,7 @@ import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.action.update.UpdateResponse;
@@ -995,11 +1003,12 @@ public class ADTaskManager {
 
                         //TODO: create new method to avoid duplicate code
                         if (adTask.getDetectionDateRange() != null) {
-                            if (adTask.getDetector().isMultientityDetector() && adTask.getDetectionDateRange() != null) {
+                            /*if (adTask.getDetector().isMultientityDetector() && adTask.getDetectionDateRange() != null) {
                                 getTopEntities(adTask, () -> runBatchResultAction(response, adTask, listener), listener);
                             } else {
                                 runBatchResultAction(response, adTask, listener);
-                            }
+                            }*/
+                            runBatchResultAction(response, adTask, listener);
                         } else {
                             AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(
                                     response.getId(),
@@ -1021,11 +1030,12 @@ public class ADTaskManager {
             } else {
                 //TODO: create new method to avoid duplicate code
                 if (adTask.getDetectionDateRange() != null) {
-                    if (adTask.getDetector().isMultientityDetector() && adTask.getDetectionDateRange() != null) {
+                    /*if (adTask.getDetector().isMultientityDetector() && adTask.getDetectionDateRange() != null) {
                         getTopEntities(adTask, () -> runBatchResultAction(response, adTask, listener), listener);
                     } else {
                         runBatchResultAction(response, adTask, listener);
-                    }
+                    }*/
+                    runBatchResultAction(response, adTask, listener);
                 } else {
                     AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(
                             response.getId(), //TODO: change to detector id? Add new task id field
@@ -1101,11 +1111,12 @@ public class ADTaskManager {
                                 r,
                                 adTask,
                                 (response, delegatedListener) -> {
-                                    if (adTask.getDetector().isMultientityDetector()){
+                                    /*if (adTask.getDetector().isMultientityDetector()){
                                         getTopEntities(adTask, () -> cleanOldAdTaskDocs(response, adTask, delegatedListener), delegatedListener);
                                     } else {
                                         cleanOldAdTaskDocs(response, adTask, delegatedListener);
-                                    }
+                                    }*/
+                                    cleanOldAdTaskDocs(response, adTask, delegatedListener);
                                 },
                                 listener
                             ),
@@ -1190,48 +1201,145 @@ public class ADTaskManager {
     }
 
     //TODO: calculate top entities with the same algorithm of realtime detector
-    private void getTopEntities(ADTask adTask, AnomalyDetectorFunction consumer, ActionListener<AnomalyDetectorJobResponse> delegatedListener) {
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+//    private void getTopEntities(ADTask adTask, AnomalyDetectorFunction consumer, ActionListener<AnomalyDetectorJobResponse> delegatedListener) {
+//        PriorityTracker priorityTracker = new PriorityTracker(Clock.systemUTC(),
+//                adTask.getDetector().getDetectorIntervalInSeconds(),
+//                adTask.getDetectionDateRange().getStartTime().toEpochMilli(),
+//                10_000);
+//
+//        long dataStartTime = adTask.getDetectionDateRange().getStartTime().toEpochMilli();
+//        long dataEndTime = adTask.getDetectionDateRange().getEndTime().toEpochMilli();
+//        long interval = adTask.getDetector().getDetectorIntervalInMilliseconds();
+//        dataStartTime = dataStartTime - dataStartTime % interval;
+//        dataEndTime = dataEndTime - dataEndTime % interval;
+//
+//        final CountDownLatch latch = new CountDownLatch(1);
+//        long s = System.currentTimeMillis();
+//        long c = 0;
+//        for (long t = dataStartTime; t < dataEndTime; t += interval) {
+//            c++;
+//            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+//            BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+//            RangeQueryBuilder rangeQueryBuilder = new RangeQueryBuilder(adTask.getDetector().getTimeField()).gte(dataStartTime).lte(dataEndTime).format("epoch_millis");;
+//            boolQueryBuilder.filter(rangeQueryBuilder);
+//            boolQueryBuilder.filter(adTask.getDetector().getFilterQuery());
+//            sourceBuilder.query(boolQueryBuilder);
+//
+//            String topEntitiesAgg = "topEntities";
+//            AggregationBuilder aggregation = new TermsAggregationBuilder(topEntitiesAgg).field(adTask.getDetector().getCategoryField().get(0)).size(1000);
+//            sourceBuilder.aggregation(aggregation).size(0);
+//            //TODO: add historical date range
+//            SearchRequest searchRequest = new SearchRequest();
+//            searchRequest.source(sourceBuilder);
+//            searchRequest.indices(adTask.getDetector().getIndices().toArray(new String[0]));
+////            logger.info("++++++++++++++++++++++++++++++++");
+////            logger.info(sourceBuilder.toString());
+////            logger.info("++++++++++++++++++++++++++++++++ start search top entities");
+//
+//            client.search(searchRequest, new LatchedActionListener<>(
+//                    ActionListener.wrap(r -> {
+//                        StringTerms a = r.getAggregations().get(topEntitiesAgg);
+//                        List<StringTerms.Bucket> buckets = a.getBuckets();
+//                        List<String> topEntities = new ArrayList<>();
+//                        long total = r.getHits().getTotalHits().value;
+////                        logger.info("++++++++++++++++++++++++++++++++ finish search top entities");
+//                        for (StringTerms.Bucket b : buckets) {
+//                            //TODO: fix stats
+//                            String key = b.getKeyAsString();
+//                            long count = b.getDocCount();
+//                            topEntities.add(key);
+////                            logger.info(key + ", " + count);
+//                        }
+////                        logger.info("++++++++++++++++++++++++++++++++ entities");
+//
+//                        topEntities.forEach(e -> priorityTracker.updatePriority(e));
+//
+//
+////                adTaskCacheManager.addEntities(adTask.getDetectorId(), topEntities);
+////                consumer.execute();
+//                    }, e -> {
+//                        logger.error("Failed to get top entities for detector " + adTask.getDetectorId(), e);
+////                        delegatedListener.onFailure(e);
+//                    }), latch));
+//        }
+//        try {
+//            if (!latch.await(10, TimeUnit.SECONDS)) {
+//                throw new ElasticsearchTimeoutException("Timeout when get top entities for detector " + adTask.getDetectorId());
+//            }
+//
+//        } catch (Exception e) {
+//            delegatedListener.onFailure(e);
+//        }
+//        long e = System.currentTimeMillis();
+//        System.out.println("00000000000000000000000000000000000011111111 , totaltimeUsed: " + (e - s));
+//        List<String> topEntities = priorityTracker.getTopNEntities(1000);
+//        adTaskCacheManager.addEntities(adTask.getDetectorId(), topEntities);
+//        consumer.execute();
+//    }
 
-        RangeQueryBuilder rangeQueryBuilder = new RangeQueryBuilder(adTask.getDetector().getTimeField()).gte(adTask.getDetectionDateRange().getStartTime().toEpochMilli()).lte(adTask.getDetectionDateRange().getEndTime().toEpochMilli()).format("epoch_millis");;
-        boolQueryBuilder.filter(rangeQueryBuilder);
-        boolQueryBuilder.filter(adTask.getDetector().getFilterQuery());
-        sourceBuilder.query(boolQueryBuilder);
-
-        String topEntitiesAgg = "topEntities";
-        AggregationBuilder aggregation = new TermsAggregationBuilder(topEntitiesAgg).field(adTask.getDetector().getCategoryField().get(0)).size(1000);
-        sourceBuilder.aggregation(aggregation).size(0);
-        //TODO: add historical date range
-        SearchRequest searchRequest = new SearchRequest();
-        searchRequest.source(sourceBuilder);
-        searchRequest.indices(adTask.getDetector().getIndices().toArray(new String[0]));
-        logger.info("++++++++++++++++++++++++++++++++");
-        logger.info(sourceBuilder.toString());
-        logger.info("++++++++++++++++++++++++++++++++");
-        client.search(searchRequest, ActionListener.wrap(r -> {
-            StringTerms a = r.getAggregations().get(topEntitiesAgg);
-            List<StringTerms.Bucket> buckets = a.getBuckets();
-            List<String> topEntities = new ArrayList<>();
-            long total = r.getHits().getTotalHits().value;
-            logger.info("++++++++++++++++++++++++++++++++ top entities");
-            for (StringTerms.Bucket b : buckets) {
-                //TODO: fix stats
-                String key = b.getKeyAsString();
-                long count = b.getDocCount();
-                topEntities.add(key);
-                logger.info(key + ", " + count);
-            }
-            logger.info("++++++++++++++++++++++++++++++++ entities");
-
-            adTaskCacheManager.addEntities(adTask.getDetectorId(), topEntities);
-            consumer.execute();
-        }, e -> {
-            logger.error("Failed to get top entities for detector " + adTask.getDetectorId(), e);
-            delegatedListener.onFailure(e);
-        }));
-    }
-
+//    public void getTopEntities(ADTask adTask, AnomalyDetectorFunction consumer, ActionListener<AnomalyDetectorJobResponse> delegatedListener) {
+//        PriorityTracker priorityTracker = new PriorityTracker(Clock.systemUTC(),
+//                adTask.getDetector().getDetectorIntervalInSeconds(),
+//                adTask.getDetectionDateRange().getStartTime().toEpochMilli(),
+//                10_000);
+//
+//        long startTime = adTask.getDetectionDateRange().getStartTime().toEpochMilli();
+//        long endTime = adTask.getDetectionDateRange().getEndTime().toEpochMilli();
+//        long interval = adTask.getDetector().getDetectorIntervalInMilliseconds();
+//        startTime = startTime - startTime % interval;
+//        endTime = endTime - endTime % interval;
+//        logger.info("start to search top entities at " + System.currentTimeMillis());
+//        searchTopEntities(adTask, priorityTracker, endTime, (endTime - startTime) / 1000,
+//                startTime,startTime + interval,
+//                consumer, delegatedListener);
+//    }
+//
+//    private void searchTopEntities(ADTask adTask, PriorityTracker priorityTracker, long detectionEndTime, long interval,
+//                                   long dataStartTime, long dataEndTime,
+//                                   AnomalyDetectorFunction consumer,
+//                                   ActionListener<AnomalyDetectorJobResponse> delegatedListener) {
+//        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+//        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+//        RangeQueryBuilder rangeQueryBuilder = new RangeQueryBuilder(adTask.getDetector().getTimeField()).gte(dataStartTime).lte(dataEndTime).format("epoch_millis");;
+//        boolQueryBuilder.filter(rangeQueryBuilder);
+//        boolQueryBuilder.filter(adTask.getDetector().getFilterQuery());
+//        sourceBuilder.query(boolQueryBuilder);
+//
+//        String topEntitiesAgg = "topEntities";
+//        AggregationBuilder aggregation = new TermsAggregationBuilder(topEntitiesAgg).field(adTask.getDetector().getCategoryField().get(0)).size(1000);
+//        sourceBuilder.aggregation(aggregation).size(0);
+//        //TODO: add historical date range
+//        SearchRequest searchRequest = new SearchRequest();
+//        searchRequest.source(sourceBuilder);
+//        searchRequest.indices(adTask.getDetector().getIndices().toArray(new String[0]));
+//        client.search(searchRequest, ActionListener.wrap(r -> {
+//            StringTerms a = r.getAggregations().get(topEntitiesAgg);
+//            List<StringTerms.Bucket> buckets = a.getBuckets();
+//            List<String> topEntities = new ArrayList<>();
+//            for (StringTerms.Bucket b : buckets) {
+//                //TODO: fix stats
+//                String key = b.getKeyAsString();
+//                topEntities.add(key);
+//            }
+//
+//            topEntities.forEach(e -> priorityTracker.updatePriority(e));
+//            if (dataEndTime < detectionEndTime) {
+////                System.out.println("dataEndTimeYlwuDebug: " + dataEndTime);
+//                searchTopEntities(adTask, priorityTracker, detectionEndTime, interval,
+//                        dataEndTime, dataEndTime + interval,
+//                        consumer, delegatedListener);
+//            } else {
+//                logger.info("finish to search top entities at " + System.currentTimeMillis());
+//                List<String> topNEntities = priorityTracker.getTopNEntities(1000);
+//                adTaskCacheManager.addEntities(adTask.getDetectorId(), topNEntities);
+//                adTaskCacheManager.setEntityCount(adTask.getDetectorId(), topNEntities.size());
+//                consumer.execute();
+//            }
+//        }, e -> {
+//            logger.error("Failed to get top entities for detector " + adTask.getDetectorId(), e);
+//                        delegatedListener.onFailure(e);
+//        }));
+//    }
     //TODO: change this for HC detector as every entity will have one task. When delete old detector level task, delete
     // all entity task with "parent task id = detector task id", delete with cron job?
     private void cleanOldAdTaskDocs(IndexResponse response, ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {

@@ -68,6 +68,9 @@ public class ADTaskCacheManager {
     //TODO: cualculate memory usage, support multiple category field
     private Map<String, Queue<String>> entities;
 
+    private Map<String, Integer> entityCount;
+    private Map<String, Boolean> topEntitiesInited;
+
     /**
      * Constructor to create AD task cache manager.
      *
@@ -82,6 +85,8 @@ public class ADTaskCacheManager {
         this.memoryTracker = memoryTracker;
         this.detectors = Sets.newConcurrentHashSet();
         this.entities = new ConcurrentHashMap<>();
+        this.entityCount = new ConcurrentHashMap<>();
+        this.topEntitiesInited = new ConcurrentHashMap<>();
     }
 
     /**
@@ -386,6 +391,14 @@ public class ADTaskCacheManager {
             entities.remove(detectorId);
             logger.debug("Removed detector from AD task coordinating node entities cache, detectorId: " + detectorId);
         }
+        if (entityCount.containsKey(detectorId)) {
+            entityCount.remove(detectorId);
+            logger.debug("Removed detector from AD task coordinating node entities count cache, detectorId: " + detectorId);
+        }
+        if (topEntitiesInited.containsKey(detectorId)) {
+            topEntitiesInited.remove(detectorId);
+            logger.debug("Removed detector from AD task coordinating node entities initialization cache, detectorId: " + detectorId);
+        }
     }
 
     /**
@@ -525,5 +538,24 @@ public class ADTaskCacheManager {
 
     public int entityCount(String detectorId) {
         return entities.containsKey(detectorId) ? entities.get(detectorId).size() : 0;
+    }
+
+    public void setEntityCount(String detectorId, Integer count) {
+        entityCount.put(detectorId, count);
+    }
+
+    public Integer getEntityCount(String detectorId) {
+        return entityCount.containsKey(detectorId) ? entityCount.get(detectorId) : 0;
+    }
+
+    public boolean topEntityInited(String detectorId) {
+        if (!topEntitiesInited.containsKey(detectorId)) {
+            return false;
+        }
+        return topEntitiesInited.get(detectorId);
+    }
+
+    public void putEopEntityInited(String detectorId, boolean inited) {
+        topEntitiesInited.put(detectorId, inited);
     }
 }

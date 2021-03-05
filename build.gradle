@@ -19,17 +19,24 @@ import org.elasticsearch.gradle.test.RestIntegTestTask
 buildscript {
     ext {
         es_group = "org.elasticsearch"
-        es_version = '7.10.2'
+        es_version = '7.10.3'
     }
 
     repositories {
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
+        maven {
+            url = 's3://search-vemsarat/'
+            credentials(AwsCredentials) {
+                accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
+                secretKey = System.env.AWS_SECRET_ACCESS_KEY ?: findProperty('aws_secret_access_key')
+            }
+        }
         jcenter()
     }
 
     dependencies {
-        classpath "${es_group}.gradle:build-tools:${es_version}"
+        classpath "${es_group}.gradle:build-tools:${es_version}-SNAPSHOT"
     }
 }
 
@@ -43,11 +50,18 @@ plugins {
 repositories {
     mavenCentral()
     maven { url "https://plugins.gradle.org/m2/" }
+    maven {
+        url = 's3://search-vemsarat/'
+        credentials(AwsCredentials) {
+            accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
+            secretKey = System.env.AWS_SECRET_ACCESS_KEY ?: findProperty('aws_secret_access_key')
+        }
+    }
     jcenter()
 }
 
 ext {
-    opendistroVersion = '1.13.0'
+    opendistroVersion = '1.14.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
@@ -351,9 +365,9 @@ checkstyle {
 }
 
 dependencies {
-    compile "org.elasticsearch:elasticsearch:${es_version}"
+    compile "org.elasticsearch:elasticsearch:${es_version}-SNAPSHOT"
     compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:${opendistroVersion}.0"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:${opendistroVersion}.0-SNAPSHOT"
     compile "com.amazon.opendistroforelasticsearch:common-utils:${opendistroVersion}.0"
     compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
@@ -363,7 +377,7 @@ dependencies {
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
     compile 'software.amazon.randomcutforest:randomcutforest-core:1.0'
     compile 'software.amazon.randomcutforest:randomcutforest-serialization-json:1.0'
-    compile "org.elasticsearch.client:elasticsearch-rest-client:${es_version}"
+    compile "org.elasticsearch.client:elasticsearch-rest-client:${es_version}-SNAPSHOT"
 
     compile "org.jacoco:org.jacoco.agent:0.8.5"
     compile ("org.jacoco:org.jacoco.ant:0.8.5") {

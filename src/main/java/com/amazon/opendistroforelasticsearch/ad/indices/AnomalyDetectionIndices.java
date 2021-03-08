@@ -359,6 +359,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                     .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, Math.min(nodeFilter.getNumberOfEligibleDataNodes(), maxPrimaryShards))
                     // 1 replica for better search performance and fail-over
                     .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 1)
+                    .put("index.hidden", true)
             );
     }
 
@@ -372,7 +373,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         String mapping = getAnomalyResultMappings();
         CreateIndexRequest request = new CreateIndexRequest(AD_RESULT_HISTORY_INDEX_PATTERN)
             .mapping(CommonName.MAPPING_TYPE, mapping, XContentType.JSON)
-            .settings(setting)
             .alias(new Alias(CommonName.ANOMALY_RESULT_INDEX_ALIAS));
         choosePrimaryShards(request);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.RESULT, actionListener));
@@ -387,8 +387,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
         // TODO: specify replica setting
         CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-            .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON)
-            .settings(setting);
+            .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON);
         choosePrimaryShards(request);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
     }
@@ -420,8 +419,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             throw new EndRunException("", "Cannot find checkpoint mapping file", true);
         }
         CreateIndexRequest request = new CreateIndexRequest(CommonName.CHECKPOINT_INDEX_NAME)
-            .mapping(CommonName.MAPPING_TYPE, mapping, XContentType.JSON)
-            .settings(setting);
+            .mapping(CommonName.MAPPING_TYPE, mapping, XContentType.JSON);
         choosePrimaryShards(request);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CHECKPOINT, actionListener));
     }
@@ -468,7 +466,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }
 
         // We have to pass null for newIndexName in order to get Elastic to increment the index count.
-        RolloverRequest request = new RolloverRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS, null);
+        RolloverRequest rollOverRequest = new RolloverRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS, null);
         String adResultMapping = null;
         try {
             adResultMapping = getAnomalyResultMappings();
@@ -476,14 +474,16 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             logger.error("Fail to roll over AD result index, as can't get AD result index mapping");
             return;
         }
-        request
-            .getCreateIndexRequest()
-            .index(AD_RESULT_HISTORY_INDEX_PATTERN)
-            .mapping(CommonName.MAPPING_TYPE, adResultMapping, XContentType.JSON)
-            .settings(setting);
+        CreateIndexRequest createRequest = rollOverRequest
+            .getCreateIndexRequest();
 
-        request.addMaxIndexDocsCondition(historyMaxDocs);
-        adminClient.indices().rolloverIndex(request, ActionListener.wrap(response -> {
+        createRequest.index(AD_RESULT_HISTORY_INDEX_PATTERN)
+            .mapping(CommonName.MAPPING_TYPE, adResultMapping, XContentType.JSON);
+
+        choosePrimaryShards(createRequest);
+
+        rollOverRequest.addMaxIndexDocsCondition(historyMaxDocs);
+        adminClient.indices().rolloverIndex(rollOverRequest, ActionListener.wrap(response -> {
             if (!response.isRolledOver()) {
                 logger
                     .warn("{} not rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());

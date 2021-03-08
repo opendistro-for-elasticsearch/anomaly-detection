@@ -474,11 +474,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             logger.error("Fail to roll over AD result index, as can't get AD result index mapping");
             return;
         }
-        CreateIndexRequest createRequest = rollOverRequest
-            .getCreateIndexRequest();
+        CreateIndexRequest createRequest = rollOverRequest.getCreateIndexRequest();
 
-        createRequest.index(AD_RESULT_HISTORY_INDEX_PATTERN)
-            .mapping(CommonName.MAPPING_TYPE, adResultMapping, XContentType.JSON);
+        createRequest.index(AD_RESULT_HISTORY_INDEX_PATTERN).mapping(CommonName.MAPPING_TYPE, adResultMapping, XContentType.JSON);
 
         choosePrimaryShards(createRequest);
 

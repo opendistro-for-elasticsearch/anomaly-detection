@@ -113,6 +113,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     private boolean allUpdated;
     // we only want one update at a time
     private final AtomicBoolean updateRunning;
+    // AD index settings
+    private final Settings setting;
 
     class IndexState {
         // keep track of whether the mapping version is up-to-date
@@ -169,6 +171,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
 
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
+
+        this.setting = Settings.builder().put("index.hidden", true).build();
     }
 
     /**
@@ -328,7 +332,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public void initAnomalyDetectorIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
         CreateIndexRequest request = new CreateIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-            .mapping(AnomalyDetector.TYPE, getAnomalyDetectorMappings(), XContentType.JSON);
+            .mapping(AnomalyDetector.TYPE, getAnomalyDetectorMappings(), XContentType.JSON)
+            .settings(setting);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CONFIG, actionListener));
     }
 
@@ -357,6 +362,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                     .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, Math.min(nodeFilter.getNumberOfEligibleDataNodes(), maxPrimaryShards))
                     // 1 replica for better search performance and fail-over
                     .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 1)
+                    .put("index.hidden", true)
             );
     }
 
@@ -400,7 +406,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     public void initDetectionStateIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
             CreateIndexRequest request = new CreateIndexRequest(CommonName.DETECTION_STATE_INDEX)
-                .mapping(AnomalyDetector.TYPE, getDetectionStateMappings(), XContentType.JSON);
+                .mapping(AnomalyDetector.TYPE, getDetectionStateMappings(), XContentType.JSON)
+                .settings(setting);
             adminClient.indices().create(request, markMappingUpToDate(ADIndex.STATE, actionListener));
         } catch (IOException e) {
             logger.error("Fail to init AD detection state index", e);
@@ -469,7 +476,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }
 
         // We have to pass null for newIndexName in order to get Elastic to increment the index count.
-        RolloverRequest request = new RolloverRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS, null);
+        RolloverRequest rollOverRequest = new RolloverRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS, null);
         String adResultMapping = null;
         try {
             adResultMapping = getAnomalyResultMappings();
@@ -477,12 +484,14 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             logger.error("Fail to roll over AD result index, as can't get AD result index mapping");
             return;
         }
-        request
-            .getCreateIndexRequest()
-            .index(AD_RESULT_HISTORY_INDEX_PATTERN)
-            .mapping(CommonName.MAPPING_TYPE, adResultMapping, XContentType.JSON);
-        request.addMaxIndexDocsCondition(historyMaxDocs);
-        adminClient.indices().rolloverIndex(request, ActionListener.wrap(response -> {
+        CreateIndexRequest createRequest = rollOverRequest.getCreateIndexRequest();
+
+        createRequest.index(AD_RESULT_HISTORY_INDEX_PATTERN).mapping(CommonName.MAPPING_TYPE, adResultMapping, XContentType.JSON);
+
+        choosePrimaryShards(createRequest);
+
+        rollOverRequest.addMaxIndexDocsCondition(historyMaxDocs);
+        adminClient.indices().rolloverIndex(rollOverRequest, ActionListener.wrap(response -> {
             if (!response.isRolledOver()) {
                 logger
                     .warn("{} not rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());

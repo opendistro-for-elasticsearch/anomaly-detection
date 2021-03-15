@@ -734,6 +734,10 @@ public class ADTask implements ToXContentObject, Writeable {
         return parentTaskId;
     }
 
+    public boolean isEntityTask() {
+        return getParentTaskId() != null && getEntity() != null && getEntity().size() > 0;
+    }
+
     public User getUser() {
         return user;
     }

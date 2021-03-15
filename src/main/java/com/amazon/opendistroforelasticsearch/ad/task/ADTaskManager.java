@@ -55,6 +55,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.util.Strings;
+import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.ExceptionsHelper;
@@ -85,6 +87,8 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.ExistsQueryBuilder;
+import org.elasticsearch.index.query.NestedQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.index.query.TermsQueryBuilder;
@@ -422,7 +426,8 @@ public class ADTaskManager {
         TransportService transportService,
         ActionListener<T> listener
     ) {
-        BoolQueryBuilder query = new BoolQueryBuilder();
+        getLatestADTask(detectorId, null, adTaskTypes, function,transportService, true, listener);
+        /*BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, true));
         if (adTaskTypes != null && adTaskTypes.size() > 0) {
@@ -455,6 +460,89 @@ public class ADTaskManager {
 
                 //TODO: check realtime detector job and reset realtime task as stopped.
                 if (adTask.getDetectionDateRange() != null && !isADTaskEnded(adTask) && lastUpdateTimeExpired(adTask)) {
+                    // If AD task is still running, but its last updated time not refreshed
+                    // for 2 pieces intervals, we will get task profile to check if it's
+                    // really running and reset state as STOPPED if not running.
+                    // For example, ES process crashes, then all tasks running on it will stay
+                    // as running. We can reset the task state when next read happen.
+                    getADTaskProfile(adTask, ActionListener.wrap(taskProfile -> {
+                        if (taskProfile.getNodeId() == null) {
+                            // If no node is running this task, reset it as STOPPED.
+                            resetTaskStateAsStopped(adTask, transportService); //TODO: reset realtime task state
+                            adTask.setState(ADTaskState.STOPPED.name());
+                        }
+                        function.accept(Optional.of(adTask));
+                    }, e -> {
+                        logger.error("Failed to get AD task profile for task " + adTask.getTaskId(), e);
+                        listener.onFailure(e);
+                    }));
+                } else {
+                    function.accept(Optional.of(adTask));
+                }
+            } catch (Exception e) {
+                String message = "Failed to parse AD task for detector " + detectorId;
+                logger.error(message, e);
+                listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+            }
+        }, e -> {
+            if (e instanceof IndexNotFoundException) {
+                function.accept(Optional.empty());
+            } else {
+                logger.error("Failed to search AD task for detector " + detectorId, e);
+                listener.onFailure(e);
+            }
+        }));*/
+    }
+
+    public <T> void getLatestADTask(
+            String detectorId,
+            String entityValue,
+            List<ADTaskType> adTaskTypes,
+            Consumer<Optional<ADTask>> function,
+            TransportService transportService,
+            boolean resetTaskState,
+            ActionListener<T> listener
+    ) {
+        BoolQueryBuilder query = new BoolQueryBuilder();
+        query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
+        query.filter(new TermQueryBuilder(IS_LATEST_FIELD, true));
+        if (adTaskTypes != null && adTaskTypes.size() > 0) {
+            query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, adTaskTypes.stream().map(type -> type.name()).collect(Collectors.toList())));
+        }
+        if (Strings.isNotEmpty(entityValue)) {
+            String path = "entity";
+            String entityValueFieldName = path + ".value";
+            TermQueryBuilder entityValueFilterQuery = QueryBuilders.termQuery(entityValueFieldName, entityValue);
+            NestedQueryBuilder nestedQueryBuilder = new NestedQueryBuilder(path, entityValueFilterQuery, ScoreMode.None);
+            query.filter(nestedQueryBuilder);
+        }
+//        query.mustNot(new ExistsQueryBuilder("parent_task_id"));
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+        sourceBuilder.query(query);
+        SearchRequest searchRequest = new SearchRequest();
+        searchRequest.source(sourceBuilder);
+        searchRequest.indices(CommonName.DETECTION_STATE_INDEX);
+        logger.info("00000000000000000000000000000000000000000000000 entityValue: {}", entityValue);
+        logger.info(sourceBuilder.toString());
+        logger.info("00000000000000000000000000000000000000000000000");
+
+        client.search(searchRequest, ActionListener.wrap(r -> {
+            // https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/359#discussion_r558653132
+            // getTotalHits will be null when we track_total_hits is false in the query request.
+            // Add more checking here to cover some unknown cases.
+            if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value == 0) {
+                // don't throw exception here as consumer functions need to handle missing task
+                // in different way.
+                function.accept(Optional.empty());
+                return;
+            }
+            SearchHit searchHit = r.getHits().getAt(0);
+            try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, searchHit.getSourceRef())) {
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                ADTask adTask = ADTask.parse(parser, searchHit.getId());
+
+                //TODO: check realtime detector job and reset realtime task as stopped.
+                if (resetTaskState && adTask.getDetectionDateRange() != null && !isADTaskEnded(adTask) && lastUpdateTimeExpired(adTask)) {
                     // If AD task is still running, but its last updated time not refreshed
                     // for 2 pieces intervals, we will get task profile to check if it's
                     // really running and reset state as STOPPED if not running.
@@ -1181,7 +1269,10 @@ public class ADTaskManager {
                 listener.onFailure(new ElasticsearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
             } else {
                 listener.onFailure(e);
-                adTaskCacheManager.removeDetector(adTask.getDetectorId());
+                if (!adTask.getTaskType().startsWith("HISTORICAL_HC_")) {
+                    adTaskCacheManager.removeDetector(adTask.getDetectorId());
+                }
+
             }
         });
         try {

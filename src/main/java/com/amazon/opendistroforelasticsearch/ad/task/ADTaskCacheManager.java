@@ -34,7 +34,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.model.Entity;
+import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -67,6 +69,7 @@ public class ADTaskCacheManager {
 
     //TODO: cualculate memory usage, support multiple category field
     private Map<String, Queue<String>> entities;
+    private Map<String, Queue<String>> runningEntities;
 
     private Map<String, Integer> entityCount;
     private Map<String, Boolean> topEntitiesInited;
@@ -85,6 +88,7 @@ public class ADTaskCacheManager {
         this.memoryTracker = memoryTracker;
         this.detectors = Sets.newConcurrentHashSet();
         this.entities = new ConcurrentHashMap<>();
+        this.runningEntities = new ConcurrentHashMap<>();
         this.entityCount = new ConcurrentHashMap<>();
         this.topEntitiesInited = new ConcurrentHashMap<>();
     }
@@ -114,6 +118,10 @@ public class ADTaskCacheManager {
         ADBatchTaskCache taskCache = new ADBatchTaskCache(adTask);
         taskCache.getCacheMemorySize().set(neededCacheSize);
         taskCaches.put(taskId, taskCache);
+
+        if (adTask.getEntity() != null && adTask.getEntity().size() > 0) {
+            this.moveToRunningEntities(adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
+        }
     }
 
     /**
@@ -150,6 +158,10 @@ public class ADTaskCacheManager {
 //        }
 //    }
 
+    public void addEntity(String detectorId, String newEntities) {
+        addEntities(detectorId, ImmutableList.of(newEntities));
+    }
+
     public void addEntities(String detectorId, List<String> newEntities) {
         if (newEntities == null || newEntities.size() == 0) {
             return;
@@ -165,6 +177,19 @@ public class ADTaskCacheManager {
             ConcurrentLinkedQueue<String> queue = new ConcurrentLinkedQueue<>();
             queue.addAll(newEntities);
             this.entities.put(detectorId, queue);
+        }
+    }
+
+    private void moveToRunningEntities(String detectorId, String entity) {
+        if (this.runningEntities.containsKey(detectorId)) {
+            Queue<String> queue = this.runningEntities.get(detectorId);
+            if (!queue.contains(entity)) {
+                queue.add(entity);//TODO:null pointer exception
+            }
+        } else {
+            ConcurrentLinkedQueue<String> queue = new ConcurrentLinkedQueue<>();
+            queue.add(entity);
+            this.runningEntities.put(detectorId, queue);
         }
     }
 
@@ -364,14 +389,26 @@ public class ADTaskCacheManager {
      * Remove task from cache.
      *
      * @param taskId AD task id
+     * @param entity entity
      */
-    public void remove(String taskId) {
+    public void remove(String taskId, List<Entity> entity) {
         if (contains(taskId)) {
             ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
             memoryTracker.releaseMemory(taskCache.getCacheMemorySize().get(), true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
             taskCaches.remove(taskId);
             // can't remove detector id from cache here as it's possible that some task running on
             // other worker nodes
+//            if(entity != null && entity.size() > 0){
+//                String detectorId = taskCache.getDetectorId();
+//                runningEntities.get(detectorId).remove(entity.get(0));
+//            }
+            removeRunningEntity(taskCache.getDetectorId(), entity);
+        }
+    }
+
+    public void removeRunningEntity(String detectorId, List<Entity> entity) {
+        if(entity != null && entity.size() > 0 && runningEntities.containsKey(detectorId)){
+            runningEntities.get(detectorId).remove(entity.get(0));
         }
     }
 
@@ -381,6 +418,9 @@ public class ADTaskCacheManager {
      * @param detectorId detector id
      */
     public void removeDetector(String detectorId) {
+        if (hasRunningEntity(detectorId)) {
+            throw new AnomalyDetectionException("Can't remove detector from cache as there is running entity tasks");
+        }
         if (detectors.contains(detectorId)) {
             detectors.remove(detectorId);
             logger.debug("Removed detector from AD task coordinating node cache, detectorId: " + detectorId);
@@ -389,6 +429,10 @@ public class ADTaskCacheManager {
         }
         if (entities.containsKey(detectorId)) {
             entities.remove(detectorId);
+            logger.debug("Removed detector from AD task coordinating node entities cache, detectorId: " + detectorId);
+        }
+        if (runningEntities.containsKey(detectorId)) {
+            runningEntities.remove(detectorId);
             logger.debug("Removed detector from AD task coordinating node entities cache, detectorId: " + detectorId);
         }
         if (entityCount.containsKey(detectorId)) {
@@ -529,7 +573,9 @@ public class ADTaskCacheManager {
      * @return one entity
      */
     public String pollEntity(String detectorId) {
-        return entities.containsKey(detectorId)? entities.get(detectorId).poll() : null;
+        String entity = entities.containsKey(detectorId)? entities.get(detectorId).poll() : null;
+        this.moveToRunningEntities(detectorId, entity);
+        return entity;
     }
 
     public boolean hasEntity(String detectorId) {
@@ -555,7 +601,11 @@ public class ADTaskCacheManager {
         return topEntitiesInited.get(detectorId);
     }
 
-    public void putEopEntityInited(String detectorId, boolean inited) {
+    public void putTopEntityInited(String detectorId, boolean inited) {
         topEntitiesInited.put(detectorId, inited);
+    }
+
+    public boolean hasRunningEntity(String detectorId) {
+        return runningEntities.containsKey(detectorId) && runningEntities.get(detectorId).size() > 0;
     }
 }

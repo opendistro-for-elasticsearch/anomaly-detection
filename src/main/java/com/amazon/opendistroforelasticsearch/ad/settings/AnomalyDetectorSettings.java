@@ -368,4 +368,24 @@ public final class AnomalyDetectorSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
+
+    public static final Setting<Integer> MAX_TOP_ENTITIES_PER_HC_DETECTOR = Setting
+            .intSetting(
+                    "opendistro.anomaly_detection.max_top_entities_per_hc_detector",
+                    1000,
+                    1,
+                    10000,
+                    Setting.Property.NodeScope,
+                    Setting.Property.Dynamic
+            );
+
+    public static final Setting<Integer> MAX_RUNNING_ENTITIES_PER_DETECTOR = Setting
+            .intSetting(
+                    "opendistro.anomaly_detection.max_running_entities_per_detector",
+                    10,
+                    1,
+                    1000,
+                    Setting.Property.NodeScope,
+                    Setting.Property.Dynamic
+            );
 }

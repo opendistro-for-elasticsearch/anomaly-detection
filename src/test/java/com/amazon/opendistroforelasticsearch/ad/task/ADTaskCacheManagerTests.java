@@ -89,7 +89,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
         assertNotNull(adTaskCacheManager.getThresholdModel(adTask.getTaskId()));
         assertNotNull(adTaskCacheManager.getThresholdModelTrainingData(adTask.getTaskId()));
         assertFalse(adTaskCacheManager.isThresholdModelTrained(adTask.getTaskId()));
-        adTaskCacheManager.remove(adTask.getTaskId());
+        adTaskCacheManager.remove(adTask.getTaskId(), adTask.getEntity());
         assertEquals(0, adTaskCacheManager.size());
     }
 
@@ -159,7 +159,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     }
 
     public void testRemoveTaskWhichNotExist() {
-        adTaskCacheManager.remove(randomAlphaOfLength(5));
+        adTaskCacheManager.remove(randomAlphaOfLength(5), adTask.getEntity());
         verify(memoryTracker, never()).releaseMemory(anyLong(), anyBoolean(), eq(HISTORICAL_SINGLE_ENTITY_DETECTOR));
     }
 

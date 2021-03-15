@@ -43,6 +43,8 @@ jobs:
           plugin=`ls build/distributions/*.zip`
           version=`echo $plugin|awk -F- '{print $4}'| cut -d. -f 1-3`
           plugin_version=`echo $plugin|awk -F- '{print $4}'| cut -d. -f 1-4`
+          ## Hard code as 1.13.1 to pass CI workflow on top of ODFE 1.13.1
+          version='1.13.1'
           echo $version
           cd ..
 
@@ -72,7 +74,7 @@ jobs:
       - name: Run AD Test
         if: env.imagePresent == 'true'
         run: |
-          security=`curl -XGET https://localhost:9200/_cat/plugins?v -u admin:admin --insecure |grep opendistro_security|wc -l`
+          security=`curl -XGET https://localhost:9200/_cat/plugins -u admin:admin --insecure |grep opendistro-security|wc -l`
           if [ $security -gt 0 ]
           then
             echo "Security plugin is available"

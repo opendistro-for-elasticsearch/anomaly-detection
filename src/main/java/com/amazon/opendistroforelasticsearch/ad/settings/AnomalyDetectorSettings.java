@@ -334,7 +334,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static int THRESHOLD_MODEL_TRAINING_SIZE = 135; //128 data points rcf with shingle size 8
+    public static int THRESHOLD_MODEL_TRAINING_SIZE = 128; //128 data points rcf with shingle size 8
 
     public static final Setting<Integer> MAX_OLD_AD_TASK_DOCS_PER_DETECTOR = Setting
         .intSetting(
@@ -352,7 +352,7 @@ public final class AnomalyDetectorSettings {
     public static final Setting<Integer> BATCH_TASK_PIECE_SIZE = Setting
         .intSetting(
             "opendistro.anomaly_detection.batch_task_piece_size",
-            1000,
+            5000,
             1,
             10_000,
             Setting.Property.NodeScope,
@@ -372,7 +372,7 @@ public final class AnomalyDetectorSettings {
     public static final Setting<Integer> MAX_TOP_ENTITIES_PER_HC_DETECTOR = Setting
             .intSetting(
                     "opendistro.anomaly_detection.max_top_entities_per_hc_detector",
-                    1000,
+                    50,
                     1,
                     10000,
                     Setting.Property.NodeScope,

@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -51,6 +52,7 @@ import java.util.stream.Collectors;
 
 import com.amazon.opendistroforelasticsearch.ad.caching.PriorityTracker;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
+import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.logging.log4j.LogManager;
@@ -522,9 +524,9 @@ public class ADTaskManager {
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.source(sourceBuilder);
         searchRequest.indices(CommonName.DETECTION_STATE_INDEX);
-        logger.info("00000000000000000000000000000000000000000000000 entityValue: {}", entityValue);
-        logger.info(sourceBuilder.toString());
-        logger.info("00000000000000000000000000000000000000000000000");
+        logger.debug("00000000000000000000000000000000000000000000000 entityValue: {}", entityValue);
+        logger.debug(sourceBuilder.toString());
+        logger.debug("00000000000000000000000000000000000000000000000");
 
         client.search(searchRequest, ActionListener.wrap(r -> {
             // https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/359#discussion_r558653132
@@ -669,7 +671,7 @@ public class ADTaskManager {
                             function.execute();
                             },
                         e -> {
-                            logger.error("Failed to clear detector cache on coordinating node " + coordinatingNode, e);
+                            logger.error("++++++++++ Failed to clear detector cache on coordinating node " + coordinatingNode, e);
                         }
                     )
             );
@@ -687,8 +689,12 @@ public class ADTaskManager {
         }
     }
 
-
     protected void entityTaskDone(ADTask adTask, TransportService transportService, AnomalyDetectorFunction function) {
+        entityTaskDone(adTask, false, transportService, function);
+    }
+
+    //TODO: mark entity task as done, remove enity from running entity queue
+    protected void entityTaskDone(ADTask adTask, boolean limitExceeded, TransportService transportService, AnomalyDetectorFunction function) {
         String coordinatingNode = adTask.getCoordinatingNode();
         DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
         logger.debug("coordinatingNode is: " + coordinatingNode + " for entity task " + adTask.getTaskId());
@@ -699,6 +705,7 @@ public class ADTaskManager {
                 break;
             }
         }
+        ADTaskAction action = limitExceeded ? ADTaskAction.PUSH_BACK_ENTITY : ADTaskAction.NEXT_ENTITY;
         if (targetNode != null) {
             logger.debug("coordinatingNode found, will clean detector cache on it, detectorId: " + adTask.getDetectorId());
             forwardToCoordinatingNode(
@@ -706,7 +713,7 @@ public class ADTaskManager {
                     adTask,
                     adTask.getDetectionDateRange(),
                     null,
-                    ADTaskAction.NEXT_ENTITY,
+                    action,
                     transportService,
                     targetNode,
                     ActionListener
@@ -715,7 +722,7 @@ public class ADTaskManager {
                                         function.execute();
                                     },
                                     e -> {
-                                        logger.error("Failed to clear detector cache on coordinating node " + coordinatingNode, e);
+                                        logger.error("Failed to forward entity task to coordinating node ", e);
                                     }
                             )
             );
@@ -1586,6 +1593,21 @@ public class ADTaskManager {
         }
     }
 
+    public void updateADHCDetectorTask(String detectorId, String taskId, Map<String, Object> updatedFields) {
+        AtomicBoolean updating = adTaskCacheManager.detectorTaskUpdating(detectorId);
+        if (!updating.get()) {
+            updating.set(true);
+            updateADTask(taskId, updatedFields, ActionListener.wrap(response -> {
+                updating.set(false);
+                if (response.status() == RestStatus.OK) {
+                    logger.debug("Updated AD task successfully: {}", response.status());
+                } else {
+                    logger.error("Failed to update AD task {}, status: {}", taskId, response.status());
+                }
+            }, e -> { updating.set(false); logger.error("Failed to update task: " + taskId, e); }));
+        }
+    }
+
     public void updateADTask(String taskId, Map<String, Object> updatedFields) {
         updateADTask(taskId, updatedFields, ActionListener.wrap(response -> {
             if (response.status() == RestStatus.OK) {
@@ -1685,8 +1707,13 @@ public class ADTaskManager {
         adTaskCacheManager.removeDetector(detectorId);
     }
 
+    //TODO: run only on coordinating node
     public boolean hcDetectorDone(String detectorId) {
-        return adTaskCacheManager.hasEntity(detectorId);
+        return !adTaskCacheManager.hasEntity(detectorId);
+    }
+
+    public boolean hcDetectorInCache(String detectorId) {
+        return adTaskCacheManager.hcDetectorInCache(detectorId);
     }
 
     public void updateLatestADTask(String detectorId, ImmutableList<ADTaskType> taskTypes, Map<String, Object> updatedFields) {
@@ -1704,5 +1731,20 @@ public class ADTaskManager {
                 },
                 null,
                 listener);
+    }
+
+    public void addEntityToCache(String detectorId, String value) {
+        adTaskCacheManager.addEntity(detectorId, value);
+    }
+
+    public void removeRunningEntity(String detectorId, List<Entity> entity) {
+        adTaskCacheManager.removeRunningEntity(detectorId, entity);
+    }
+
+    public float hcDetectorProgress(String detectorId) {
+        int entityCount = adTaskCacheManager.getEntityCount(detectorId);
+        int leftEntities = adTaskCacheManager.pendingEntityCount(detectorId)
+                + adTaskCacheManager.runningEntitiesCount(detectorId);
+        return 1 - (float)leftEntities / entityCount;
     }
 }

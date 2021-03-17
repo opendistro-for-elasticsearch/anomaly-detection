@@ -28,6 +28,9 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyResultsAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyResultsAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyResultsTransportAction;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.SpecialPermission;
@@ -263,6 +266,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         RestAnomalyDetectorJobAction anomalyDetectorJobAction = new RestAnomalyDetectorJobAction(settings, clusterService);
         RestSearchAnomalyDetectorInfoAction searchAnomalyDetectorInfoAction = new RestSearchAnomalyDetectorInfoAction();
         RestPreviewAnomalyDetectorAction previewAnomalyDetectorAction = new RestPreviewAnomalyDetectorAction();
+        RestDeleteAnomalyResultsAction deleteAnomalyResultsAction = new RestDeleteAnomalyResultsAction();
 
         return ImmutableList
             .of(
@@ -276,7 +280,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 anomalyDetectorJobAction,
                 statsAnomalyDetectorAction,
                 searchAnomalyDetectorInfoAction,
-                previewAnomalyDetectorAction
+                previewAnomalyDetectorAction,
+                deleteAnomalyResultsAction
             );
     }
 
@@ -700,7 +705,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(ADBatchTaskRemoteExecutionAction.INSTANCE, ADBatchTaskRemoteExecutionTransportAction.class),
                 new ActionHandler<>(ADTaskProfileAction.INSTANCE, ADTaskProfileTransportAction.class),
                 new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class),
-                new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class)
+                new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class),
+                new ActionHandler<>(DeleteAnomalyResultsAction.INSTANCE, DeleteAnomalyResultsTransportAction.class)
             );
     }
 

@@ -418,46 +418,50 @@ public class ADTaskCacheManager {
         if(entity != null && entity.size() > 0 && runningEntities.containsKey(detectorId)) {
             String runningEntity = entity.get(0).getValue();
             logger.debug("Remove entity from running entities cache: " + runningEntity);
-            logger.debug("Pending entity count: " + pendingEntities.get(detectorId).size()
+            int pendingEntitySize = pendingEntities.containsKey(detectorId)? pendingEntities.get(detectorId).size():0;
+            logger.debug("Pending entity count: " + pendingEntitySize
                     + ", Running entity count: " + runningEntities.get(detectorId).size());
             runningEntities.get(detectorId).remove(runningEntity);
         }
     }
 
+    public void removeDetector(String detectorId) {
+        removeDetector(detectorId, true);
+    }
     /**
      * Remove detector id from running detector cache
      *
      * @param detectorId detector id
      */
-    public void removeDetector(String detectorId) {
+    public void removeDetector(String detectorId, boolean removeTaskUpdatingCache) {
         if (hasEntity(detectorId)) {
             throw new AnomalyDetectionException("Can't remove detector from cache as there is running entity tasks");
         }
         if (detectors.contains(detectorId)) {
             detectors.remove(detectorId);
-            logger.debug("Removed detector from AD task coordinating node cache, detectorId: " + detectorId);
+            logger.info("Removed detector from AD task coordinating node cache, detectorId: " + detectorId);
         } else {
-            logger.debug("Detector is not in AD task coordinating node cache");
+            logger.info("Detector is not in AD task coordinating node cache");
         }
         if (pendingEntities.containsKey(detectorId)) {
             pendingEntities.remove(detectorId);
-            logger.debug("Removed detector from AD task coordinating node entities cache, detectorId: " + detectorId);
+            logger.info("Removed detector from AD task coordinating node pending entities cache, detectorId: " + detectorId);
         }
         if (runningEntities.containsKey(detectorId)) {
             runningEntities.remove(detectorId);
-            logger.debug("Removed detector from AD task coordinating node entities cache, detectorId: " + detectorId);
+            logger.info("Removed detector from AD task coordinating node running entities cache, detectorId: " + detectorId);
         }
         if (entityCount.containsKey(detectorId)) {
             entityCount.remove(detectorId);
-            logger.debug("Removed detector from AD task coordinating node entities count cache, detectorId: " + detectorId);
+            logger.info("Removed detector from AD task coordinating node entities count cache, detectorId: " + detectorId);
         }
         if (topEntitiesInited.containsKey(detectorId)) {
             topEntitiesInited.remove(detectorId);
-            logger.debug("Removed detector from AD task coordinating node entities initialization cache, detectorId: " + detectorId);
+            logger.info("Removed detector from AD task coordinating node entities initialization cache, detectorId: " + detectorId);
         }
         if (detectorTaskUpdating.containsKey(detectorId)) {
             detectorTaskUpdating.remove(detectorId);
-            logger.debug("Removed detector from AD task coordinating node detector task updating cache, detectorId: " + detectorId);
+            logger.info("Removed detector from AD task coordinating node detector task updating cache, detectorId: " + detectorId);
         }
     }
 
@@ -492,11 +496,14 @@ public class ADTaskCacheManager {
         List<ADBatchTaskCache> taskCaches = getBatchTaskCacheByDetectorId(detectorId);
 
         if (taskCaches.isEmpty()) {
+            //TODO: stop HC detector before running entity task
+            logger.info("-------------------- task not found in caches");
             return ADTaskCancellationState.NOT_FOUND;
         }
 
         ADTaskCancellationState cancellationState = ADTaskCancellationState.ALREADY_CANCELLED;
         for (ADBatchTaskCache cache : taskCaches) {
+            logger.info("-------------------- task cancel state, task id: {}, cancelled: {}", cache.getTaskId(), cache.isCancelled());
             if (!cache.isCancelled()) {
                 cancellationState = ADTaskCancellationState.CANCELLED;
                 cache.cancel(reason, userName);
@@ -644,7 +651,20 @@ public class ADTaskCacheManager {
         return runningEntities.containsKey(detectorId) && runningEntities.get(detectorId).size() > 0;
     }
 
-    public AtomicBoolean detectorTaskUpdating(String detectorId) {
-        return detectorTaskUpdating.computeIfAbsent(detectorId, id -> new AtomicBoolean(false));
+    public AtomicBoolean detectorTaskUpdating(String detectorId, boolean initUpdatingFlagIfMissing) {
+        if (initUpdatingFlagIfMissing) {
+            if (!detectorTaskUpdating.containsKey(detectorId)) {
+                logger.debug("Init HC detector task updating flag. Detector id {}", detectorId);
+            }
+            return detectorTaskUpdating.computeIfAbsent(detectorId, id -> new AtomicBoolean(false));
+        } else {
+            return detectorTaskUpdating.get(detectorId);
+        }
+    }
+
+    public void removeEntities(String detectorId) {
+        if (pendingEntities.containsKey(detectorId)) {
+            pendingEntities.remove(detectorId);
+        }
     }
 }

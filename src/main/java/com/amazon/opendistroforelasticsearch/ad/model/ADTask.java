@@ -666,6 +666,10 @@ public class ADTask implements ToXContentObject, Writeable {
         return error;
     }
 
+    public void setError(String error) {
+        this.error = error;
+    }
+
     public String getState() {
         return state;
     }

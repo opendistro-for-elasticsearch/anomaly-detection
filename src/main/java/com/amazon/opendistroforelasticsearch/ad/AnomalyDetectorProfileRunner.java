@@ -184,6 +184,9 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             || profilesToCollect.contains(DetectorProfileName.STATE)) {
                             totalResponsesToWait++;
                         }
+                        if (profilesToCollect.contains(DetectorProfileName.AD_TASK)) {
+                            totalResponsesToWait++;
+                        }
                         //TODO: support HC detector task
                     } else {
                         if (profilesToCollect.contains(DetectorProfileName.STATE)
@@ -227,6 +230,9 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             || profilesToCollect.contains(DetectorProfileName.INIT_PROGRESS)
                             || profilesToCollect.contains(DetectorProfileName.STATE)) {
                             profileModels(detector, profilesToCollect, job, true, delegateListener);
+                        }
+                        if (profilesToCollect.contains(DetectorProfileName.AD_TASK)) {
+                            adTaskManager.getLatestADTaskProfile(detectorId, transportService, null, delegateListener);
                         }
                     } else {
                         if (profilesToCollect.contains(DetectorProfileName.STATE)
@@ -293,6 +299,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             profileBuilder.state(DetectorState.DISABLED);
         }
         if (profiles.contains(DetectorProfileName.AD_TASK)) {
+            logger.info("++++++++++++++++++++++++++++++++++++++++++++++++ run getLatestADTaskProfile");
             adTaskManager.getLatestADTaskProfile(detectorId, transportService, profileBuilder.build(), listener);
         } else {
             listener.onResponse(profileBuilder.build());

@@ -79,7 +79,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                         //TODO: reset task state when get task
                         adTaskManager.updateADHCDetectorTask(detectorId, adTask.getParentTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name(),
                                 TASK_PROGRESS_FIELD, 1.0,
-                                EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()), false);//TODO: check how to handle if no entity case
+                                EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()), true);//TODO: check how to handle if no entity case, if there is only 1 entity, false will not work
 
                         logger.info("Historical HC detector done, will remove from cache, detector id:{}", detectorId);
                         adTaskManager.removeDetectorFromCache(detectorId);

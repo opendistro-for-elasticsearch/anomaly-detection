@@ -513,9 +513,9 @@ public class ADTaskManager {
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.source(sourceBuilder);
         searchRequest.indices(CommonName.DETECTION_STATE_INDEX);
-//        logger.info("00000000000000000000000000000000000000000000000 entityValue: {}", entityValue);
-//        logger.info(sourceBuilder.toString());
-//        logger.info("00000000000000000000000000000000000000000000000");
+        logger.info("00000000000000000000000000000000000000000000000 entityValue: {}", entityValue);
+        logger.info(sourceBuilder.toString());
+        logger.info("00000000000000000000000000000000000000000000000");
 
         client.search(searchRequest, ActionListener.wrap(r -> {
             // https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/359#discussion_r558653132
@@ -773,7 +773,7 @@ public class ADTaskManager {
      * @param listener action listener
      */
     public void getLatestADTaskProfile(String detectorId, TransportService transportService, DetectorProfile profile, ActionListener<DetectorProfile> listener) {
-        getLatestADTask(detectorId, ImmutableList.of(ADTaskType.HISTORICAL_SINGLE_ENTITY, ADTaskType.HISTORICAL_SINGLE_ENTITY), adTask -> {
+        getLatestADTask(detectorId, ImmutableList.of(ADTaskType.HISTORICAL_SINGLE_ENTITY, ADTaskType.HISTORICAL_HC_DETECTOR), adTask -> {
             if (adTask.isPresent()) {
                 getADTaskProfile(adTask.get(), ActionListener.wrap(adTaskProfile -> {
                     DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
@@ -786,6 +786,7 @@ public class ADTaskManager {
                     listener.onFailure(e);
                 }));
             } else {
+                logger.info("--------- can't find latest AD task ");
 //                listener.onFailure(new ResourceNotFoundException(detectorId, "Can't find latest task for detector"));
                 DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
                 listener.onResponse(profileBuilder.build());

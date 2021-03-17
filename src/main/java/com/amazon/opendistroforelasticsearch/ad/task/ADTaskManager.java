@@ -46,6 +46,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskNodeResponse;
 import com.google.common.collect.ImmutableList;
@@ -764,29 +765,33 @@ public class ADTaskManager {
         }
     }
 
-//    /**
-//     * Get AD task profile data.
-//     *
-//     * @param detectorId detector id
-//     * @param transportService transport service
-//     * @param listener action listener
-//     */
-//    public void getLatestADTaskProfile(String detectorId, TransportService transportService, ActionListener<DetectorProfile> listener) {
-//        getLatestADTask(detectorId, null, adTask -> {
-//            if (adTask.isPresent()) {
-//                getADTaskProfile(adTask.get(), ActionListener.wrap(adTaskProfile -> {
-//                    DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
-//                    profileBuilder.adTaskProfile(adTaskProfile);
-//                    listener.onResponse(profileBuilder.build());
-//                }, e -> {
-//                    logger.error("Failed to get AD task profile for task " + adTask.get().getTaskId(), e);
-//                    listener.onFailure(e);
-//                }));
-//            } else {
+    /**
+     * Get AD task profile data.
+     *  @param detectorId detector id
+     * @param transportService transport service
+     * @param profile detector profile
+     * @param listener action listener
+     */
+    public void getLatestADTaskProfile(String detectorId, TransportService transportService, DetectorProfile profile, ActionListener<DetectorProfile> listener) {
+        getLatestADTask(detectorId, ImmutableList.of(ADTaskType.HISTORICAL_SINGLE_ENTITY, ADTaskType.HISTORICAL_SINGLE_ENTITY), adTask -> {
+            if (adTask.isPresent()) {
+                getADTaskProfile(adTask.get(), ActionListener.wrap(adTaskProfile -> {
+                    DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
+                    profileBuilder.adTaskProfile(adTaskProfile);
+                    DetectorProfile detectorProfile = profileBuilder.build();
+                    detectorProfile.merge(profile);
+                    listener.onResponse(detectorProfile);
+                }, e -> {
+                    logger.error("Failed to get AD task profile for task " + adTask.get().getTaskId(), e);
+                    listener.onFailure(e);
+                }));
+            } else {
 //                listener.onFailure(new ResourceNotFoundException(detectorId, "Can't find latest task for detector"));
-//            }
-//        }, transportService, listener);
-//    }
+                DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
+                listener.onResponse(profileBuilder.build());
+            }
+        }, transportService, listener);
+    }
 
     private void getADTaskProfile(ADTask adTask, ActionListener<ADTaskProfile> listener) {
         String detectorId = adTask.getDetectorId();
@@ -987,6 +992,8 @@ public class ADTaskManager {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detector.getDetectorId()));
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, true));
+        String taskType = getADTaskType(detector, detectionDateRange).name();
+        query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, ImmutableList.of(taskType)));
         updateByQueryRequest.setQuery(query);
         updateByQueryRequest.setRefresh(true);
         updateByQueryRequest.setScript(new Script("ctx._source.is_latest = false;"));
@@ -1008,12 +1015,12 @@ public class ADTaskManager {
     private void createADTaskDoc(AnomalyDetector detector, DetectionDateRange detectionDateRange, User user, ActionListener<AnomalyDetectorJobResponse> listener) {
         String userName = user == null ? null : user.getName();
         Instant now = Instant.now();
-        String taskTYpe = getADTaskType(detector, detectionDateRange).name();
+        String taskType = getADTaskType(detector, detectionDateRange).name();
         ADTask adTask = new ADTask.Builder()
                 .detectorId(detector.getDetectorId())
                 .detector(detector)
                 .isLatest(true)
-                .taskType(taskTYpe)
+                .taskType(taskType)
                 .executionStartTime(now)
                 .taskProgress(0.0f)
                 .initProgress(0.0f)

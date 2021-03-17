@@ -210,7 +210,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             xContentBuilder.field(CommonName.ACTIVE_ENTITIES, activeEntities);
         }
         if (adTaskProfile != null) {
-            xContentBuilder.field(CommonName.AD_TASK, adTaskProfile);
+            xContentBuilder.field(CommonName.HISTORICAL_ANALYSIS_TASK, adTaskProfile);
         }
         return xContentBuilder.endObject();
     }

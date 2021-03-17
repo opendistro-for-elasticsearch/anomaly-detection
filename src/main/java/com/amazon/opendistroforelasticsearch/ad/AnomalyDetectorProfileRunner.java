@@ -130,6 +130,10 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
 //                        adTaskManager.getLatestADTaskProfile(detectorId, transportService, listener);
 //                        return;
 //                    }
+//                    if (profilesToCollect.contains(DetectorProfileName.AD_TASK)) {
+//                        adTaskManager.getLatestADTaskProfile(detectorId, transportService, listener);
+//                        return;
+//                    }
                     prepareProfile(detector, listener, profilesToCollect);
                 } catch (Exception e) {
                     listener.onFailure(new RuntimeException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId, e));
@@ -180,6 +184,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             || profilesToCollect.contains(DetectorProfileName.STATE)) {
                             totalResponsesToWait++;
                         }
+                        //TODO: support HC detector task
                     } else {
                         if (profilesToCollect.contains(DetectorProfileName.STATE)
                             || profilesToCollect.contains(DetectorProfileName.INIT_PROGRESS)) {
@@ -189,6 +194,9 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             || profilesToCollect.contains(DetectorProfileName.SHINGLE_SIZE)
                             || profilesToCollect.contains(DetectorProfileName.TOTAL_SIZE_IN_BYTES)
                             || profilesToCollect.contains(DetectorProfileName.MODELS)) {
+                            totalResponsesToWait++;
+                        }
+                        if (profilesToCollect.contains(DetectorProfileName.AD_TASK)) {
                             totalResponsesToWait++;
                         }
                     }
@@ -231,6 +239,9 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             || profilesToCollect.contains(DetectorProfileName.MODELS)) {
                             profileModels(detector, profilesToCollect, job, false, delegateListener);
                         }
+                        if (profilesToCollect.contains(DetectorProfileName.AD_TASK)) {
+                            adTaskManager.getLatestADTaskProfile(detectorId, transportService, null, delegateListener);
+                        }
                     }
 
                 } catch (Exception e) {
@@ -238,12 +249,12 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     listener.onFailure(e);
                 }
             } else {
-                onGetDetectorForPrepare(listener, profilesToCollect);
+                onGetDetectorForPrepare(detectorId, listener, profilesToCollect);
             }
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {
                 logger.info(exception.getMessage());
-                onGetDetectorForPrepare(listener, profilesToCollect);
+                onGetDetectorForPrepare(detectorId, listener, profilesToCollect);
             } else {
                 logger.error(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG + detectorId);
                 listener.onFailure(exception);
@@ -276,12 +287,16 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         }
     }
 
-    private void onGetDetectorForPrepare(ActionListener<DetectorProfile> listener, Set<DetectorProfileName> profiles) {
+    private void onGetDetectorForPrepare(String detectorId, ActionListener<DetectorProfile> listener, Set<DetectorProfileName> profiles) {
         DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
         if (profiles.contains(DetectorProfileName.STATE)) {
             profileBuilder.state(DetectorState.DISABLED);
         }
-        listener.onResponse(profileBuilder.build());
+        if (profiles.contains(DetectorProfileName.AD_TASK)) {
+            adTaskManager.getLatestADTaskProfile(detectorId, transportService, profileBuilder.build(), listener);
+        } else {
+            listener.onResponse(profileBuilder.build());
+        }
     }
 
     /**

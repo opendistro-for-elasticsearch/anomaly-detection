@@ -35,6 +35,7 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -100,7 +101,6 @@ import org.elasticsearch.transport.TransportService;
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ADTaskCancelledException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.DuplicateTaskException;
-import com.amazon.opendistroforelasticsearch.ad.common.exception.InternalFailure;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
@@ -118,7 +118,6 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ADBatchAnomalyResultRe
 import com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskRequest;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADTaskProfileAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.ADTaskProfileNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADTaskProfileRequest;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.ForwardADTaskAction;
@@ -513,9 +512,9 @@ public class ADTaskManager {
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.source(sourceBuilder);
         searchRequest.indices(CommonName.DETECTION_STATE_INDEX);
-        logger.info("00000000000000000000000000000000000000000000000 entityValue: {}", entityValue);
-        logger.info(sourceBuilder.toString());
-        logger.info("00000000000000000000000000000000000000000000000");
+//        logger.info("00000000000000000000000000000000000000000000000 entityValue: {}", entityValue);
+//        logger.info(sourceBuilder.toString());
+//        logger.info("00000000000000000000000000000000000000000000000");
 
         client.search(searchRequest, ActionListener.wrap(r -> {
             // https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/359#discussion_r558653132
@@ -541,8 +540,8 @@ public class ADTaskManager {
                     // really running and reset state as STOPPED if not running.
                     // For example, ES process crashes, then all tasks running on it will stay
                     // as running. We can reset the task state when next read happen.
-                    getADTaskProfile(adTask, ActionListener.wrap(taskProfile -> {
-                        if (taskProfile.getNodeId() == null) {
+                    getADTaskProfile(adTask, ActionListener.wrap(taskProfiles -> {
+                        if (taskProfiles.get(adTask.getTaskId()).getNodeId() == null) {
                             // If no node is running this task, reset it as STOPPED.
                             resetTaskStateAsStopped(adTask, transportService); //TODO: reset realtime task state
                             adTask.setState(ADTaskState.STOPPED.name());
@@ -719,10 +718,10 @@ public class ADTaskManager {
             } else if (exception instanceof ADTaskCancelledException) {
                 action = ADTaskAction.CANCEL;
             }
-//            logger.error("999999999999999999999 task id " + adTask.getTaskId(), exception);
+            logger.debug("ylwudebug: task id " + adTask.getTaskId(), exception);
         }
         String actionName = action.name();
-        logger.debug("Forward entity task to coordinating node, detector id:{} task id:{}, action:{}",
+        logger.info("Forward entity task to coordinating node, detector id:{} task id:{}, action:{}",
                 adTask.getDetectorId(), adTask.getTaskId(), actionName);
 
         if (targetNode != null) {
@@ -745,7 +744,7 @@ public class ADTaskManager {
                                         }
                                     },
                                     e -> {
-                                        logger.error("Failed to forward entity task to coordinating node ", e);
+                                        logger.error("Entity task failed on coordinating node ", e);
                                     }
                             )
             );
@@ -775,9 +774,9 @@ public class ADTaskManager {
     public void getLatestADTaskProfile(String detectorId, TransportService transportService, DetectorProfile profile, ActionListener<DetectorProfile> listener) {
         getLatestADTask(detectorId, ImmutableList.of(ADTaskType.HISTORICAL_SINGLE_ENTITY, ADTaskType.HISTORICAL_HC_DETECTOR), adTask -> {
             if (adTask.isPresent()) {
-                getADTaskProfile(adTask.get(), ActionListener.wrap(adTaskProfile -> {
+                getADTaskProfile(adTask.get(), ActionListener.wrap(adTaskProfiles -> {
                     DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
-                    profileBuilder.adTaskProfile(adTaskProfile);
+                    profileBuilder.adTaskProfiles(adTaskProfiles);
                     DetectorProfile detectorProfile = profileBuilder.build();
                     detectorProfile.merge(profile);
                     listener.onResponse(detectorProfile);
@@ -794,7 +793,7 @@ public class ADTaskManager {
         }, transportService, listener);
     }
 
-    private void getADTaskProfile(ADTask adTask, ActionListener<ADTaskProfile> listener) {
+    private void getADTaskProfile(ADTask adTask, ActionListener<Map<String, ADTaskProfile>> listener) {
         String detectorId = adTask.getDetectorId();
 
         DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
@@ -808,35 +807,44 @@ public class ADTaskManager {
             List<ADTaskProfile> nodeResponses = response
                 .getNodes()
                 .stream()
-                .filter(r -> r.getAdTaskProfile() != null)
-                .map(ADTaskProfileNodeResponse::getAdTaskProfile)
+                .filter(r -> r.getAdTaskProfiles() != null)
+                .flatMap(r -> r.getAdTaskProfiles().stream())
                 .collect(Collectors.toList());
 
-            if (nodeResponses.size() > 1) {
-                String error = nodeResponses.size()
-                    + " tasks running for detector "
-                    + adTask.getDetectorId()
-                    + ". Please stop detector to kill all running tasks.";
-                logger.error(error);
-                listener.onFailure(new InternalFailure(adTask.getDetectorId(), error));
-                return;
-            }
+//            if (nodeResponses.size() > 1) {
+//                String error = nodeResponses.size()
+//                    + " tasks running for detector "
+//                    + adTask.getDetectorId()
+//                    + ". Please stop detector to kill all running tasks.";
+//                logger.error(error);
+//                listener.onFailure(new InternalFailure(adTask.getDetectorId(), error));
+//                return;
+//            }
+            Map<String, ADTaskProfile> adTaskProfileMap = new HashMap<>();
             if (nodeResponses.size() == 0) {
                 ADTaskProfile adTaskProfile = new ADTaskProfile(adTask, null, null, null, null, null, null);
-                listener.onResponse(adTaskProfile);
+                adTaskProfileMap.put(adTask.getTaskId(), adTaskProfile);
             } else {
-                ADTaskProfile nodeResponse = nodeResponses.get(0);
-                ADTaskProfile adTaskProfile = new ADTaskProfile(
-                    adTask,
-                    nodeResponse.getShingleSize(),
-                    nodeResponse.getRcfTotalUpdates(),
-                    nodeResponse.getThresholdModelTrained(),
-                    nodeResponse.getThresholdModelTrainingDataSize(),
-                    nodeResponse.getModelSizeInBytes(),
-                    nodeResponse.getNodeId()
-                );
-                listener.onResponse(adTaskProfile);
+                nodeResponses.forEach(adTaskProfile -> {
+//                    ADTaskProfile adTaskProfile = new ADTaskProfile(
+//                            adTask,
+//                            nodeResponse.getShingleSize(),
+//                            nodeResponse.getRcfTotalUpdates(),
+//                            nodeResponse.getThresholdModelTrained(),
+//                            nodeResponse.getThresholdModelTrainingDataSize(),
+//                            nodeResponse.getModelSizeInBytes(),
+//                            nodeResponse.getNodeId()
+//                    );
+                    if (adTaskProfile.getTaskId() == null) {
+                        adTaskProfile.setTaskId(adTask.getTaskId());
+                    }
+                    if (adTaskProfile.getAdTaskType() != ADTaskType.HISTORICAL_HC_ENTITY) {
+                        adTaskProfile.setAdTask(adTask);
+                    }
+                    adTaskProfileMap.put(adTaskProfile.getTaskId(), adTaskProfile);
+                });
             }
+            listener.onResponse(adTaskProfileMap);
         }, e -> {
             logger.error("Failed to get task profile for task " + adTask.getTaskId(), e);
             listener.onFailure(e);
@@ -870,6 +878,52 @@ public class ADTaskManager {
             );
         }
         return adTaskProfile;
+    }
+
+    public List<ADTaskProfile> getLocalADTaskProfilesByDetectorId(String detectorId) {
+        List<ADTaskProfile> adTaskProfiles = new ArrayList<>();
+        List<String> tasksOfDetector = adTaskCacheManager.getTasksOfDetector(detectorId);
+//        if (tasksOfDetector.size() > 1) {
+//            String error = "Multiple tasks are running for detector: " + detectorId + ". You can stop detector to kill all running tasks.";
+//            logger.warn(error);
+//            throw new LimitExceededException(error);
+//        }
+
+        if (tasksOfDetector.size() > 0 ) {
+            tasksOfDetector.forEach(taskId -> {
+                /*
+                * ADTask adTask,
+            Integer shingleSize,
+            Long rcfTotalUpdates,
+            Boolean thresholdModelTrained,
+            Integer thresholdModelTrainingDataSize,
+            Long modelSizeInBytes,
+            String nodeId,
+            List<Entity> entity*/
+                ADTaskProfile adTaskProfile = new ADTaskProfile(
+                        adTaskCacheManager.getShingle(taskId).size(),
+                        adTaskCacheManager.getRcfModel(taskId).getTotalUpdates(),
+                        adTaskCacheManager.isThresholdModelTrained(taskId),
+                        adTaskCacheManager.getThresholdModelTrainingDataSize(taskId),
+                        adTaskCacheManager.getModelSize(taskId),
+                        clusterService.localNode().getId(),
+                        adTaskCacheManager.getEntity(taskId),
+                        taskId
+                );
+                adTaskProfiles.add(adTaskProfile);
+            });
+        }
+        if (adTaskCacheManager.hcDetectorInCache(detectorId)) {
+            ADTaskProfile adTaskProfile = new ADTaskProfile(
+                    clusterService.localNode().getId(),
+                    adTaskCacheManager.getEntityCount(detectorId),
+                    adTaskCacheManager.getPendingEntityCount(detectorId),
+                    adTaskCacheManager.getRunningEntityCount(detectorId)
+            );
+            logger.info("yyyywwww: running entity is {}", adTaskCacheManager.getRunningENtities(detectorId));
+            adTaskProfiles.add(adTaskProfile);
+        }
+        return adTaskProfiles;
     }
 
     private boolean validateDetector(AnomalyDetector detector, ActionListener<AnomalyDetectorJobResponse> listener) {
@@ -1077,7 +1131,7 @@ public class ADTaskManager {
     }
 
     private void cleanOldAdTasks(IndexResponse response, ADTask adTask,
-                                 ActionListener<AnomalyDetectorJobResponse> listener) {
+                                 ActionListener<AnomalyDetectorJobResponse> delegatedListener) {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, adTask.getDetectorId()));
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, false));
@@ -1135,7 +1189,7 @@ public class ADTaskManager {
                             } else {
                                 runBatchResultAction(response, adTask, listener);
                             }*/
-                            runBatchResultAction(response, adTask, listener);
+                            runBatchResultAction(response, adTask, delegatedListener);
                         } else {
                             AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(
                                     response.getId(),
@@ -1144,15 +1198,15 @@ public class ADTaskManager {
                                     response.getPrimaryTerm(),
                                     RestStatus.OK
                             );
-                            listener.onResponse(anomalyDetectorJobResponse);
+                            delegatedListener.onResponse(anomalyDetectorJobResponse);
                         }
                     }, e -> {
                         logger.warn("Failed to clean AD tasks for detector " + detectorId, e);
-                        listener.onFailure(e);
+                        delegatedListener.onFailure(e);
                     }));
                 } catch (Exception e) {
                     logger.warn("Failed to parse AD tasks for detector " + detectorId, e);
-                    listener.onFailure(e);
+                    delegatedListener.onFailure(e);
                 }
             } else {
                 //TODO: create new method to avoid duplicate code
@@ -1162,7 +1216,7 @@ public class ADTaskManager {
                     } else {
                         runBatchResultAction(response, adTask, listener);
                     }*/
-                    runBatchResultAction(response, adTask, listener);
+                    runBatchResultAction(response, adTask, delegatedListener);
                 } else {
                     AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(
                             response.getId(), //TODO: change to detector id? Add new task id field
@@ -1171,12 +1225,12 @@ public class ADTaskManager {
                             response.getPrimaryTerm(),
                             RestStatus.OK
                     );
-                    listener.onResponse(anomalyDetectorJobResponse);
+                    delegatedListener.onResponse(anomalyDetectorJobResponse);
                 }
             }
         }, e -> {
             logger.warn("Failed to search AD tasks for detector " + detectorId, e);
-            listener.onFailure(e);
+            delegatedListener.onFailure(e);
         }));
     }
 
@@ -1303,14 +1357,14 @@ public class ADTaskManager {
         }
         adTask.setTaskId(response.getId());
         ActionListener<AnomalyDetectorJobResponse> delegatedListener = ActionListener.wrap(r -> { listener.onResponse(r); }, e -> {
-            handleADTaskException(adTask, e);
+            handleADTaskException(adTask, e); //TODO: handle HC detector task here?
             if (e instanceof DuplicateTaskException) {
                 listener.onFailure(new ElasticsearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
             } else {
                 listener.onFailure(e);
-                if (!adTask.getTaskType().startsWith("HISTORICAL_HC_")) {
-                    adTaskCacheManager.removeDetector(adTask.getDetectorId());
-                }
+//                if (!adTask.getTaskType().startsWith("HISTORICAL_HC_")) {
+//                    adTaskCacheManager.removeDetector(adTask.getDetectorId());
+//                }
 
             }
         });
@@ -1472,7 +1526,7 @@ public class ADTaskManager {
 //    }
     //TODO: change this for HC detector as every entity will have one task. When delete old detector level task, delete
     // all entity task with "parent task id = detector task id", delete with cron job?
-    private void cleanOldAdTaskDocs(IndexResponse response, ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {
+    private void cleanOldAdTaskDocs(IndexResponse response, ADTask adTask, ActionListener<AnomalyDetectorJobResponse> delegatedListener) {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, adTask.getDetectorId()));
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, false));
@@ -1520,25 +1574,25 @@ public class ADTaskManager {
                                 adTask.getExecutionStartTime().toEpochMilli(),
                                 detectorId
                             );
-                        runBatchResultAction(response, adTask, listener);
+                        runBatchResultAction(response, adTask, delegatedListener);
                     }, e -> {
                         logger.warn("Failed to clean AD tasks for detector " + detectorId, e);
-                        listener.onFailure(e);
+                        delegatedListener.onFailure(e);
                     }));
                 } catch (Exception e) {
                     logger.warn("Failed to parse AD tasks for detector " + detectorId, e);
-                    listener.onFailure(e);
+                    delegatedListener.onFailure(e);
                 }
             } else {
-                runBatchResultAction(response, adTask, listener);
+                runBatchResultAction(response, adTask, delegatedListener);
             }
         }, e -> {
             logger.warn("Failed to search AD tasks for detector " + detectorId, e);
-            listener.onFailure(e);
+            delegatedListener.onFailure(e);
         }));
     }
 
-    private void runBatchResultAction(IndexResponse response, ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {
+    private void runBatchResultAction(IndexResponse response, ADTask adTask, ActionListener<AnomalyDetectorJobResponse> delegatedListener) {
         client.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(r -> {
             String remoteOrLocal = r.isRunTaskRemotely() ? "remote" : "local";
             logger
@@ -1556,8 +1610,11 @@ public class ADTaskManager {
                 response.getPrimaryTerm(),
                 RestStatus.OK
             );
-            listener.onResponse(anomalyDetectorJobResponse);
-        }, e -> listener.onFailure(e)));
+            delegatedListener.onResponse(anomalyDetectorJobResponse);
+        }, e -> {
+            //dedicated listener which handle exceptions
+            delegatedListener.onFailure(e);
+        }));
     }
 
     public void runBatchResultActionForEntity(ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {
@@ -1579,7 +1636,10 @@ public class ADTaskManager {
                     RestStatus.OK
             );
             listener.onResponse(anomalyDetectorJobResponse);
-        }, e -> listener.onFailure(e)));
+        }, e ->{
+            //dedicated listener? this listener is from ForwardADTaskTransportAction, and it does't handle exceptions.
+            listener.onFailure(e);
+        }));
     }
 
     /**
@@ -1619,7 +1679,12 @@ public class ADTaskManager {
         updatedFields.put(ERROR_FIELD, getErrorMessage(e));
         updatedFields.put(STATE_FIELD, state);
         updatedFields.put(EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli());
-        updateADTask(adTask.getTaskId(), updatedFields);
+        logger.info("ylwudebug6: log exception for task " + adTask.getTaskId());
+        if (adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_DETECTOR.name())) {
+            updateADHCDetectorTask(adTask.getDetectorId(), adTask.getTaskId(), updatedFields, true);
+        } else {
+            updateADTask(adTask.getTaskId(), updatedFields);
+        }
 //        if (adTask.getParentTaskId() != null) {
 //            updateADTask(adTask.getParentTaskId(), updatedFields);
 //        }
@@ -1645,7 +1710,7 @@ public class ADTaskManager {
                 logger.error("Failed to update AD task {}, status: {}", taskId, response.status());
             }
         }, e -> {
-            logger.error("Failed to update task: " + taskId, e);
+            logger.error("Failed to update task1: " + taskId, e);
         }));
     }
 
@@ -1674,7 +1739,7 @@ public class ADTaskManager {
             } else {
                 logger.error("Failed to update AD task {}, status: {}", taskId, response.status());
             }
-        }, e -> { logger.error("Failed to update task: " + taskId, e); }));
+        }, e -> { logger.error("Failed to update task2: " + taskId, e); }));
     }
 
     /**
@@ -1796,8 +1861,9 @@ public class ADTaskManager {
                 listener);
     }
 
-    public void addEntityToCache(String detectorId, String value) {
+    public void addEntityToCache(String taskId, String detectorId, String value) {
         adTaskCacheManager.addEntity(detectorId, value);
+        adTaskCacheManager.addTaskRetry(detectorId, taskId);
     }
 
     public void removeRunningEntity(String detectorId, List<Entity> entity) {
@@ -1813,5 +1879,9 @@ public class ADTaskManager {
 
     public void removePendingEntities(String detectorId) {
         adTaskCacheManager.removeEntities(detectorId);
+    }
+
+    public boolean taskRetryExceedLimits(String detectorId, String taskId) {
+        return adTaskCacheManager.taskRetryExceedLimits(detectorId, taskId);
     }
 }

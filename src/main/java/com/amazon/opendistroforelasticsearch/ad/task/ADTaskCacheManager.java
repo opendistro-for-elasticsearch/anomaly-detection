@@ -22,6 +22,7 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,7 @@ public class ADTaskCacheManager {
     private Map<String, Integer> entityCount;
     private Map<String, AtomicBoolean> detectorTaskUpdating;
     private Map<String, Boolean> topEntitiesInited;
+    private Map<String, Map<String, AtomicInteger>> taskRunTimes;
 
     /**
      * Constructor to create AD task cache manager.
@@ -94,6 +96,7 @@ public class ADTaskCacheManager {
         this.entityCount = new ConcurrentHashMap<>();
         this.topEntitiesInited = new ConcurrentHashMap<>();
         this.detectorTaskUpdating = new ConcurrentHashMap<>();
+        this.taskRunTimes = new ConcurrentHashMap<>();
     }
 
     /**
@@ -310,6 +313,10 @@ public class ADTaskCacheManager {
         return getBatchTaskCache(taskId).getShingle();
     }
 
+    public List<Entity> getEntity(String taskId) {
+        return getBatchTaskCache(taskId).getEntity();
+    }
+
     /**
      * Check if task exists in cache.
      *
@@ -463,6 +470,10 @@ public class ADTaskCacheManager {
             detectorTaskUpdating.remove(detectorId);
             logger.info("Removed detector from AD task coordinating node detector task updating cache, detectorId: " + detectorId);
         }
+        if (taskRunTimes.containsKey(detectorId)) {
+            taskRunTimes.remove(detectorId);
+            logger.info("Removed detector from AD task coordinating node taskRunTimes cache, detectorId: " + detectorId);
+        }
     }
 
     /**
@@ -604,19 +615,19 @@ public class ADTaskCacheManager {
     }
 
     public boolean hasEntity(String detectorId) {
-        logger.debug("ylwudebug: pending entities contains detector: {}, not empty pending entity: {} ",
+        logger.info("ylwudebug: pending entities contains detector: {}, not empty pending entity: {} ",
                 pendingEntities.containsKey(detectorId), pendingEntities.containsKey(detectorId) && !pendingEntities.get(detectorId).isEmpty());
-        logger.debug("ylwudebug: running entities contains detector: {}, not empty running entity: {} ",
+        logger.info("ylwudebug: running entities contains detector: {}, not empty running entity: {} ",
                 runningEntities.containsKey(detectorId), runningEntities.containsKey(detectorId) && !runningEntities.get(detectorId).isEmpty());
         return (pendingEntities.containsKey(detectorId) && !pendingEntities.get(detectorId).isEmpty()) ||
                 (runningEntities.containsKey(detectorId) && !runningEntities.get(detectorId).isEmpty());
     }
 
     public boolean hcDetectorInCache(String detectorId) {
-        logger.info("11111------- pending entities contains detector: {} ",
-                pendingEntities.containsKey(detectorId));
-        logger.info("11111------- running entities contains detector: {}",
-                runningEntities.containsKey(detectorId));
+//        logger.info("11111------- pending entities contains detector: {} ",
+//                pendingEntities.containsKey(detectorId));
+//        logger.info("11111------- running entities contains detector: {}",
+//                runningEntities.containsKey(detectorId));
         return pendingEntities.containsKey(detectorId)  || runningEntities.containsKey(detectorId);
     }
 
@@ -636,11 +647,20 @@ public class ADTaskCacheManager {
         return entityCount.containsKey(detectorId) ? entityCount.get(detectorId) : 0;
     }
 
+    public Integer getPendingEntityCount(String detectorId) {
+        return pendingEntities.containsKey(detectorId) ? pendingEntities.get(detectorId).size() : 0;
+    }
+
+    public Integer getRunningEntityCount(String detectorId) {
+        return runningEntities.containsKey(detectorId) ? runningEntities.get(detectorId).size() : 0;
+    }
+
     public boolean topEntityInited(String detectorId) {
-        if (!topEntitiesInited.containsKey(detectorId)) {
-            return false;
-        }
-        return topEntitiesInited.get(detectorId);
+//        if (!topEntitiesInited.containsKey(detectorId)) {
+//            return false;
+//        }
+//        return topEntitiesInited.get(detectorId);
+        return topEntitiesInited.getOrDefault(detectorId, false);
     }
 
     public void putTopEntityInited(String detectorId, boolean inited) {
@@ -665,6 +685,26 @@ public class ADTaskCacheManager {
     public void removeEntities(String detectorId) {
         if (pendingEntities.containsKey(detectorId)) {
             pendingEntities.remove(detectorId);
+        }
+    }
+
+    public boolean taskRetryExceedLimits(String detectorId, String taskId) {
+        Map<String, AtomicInteger> taskRetry = taskRunTimes.computeIfAbsent(detectorId, id -> new ConcurrentHashMap<>());
+        AtomicInteger retryTimes = taskRetry.computeIfAbsent(taskId, id -> new AtomicInteger(0));
+        return retryTimes.get() > 3;
+    }
+
+    public int addTaskRetry(String detectorId, String taskId) {
+        Map<String, AtomicInteger> taskRetry = taskRunTimes.computeIfAbsent(detectorId, id -> new ConcurrentHashMap<>());
+        return taskRetry.computeIfAbsent(taskId, id -> new AtomicInteger(0)).addAndGet(1);
+    }
+
+    public String getRunningENtities(String detectorId) {
+        Queue<String> entities = runningEntities.get(detectorId);
+        if (entities != null) {
+            return Arrays.toString(entities.toArray(new String[0]));
+        } else {
+            return "";
         }
     }
 }

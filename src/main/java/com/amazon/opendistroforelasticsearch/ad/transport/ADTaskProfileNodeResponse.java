@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.elasticsearch.action.support.nodes.BaseNodeResponse;
 import org.elasticsearch.cluster.node.DiscoveryNode;
@@ -26,32 +27,32 @@ import com.amazon.opendistroforelasticsearch.ad.model.ADTaskProfile;
 
 public class ADTaskProfileNodeResponse extends BaseNodeResponse {
 
-    private ADTaskProfile adTaskProfile;
+    private List<ADTaskProfile> adTaskProfiles;
 
-    public ADTaskProfileNodeResponse(DiscoveryNode node, ADTaskProfile adTaskProfile) {
+    public ADTaskProfileNodeResponse(DiscoveryNode node, List<ADTaskProfile> adTaskProfile) {
         super(node);
-        this.adTaskProfile = adTaskProfile;
+        this.adTaskProfiles = adTaskProfile;
     }
 
     public ADTaskProfileNodeResponse(StreamInput in) throws IOException {
         super(in);
         if (in.readBoolean()) {
-            this.adTaskProfile = new ADTaskProfile(in);
+            this.adTaskProfiles = in.readList(ADTaskProfile::new);
         } else {
-            this.adTaskProfile = null;
+            this.adTaskProfiles = null;
         }
     }
 
-    public ADTaskProfile getAdTaskProfile() {
-        return adTaskProfile;
+    public List<ADTaskProfile> getAdTaskProfiles() {
+        return adTaskProfiles;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        if (adTaskProfile != null) {
+        if (adTaskProfiles != null && adTaskProfiles.size() > 0) {
             out.writeBoolean(true);
-            adTaskProfile.writeTo(out);
+            out.writeList(adTaskProfiles);
         } else {
             out.writeBoolean(false);
         }

@@ -16,6 +16,8 @@
 package com.amazon.opendistroforelasticsearch.ad.model;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -39,7 +41,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
     private InitProgressProfile initProgress;
     private Long totalEntities;
     private Long activeEntities;
-    private ADTaskProfile adTaskProfile;
+    private Map<String, ADTaskProfile> adTaskProfiles;
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
         return toXContent(builder, ToXContent.EMPTY_PARAMS);
@@ -59,7 +61,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             this.initProgress = new InitProgressProfile(in);
         }
         if (in.readBoolean()) {
-            this.adTaskProfile = new ADTaskProfile(in);
+            this.adTaskProfiles = in.readMap(StreamInput::readString, ADTaskProfile::new);
         }
     }
 
@@ -75,7 +77,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         private InitProgressProfile initProgress = null;
         private Long totalEntities;
         private Long activeEntities;
-        private ADTaskProfile adTaskProfile;
+        private Map<String, ADTaskProfile> adTaskProfiles;
 
         public Builder() {}
 
@@ -124,8 +126,8 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             return this;
         }
 
-        public Builder adTaskProfile(ADTaskProfile adTaskProfile) {
-            this.adTaskProfile = adTaskProfile;
+        public Builder adTaskProfiles(Map<String, ADTaskProfile> adTaskProfiles) {
+            this.adTaskProfiles = adTaskProfiles;
             return this;
         }
 
@@ -140,7 +142,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             profile.initProgress = initProgress;
             profile.totalEntities = totalEntities;
             profile.activeEntities = activeEntities;
-            profile.adTaskProfile = adTaskProfile;
+            profile.adTaskProfiles = adTaskProfiles;
 
             return profile;
         }
@@ -166,11 +168,10 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             out.writeBoolean(true);
             initProgress.writeTo(out);
         }
-        if (adTaskProfile == null) {
+        if (adTaskProfiles == null) {
             out.writeBoolean(false);
         } else {
-            out.writeBoolean(true);
-            adTaskProfile.writeTo(out);
+            out.writeMap(adTaskProfiles, StreamOutput::writeString, StreamOutput::writeGenericValue);
         }
     }
 
@@ -209,8 +210,8 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         if (activeEntities != null) {
             xContentBuilder.field(CommonName.ACTIVE_ENTITIES, activeEntities);
         }
-        if (adTaskProfile != null) {
-            xContentBuilder.field(CommonName.HISTORICAL_ANALYSIS_TASK, adTaskProfile);
+        if (adTaskProfiles != null) {
+            xContentBuilder.field(CommonName.HISTORICAL_ANALYSIS_TASK, adTaskProfiles);
         }
         return xContentBuilder.endObject();
     }
@@ -287,12 +288,12 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         this.activeEntities = activeEntities;
     }
 
-    public ADTaskProfile getAdTaskProfile() {
-        return adTaskProfile;
+    public Map<String, ADTaskProfile> getAdTaskProfiles() {
+        return adTaskProfiles;
     }
 
-    public void setAdTaskProfile(ADTaskProfile adTaskProfile) {
-        this.adTaskProfile = adTaskProfile;
+    public void setAdTaskProfiles(Map<String, ADTaskProfile> adTaskProfiles) {
+        this.adTaskProfiles = adTaskProfiles;
     }
 
     @Override
@@ -328,8 +329,12 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         if (otherProfile.getActiveEntities() != null) {
             this.activeEntities = otherProfile.getActiveEntities();
         }
-        if (otherProfile.getAdTaskProfile() != null) {
-            this.adTaskProfile = otherProfile.getAdTaskProfile();
+        if (otherProfile.getAdTaskProfiles() != null) {
+            if (this.adTaskProfiles == null) {
+                this.adTaskProfiles = otherProfile.getAdTaskProfiles();
+            } else {
+                this.adTaskProfiles.putAll(otherProfile.getAdTaskProfiles());
+            }
         }
     }
 
@@ -372,8 +377,8 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             if (activeEntities != null) {
                 equalsBuilder.append(activeEntities, other.activeEntities);
             }
-            if (adTaskProfile != null) {
-                equalsBuilder.append(adTaskProfile, other.adTaskProfile);
+            if (adTaskProfiles != null) {
+                equalsBuilder.append(adTaskProfiles, other.adTaskProfiles);
             }
             return equalsBuilder.isEquals();
         }
@@ -392,7 +397,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             .append(initProgress)
             .append(totalEntities)
             .append(activeEntities)
-            .append(adTaskProfile)
+            .append(adTaskProfiles)
             .toHashCode();
     }
 
@@ -427,8 +432,8 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         if (activeEntities != null) {
             toStringBuilder.append(CommonName.ACTIVE_ENTITIES, activeEntities);
         }
-        if (adTaskProfile != null) {
-            toStringBuilder.append(CommonName.AD_TASK, adTaskProfile);
+        if (adTaskProfiles != null) {
+            toStringBuilder.append(CommonName.AD_TASK, adTaskProfiles);
         }
         return toStringBuilder.toString();
     }

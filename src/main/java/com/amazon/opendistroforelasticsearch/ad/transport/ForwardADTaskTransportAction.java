@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
 import com.google.common.collect.ImmutableMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -77,7 +78,8 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
 //                        adTaskManager.updateADTask(adTask.getParentTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()));
                         listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.OK));
                         //TODO: reset task state when get task
-                        adTaskManager.updateADHCDetectorTask(detectorId, adTask.getParentTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name(),
+                        String taskId = adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_ENTITY.name()) ? adTask.getParentTaskId() : adTask.getTaskId();
+                        adTaskManager.updateADHCDetectorTask(detectorId, taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name(),
                                 TASK_PROGRESS_FIELD, 1.0,
                                 EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()), true);//TODO: check how to handle if no entity case, if there is only 1 entity, false will not work
 
@@ -93,6 +95,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     }
                 } else {
                     listener.onFailure(new IllegalArgumentException("Can only get HC entity task"));
+//                    listener.onResponse(new AnomalyDetectorJobResponse("cc", 0,0,0,RestStatus.OK));
                 }
 //                else {
 //                    adTaskManager.removeDetectorFromCache(detectorId);
@@ -104,10 +107,27 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 if (detector.isMultientityDetector() && adTask.isEntityTask()) {
                     adTaskManager.removeRunningEntity(detectorId, adTask.getEntity());
                     logger.warn("Push back entity to cache : " + adTask.getEntity().get(0).getValue());
-                    adTaskManager.addEntityToCache(adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
-                    adTaskManager.runBatchResultActionForEntity(adTask, listener);
+                    if (!adTaskManager.taskRetryExceedLimits(detectorId, adTask.getTaskId())) {
+                        adTaskManager.addEntityToCache(adTask.getTaskId(), adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
+                    } else {
+                        logger.warn("Task retry exceed limits. Task id: {}, entity: {}", adTask.getTaskId(), adTask.getEntity().get(0).getValue());
+                    }
+                    if (adTaskManager.hcDetectorDone(detectorId) ) {
+                        String taskId = adTask.isEntityTask()? adTask.getParentTaskId() : adTask.getTaskId();
+                        logger.info("Set HC task as failed : task id {}", taskId);
+                        adTaskManager.updateADHCDetectorTask(detectorId, taskId,
+                                ImmutableMap.of(STATE_FIELD, ADTaskState.FAILED.name(),
+                                        EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()), true);//TODO: change to false?
+                        logger.info("Historical HC detector done with failure. Remove from cache, detector id:{}", detectorId);
+                        adTaskManager.removeDetectorFromCache(detectorId);
+                        listener.onResponse(new AnomalyDetectorJobResponse("aa", 0,0,0,RestStatus.OK));
+                    } else {
+                        adTaskManager.runBatchResultActionForEntity(adTask, listener);
+                    }
+
                 } else {
                     listener.onFailure(new IllegalArgumentException("Can only push back entity task"));
+//                    listener.onResponse(new AnomalyDetectorJobResponse("aa", 0,0,0,RestStatus.OK));
                 }
 
                 break;
@@ -122,7 +142,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                         adTaskManager.updateADHCDetectorTask(detectorId, taskId,
                                 ImmutableMap.of(STATE_FIELD, ADTaskState.STOPPED.name(),
                                         EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()), true);//TODO: change to false?
-                        logger.info("Historical HC detector done, will remove from cache, detector id:{}", detectorId);
+                        logger.info("Historical HC detector run cancelled. Remove from cache, detector id:{}", detectorId);
                         adTaskManager.removeDetectorFromCache(detectorId);
                     }
                     listener.onResponse(new AnomalyDetectorJobResponse(adTask.getTaskId(), 0, 0, 0, RestStatus.OK));

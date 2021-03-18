@@ -23,6 +23,7 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,8 +34,10 @@ import com.amazon.opendistroforelasticsearch.ad.ml.HybridThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.randomcutforest.RandomCutForest;
+import com.google.common.collect.ImmutableList;
 
 /**
  * AD batch task cache which will hold RCF, threshold model, shingle and training data.
@@ -52,10 +55,12 @@ public class ADBatchTaskCache {
     private AtomicLong cacheMemorySize = new AtomicLong(0);
     private String cancelReason;
     private String cancelledBy;
+    private List<Entity> entity;
 
     protected ADBatchTaskCache(ADTask adTask) {
         this.detectorId = adTask.getDetectorId();
         this.taskId = adTask.getTaskId();
+        this.entity = adTask.getEntity() == null ? null : ImmutableList.copyOf(adTask.getEntity());
 
         AnomalyDetector detector = adTask.getDetector();
         rcfModel = RandomCutForest
@@ -136,6 +141,10 @@ public class ADBatchTaskCache {
 
     protected String getCancelledBy() {
         return cancelledBy;
+    }
+
+    public List<Entity> getEntity() {
+        return entity;
     }
 
     protected void cancel(String reason, String userName) {

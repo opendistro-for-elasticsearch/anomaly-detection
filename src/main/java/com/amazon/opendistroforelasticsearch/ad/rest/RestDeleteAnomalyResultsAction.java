@@ -78,9 +78,9 @@ public class RestDeleteAnomalyResultsAction extends BaseRestHandler {
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
 //        searchSourceBuilder.fetchSource(getSourceContext(request));
 //        searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
-        logger.info("----------------------------------------");
-        logger.info(searchSourceBuilder);
-        logger.info("----------------------------------------");
+//        logger.info("----------------------------------------");
+//        logger.info(searchSourceBuilder);
+//        logger.info("----------------------------------------");
         DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(CommonName.ANOMALY_RESULT_INDEX_PATTERN)
                 .setQuery(searchSourceBuilder.query())
 //                .setBatchSize(1000)

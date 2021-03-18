@@ -78,7 +78,7 @@ public class ADTaskProfileTransportAction extends
 
     @Override
     protected ADTaskProfileNodeResponse nodeOperation(ADTaskProfileNodeRequest request) {
-        ADTaskProfile adTaskProfile = adTaskManager.getLocalADTaskProfileByDetectorId(request.getDetectorId());
+        List<ADTaskProfile> adTaskProfile = adTaskManager.getLocalADTaskProfilesByDetectorId(request.getDetectorId());
 
         return new ADTaskProfileNodeResponse(clusterService.localNode(), adTaskProfile);
     }

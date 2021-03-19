@@ -1705,7 +1705,7 @@ public class ADTaskManager {
 //        }
         updateADHCDetectorTask(detectorId, taskId, updatedFields, initUpdatingFlagIfMissing, ActionListener.wrap(response -> {
             if (response.status() == RestStatus.OK) {
-                logger.debug("Updated AD task successfully: {}", response.status());
+                logger.debug("Updated AD task successfully: {}, taskId: {}", response.status(), taskId);
             } else {
                 logger.error("Failed to update AD task {}, status: {}", taskId, response.status());
             }

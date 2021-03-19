@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.task;
 
 import static com.amazon.opendistroforelasticsearch.ad.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DETECTOR;
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
@@ -37,8 +38,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.RateLimiter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -77,6 +80,7 @@ public class ADTaskCacheManager {
     private Map<String, AtomicBoolean> detectorTaskUpdating;
     private Map<String, Boolean> topEntitiesInited;
     private Map<String, Map<String, AtomicInteger>> taskRunTimes;
+    private Map<String, Map<String, RateLimiter>> taskRateLimiter;
 
     /**
      * Constructor to create AD task cache manager.
@@ -97,6 +101,7 @@ public class ADTaskCacheManager {
         this.topEntitiesInited = new ConcurrentHashMap<>();
         this.detectorTaskUpdating = new ConcurrentHashMap<>();
         this.taskRunTimes = new ConcurrentHashMap<>();
+        this.taskRateLimiter = new ConcurrentHashMap<>();
     }
 
     /**
@@ -109,6 +114,7 @@ public class ADTaskCacheManager {
      */
     public synchronized void add(ADTask adTask) {
         String taskId = adTask.getTaskId();
+        String detectorId = adTask.getDetectorId();
         if (contains(taskId)) {
             throw new DuplicateTaskException(DETECTOR_IS_RUNNING);
         }
@@ -126,9 +132,27 @@ public class ADTaskCacheManager {
         taskCache.getCacheMemorySize().set(neededCacheSize);
         taskCaches.put(taskId, taskCache);
 
+//        Map<String, RateLimiter> rateLimiters = taskRateLimiter.computeIfAbsent(detectorId, id -> new ConcurrentHashMap<>());
+//        final RateLimiter rateLimiter = RateLimiter.create(1);
+//        rateLimiters.putIfAbsent(taskId, rateLimiter);
+
 //        if (adTask.getEntity() != null && adTask.getEntity().size() > 0) {
 //            this.moveToRunningEntities(adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
 //        }
+    }
+
+    public RateLimiter getRateLimiter(String detectorId, String taskId) {
+//        if (!taskRateLimiter.containsKey(detectorId) || !taskRateLimiter.get(detectorId).containsKey(taskId)) {
+//            throw new ResourceNotFoundException(detectorId, "Can't find rate limiter for task " + taskId);
+//        }
+//        return taskRateLimiter.get(detectorId).get(taskId);
+        Map<String, RateLimiter> rateLimiters = taskRateLimiter.computeIfAbsent(detectorId, id -> new ConcurrentHashMap<>());
+//        if (rateLimiters.containsKey(taskId)) {
+//            return rateLimiters.get(taskId);
+//        }
+//        final RateLimiter rateLimiter = RateLimiter.create(1);
+//        return rateLimiters.putIfAbsent(taskId, rateLimiter);
+        return rateLimiters.computeIfAbsent(taskId, id -> RateLimiter.create(1));
     }
 
     /**
@@ -210,7 +234,7 @@ public class ADTaskCacheManager {
      */
     public void checkRunningTaskLimit() {
         if (size() >= maxAdBatchTaskPerNode) {
-            String error = "Can't run more than " + maxAdBatchTaskPerNode + " historical detectors per data node";
+            String error = EXCEED_HISTORICAL_ANALYSIS_LIMIT + ": " + maxAdBatchTaskPerNode;
             throw new LimitExceededException(error);
         }
     }
@@ -473,6 +497,10 @@ public class ADTaskCacheManager {
         if (taskRunTimes.containsKey(detectorId)) {
             taskRunTimes.remove(detectorId);
             logger.info("Removed detector from AD task coordinating node taskRunTimes cache, detectorId: " + detectorId);
+        }
+        if (taskRateLimiter.containsKey(detectorId)) {
+            taskRateLimiter.remove(detectorId);
+            logger.info("Removed detector from AD task coordinating node taskRateLimiter cache, detectorId: " + detectorId);
         }
     }
 

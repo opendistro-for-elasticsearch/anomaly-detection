@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.ad.model;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
@@ -211,7 +210,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             xContentBuilder.field(CommonName.ACTIVE_ENTITIES, activeEntities);
         }
         if (adTaskProfiles != null) {
-            xContentBuilder.field(CommonName.HISTORICAL_ANALYSIS_TASK, adTaskProfiles);
+            xContentBuilder.field(CommonName.HISTORICAL_ANALYSIS, adTaskProfiles);
         }
         return xContentBuilder.endObject();
     }

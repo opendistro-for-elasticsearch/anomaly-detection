@@ -36,6 +36,7 @@ import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 
 import java.time.Instant;
 
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.ERROR_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.EXECUTION_END_TIME_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.STATE_FIELD;
@@ -70,11 +71,14 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.OK));
                 break;
             case NEXT_ENTITY:
+                logger.debug("Received task for NEXT_ENTITY action: {}", adTask.getTaskId());
                 if (detector.isMultientityDetector()) {
                     adTaskManager.removeRunningEntity(detectorId, adTask.getEntity());
 
 //                    if (adTaskManager.hcDetectorDone(detectorId) && adTaskManager.hcDetectorInCache(detectorId)) {
+                    logger.debug("HC detector done: {}, taskId: {}, detectorId: {}", adTaskManager.hcDetectorDone(detectorId), adTask.getTaskId(), detectorId);
                     if (adTaskManager.hcDetectorDone(detectorId)) {
+                        logger.info("Historical HC detector done, will remove from cache, detector id:{}", detectorId);
 //                        adTaskManager.updateADTask(adTask.getParentTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()));
                         listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.OK));
                         //TODO: reset task state when get task
@@ -83,7 +87,6 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                                 TASK_PROGRESS_FIELD, 1.0,
                                 EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()), true);//TODO: check how to handle if no entity case, if there is only 1 entity, false will not work
 
-                        logger.info("Historical HC detector done, will remove from cache, detector id:{}", detectorId);
                         adTaskManager.removeDetectorFromCache(detectorId);
                     } else {
                         logger.debug("Run next entity for detector " + detectorId);
@@ -94,6 +97,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                                 ERROR_FIELD, adTask.getError() != null? adTask.getError() : ""), true);
                     }
                 } else {
+                    logger.debug("Wrong Can only get HC entity task, taskId:{} , taskType:{}", adTask.getTaskId(), adTask.getTaskType());
                     listener.onFailure(new IllegalArgumentException("Can only get HC entity task"));
 //                    listener.onResponse(new AnomalyDetectorJobResponse("cc", 0,0,0,RestStatus.OK));
                 }
@@ -107,11 +111,12 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 if (detector.isMultientityDetector() && adTask.isEntityTask()) {
                     adTaskManager.removeRunningEntity(detectorId, adTask.getEntity());
                     logger.warn("Push back entity to cache : " + adTask.getEntity().get(0).getValue());
-                    if (!adTaskManager.taskRetryExceedLimits(detectorId, adTask.getTaskId())) {
+                    if (adTask.getError().contains(EXCEED_HISTORICAL_ANALYSIS_LIMIT) || !adTaskManager.taskRetryExceedLimits(detectorId, adTask.getTaskId())) {
                         adTaskManager.addEntityToCache(adTask.getTaskId(), adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
                     } else {
                         logger.warn("Task retry exceed limits. Task id: {}, entity: {}", adTask.getTaskId(), adTask.getEntity().get(0).getValue());
                     }
+
                     if (adTaskManager.hcDetectorDone(detectorId) ) {
                         String taskId = adTask.isEntityTask()? adTask.getParentTaskId() : adTask.getTaskId();
                         logger.info("Set HC task as failed : task id {}", taskId);

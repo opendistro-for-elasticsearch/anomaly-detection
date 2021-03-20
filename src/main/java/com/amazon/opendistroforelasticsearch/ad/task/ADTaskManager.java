@@ -44,7 +44,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -963,7 +962,7 @@ public class ADTaskManager {
         if (adTaskCacheManager.hasEntity(detectorId)) {
             ADTaskProfile adTaskProfile = new ADTaskProfile(
                     clusterService.localNode().getId(),
-                    adTaskCacheManager.getEntityCount(detectorId),
+                    adTaskCacheManager.getTopEntityCount(detectorId),
                     adTaskCacheManager.getPendingEntityCount(detectorId),
                     adTaskCacheManager.getRunningEntityCount(detectorId)
             );
@@ -1424,7 +1423,7 @@ public class ADTaskManager {
             // DuplicateTaskException. This is to solve race condition when user send
             // multiple start request for one historical detector.
             if (adTask.getDetectionDateRange() != null) {
-                adTaskCacheManager.add(adTask.getDetectorId());
+                adTaskCacheManager.add(adTask.getDetectorId(), adTask.getTaskType());
             }
         } catch (Exception e) {
             delegatedListener.onFailure(e);
@@ -1801,22 +1800,38 @@ public class ADTaskManager {
         }));
     }
 
-    public void updateADHCDetectorTask(String detectorId, String taskId, Map<String, Object> updatedFields, boolean initUpdatingFlagIfMissing,
+    public synchronized void updateADHCDetectorTask(String detectorId, String taskId, Map<String, Object> updatedFields, boolean initUpdatingFlagIfMissing,
                                        ActionListener<UpdateResponse> listener) {
-        AtomicBoolean updating = adTaskCacheManager.detectorTaskUpdating(detectorId, initUpdatingFlagIfMissing);
-        if (updating != null && !updating.get()) {
+        boolean updating = adTaskCacheManager.isDetectorTaskUpdating(detectorId);
+        if (!updating) {
             if (updatedFields.containsKey(STATE_FIELD) && updatedFields.get(STATE_FIELD).equals(ADTaskState.FINISHED)) {
                 logger.info("Update HC detector task to state to finished. detectorId:{}, taskId:{}", detectorId, taskId);
             }
-            updating.set(true);
+            adTaskCacheManager.setDetectorTaskUpdating(detectorId, true);
             updateADTask(taskId, updatedFields, ActionListener.wrap(r -> {
-                updating.set(false);
+                adTaskCacheManager.setDetectorTaskUpdating(detectorId, false);
                 listener.onResponse(r);
             }, e -> {
-                updating.set(false);
+                adTaskCacheManager.setDetectorTaskUpdating(detectorId, false);
                 listener.onFailure(e);
             }));
+        } else {
+            logger.info("HC detector task is updating, detectorId:{}, taskId:{}", detectorId, taskId);
         }
+
+//        if (updating != null && !updating.get()) {
+//            if (updatedFields.containsKey(STATE_FIELD) && updatedFields.get(STATE_FIELD).equals(ADTaskState.FINISHED)) {
+//                logger.info("Update HC detector task to state to finished. detectorId:{}, taskId:{}", detectorId, taskId);
+//            }
+//            updating.set(true);
+//            updateADTask(taskId, updatedFields, ActionListener.wrap(r -> {
+//                updating.set(false);
+//                listener.onResponse(r);
+//            }, e -> {
+//                updating.set(false);
+//                listener.onFailure(e);
+//            }));
+//        }
     }
 
     public void updateADTask(String taskId, Map<String, Object> updatedFields) {
@@ -1927,10 +1942,6 @@ public class ADTaskManager {
         return !adTaskCacheManager.hasEntity(detectorId);
     }
 
-    public boolean hcDetectorInCache(String detectorId) {
-        return adTaskCacheManager.hcDetectorInCache(detectorId);
-    }
-
     public void updateLatestADTask(String detectorId, ImmutableList<ADTaskType> taskTypes, Map<String, Object> updatedFields) {
         updateLatestADTask(detectorId, taskTypes, updatedFields,
                 ActionListener.wrap(r -> logger.info("updated"), e -> logger.warn("failed to update latest task for detector {}", detectorId)));
@@ -1948,27 +1959,30 @@ public class ADTaskManager {
                 listener);
     }
 
-    public void addEntityToCache(String taskId, String detectorId, String value) {
-        adTaskCacheManager.addEntity(detectorId, value);
-        adTaskCacheManager.addTaskRetry(detectorId, taskId);
+    public void pushBackEntityToCache(String taskId, String detectorId, String entity) {
+        adTaskCacheManager.addEntity(detectorId, entity);
+        adTaskCacheManager.increaseEntityTaskRetry(detectorId, taskId);
     }
 
     public void removeRunningEntity(String detectorId, List<Entity> entity) {
-        adTaskCacheManager.removeRunningEntity(detectorId, entity);
+        if (entity != null && entity.size() > 0) {
+            //TODO: support multiple category fields
+            adTaskCacheManager.removeRunningEntity(detectorId, entity.get(0).getValue());
+        }
     }
 
     public float hcDetectorProgress(String detectorId) {
-        int entityCount = adTaskCacheManager.getEntityCount(detectorId);
-        int leftEntities = adTaskCacheManager.pendingEntityCount(detectorId)
-                + adTaskCacheManager.runningEntitiesCount(detectorId);
+        int entityCount = adTaskCacheManager.getTopEntityCount(detectorId);
+        int leftEntities = adTaskCacheManager.getPendingEntityCount(detectorId)
+                + adTaskCacheManager.getRunningEntityCount(detectorId);
         return 1 - (float)leftEntities / entityCount;
     }
 
-    public void removePendingEntities(String detectorId) {
-        adTaskCacheManager.removeEntities(detectorId);
+    public void clearPendingEntities(String detectorId) {
+        adTaskCacheManager.clearPendingEntities(detectorId);
     }
 
     public boolean taskRetryExceedLimits(String detectorId, String taskId) {
-        return adTaskCacheManager.taskRetryExceedLimits(detectorId, taskId);
+        return adTaskCacheManager.exceedRetryLimit(detectorId, taskId);
     }
 }

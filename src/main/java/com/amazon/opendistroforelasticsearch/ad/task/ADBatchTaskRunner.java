@@ -87,7 +87,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -223,7 +222,7 @@ public class ADBatchTaskRunner {
             listener.onResponse(new ADBatchAnomalyResultResponse(clusterService.localNode().getId(), false));
         } else {
             logger.info("ylwudebug-runningentity: {}, pending entity: {}", adTaskCacheManager.getPendingEntityCount(adTask.getDetectorId()),
-                    adTaskCacheManager.runningEntitiesCount(adTask.getDetectorId()));
+                    adTaskCacheManager.getRunningEntityCount(adTask.getDetectorId()));
             // single entity detector or HC detector which top entities initialized
             run(adTask, transportService, listener);
         }
@@ -239,8 +238,8 @@ public class ADBatchTaskRunner {
 
     private ActionListener<String> internalHCListener(ADTask adTask, TransportService transportService, ActionListener<ADBatchAnomalyResultResponse> listener) {
         ActionListener<String> actionListener = ActionListener.wrap(response -> {
-                adTaskCacheManager.putTopEntityInited(adTask.getDetectorId(), true);
-            int totalEntities = adTaskCacheManager.pendingEntityCount(adTask.getDetectorId());
+                adTaskCacheManager.setTopEntityInited(adTask.getDetectorId());
+            int totalEntities = adTaskCacheManager.getPendingEntityCount(adTask.getDetectorId());
             logger.info("total top entities: {}", totalEntities);
             int numberOfEligibleDataNodes = nodeFilter.getNumberOfEligibleDataNodes();
             //TODO: use 1/10 of total maxAdBatchTaskPerNode per HC detector to make sure user can run multiple HC detectors in parallel.
@@ -333,8 +332,8 @@ public class ADBatchTaskRunner {
                 adTaskCacheManager.remove(adTask.getTaskId());
                 List<String> topNEntities = priorityTracker.getTopNEntities(maxTopEntitiesPerHcDetector);
                 adTaskCacheManager.addEntities(adTask.getDetectorId(), topNEntities);
-                adTaskCacheManager.setEntityCount(adTask.getDetectorId(), topNEntities.size());
-                if (adTaskCacheManager.pendingEntityCount(adTask.getDetectorId()) == 0) {
+                adTaskCacheManager.setTopEntityCount(adTask.getDetectorId(), topNEntities.size());
+                if (adTaskCacheManager.getPendingEntityCount(adTask.getDetectorId()) == 0) {
                     logger.error("There is no entity found for detector " + adTask.getDetectorId());
                     internalHCListener.onFailure(new ResourceNotFoundException(adTask.getDetectorId(), "No entity found"));
                 } else {
@@ -481,9 +480,9 @@ public class ADBatchTaskRunner {
             logger.info("ylwudebug8: error happends for task " + adTask.getTaskId() + ", " + adTask.getTaskType());
             handleException(adTask, e);
             if (adTask.isEntityTask()) {
-                adTaskCacheManager.getRateLimiter(adTask.getDetectorId(), adTask.getTaskId()).acquire(5);
                 logger.info("ylwudebug0319-2: thread: {}, {}",
                         Thread.currentThread().getName(), Thread.currentThread().getId());
+                waitBeforeNextEntity(5000);
                 adTaskManager.entityTaskDone(adTask, e, transportService);
             }
             runNextEntity(adTask, transportService);
@@ -547,7 +546,7 @@ public class ADBatchTaskRunner {
     }
 
     private void runNextEntity(ADTask adTask, TransportService transportService) {
-        if (adTaskCacheManager.getAndDecrementAllowedRunningTask(adTask.getDetectorId()) > 0) {
+        if (adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getDetectorId()) > 0) {
             logger.info("Poll next entity for detector {}, detector task {}, after task {}, {}",
                     adTask.getDetectorId(), getParentTaskId(adTask), adTask.getTaskId(), adTask.getTaskType());
             run(adTask, transportService, getInternalHCDelegatedListener());
@@ -694,8 +693,14 @@ public class ADBatchTaskRunner {
 //                threadPool.executor(AD_BATCH_TASK_THREAD_POOL_NAME).execute(() -> {
                     logger.info("ylwudebug0319-3: thread: {}, {}",
                             Thread.currentThread().getName(), Thread.currentThread().getId());
-                    adTaskCacheManager.getRateLimiter(adTask.getDetectorId(), adTask.getTaskId()).acquire(5);
-                    adTaskManager.entityTaskDone(adTask, e, transportService
+//                    adTaskCacheManager.getRateLimiter(adTask.getDetectorId(), adTask.getTaskId()).acquire(5);
+//                try {
+//                    Thread.sleep(5000);
+//                } catch (InterruptedException interruptedException) {
+//                    logger.warn("Exception while waiting", interruptedException);
+//                }
+                waitBeforeNextEntity(5000);
+                adTaskManager.entityTaskDone(adTask, e, transportService
                             //, () -> {handleException(adTask, e);}
                     );
                     handleException(adTask, e);
@@ -705,6 +710,14 @@ public class ADBatchTaskRunner {
         });
         ThreadedActionListener<String> threadedActionListener = new ThreadedActionListener<>(logger, threadPool, AD_BATCH_TASK_THREAD_POOL_NAME, listener, false);
         return threadedActionListener;
+    }
+
+    private void waitBeforeNextEntity(long time) {
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException interruptedException) {
+            logger.warn("Exception while waiting", interruptedException);
+        }
     }
 //TODO: entity task state not change from INIT to RUNNING
 //    private void handleException(ADTask adTask, Exception e, Consumer<Exception> consumer) {

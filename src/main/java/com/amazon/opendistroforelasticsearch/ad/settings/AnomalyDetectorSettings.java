@@ -342,7 +342,7 @@ public final class AnomalyDetectorSettings {
             // One AD task is roughly 1.5KB for normal case. Suppose task's size
             // is 2KB conservatively. If we store 1000 AD tasks for one detector,
             // that will be 2GB.
-            10,
+            1,
             1, // keep at least 1 old AD task per detector
             1000,
             Setting.Property.NodeScope,

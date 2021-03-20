@@ -112,7 +112,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     adTaskManager.removeRunningEntity(detectorId, adTask.getEntity());
                     logger.warn("Push back entity to cache : " + adTask.getEntity().get(0).getValue());
                     if (adTask.getError().contains(EXCEED_HISTORICAL_ANALYSIS_LIMIT) || !adTaskManager.taskRetryExceedLimits(detectorId, adTask.getTaskId())) {
-                        adTaskManager.addEntityToCache(adTask.getTaskId(), adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
+                        adTaskManager.pushBackEntityToCache(adTask.getTaskId(), adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
                     } else {
                         logger.warn("Task retry exceed limits. Task id: {}, entity: {}", adTask.getTaskId(), adTask.getEntity().get(0).getValue());
                     }
@@ -139,7 +139,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
 
             case CANCEL:
                 if (detector.isMultientityDetector()/* && adTask.isEntityTask()*/) {
-                    adTaskManager.removePendingEntities(detectorId);
+                    adTaskManager.clearPendingEntities(detectorId);
                     adTaskManager.removeRunningEntity(detectorId, adTask.getEntity());
                     if (adTaskManager.hcDetectorDone(detectorId) || !adTask.isEntityTask()) {
                         String taskId = adTask.isEntityTask()? adTask.getParentTaskId() : adTask.getTaskId();

@@ -38,6 +38,7 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -53,6 +54,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADBatchAnomalyResultResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskNodeResponse;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADTaskProfileNodeResponse;
 import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -793,6 +795,7 @@ public class ADTaskManager {
                     profileBuilder.adTaskProfiles(adTaskProfiles);
                     DetectorProfile detectorProfile = profileBuilder.build();
                     detectorProfile.merge(profile);
+                    logger.info("yyyywwww88: merged profiles {}", detectorProfile.getAdTaskProfiles().size());
                     listener.onResponse(detectorProfile);
                 }, e -> {
                     logger.error("Failed to get AD task profile for task " + adTask.get().getTaskId(), e);
@@ -818,12 +821,36 @@ public class ADTaskManager {
                 return;
             }
 
-            List<ADTaskProfile> nodeResponses = response
-                .getNodes()
-                .stream()
-                .filter(r -> r.getAdTaskProfiles() != null)
-                .flatMap(r -> r.getAdTaskProfiles().stream())
-                .collect(Collectors.toList());
+//            List<ADTaskProfile> nodeResponses = response
+//                .getNodes()
+//                .stream()
+//                .filter(r -> r.getAdTaskProfiles() != null)
+//                .flatMap(r -> r.getAdTaskProfiles().stream())
+//                .collect(Collectors.toList());
+            Map<String, ADTaskProfile> adTaskProfileMap = new HashMap<>();
+            List<ADTaskProfileNodeResponse> nodes = response.getNodes();
+            logger.info("yyyywwww88: nodes number: {}", nodes.size());
+            for (ADTaskProfileNodeResponse node : nodes) {
+                List<ADTaskProfile> profiles = node.getAdTaskProfiles();
+                if (profiles != null) {
+                    profiles.forEach(p -> {
+                        if (p.getTaskId() == null) {
+                            p.setTaskId(adTask.getTaskId());
+                        }
+                        if (!ADTaskType.HISTORICAL_HC_ENTITY.name().equals(p.getAdTaskType())) {
+                            p.setAdTask(adTask);
+                        }
+                        if (adTaskProfileMap.containsKey(p.getTaskId())) {
+                            logger.warn("yyyywwww88: dddddddddduplicate task profile " + p.getTaskId());
+                        }
+                        adTaskProfileMap.put(p.getTaskId(), p);
+                    });
+                }
+                logger.info("yyyywwww88: nodeId: {}, profile size: {}, node.getAdTaskProfiles: {}",
+                        node.getNode().getId(),
+                        profiles == null ? 0 : profiles.size(),
+                        profiles);
+            }
 
 //            if (nodeResponses.size() > 1) {
 //                String error = nodeResponses.size()
@@ -834,30 +861,33 @@ public class ADTaskManager {
 //                listener.onFailure(new InternalFailure(adTask.getDetectorId(), error));
 //                return;
 //            }
-            Map<String, ADTaskProfile> adTaskProfileMap = new HashMap<>();
-            if (nodeResponses.size() == 0) {
-                ADTaskProfile adTaskProfile = new ADTaskProfile(adTask, null, null, null, null, null, null);
-                adTaskProfileMap.put(adTask.getTaskId(), adTaskProfile);
-            } else {
-                nodeResponses.forEach(adTaskProfile -> {
-//                    ADTaskProfile adTaskProfile = new ADTaskProfile(
-//                            adTask,
-//                            nodeResponse.getShingleSize(),
-//                            nodeResponse.getRcfTotalUpdates(),
-//                            nodeResponse.getThresholdModelTrained(),
-//                            nodeResponse.getThresholdModelTrainingDataSize(),
-//                            nodeResponse.getModelSizeInBytes(),
-//                            nodeResponse.getNodeId()
-//                    );
-                    if (adTaskProfile.getTaskId() == null) {
-                        adTaskProfile.setTaskId(adTask.getTaskId());
-                    }
-                    if (adTaskProfile.getAdTaskType() != ADTaskType.HISTORICAL_HC_ENTITY) {
-                        adTaskProfile.setAdTask(adTask);
-                    }
-                    adTaskProfileMap.put(adTaskProfile.getTaskId(), adTaskProfile);
-                });
-            }
+
+//            response.getNodes().stream()
+//                    .filter(r -> r.getAdTaskProfiles() != null)
+//                    .flatMap(r -> r.getAdTaskProfiles().stream()).forEach(adTaskProfile -> {
+//                if (adTaskProfile.getTaskId() == null) {
+//                    adTaskProfile.setTaskId(adTask.getTaskId());
+//                }
+//                if (adTaskProfileMap.containsKey(adTaskProfile)) {
+//                    logger.info("yyyywwww88: dddddddddduplicate task profile " + adTaskProfile.getTaskId());
+//                }
+//                adTaskProfileMap.put(adTaskProfile.getTaskId(), adTaskProfile);
+//            });
+            logger.info("yyyywwww88: total running entity count: {}", adTaskProfileMap.size());
+//            if (nodeResponses.size() == 0) {
+//                ADTaskProfile adTaskProfile = new ADTaskProfile(adTask, null, null, null, null, null, null);
+//                adTaskProfileMap.put(adTask.getTaskId(), adTaskProfile);
+//            } else {
+//                nodeResponses.forEach(adTaskProfile -> {
+//                    if (adTaskProfile.getTaskId() == null) {
+//                        adTaskProfile.setTaskId(adTask.getTaskId());
+//                    }
+//                    if (adTaskProfile.getAdTaskType() != ADTaskType.HISTORICAL_HC_ENTITY) {
+//                        adTaskProfile.setAdTask(adTask);
+//                    }
+//                    adTaskProfileMap.put(adTaskProfile.getTaskId(), adTaskProfile);
+//                });
+//            }
             listener.onResponse(adTaskProfileMap);
         }, e -> {
             logger.error("Failed to get task profile for task " + adTask.getTaskId(), e);
@@ -903,6 +933,9 @@ public class ADTaskManager {
 //            throw new LimitExceededException(error);
 //        }
 
+        logger.info("yyyywwww88: running entity count is {}, tasksOfDetector is {}, {}",
+                adTaskCacheManager.getRunningEntityCount(detectorId), tasksOfDetector.size(),
+                Arrays.toString(tasksOfDetector.toArray(new String[0])));
         if (tasksOfDetector.size() > 0 ) {
             tasksOfDetector.forEach(taskId -> {
                 /*
@@ -927,16 +960,20 @@ public class ADTaskManager {
                 adTaskProfiles.add(adTaskProfile);
             });
         }
-        if (adTaskCacheManager.hcDetectorInCache(detectorId)) {
+        if (adTaskCacheManager.hasEntity(detectorId)) {
             ADTaskProfile adTaskProfile = new ADTaskProfile(
                     clusterService.localNode().getId(),
                     adTaskCacheManager.getEntityCount(detectorId),
                     adTaskCacheManager.getPendingEntityCount(detectorId),
                     adTaskCacheManager.getRunningEntityCount(detectorId)
             );
-            logger.info("yyyywwww: running entity is {}", adTaskCacheManager.getRunningEntities(detectorId));
+            logger.info("yyyywwww88: coordinating node running entity is {}", adTaskCacheManager.getRunningEntities(detectorId));
+
             adTaskProfiles.add(adTaskProfile);
+        } else {
+            logger.info("yyyywwww88: worker node running entity is {}", adTaskCacheManager.getRunningEntities(detectorId));
         }
+        logger.info("yyyywwww88: node adTaskProfile size is {}", adTaskProfiles.size());
         return adTaskProfiles;
     }
 

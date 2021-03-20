@@ -59,10 +59,10 @@ public class ADTaskProfile implements ToXContentObject, Writeable, Writeable.Wri
     private String nodeId;
     private List<Entity> entity;
     private String taskId;
-    private ADTaskType adTaskType;
+    private String adTaskType;
     private Integer totalEntities;
     private Integer pendingEntities;
-    private Integer runningEntities;
+    private Integer runningEntities; //TODO: running entities may be not equals to task in cache
 
     public ADTaskProfile(
         Integer shingleSize,
@@ -146,16 +146,16 @@ public class ADTaskProfile implements ToXContentObject, Writeable, Writeable.Wri
         this.pendingEntities = pendingEntities;
         this.runningEntities = runningEntities;
         if (entity != null && entity.size() > 0) {
-            setAdTaskType(ADTaskType.HISTORICAL_HC_ENTITY);
+            setAdTaskType(ADTaskType.HISTORICAL_HC_ENTITY.name());
         } else if (pendingEntities != null || runningEntities != null) {
-            setAdTaskType(ADTaskType.HISTORICAL_HC_DETECTOR);
+            setAdTaskType(ADTaskType.HISTORICAL_HC_DETECTOR.name());
         }
 //        if(adTask != null) {
 //            setAdTaskType(adTask.getTaskType());
 //        }
     }
 
-    public ADTaskType getAdTaskType() {
+    public String getAdTaskType() {
         return adTaskType;
     }
 
@@ -171,6 +171,16 @@ public class ADTaskProfile implements ToXContentObject, Writeable, Writeable.Wri
         this.thresholdModelTrainingDataSize = input.readOptionalInt();
         this.modelSizeInBytes = input.readOptionalLong();
         this.nodeId = input.readOptionalString();
+        if (input.readBoolean()){
+            this.entity = input.readList(Entity::new);
+        } else {
+            this.entity = null;
+        }
+        this.taskId = input.readOptionalString();
+        this.adTaskType = input.readOptionalString();
+        totalEntities = input.readOptionalInt();
+        pendingEntities = input.readOptionalInt();
+        runningEntities = input.readOptionalInt();
     }
 
     @Override
@@ -188,6 +198,17 @@ public class ADTaskProfile implements ToXContentObject, Writeable, Writeable.Wri
         out.writeOptionalInt(thresholdModelTrainingDataSize);
         out.writeOptionalLong(modelSizeInBytes);
         out.writeOptionalString(nodeId);
+        if (entity != null) {
+            out.writeBoolean(true);
+            out.writeList(entity);
+        } else {
+            out.writeBoolean(false);
+        }
+        out.writeOptionalString(taskId);
+        out.writeOptionalString(adTaskType);
+        out.writeOptionalInt(totalEntities);
+        out.writeOptionalInt(pendingEntities);
+        out.writeOptionalInt(runningEntities);
     }
 
     @Override
@@ -409,29 +430,49 @@ public class ADTaskProfile implements ToXContentObject, Writeable, Writeable.Wri
         this.taskId = taskId;
     }
 
-    public void setAdTaskType(ADTaskType adTaskType) {
+    public void setAdTaskType(String adTaskType) {
         this.adTaskType = adTaskType;
     }
 
+//    @Override
+//    public String toString() {
+//        return "ADTaskProfile{"
+//            + "adTask="
+//            + adTask
+//            + ", shingleSize="
+//            + shingleSize
+//            + ", rcfTotalUpdates="
+//            + rcfTotalUpdates
+//            + ", thresholdModelTrained="
+//            + thresholdModelTrained
+//            + ", thresholdNodelTrainingDataSize="
+//            + thresholdModelTrainingDataSize
+//            + ", modelSizeInBytes="
+//            + modelSizeInBytes
+//            + ", nodeId='"
+//            + nodeId
+//            + '\''
+//            + '}';
+//    }
+
+
     @Override
     public String toString() {
-        return "ADTaskProfile{"
-            + "adTask="
-            + adTask
-            + ", shingleSize="
-            + shingleSize
-            + ", rcfTotalUpdates="
-            + rcfTotalUpdates
-            + ", thresholdModelTrained="
-            + thresholdModelTrained
-            + ", thresholdNodelTrainingDataSize="
-            + thresholdModelTrainingDataSize
-            + ", modelSizeInBytes="
-            + modelSizeInBytes
-            + ", nodeId='"
-            + nodeId
-            + '\''
-            + '}';
+        return "ADTaskProfile{" +
+                "adTask=" + adTask +
+                ", shingleSize=" + shingleSize +
+                ", rcfTotalUpdates=" + rcfTotalUpdates +
+                ", thresholdModelTrained=" + thresholdModelTrained +
+                ", thresholdModelTrainingDataSize=" + thresholdModelTrainingDataSize +
+                ", modelSizeInBytes=" + modelSizeInBytes +
+                ", nodeId='" + nodeId + '\'' +
+                ", entity=" + entity +
+                ", taskId='" + taskId + '\'' +
+                ", adTaskType=" + adTaskType +
+                ", totalEntities=" + totalEntities +
+                ", pendingEntities=" + pendingEntities +
+                ", runningEntities=" + runningEntities +
+                '}';
     }
 
     @Override

@@ -50,7 +50,7 @@ public class ADTaskProfileNodeResponse extends BaseNodeResponse {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        if (adTaskProfiles != null && adTaskProfiles.size() > 0) {
+        if (adTaskProfiles != null) {
             out.writeBoolean(true);
             out.writeList(adTaskProfiles);
         } else {

@@ -38,7 +38,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
-import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.RateLimiter;
@@ -75,6 +74,7 @@ public class ADTaskCacheManager {
     //TODO: cualculate memory usage, support multiple category field
     private Map<String, Queue<String>> pendingEntities;
     private Map<String, Queue<String>> runningEntities;
+    private Map<String, AtomicInteger> allowedRunningEntities;
 
     private Map<String, Integer> entityCount;
     private Map<String, AtomicBoolean> detectorTaskUpdating;
@@ -102,6 +102,7 @@ public class ADTaskCacheManager {
         this.detectorTaskUpdating = new ConcurrentHashMap<>();
         this.taskRunTimes = new ConcurrentHashMap<>();
         this.taskRateLimiter = new ConcurrentHashMap<>();
+        this.allowedRunningEntities = new ConcurrentHashMap<>();
     }
 
     /**
@@ -502,6 +503,10 @@ public class ADTaskCacheManager {
             taskRateLimiter.remove(detectorId);
             logger.info("Removed detector from AD task coordinating node taskRateLimiter cache, detectorId: " + detectorId);
         }
+        if (allowedRunningEntities.containsKey(detectorId)) {
+            allowedRunningEntities.remove(detectorId);
+            logger.info("Removed detector from AD task coordinating node allowedRunningEntities cache, detectorId: " + detectorId);
+        }
     }
 
     /**
@@ -727,12 +732,23 @@ public class ADTaskCacheManager {
         return taskRetry.computeIfAbsent(taskId, id -> new AtomicInteger(0)).addAndGet(1);
     }
 
-    public String getRunningENtities(String detectorId) {
+    public String getRunningEntities(String detectorId) {
         Queue<String> entities = runningEntities.get(detectorId);
         if (entities != null) {
             return Arrays.toString(entities.toArray(new String[0]));
         } else {
             return "";
         }
+    }
+
+    public void setAllowedRunningEntities(String detectorId, int maxAllowedRunningEntities) {
+        this.allowedRunningEntities.computeIfAbsent(detectorId, id -> new AtomicInteger(maxAllowedRunningEntities));
+    }
+
+    public synchronized int getAndDecrementAllowedRunningTask(String detectorId) {
+        if (this.allowedRunningEntities.containsKey(detectorId)) {
+            return this.allowedRunningEntities.get(detectorId).getAndDecrement();
+        }
+        return 0;
     }
 }

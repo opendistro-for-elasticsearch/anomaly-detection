@@ -532,8 +532,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             anomalyDetectionIndices,
             nodeFilter,
             hashRing,
-            adTaskCacheManager
-        );
+            adTaskCacheManager,
+                threadPool);
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
             client,
             settings,

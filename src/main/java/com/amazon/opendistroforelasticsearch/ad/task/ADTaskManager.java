@@ -26,7 +26,9 @@ import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.STATE_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.STOPPED_BY_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.TASK_TYPE_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil.getErrorMessage;
 import static com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil.getShardsFailure;
@@ -49,6 +51,7 @@ import java.util.stream.Collectors;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.Entity;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADBatchAnomalyResultResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskNodeResponse;
 import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
@@ -95,6 +98,7 @@ import org.elasticsearch.script.Script;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportRequestOptions;
 import org.elasticsearch.transport.TransportService;
 
@@ -138,22 +142,25 @@ public class ADTaskManager {
     private final AnomalyDetectionIndices detectionIndices;
     private final DiscoveryNodeFilterer nodeFilter;
     private final ADTaskCacheManager adTaskCacheManager;
+    private final ThreadPool threadPool;
 
     private final HashRing hashRing;
     private volatile Integer maxAdTaskDocsPerDetector;
     private volatile Integer pieceIntervalSeconds;
     private volatile TimeValue requestTimeout;
+    private volatile Integer maxAdBatchTaskPerNode;
+    private volatile Integer maxRunningEntitiesPerDetector;
 
     public ADTaskManager(
-        Settings settings,
-        ClusterService clusterService,
-        Client client,
-        NamedXContentRegistry xContentRegistry,
-        AnomalyDetectionIndices detectionIndices,
-        DiscoveryNodeFilterer nodeFilter,
-        HashRing hashRing,
-        ADTaskCacheManager adTaskCacheManager
-    ) {
+            Settings settings,
+            ClusterService clusterService,
+            Client client,
+            NamedXContentRegistry xContentRegistry,
+            AnomalyDetectionIndices detectionIndices,
+            DiscoveryNodeFilterer nodeFilter,
+            HashRing hashRing,
+            ADTaskCacheManager adTaskCacheManager,
+            ThreadPool threadPool) {
         this.client = client;
         this.xContentRegistry = xContentRegistry;
         this.detectionIndices = detectionIndices;
@@ -163,6 +170,7 @@ public class ADTaskManager {
         this.hashRing = hashRing;
 
         this.maxAdTaskDocsPerDetector = MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.get(settings);
+        this.threadPool = threadPool;
         clusterService
             .getClusterSettings()
             .addSettingsUpdateConsumer(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR, it -> maxAdTaskDocsPerDetector = it);
@@ -172,6 +180,12 @@ public class ADTaskManager {
 
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+
+        this.maxAdBatchTaskPerNode = MAX_BATCH_TASK_PER_NODE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_BATCH_TASK_PER_NODE, it -> maxAdBatchTaskPerNode = it);
+
+        this.maxRunningEntitiesPerDetector = MAX_RUNNING_ENTITIES_PER_DETECTOR.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_RUNNING_ENTITIES_PER_DETECTOR, it -> maxRunningEntitiesPerDetector = it);
     }
 
     /**
@@ -920,7 +934,7 @@ public class ADTaskManager {
                     adTaskCacheManager.getPendingEntityCount(detectorId),
                     adTaskCacheManager.getRunningEntityCount(detectorId)
             );
-            logger.info("yyyywwww: running entity is {}", adTaskCacheManager.getRunningENtities(detectorId));
+            logger.info("yyyywwww: running entity is {}", adTaskCacheManager.getRunningEntities(detectorId));
             adTaskProfiles.add(adTaskProfile);
         }
         return adTaskProfiles;
@@ -1593,31 +1607,67 @@ public class ADTaskManager {
     }
 
     private void runBatchResultAction(IndexResponse response, ADTask adTask, ActionListener<AnomalyDetectorJobResponse> delegatedListener) {
-        client.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(r -> {
+        logger.info("runBatchResultAction for task {}, {}", adTask.getTaskId(), adTask.getTaskType());
+
+        ActionListener<ADBatchAnomalyResultResponse> actionListener = ActionListener.wrap(r -> {
             String remoteOrLocal = r.isRunTaskRemotely() ? "remote" : "local";
             logger
-                .info(
-                    "AD task {} of detector {} dispatched to {} node {}",
-                    adTask.getTaskId(),
-                    adTask.getDetectorId(),
-                    remoteOrLocal,
-                    r.getNodeId()
-                );
+                    .info(
+                            "AD task {} of detector {} dispatched to {} node {}",
+                            adTask.getTaskId(),
+                            adTask.getDetectorId(),
+                            remoteOrLocal,
+                            r.getNodeId()
+                    );
             AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(
-                response.getId(),
-                response.getVersion(),
-                response.getSeqNo(),
-                response.getPrimaryTerm(),
-                RestStatus.OK
+                    response.getId(),
+                    response.getVersion(),
+                    response.getSeqNo(),
+                    response.getPrimaryTerm(),
+                    RestStatus.OK
             );
             delegatedListener.onResponse(anomalyDetectorJobResponse);
+
+//            int totalEntities = adTaskCacheManager.getEntityCount(adTask.getDetectorId());
+//            int numberOfEligibleDataNodes = nodeFilter.getNumberOfEligibleDataNodes();
+//            int maxRunningEntities = Math.min(totalEntities, Math.min(numberOfEligibleDataNodes * maxAdBatchTaskPerNode, maxRunningEntitiesPerDetector));
+//            for (int i =1; i < maxRunningEntities; i++) {
+//                logger.info("Start to run next entity task for detector " + adTask.getDetectorId());
+//                client.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(res -> {
+//                    logger.info("Finish to run next entity task for detector " + adTask.getDetectorId());
+//                    logger.info(
+//                            "222222222 AD task {} of detector {} dispatched to {} node {}",
+//                            adTask.getTaskId(),
+//                            adTask.getDetectorId(),
+//                            res.isRunTaskRemotely() ? "remote" : "local",
+//                            res.getNodeId()
+//                    );
+//
+//                }, e -> {
+//                    logger.error("Failed to run next entity task for detector " + adTask.getDetectorId(), e);
+////                        logger.error("Failed to start entity task for detector " + adTask.getDetectorId(), e);
+//                }));
+//                adTaskCacheManager.getRateLimiter(adTask.getDetectorId(), adTask.getTaskId()).acquire(1);
+//            }
         }, e -> {
             //dedicated listener which handle exceptions
             delegatedListener.onFailure(e);
-        }));
+        });
+//        ThreadedActionListener<ADBatchAnomalyResultResponse> threadedActionListener = new ThreadedActionListener<>(logger, threadPool, AD_BATCH_TASK_THREAD_POOL_NAME, actionListener, false);
+        client.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), actionListener);
+
     }
 
+    /**
+     * Called by forwarding action
+     * @param adTask ad entity task
+     * @param listener action listerner
+     */
     public void runBatchResultActionForEntity(ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {
+        logger.info("runBatchResultActionForEntity for task {}, {}", adTask.getTaskId(), adTask.getTaskType());
+        logger.info("112233 running entities {}, {}, pending entities count: {}", adTaskCacheManager.getRunningEntities(adTask.getDetectorId()),
+                adTaskCacheManager.getRunningEntityCount(adTask.getDetectorId()),
+                adTaskCacheManager.getPendingEntityCount(adTask.getDetectorId()));
         client.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(r -> {
             String remoteOrLocal = r.isRunTaskRemotely() ? "remote" : "local";
             logger
@@ -1679,7 +1729,7 @@ public class ADTaskManager {
         updatedFields.put(ERROR_FIELD, getErrorMessage(e));
         updatedFields.put(STATE_FIELD, state);
         updatedFields.put(EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli());
-        logger.info("ylwudebug6: log exception for task " + adTask.getTaskId());
+//        logger.info("ylwudebug6: log exception for task " + adTask.getTaskId());
         if (adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_DETECTOR.name())) {
             updateADHCDetectorTask(adTask.getDetectorId(), adTask.getTaskId(), updatedFields, true);
         } else {

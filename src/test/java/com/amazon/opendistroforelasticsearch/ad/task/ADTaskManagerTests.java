@@ -106,8 +106,8 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             anomalyDetectionIndices,
             nodeFilter,
             hashRing,
-            adTaskCacheManager
-        );
+            adTaskCacheManager,
+                threadPool);
 
         listener = spy(new ActionListener<AnomalyDetectorJobResponse>() {
             @Override

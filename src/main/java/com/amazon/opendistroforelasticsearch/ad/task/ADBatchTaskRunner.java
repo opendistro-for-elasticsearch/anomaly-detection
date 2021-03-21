@@ -546,7 +546,8 @@ public class ADBatchTaskRunner {
     }
 
     private void runNextEntity(ADTask adTask, TransportService transportService) {
-        if (adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getDetectorId()) > 0) {
+        if (ADTaskType.HISTORICAL_HC_ENTITY.name().equals(adTask.getTaskType())
+                && adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getDetectorId()) > 0) {
             logger.info("Poll next entity for detector {}, detector task {}, after task {}, {}",
                     adTask.getDetectorId(), getParentTaskId(adTask), adTask.getTaskId(), adTask.getTaskType());
             run(adTask, transportService, getInternalHCDelegatedListener());

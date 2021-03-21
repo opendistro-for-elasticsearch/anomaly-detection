@@ -547,8 +547,9 @@ public class ADTaskManager {
                 ADTask adTask = ADTask.parse(parser, searchHit.getId());
 
                 //TODO: check realtime detector job and reset realtime task as stopped.
-                if (resetTaskState && adTask.getDetectionDateRange() != null && !isADTaskEnded(adTask) && lastUpdateTimeExpired(adTask) &&
-                !adTask.getDetector().isMultientityDetector()) {
+                if (resetTaskState && adTask.getDetectionDateRange() != null && !isADTaskEnded(adTask) && lastUpdateTimeExpired(adTask)
+//                        && !adTask.getDetector().isMultientityDetector()
+                ) {
                     logger.info("------------- reset task state for task " + adTask.getTaskId());
                     // If AD task is still running, but its last updated time not refreshed
                     // for 2 pieces intervals, we will get task profile to check if it's
@@ -556,7 +557,13 @@ public class ADTaskManager {
                     // For example, ES process crashes, then all tasks running on it will stay
                     // as running. We can reset the task state when next read happen.
                     getADTaskProfile(adTask, ActionListener.wrap(taskProfiles -> {
-                        if (taskProfiles.get(adTask.getTaskId()).getNodeId() == null) {
+                        logger.info("++++++++++113355 taskProfiles {}, size: {},  {}, {}"
+                                , taskProfiles, taskProfiles != null? taskProfiles.size():0
+                                , !taskProfiles.containsKey(adTask.getTaskId())
+                                , !taskProfiles.containsKey(adTask.getTaskId()) || taskProfiles.get(adTask.getTaskId()).getNodeId() == null);
+                        if (!taskProfiles.containsKey(adTask.getTaskId())
+                                || taskProfiles.get(adTask.getTaskId()).getNodeId() == null) {
+                            logger.info("++++++++++113355 reset task state as stopped");
                             // If no node is running this task, reset it as STOPPED.
                             resetTaskStateAsStopped(adTask, transportService); //TODO: reset realtime task state
                             adTask.setState(ADTaskState.STOPPED.name());
@@ -966,11 +973,11 @@ public class ADTaskManager {
                     adTaskCacheManager.getPendingEntityCount(detectorId),
                     adTaskCacheManager.getRunningEntityCount(detectorId)
             );
-            logger.info("yyyywwww88: coordinating node running entity is {}", adTaskCacheManager.getRunningEntities(detectorId));
+            logger.info("yyyywwww88: coordinating node running entity is {}", Arrays.toString(adTaskCacheManager.getRunningEntities(detectorId)));
 
             adTaskProfiles.add(adTaskProfile);
         } else {
-            logger.info("yyyywwww88: worker node running entity is {}", adTaskCacheManager.getRunningEntities(detectorId));
+            logger.info("yyyywwww88: worker node running entity is {}", Arrays.toString(adTaskCacheManager.getRunningEntities(detectorId)));
         }
         logger.info("yyyywwww88: node adTaskProfile size is {}", adTaskProfiles.size());
         return adTaskProfiles;

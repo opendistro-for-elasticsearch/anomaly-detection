@@ -620,8 +620,12 @@ public class ADTaskCacheManager {
     }
 
     public String[] getRunningEntities(String detectorId) {
-        ADHCTaskCache hcTaskCache = getExistingHCTaskCache(detectorId);
-        return hcTaskCache.getRunningEntities();
+        if (hcTaskCaches.containsKey(detectorId)) {
+            ADHCTaskCache hcTaskCache = getExistingHCTaskCache(detectorId);
+            return hcTaskCache.getRunningEntities();
+        } else {
+            return new String[]{};
+        }
     }
 
     public void setAllowedRunningEntities(String detectorId, int allowedRunningEntities) {

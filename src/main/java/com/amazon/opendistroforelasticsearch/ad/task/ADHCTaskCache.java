@@ -30,8 +30,8 @@ public class ADHCTaskCache {
     private AtomicInteger entityTaskLanes;
 
     private Integer topEntityCount;
-    private boolean detectorTaskUpdating;
-    private boolean topEntitiesInited;
+    private Boolean detectorTaskUpdating;
+    private Boolean topEntitiesInited;
     private Map<String, AtomicInteger> taskRetryTimes;
     private Map<String, RateLimiter> rateLimiters;
 
@@ -40,6 +40,8 @@ public class ADHCTaskCache {
         this.runningEntities = new ConcurrentLinkedQueue<>();
         this.taskRetryTimes = new ConcurrentHashMap<>();
         this.rateLimiters = new ConcurrentHashMap<>();
+        this.detectorTaskUpdating = false;
+        this.topEntitiesInited = false;
     }
 
     public void setTopEntityCount(Integer topEntityCount) {
@@ -58,7 +60,7 @@ public class ADHCTaskCache {
         return topEntityCount;
     }
 
-    public boolean getDetectorTaskUpdating() {
+    public Boolean getDetectorTaskUpdating() {
         return detectorTaskUpdating;
     }
 

@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.cluster;
 
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -33,10 +34,12 @@ public class HourlyCron implements Runnable {
     static final String EXCEPTION_LOG_MSG = "Hourly maintenance has exception.";
     private DiscoveryNodeFilterer nodeFilter;
     private Client client;
+    private ADTaskManager adTaskManager;
 
-    public HourlyCron(Client client, DiscoveryNodeFilterer nodeFilter) {
+    public HourlyCron(Client client, DiscoveryNodeFilterer nodeFilter, ADTaskManager adTaskManager) {
         this.nodeFilter = nodeFilter;
         this.client = client;
+        this.adTaskManager = adTaskManager;
     }
 
     @Override
@@ -55,5 +58,11 @@ public class HourlyCron implements Runnable {
                 LOG.info(SUCCEEDS_LOG_MSG);
             }
         }, exception -> { LOG.error(EXCEPTION_LOG_MSG, exception); }));
+
+        LOG.info("[Hourly Cron]: start to delete child tasks and AD results");
+        boolean startDeleting = adTaskManager.deleteChildTasksAndADResults();
+        if (!startDeleting) {
+            //TODO: delete ghost AD results, if any detector or task not found
+        }
     }
 }

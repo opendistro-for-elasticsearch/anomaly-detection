@@ -382,18 +382,19 @@ public class ADBatchTaskRunner {
 //        }
         if (isHCDetector) {
             if (entity == null) {
-                if (adTaskManager.hcDetectorDone(detectorId)) {
+                /*if (adTaskManager.hcDetectorDone(detectorId)) {
                     logger.info("HC detectr done, remove cache for detector:{}", detectorId);
 //                        adTaskManager.updateADTask(adTask.getParentTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()));
                     //TODO: reset task state when get task
                     String taskId = adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_ENTITY.name()) ? adTask.getParentTaskId() : adTask.getTaskId();
                     adTaskManager.updateADHCDetectorTask(detectorId, taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name(),
                             TASK_PROGRESS_FIELD, 1.0,
-                            EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()), true);//TODO: check how to handle if no entity case, if there is only 1 entity, false will not work
+                            EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()));//TODO: check how to handle if no entity case, if there is only 1 entity, false will not work
 
                     adTaskManager.removeDetectorFromCache(detectorId);
-                }
+                }*/
 //                listener.onFailure(new ResourceNotFoundException(adTask.getDetectorId(), "entity is null"));
+                logger.info("yyyyllll: entity is null");
                 listener.onResponse(new ADBatchAnomalyResultResponse(clusterService.localNode().getId(), false));
                 return;
             }

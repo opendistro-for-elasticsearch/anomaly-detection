@@ -28,8 +28,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -70,6 +72,7 @@ public class ADTaskCacheManager {
     private Set<String> detectors;
 
     private Map<String, ADHCTaskCache> hcTaskCaches;
+    private Queue<String> deletedTasks;
 
     /**
      * Constructor to create AD task cache manager.
@@ -86,6 +89,7 @@ public class ADTaskCacheManager {
         this.detectors = Sets.newConcurrentHashSet();
 
         this.hcTaskCaches = new ConcurrentHashMap<>();
+        this.deletedTasks = new ConcurrentLinkedQueue<>();
     }
 
     /**
@@ -554,7 +558,9 @@ public class ADTaskCacheManager {
         if (this.hcTaskCaches.containsKey(detectorId)) {
             ADHCTaskCache hcTaskCache = this.hcTaskCaches.get(detectorId);
             String entity = hcTaskCache.pollEntity();
-            hcTaskCache.moveToRunningEntity(entity);
+            if (entity != null) {
+                hcTaskCache.moveToRunningEntity(entity);
+            }
             return entity;
         } else {
             return null;
@@ -597,12 +603,18 @@ public class ADTaskCacheManager {
     }
 
     //This is to solve version conflict
-    public boolean isDetectorTaskUpdating(String detectorId) {
-        return getExistingHCTaskCache(detectorId).getDetectorTaskUpdating();
+    public Boolean isDetectorTaskUpdating(String detectorId) {
+        if (hcTaskCaches.containsKey(detectorId)) {
+            return getExistingHCTaskCache(detectorId).getDetectorTaskUpdating();
+        } else {
+            return null;
+        }
     }
 
     public void setDetectorTaskUpdating(String detectorId, boolean updating) {
-        getExistingHCTaskCache(detectorId).setDetectorTaskUpdating(updating);
+        if (hcTaskCaches.containsKey(detectorId)) {
+            getExistingHCTaskCache(detectorId).setDetectorTaskUpdating(updating);
+        }
     }
 
     public void clearPendingEntities(String detectorId) {
@@ -634,5 +646,20 @@ public class ADTaskCacheManager {
 
     public synchronized int getAndDecreaseEntityTaskLanes(String detectorId) {
         return getExistingHCTaskCache(detectorId).getAndDecreaseEntityTaskLanes();
+    }
+
+    //TODO: If task is HC detector task, delete all entity tasks and delete AD results in cron job
+    public void addDeletedTask(String taskId, String taskType) {
+        if (!ADTaskType.HISTORICAL_HC_ENTITY.name().equals(taskType)) {
+            deletedTasks.add(taskId);
+        }
+    }
+
+    public boolean hasDeletedTask() {
+        return !deletedTasks.isEmpty();
+    }
+
+    public String pollDeletedTask() {
+        return this.deletedTasks.poll();
     }
 }

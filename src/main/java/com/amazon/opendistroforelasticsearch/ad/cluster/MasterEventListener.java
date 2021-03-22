@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.cluster;
 
 import java.time.Clock;
 
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.LocalNodeMasterListener;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -42,6 +43,7 @@ public class MasterEventListener implements LocalNodeMasterListener {
     private Clock clock;
     private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
+    private ADTaskManager adTaskManager;
 
     public MasterEventListener(
         ClusterService clusterService,
@@ -49,7 +51,8 @@ public class MasterEventListener implements LocalNodeMasterListener {
         Client client,
         Clock clock,
         ClientUtil clientUtil,
-        DiscoveryNodeFilterer nodeFilter
+        DiscoveryNodeFilterer nodeFilter,
+        ADTaskManager adTaskManager
     ) {
         this.clusterService = clusterService;
         this.threadPool = threadPool;
@@ -58,12 +61,13 @@ public class MasterEventListener implements LocalNodeMasterListener {
         this.clock = clock;
         this.clientUtil = clientUtil;
         this.nodeFilter = nodeFilter;
+        this.adTaskManager = adTaskManager;
     }
 
     @Override
     public void onMaster() {
         if (hourlyCron == null) {
-            hourlyCron = threadPool.scheduleWithFixedDelay(new HourlyCron(client, nodeFilter), TimeValue.timeValueHours(1), executorName());
+            hourlyCron = threadPool.scheduleWithFixedDelay(new HourlyCron(client, nodeFilter, adTaskManager), TimeValue.timeValueHours(1), executorName());
             clusterService.addLifecycleListener(new LifecycleListener() {
                 @Override
                 public void beforeStop() {

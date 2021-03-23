@@ -294,7 +294,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             long dataEndTime = request.getEnd() - delayMillis;
 
             List<String> categoryField = anomalyDetector.getCategoryField();
-            if (categoryField != null) {
+            if (categoryField != null && categoryField.size() > 0) {
                 Optional<AnomalyDetectionException> previousException = stateManager.fetchColdStartException(adID);
 
                 if (previousException.isPresent()) {

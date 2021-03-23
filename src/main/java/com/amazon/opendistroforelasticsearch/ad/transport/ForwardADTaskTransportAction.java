@@ -64,7 +64,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
 
         switch (adTaskAction) {
             case START:
-                adTaskManager.startHistoricalDetector(detector, request.getDetectionDateRange(), request.getUser(), transportService, listener);
+                adTaskManager.startAnomalyDetector(detector, request.getDetectionDateRange(), request.getUser(), transportService, listener);
                 break;
             case FINISHED:
                 adTaskManager.removeDetectorFromCache(detectorId);

@@ -353,7 +353,7 @@ public final class AnomalyDetectorSettings {
     public static final Setting<Integer> BATCH_TASK_PIECE_SIZE = Setting
         .intSetting(
             "opendistro.anomaly_detection.batch_task_piece_size",
-            5000,
+            1000,
             1,
             10_000,
             Setting.Property.NodeScope,

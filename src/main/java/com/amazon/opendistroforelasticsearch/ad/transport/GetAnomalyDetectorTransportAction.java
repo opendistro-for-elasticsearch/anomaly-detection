@@ -211,7 +211,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                     adTaskManager
                         .getLatestADTask( //TODO: don't return realtime task now as frontend doesn't need it
                             detectorID,
-                            ImmutableList.of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.HISTORICAL_SINGLE_ENTITY),
+                            ADTaskType.getHistoricalDetectorTaskTypes(),
                             (adTask) -> getDetectorAndJob(detectorID, returnJob, returnTask, adTask, listener),
                             transportService,
                             listener

@@ -435,7 +435,7 @@ public class ADBatchTaskRunner {
                             .entity(ImmutableList.of(new Entity(adTask.getDetector().getCategoryField().get(0), entity)))
                             .parentTaskId(parentTaskId)
                             .build();
-                    adTaskManager.createADTask(adEntityTask, r -> {
+                    adTaskManager.createADTaskDirectly(adEntityTask, r -> {
                         adEntityTask.setTaskId(r.getId());
 //                executeSingleEntityTask(adEntityTask, transportService, delegatedListener);
 //                updatedFields.put(ENTITY_FIELD, ImmutableList.of(entity));
@@ -1146,7 +1146,7 @@ public class ADBatchTaskRunner {
                 adTaskCacheManager.getRateLimiter(adTask.getDetectorId(), adTask.getTaskId()).acquire(1);
                 i++;
             }
-            logger.info("task id: {}, start next piece start from {} to {}, interval {}",
+            logger.debug("task id: {}, start next piece start from {} to {}, interval {}",
                     adTask.getTaskId(), pieceStartTime, pieceEndTime, interval);
             float taskProgress = (float) (pieceStartTime - dataStartTime) / (dataEndTime - dataStartTime);
             logger.debug("Task progress: {}, task id:{}, detector id:{}", taskProgress, taskId, adTask.getDetectorId());

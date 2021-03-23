@@ -254,7 +254,7 @@ public class IndexAnomalyDetectorActionHandler {
 //            }
 //            validateDetector(exisADTaskManager.javatingDetector);
             //TODO: check if realtime job or historical analysis is executing
-            adTaskManager.getLatestADTask(detectorId, ImmutableList.of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.HISTORICAL_SINGLE_ENTITY),
+            adTaskManager.getLatestADTask(detectorId, ADTaskType.getHistoricalDetectorTaskTypes(),
                     (adTask) -> {
                 if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
                     // can't update detector if there is AD task running

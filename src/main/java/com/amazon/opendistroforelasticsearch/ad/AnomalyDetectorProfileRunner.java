@@ -299,7 +299,6 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             profileBuilder.state(DetectorState.DISABLED);
         }
         if (profiles.contains(DetectorProfileName.AD_TASK)) {
-            logger.info("++++++++++++++++++++++++++++++++++++++++++++++++ run getLatestADTaskProfile");
             adTaskManager.getLatestADTaskProfile(detectorId, transportService, profileBuilder.build(), listener);
         } else {
             listener.onResponse(profileBuilder.build());

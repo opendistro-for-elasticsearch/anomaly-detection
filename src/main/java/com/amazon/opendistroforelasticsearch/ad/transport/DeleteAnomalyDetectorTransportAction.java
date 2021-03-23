@@ -24,7 +24,6 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 import java.io.IOException;
 
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
-import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchStatusException;
@@ -106,7 +105,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                         // realtime detector
                         detector -> getDetectorJob(detectorId, listener, () -> {
 
-                            adTaskManager.getLatestADTask(detectorId, ImmutableList.of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.HISTORICAL_SINGLE_ENTITY), adTask -> {
+                            adTaskManager.getLatestADTask(detectorId, ADTaskType.getHistoricalDetectorTaskTypes(), adTask -> {
 
 //                                if (adTask.isPresent()) {
 //                                    if (!adTaskManager.isADTaskEnded(adTask.get())) {

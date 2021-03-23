@@ -730,6 +730,10 @@ public class ADTask implements ToXContentObject, Writeable {
         return detectionDateRange;
     }
 
+    public boolean isHistoricalTask() {
+        return taskType.startsWith("HISTORICAL");
+    }
+
     public List<Entity> getEntity() {
         return entity;
     }

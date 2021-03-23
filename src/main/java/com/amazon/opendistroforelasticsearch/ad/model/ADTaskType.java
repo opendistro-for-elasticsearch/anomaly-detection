@@ -15,10 +15,23 @@
 
 package com.amazon.opendistroforelasticsearch.ad.model;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
 public enum ADTaskType {
     REALTIME_SINGLE_ENTITY,
     REALTIME_HC_DETECTOR,
     HISTORICAL_SINGLE_ENTITY,
     HISTORICAL_HC_DETECTOR,
-    HISTORICAL_HC_ENTITY
+    HISTORICAL_HC_ENTITY;
+
+    public static List<ADTaskType> getHistoricalDetectorTaskTypes() {
+        return ImmutableList.of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.HISTORICAL_SINGLE_ENTITY);
+    }
+
+    public static List<ADTaskType> getRealtimeTaskTypes() {
+        return ImmutableList.of(ADTaskType.REALTIME_SINGLE_ENTITY, ADTaskType.REALTIME_HC_DETECTOR);
+    }
+
 }

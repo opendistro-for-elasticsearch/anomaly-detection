@@ -378,7 +378,7 @@ public class ADTaskManager {
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, true));
         if (adTaskTypes != null && adTaskTypes.size() > 0) {
-            query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, adTaskTypes.stream().map(type -> type.name()).collect(Collectors.toList())));
+            query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(adTaskTypes)));
         }
         if (Strings.isNotEmpty(entityValue)) {
             String path = "entity";
@@ -800,7 +800,10 @@ public class ADTaskManager {
         try {
             if (detectionIndices.doesDetectorStateIndexExist()) {
                 // If detection index exist, check if latest AD task is running
-                getLatestADTask(detector.getDetectorId(), ImmutableList.of(getADTaskType(detector, detectionDateRange)), (adTask) -> {
+                getLatestADTask(detector.getDetectorId(),
+//                        ImmutableList.of(getADTaskType(detector, detectionDateRange)),
+                        getADTaskTypes(detectionDateRange),
+                        (adTask) -> {
                     if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
                         executeAnomalyDetector(detector, detectionDateRange, user, listener);
                     } else {
@@ -839,12 +842,14 @@ public class ADTaskManager {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detector.getDetectorId()));
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, true));
-        String taskType = getADTaskType(detector, detectionDateRange).name();
-        query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, ImmutableList.of(taskType)));
+//        String taskType = getADTaskType(detector, detectionDateRange).name();
+        // make sure we reset all latest task as false when user switch from single entity to HC, vice versa.
+        query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(getADTaskTypes(detectionDateRange))));
         updateByQueryRequest.setQuery(query);
         updateByQueryRequest.setRefresh(true);
         updateByQueryRequest.setScript(new Script("ctx._source.is_latest = false;"));
 
+        logger.info("000111222333: reset latest task : {}", query);
         client.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
             List<BulkItemResponse.Failure> bulkFailures = r.getBulkFailures();
             if (bulkFailures.isEmpty()) {
@@ -865,6 +870,18 @@ public class ADTaskManager {
         } else {
             return detector.isMultientityDetector()? ADTaskType.HISTORICAL_HC_DETECTOR : ADTaskType.HISTORICAL_SINGLE_ENTITY;
         }
+    }
+
+    private List<ADTaskType> getADTaskTypes(DetectionDateRange detectionDateRange) {
+        if (detectionDateRange == null) {
+            return ADTaskType.getRealtimeTaskTypes();
+        } else {
+            return ADTaskType.getHistoricalDetectorTaskTypes();
+        }
+    }
+
+    private List<String> taskTypeToString(List<ADTaskType> adTaskTypes) {
+        return adTaskTypes.stream().map(type -> type.name()).collect(Collectors.toList());
     }
 
     private void createNewADTask(AnomalyDetector detector, DetectionDateRange detectionDateRange, User user, ActionListener<AnomalyDetectorJobResponse> listener) {
@@ -991,9 +1008,9 @@ public class ADTaskManager {
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, false));
 
         if (adTask.isHistoricalTask()) {
-            query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, ADTaskType.getHistoricalDetectorTaskTypes()));
+            query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(ADTaskType.getHistoricalDetectorTaskTypes())));
         } else {
-            query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, ADTaskType.getRealtimeTaskTypes()));
+            query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(ADTaskType.getRealtimeTaskTypes())));
         }
 
         SearchRequest searchRequest = new SearchRequest();
@@ -1334,12 +1351,12 @@ public class ADTaskManager {
         return !adTaskCacheManager.hasEntity(detectorId);
     }
 
-    public void updateLatestADTask(String detectorId, ImmutableList<ADTaskType> taskTypes, Map<String, Object> updatedFields) {
+    public void updateLatestADTask(String detectorId, List<ADTaskType> taskTypes, Map<String, Object> updatedFields) {
         updateLatestADTask(detectorId, taskTypes, updatedFields,
                 ActionListener.wrap(r -> logger.info("updated"), e -> logger.warn("failed to update latest task for detector {}", detectorId)));
     }
 
-    public void updateLatestADTask(String detectorId, ImmutableList<ADTaskType> taskTypes, Map<String, Object> updatedFields,
+    public void updateLatestADTask(String detectorId, List<ADTaskType> taskTypes, Map<String, Object> updatedFields,
                                    ActionListener listener) {
         getLatestADTask(detectorId, taskTypes,
                 (adTask) -> {

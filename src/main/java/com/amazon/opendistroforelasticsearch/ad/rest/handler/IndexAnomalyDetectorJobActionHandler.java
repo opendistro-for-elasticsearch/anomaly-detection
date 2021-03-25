@@ -321,7 +321,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                         RestStatus.OK
                     );
                     listener.onResponse(anomalyDetectorJobResponse);
-                    adTaskManager.updateLatestADTask(detectorId, ImmutableList.of(ADTaskType.REALTIME_HC_DETECTOR, ADTaskType.REALTIME_SINGLE_ENTITY),
+                    adTaskManager.updateLatestADTask(detectorId, ADTaskType.getRealtimeTaskTypes(),
                             ImmutableMap.of(ADTask.STATE_FIELD, ADTaskState.STOPPED.name()));
 //                    adTaskManager.updateLatestADTask(detectorId, ImmutableList.of(ADTaskType.REALTIME_HC_DETECTOR, ADTaskType.REALTIME_SINGLE_ENTITY),
 //                            ImmutableMap.of(ADTask.STATE_FIELD, ADTaskState.STOPPED.name()),
@@ -343,7 +343,7 @@ public class IndexAnomalyDetectorJobActionHandler {
 //                            ActionListener.wrap(r -> {listener.onFailure(new ElasticsearchStatusException("Failed to delete AD model", RestStatus.INTERNAL_SERVER_ERROR));},
 //                                    e -> {listener.onFailure(new ElasticsearchStatusException("Failed to delete AD model", RestStatus.INTERNAL_SERVER_ERROR));}));
                     listener.onFailure(new ElasticsearchStatusException("Failed to delete AD model", RestStatus.INTERNAL_SERVER_ERROR));
-                    adTaskManager.updateLatestADTask(detectorId, ImmutableList.of(ADTaskType.REALTIME_HC_DETECTOR, ADTaskType.REALTIME_SINGLE_ENTITY),
+                    adTaskManager.updateLatestADTask(detectorId, ADTaskType.getRealtimeTaskTypes(),
                             ImmutableMap.of(ADTask.STATE_FIELD, ADTaskState.STOPPED.name()));
                 }
             }

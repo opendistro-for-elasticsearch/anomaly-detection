@@ -144,11 +144,11 @@ public class ADTaskCacheManager {
         }
     }
 
-    public void addEntity(String detectorId, String newEntities) {
-        addEntities(detectorId, ImmutableList.of(newEntities));
+    public void addPendingEntity(String detectorId, String newEntities) {
+        addPendingEntities(detectorId, ImmutableList.of(newEntities));
     }
 
-    public void addEntities(String detectorId, List<String> entities) {
+    public void addPendingEntities(String detectorId, List<String> entities) {
         getHCTaskCache(detectorId).addEntities(entities);
     }
 
@@ -558,23 +558,35 @@ public class ADTaskCacheManager {
         if (this.hcTaskCaches.containsKey(detectorId)) {
             ADHCTaskCache hcTaskCache = this.hcTaskCaches.get(detectorId);
             String entity = hcTaskCache.pollEntity();
-            if (entity != null) {
-                hcTaskCache.moveToRunningEntity(entity);
-            }
             return entity;
         } else {
             return null;
         }
     }
 
-    public boolean hasEntity(String detectorId) {
+    public synchronized void moveToRunningEntity(String detectorId, String entity) {
+        if (this.hcTaskCaches.containsKey(detectorId)) {
+            ADHCTaskCache hcTaskCache = this.hcTaskCaches.get(detectorId);
+            hcTaskCache.moveToRunningEntity(entity);
+        }
+    }
+
+//    public void moveToPendingEntity(String detectorId, String entity) {
+//        if (this.hcTaskCaches.containsKey(detectorId)) {
+//            ADHCTaskCache hcTaskCache = this.hcTaskCaches.get(detectorId);
+//            hcTaskCache.push(entity);
+//        }
+//    }
+
+    public synchronized boolean hasEntity(String detectorId) {
 //        ADHCTaskCache hcTaskCache = getExistingHCTaskCache(detectorId);
 //        logger.info("ylwudebug: pending entities contains detector: {}, not empty pending entity: {} ",
 //                hcTaskCache.getPendingEntityCount());
 //        logger.info("ylwudebug: running entities contains detector: {}, not empty running entity: {} ",
 //                runningEntities.containsKey(detectorId), runningEntities.containsKey(detectorId) && !runningEntities.get(detectorId).isEmpty());
-        return (hcTaskCaches.containsKey(detectorId) && hcTaskCaches.get(detectorId).getPendingEntityCount() > 0) ||
-                (hcTaskCaches.containsKey(detectorId) && hcTaskCaches.get(detectorId).getRunningEntityCount() > 0);
+//        return (hcTaskCaches.containsKey(detectorId) && hcTaskCaches.get(detectorId).getPendingEntityCount() > 0) ||
+//                (hcTaskCaches.containsKey(detectorId) && hcTaskCaches.get(detectorId).getRunningEntityCount() > 0);
+        return hcTaskCaches.containsKey(detectorId) && hcTaskCaches.get(detectorId).hasEntity();
     }
 
     public int getPendingEntityCount(String detectorId) {
@@ -661,5 +673,11 @@ public class ADTaskCacheManager {
 
     public String pollDeletedTask() {
         return this.deletedTasks.poll();
+    }
+
+    public void removeEntity(String detectorId, String entity) {
+        if (hcTaskCaches.containsKey(detectorId)) {
+            hcTaskCaches.get(detectorId).removeEntity(entity);
+        }
     }
 }

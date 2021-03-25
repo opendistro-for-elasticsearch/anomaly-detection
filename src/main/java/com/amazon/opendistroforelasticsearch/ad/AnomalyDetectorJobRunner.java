@@ -441,7 +441,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                                             && (indexResponse.getResult() == CREATED || indexResponse.getResult() == UPDATED)) {
                                             log.info("AD Job was disabled by JobRunner for " + detectorId);
                                             adTaskManager.updateLatestADTask(detectorId,
-                                                    ImmutableList.of(ADTaskType.REALTIME_HC_DETECTOR, ADTaskType.REALTIME_SINGLE_ENTITY),
+                                                    ADTaskType.getRealtimeTaskTypes(),
                                                     ImmutableMap.of(ADTask.STATE_FIELD, ADTaskState.STOPPED.name())
                                             );
                                         } else {

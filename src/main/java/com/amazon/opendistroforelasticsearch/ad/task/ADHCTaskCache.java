@@ -16,6 +16,8 @@
 package com.amazon.opendistroforelasticsearch.ad.task;
 
 import com.google.common.util.concurrent.RateLimiter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
@@ -25,8 +27,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ADHCTaskCache {
+    private final Logger logger = LogManager.getLogger(ADHCTaskCache.class);
     private Queue<String> pendingEntities;
     private Queue<String> runningEntities;
+    private Queue<String> tempEntities;
     private AtomicInteger entityTaskLanes;
 
     private Integer topEntityCount;
@@ -38,6 +42,7 @@ public class ADHCTaskCache {
     public ADHCTaskCache() {
         this.pendingEntities = new ConcurrentLinkedQueue<>();
         this.runningEntities = new ConcurrentLinkedQueue<>();
+        this.tempEntities = new ConcurrentLinkedQueue<>();
         this.taskRetryTimes = new ConcurrentHashMap<>();
         this.rateLimiters = new ConcurrentHashMap<>();
         this.detectorTaskUpdating = false;
@@ -93,6 +98,9 @@ public class ADHCTaskCache {
             return;
         }
         for (String entity : entities) {
+            if (entity != null && !tempEntities.contains(entity)) {
+                tempEntities.remove(entity);
+            }
             if (entity != null && !pendingEntities.contains(entity)) {
                 pendingEntities.add(entity);
             }
@@ -101,8 +109,24 @@ public class ADHCTaskCache {
     }
 
     public void moveToRunningEntity(String entity) {
+        if (entity == null) {
+            return;
+        }
+        this.tempEntities.remove(entity);
         if (!this.runningEntities.contains(entity)) {
             this.runningEntities.add(entity);
+        }
+    }
+
+    private void moveToTempEntity(String entity) {
+        if (entity != null && !this.tempEntities.contains(entity)) {
+            this.tempEntities.add(entity);
+        }
+    }
+
+    private void removeFromTempEntity(String entity) {
+        if (entity != null && !this.tempEntities.contains(entity)) {
+            this.tempEntities.remove(entity);
         }
     }
 
@@ -112,6 +136,14 @@ public class ADHCTaskCache {
 
     public int getRunningEntityCount() {
         return this.runningEntities.size();
+    }
+    public int getTempEntityCount() {
+        return this.tempEntities.size();
+    }
+
+    public boolean hasEntity() {
+        logger.info("3333333333 ADHCTaskCache running: {}, pending: {}, temp: {}", runningEntities.size(), pendingEntities.size(), tempEntities.size());
+        return !this.pendingEntities.isEmpty() || !this.runningEntities.isEmpty() || !this.tempEntities.isEmpty();
     }
 
     public void removeRunningEntity(String entity) {
@@ -125,12 +157,17 @@ public class ADHCTaskCache {
     public void clear() {
         this.pendingEntities.clear();
         this.runningEntities.clear();
+        this.tempEntities.clear();
         this.taskRetryTimes.clear();
         this.rateLimiters.clear();
     }
 
     public String pollEntity() {
-        return this.pendingEntities.poll();
+        String entity =  this.pendingEntities.poll();
+        if (entity != null) {
+            this.moveToTempEntity(entity);
+        }
+        return entity;
     }
 
     public void clearPendingEntities() {
@@ -139,5 +176,20 @@ public class ADHCTaskCache {
 
     public int increaseTaskRetry(String taskId) {
         return this.taskRetryTimes.computeIfAbsent(taskId, id -> new AtomicInteger(0)).getAndIncrement();
+    }
+
+    public void removeEntity(String entity) {
+        if (entity == null) {
+            return;
+        }
+        if (tempEntities.contains(entity)) {
+            tempEntities.remove(entity);
+        }
+        if (pendingEntities.contains(entity)) {
+            pendingEntities.remove(entity);
+        }
+        if (runningEntities.contains(entity)) {
+            runningEntities.remove(entity);
+        }
     }
 }

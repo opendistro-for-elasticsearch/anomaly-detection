@@ -17,6 +17,8 @@ package com.amazon.opendistroforelasticsearch.ad.task;
 
 import static com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.ERROR_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.EXECUTION_END_TIME_FIELD;
@@ -48,6 +50,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -59,9 +62,11 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ADBatchAnomalyResultRe
 import com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADTaskProfileNodeResponse;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Strings;
+import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.ExceptionsHelper;
@@ -142,7 +147,7 @@ import com.amazon.opendistroforelasticsearch.commons.authuser.User;
  */
 public class ADTaskManager {
     private final Logger logger = LogManager.getLogger(this.getClass());
-
+    private final Set<String> retryableErrors = ImmutableSet.of(EXCEED_HISTORICAL_ANALYSIS_LIMIT, NO_ELIGIBLE_NODE_TO_RUN_DETECTOR);
     private final Client client;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
@@ -410,6 +415,7 @@ public class ADTaskManager {
             try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, searchHit.getSourceRef())) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 ADTask adTask = ADTask.parse(parser, searchHit.getId());
+                logger.info("------------ latest task id is {}, for detector {}", adTask.getTaskId(), adTask.getDetectorId());
 
                 //TODO: check realtime detector job and reset realtime task as stopped.
                 if (resetTaskState && adTask.isHistoricalTask() && !isADTaskEnded(adTask) && lastUpdateTimeExpired(adTask)
@@ -608,7 +614,7 @@ public class ADTaskManager {
             logger.debug("ylwudebug: task id " + adTask.getTaskId(), exception);
         }
         String actionName = action.name();
-        logger.info("Forward entity task to coordinating node, detector id:{} task id:{}, action:{}",
+        logger.info("3333333333 Forward entity task to coordinating node, detector id:{} task id:{}, action:{}",
                 adTask.getDetectorId(), adTask.getTaskId(), actionName);
 
         if (targetNode != null) {
@@ -751,7 +757,8 @@ public class ADTaskManager {
                     clusterService.localNode().getId(),
                     adTaskCacheManager.getTopEntityCount(detectorId),
                     adTaskCacheManager.getPendingEntityCount(detectorId),
-                    adTaskCacheManager.getRunningEntityCount(detectorId)
+                    adTaskCacheManager.getRunningEntityCount(detectorId),
+                    adTaskCacheManager.getRunningEntities(detectorId)
             );
             logger.info("AD task profile: coordinating node running entity is {}", Arrays.toString(adTaskCacheManager.getRunningEntities(detectorId)));
 
@@ -1087,7 +1094,7 @@ public class ADTaskManager {
      */
     public void runBatchResultActionForEntity(ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {
         logger.info("runBatchResultActionForEntity for task {}, {}", adTask.getTaskId(), adTask.getTaskType());
-        logger.info("running entities {}, {}, pending entities count: {}",
+        logger.info("3333333333 running entities {}, {}, pending entities count: {}",
                 adTaskCacheManager.getRunningEntities(adTask.getDetectorId()),
                 adTaskCacheManager.getRunningEntityCount(adTask.getDetectorId()),
                 adTaskCacheManager.getPendingEntityCount(adTask.getDetectorId()));
@@ -1378,7 +1385,7 @@ public class ADTaskManager {
     }
 
     public void pushBackEntityToCache(String taskId, String detectorId, String entity) {
-        adTaskCacheManager.addEntity(detectorId, entity);
+        adTaskCacheManager.addPendingEntity(detectorId, entity);
         adTaskCacheManager.increaseEntityTaskRetry(detectorId, taskId);
     }
 
@@ -1403,4 +1410,33 @@ public class ADTaskManager {
     public boolean taskRetryExceedLimits(String detectorId, String taskId) {
         return adTaskCacheManager.exceedRetryLimit(detectorId, taskId);
     }
+
+    public boolean retryableError(String error) {
+        if (error == null) {
+            return false;
+        }
+        return retryableErrors.stream().filter(e -> error.contains(e)).findFirst().isPresent();
+    }
+
+    public void countEntityTasks(String detectorTaskId, List<ADTaskState> taskStates, ActionListener<Long> listener) {
+
+        BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
+        queryBuilder.filter(new TermQueryBuilder(PARENT_TASK_ID_FIELD, detectorTaskId));
+        if (taskStates != null && taskStates.size() > 0) {
+            queryBuilder.filter(new TermsQueryBuilder(STATE_FIELD, taskStates.stream().map(s -> s.name()).collect(Collectors.toList())));
+        }
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+        sourceBuilder.query(queryBuilder);
+        sourceBuilder.size(0);
+        sourceBuilder.trackTotalHits(true);
+//        logger.info("8888888888 {}", sourceBuilder);
+        SearchRequest request = new SearchRequest();
+        request.source(sourceBuilder);
+        request.indices(CommonName.DETECTION_STATE_INDEX);
+        client.search(request, ActionListener.wrap(r -> {
+            TotalHits totalHits = r.getHits().getTotalHits();
+            listener.onResponse(totalHits.value);
+        }, e -> listener.onFailure(e)));
+    }
+
 }

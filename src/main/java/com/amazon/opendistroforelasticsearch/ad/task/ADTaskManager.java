@@ -614,7 +614,7 @@ public class ADTaskManager {
             logger.debug("ylwudebug: task id " + adTask.getTaskId(), exception);
         }
         String actionName = action.name();
-        logger.info("3333333333 Forward entity task to coordinating node, detector id:{} task id:{}, action:{}",
+        logger.debug("3333333333 Forward entity task to coordinating node, detector id:{} task id:{}, action:{}",
                 adTask.getDetectorId(), adTask.getTaskId(), actionName);
 
         if (targetNode != null) {
@@ -803,7 +803,7 @@ public class ADTaskManager {
             TransportService transportService,
             ActionListener<AnomalyDetectorJobResponse> listener
     ) {
-        logger.info("ylwudebug : coordinate node is : {}", clusterService.localNode().getId());
+//        logger.info("ylwudebug : coordinate node is : {}", clusterService.localNode().getId());
         try {
             if (detectionIndices.doesDetectorStateIndexExist()) {
                 // If detection index exist, check if latest AD task is running
@@ -856,7 +856,7 @@ public class ADTaskManager {
         updateByQueryRequest.setRefresh(true);
         updateByQueryRequest.setScript(new Script("ctx._source.is_latest = false;"));
 
-        logger.info("000111222333: reset latest task : {}", query);
+        logger.debug("000111222333: reset latest task : {}", query);
         client.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
             List<BulkItemResponse.Failure> bulkFailures = r.getBulkFailures();
             if (bulkFailures.isEmpty()) {
@@ -1038,7 +1038,7 @@ public class ADTaskManager {
             .from(maxOldAdTaskDocsPerDetector)
             .trackTotalHits(true)
             .size(MAX_OLD_AD_TASK_DOCS);
-        logger.info("000111222333 {}", sourceBuilder);
+        logger.debug("000111222333 {}", sourceBuilder);
         searchRequest.source(sourceBuilder).indices(CommonName.DETECTION_STATE_INDEX);
         String detectorId = adTask.getDetectorId();
 
@@ -1094,7 +1094,7 @@ public class ADTaskManager {
      */
     public void runBatchResultActionForEntity(ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {
         logger.info("runBatchResultActionForEntity for task {}, {}", adTask.getTaskId(), adTask.getTaskType());
-        logger.info("3333333333 running entities {}, {}, pending entities count: {}",
+        logger.debug("3333333333 running entities {}, {}, pending entities count: {}",
                 adTaskCacheManager.getRunningEntities(adTask.getDetectorId()),
                 adTaskCacheManager.getRunningEntityCount(adTask.getDetectorId()),
                 adTaskCacheManager.getPendingEntityCount(adTask.getDetectorId()));

@@ -142,7 +142,7 @@ public class ADHCTaskCache {
     }
 
     public boolean hasEntity() {
-        logger.info("3333333333 ADHCTaskCache running: {}, pending: {}, temp: {}", runningEntities.size(), pendingEntities.size(), tempEntities.size());
+        logger.debug("3333333333 ADHCTaskCache running: {}, pending: {}, temp: {}", runningEntities.size(), pendingEntities.size(), tempEntities.size());
         return !this.pendingEntities.isEmpty() || !this.runningEntities.isEmpty() || !this.tempEntities.isEmpty();
     }
 

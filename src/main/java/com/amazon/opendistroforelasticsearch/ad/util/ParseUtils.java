@@ -20,6 +20,7 @@ import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.EPOCH
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.FEATURE_AGGS;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PIECE_SIZE;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.elasticsearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
@@ -638,7 +639,7 @@ public final class ParseUtils {
                     .fixedInterval(DateHistogramInterval.seconds((int) intervalSeconds))
             );
 
-        CompositeAggregationBuilder aggregationBuilder = new CompositeAggregationBuilder(FEATURE_AGGS, sources).size(1000);
+        CompositeAggregationBuilder aggregationBuilder = new CompositeAggregationBuilder(FEATURE_AGGS, sources).size(MAX_BATCH_TASK_PIECE_SIZE);
 
         if (detector.getEnabledFeatureIds().size() == 0) {
             throw new AnomalyDetectionException("No enabled feature configured").countedInStats(false);

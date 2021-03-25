@@ -844,7 +844,7 @@ public class ADTaskManager {
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, true));
 //        String taskType = getADTaskType(detector, detectionDateRange).name();
         // make sure we reset all latest task as false when user switch from single entity to HC, vice versa.
-        query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(getADTaskTypes(detectionDateRange))));
+        query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(getADTaskTypes(detectionDateRange, true))));
         updateByQueryRequest.setQuery(query);
         updateByQueryRequest.setRefresh(true);
         updateByQueryRequest.setScript(new Script("ctx._source.is_latest = false;"));
@@ -873,10 +873,19 @@ public class ADTaskManager {
     }
 
     private List<ADTaskType> getADTaskTypes(DetectionDateRange detectionDateRange) {
+        return getADTaskTypes(detectionDateRange, false);
+    }
+
+    private List<ADTaskType> getADTaskTypes(DetectionDateRange detectionDateRange, boolean resetLatestFlag) {
         if (detectionDateRange == null) {
             return ADTaskType.getRealtimeTaskTypes();
         } else {
-            return ADTaskType.getHistoricalDetectorTaskTypes();
+            if (resetLatestFlag) {
+                return ADTaskType.getAllHistoricalTaskTypes();
+            } else {
+                return ADTaskType.getHistoricalDetectorTaskTypes();
+            }
+
         }
     }
 

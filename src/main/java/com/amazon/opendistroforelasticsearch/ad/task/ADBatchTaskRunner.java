@@ -409,8 +409,8 @@ public class ADBatchTaskRunner {
 //                                    , e -> {
 //                                logger.error("1111111111 ", e);
 //                                delegatedListener.onFailure(e);}));
-                    logger.info("Rerun entity task for entity:{}", existingEntityTask.get().getEntity().get(0).getValue());
                     ADTask adEntityTask = existingEntityTask.get();
+                    logger.info("Rerun entity task for entity:{}, task id: {}", existingEntityTask.get().getEntity().get(0).getValue(), adEntityTask.getTaskId());
                     ActionListener<ADBatchAnomalyResultResponse> delegatedListener = getDelegatedListener(adEntityTask, transportService, listener);
                     executeSingleEntityTask(adEntityTask, transportService, delegatedListener);
                 } else {

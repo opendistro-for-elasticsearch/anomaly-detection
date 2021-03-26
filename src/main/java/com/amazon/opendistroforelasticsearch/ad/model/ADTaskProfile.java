@@ -473,28 +473,6 @@ public class ADTaskProfile implements ToXContentObject, Writeable, Writeable.Wri
         return runningEntities;
     }
 
-    //    @Override
-//    public String toString() {
-//        return "ADTaskProfile{"
-//            + "adTask="
-//            + adTask
-//            + ", shingleSize="
-//            + shingleSize
-//            + ", rcfTotalUpdates="
-//            + rcfTotalUpdates
-//            + ", thresholdModelTrained="
-//            + thresholdModelTrained
-//            + ", thresholdNodelTrainingDataSize="
-//            + thresholdModelTrainingDataSize
-//            + ", modelSizeInBytes="
-//            + modelSizeInBytes
-//            + ", nodeId='"
-//            + nodeId
-//            + '\''
-//            + '}';
-//    }
-
-
     @Override
     public String toString() {
         return "ADTaskProfile{" +

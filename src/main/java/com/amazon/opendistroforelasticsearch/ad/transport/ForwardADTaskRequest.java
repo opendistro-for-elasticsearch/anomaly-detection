@@ -19,7 +19,6 @@ import static org.elasticsearch.action.ValidateActions.addValidationError;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Set;
 
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;

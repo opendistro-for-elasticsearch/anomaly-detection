@@ -28,6 +28,7 @@ import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.LAST_UPDATE_
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.PARENT_TASK_ID_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.STATE_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.STOPPED_BY_FIELD;
+import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.TASK_PROGRESS_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.TASK_TYPE_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult.TASK_ID_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
@@ -46,7 +47,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +63,7 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ADBatchAnomalyResultRe
 import com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADTaskProfileNodeResponse;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -249,7 +250,7 @@ public class ADTaskManager {
             ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         DiscoveryNode coordinatingNode = getCoordinatingNode(adTask);
-        logger.info("4444444444 coordinatingNode found, will clean detector cache on it, detectorId: " + adTask.getDetectorId());
+        logger.debug("4444444444 coordinatingNode found, will clean detector cache on it, detectorId: " + adTask.getDetectorId());
         forwardToCoordinatingNode(adTask.getDetector(), adTask, adTask.getDetectionDateRange(), null,
                 adTaskAction, transportService, coordinatingNode, listener);
     }
@@ -262,7 +263,7 @@ public class ADTaskManager {
             ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         DiscoveryNode coordinatingNode = getCoordinatingNode(adTask);
-        logger.info("4444444444 coordinatingNode found, will clean detector cache on it, detectorId: " + adTask.getDetectorId());
+        logger.debug("4444444444 coordinatingNode found, will clean detector cache on it, detectorId: " + adTask.getDetectorId());
         forwardToCoordinatingNode(adTask.getDetector(), adTask, adTask.getDetectionDateRange(), null,
                 adTaskAction, transportService, coordinatingNode, staleRunningEntity, listener);
     }
@@ -463,25 +464,24 @@ public class ADTaskManager {
 //                        && !adTask.getDetector().isMultientityDetector()
                 ) {
                     String taskId = adTask.getTaskId();
-                    logger.info("------------- reset task state for task " + adTask.getTaskId());
                     // If AD task is still running, but its last updated time not refreshed
                     // for 2 pieces intervals, we will get task profile to check if it's
                     // really running and reset state as STOPPED if not running.
                     // For example, ES process crashes, then all tasks running on it will stay
                     // as running. We can reset the task state when next read happen.
                     getADTaskProfile(adTask, ActionListener.wrap(taskProfiles -> {
-                        logger.info("++++++++++113355 taskProfiles {}, size: {},  {}, {}"
+                        logger.debug("++++++++++113355 taskProfiles {}, size: {},  {}, {}"
                                 , taskProfiles, taskProfiles != null? taskProfiles.size():0
                                 , !taskProfiles.containsKey(adTask.getTaskId())
                                 , !taskProfiles.containsKey(adTask.getTaskId()) || taskProfiles.get(adTask.getTaskId()).getNodeId() == null);
                         if (!taskProfiles.containsKey(adTask.getTaskId())
                                 || taskProfiles.get(adTask.getTaskId()).getNodeId() == null) {
-                            logger.info("4444444444 reset task state as stopped");
+                            logger.debug("4444444444 reset task state as stopped");
                             // If no node is running this task, reset it as STOPPED.
                             resetTaskStateAsStopped(adTask, transportService); //TODO: reset realtime task state
                             adTask.setState(ADTaskState.STOPPED.name());
                         } else if (ADTaskType.HISTORICAL_HC_DETECTOR.name().equals(adTask.getTaskType())){
-                            logger.info("4444444444 check running/pending entities");
+                            logger.debug("4444444444 check running/pending entities");
                             // Check if any running entity not run on worker node. If yes, we need to remove it
                             // and poll next entity from pending entity queue and run it.
                             // TODO: If running entity is empty, but pending entities exists, need to poll next entity and run it.?
@@ -494,17 +494,17 @@ public class ADTaskManager {
                                         runningTasksOnWorkerNode.add(entry.getValue().getEntity().get(0).getValue());
                                     }
                                 }
-                                logger.info("4444444444 runningTasksOnCoordinatingNode: {}, runningTasksOnWorkerNode: {}",
+                                logger.debug("4444444444 runningTasksOnCoordinatingNode: {}, runningTasksOnWorkerNode: {}",
                                         Arrays.toString(runningTasksOnCoordinatingNode.toArray(new String[0])),
                                         Arrays.toString(runningTasksOnWorkerNode.toArray(new String[0])));
                                 if (runningTasksOnCoordinatingNode.size() > runningTasksOnWorkerNode.size()) {
                                     runningTasksOnCoordinatingNode.removeAll(runningTasksOnWorkerNode);
-                                    logger.info("4444444444-2 runningTasksOnCoordinatingNode: {}",
+                                    logger.debug("4444444444-2 runningTasksOnCoordinatingNode: {}",
                                             Arrays.toString(runningTasksOnCoordinatingNode.toArray(new String[0])));
                                     forwardToCoordinatingNode(adTask, ADTaskAction.CLEAN_RUNNING_ENTITY, transportService, runningTasksOnCoordinatingNode,
-                                            ActionListener.wrap(res->{logger.info("4444444444 forwared task to clean running entity, task id {}", taskId);},
+                                            ActionListener.wrap(res->{logger.debug("4444444444 forwared task to clean running entity, task id {}", taskId);},
                                                     ex->{
-                                                logger.warn("4444444444 failed to forwared task to clean running entity, task id {}", taskId);
+                                                logger.debug("4444444444 failed to forwared task to clean running entity, task id {}", taskId);
                                                     }));
                                 }
                             }
@@ -716,9 +716,9 @@ public class ADTaskManager {
 
     protected void entityTaskDone(ADTask adTask, Exception exception, TransportService transportService) {
         entityTaskDone(adTask, exception, transportService, ActionListener.wrap(r -> {
-            logger.info("AD task forwarded to coordinating node, task id {}", adTask.getTaskId());
+            logger.debug("AD task forwarded to coordinating node, task id {}", adTask.getTaskId());
         }, e-> {
-            logger.info("AD task failed to forward to coordinating node, task id {}", adTask.getTaskId());
+            logger.debug("AD task failed to forward to coordinating node, task id {}", adTask.getTaskId());
         }));
     }
 
@@ -727,7 +727,7 @@ public class ADTaskManager {
 
         try {
             ADTaskAction action = getAdEntityTaskAction(adTask, exception);
-            logger.info("4444444444 Forward entity task to coordinating node, detector id:{} task id:{}, action:{}",
+            logger.debug("4444444444 Forward entity task to coordinating node, detector id:{} task id:{}, action:{}",
                     adTask.getDetectorId(), adTask.getTaskId(), action.name());
             forwardToCoordinatingNode(adTask, action, transportService, listener);
         } catch (Exception e) {
@@ -1545,14 +1545,63 @@ public class ADTaskManager {
     }
 
     public synchronized void removeStaleRunningEntity(ADTask adTask, String entity, ActionListener<AnomalyDetectorJobResponse> listener) {
-        logger.info("4444444444 remove stale entity {} for task {}", entity, adTask.getTaskId());
+        logger.debug("4444444444 remove stale entity {} for task {}", entity, adTask.getTaskId());
         boolean removed = adTaskCacheManager.removeRunningEntity(adTask.getDetectorId(), entity);
         if (removed && adTaskCacheManager.getPendingEntityCount(adTask.getDetectorId()) > 0) {
-            logger.info("4444444444 run next pending entities");
+            logger.debug("4444444444 run next pending entities");
             this.runBatchResultActionForEntity(adTask, listener);
         } else {
-            logger.info("4444444444 no pending entities");
+            logger.debug("4444444444 no pending entities");
+            setHCDetectorTaskDone(adTask, ADTaskState.FINISHED, null, listener);
         }
+    }
+
+    public void setHCDetectorTaskDone(ADTask adTask, ADTaskState state, String errorMsg,  ActionListener<AnomalyDetectorJobResponse> listener) {
+        String detectorId = adTask.getDetectorId();
+        String taskId = adTask.isEntityTask()? adTask.getParentTaskId() : adTask.getTaskId();
+//        logger.info("Set HC task as {} : task id {}", state.name(), taskId);
+
+        String detectorTaskId = adTask.isEntityTask()? adTask.getParentTaskId() : adTask.getTaskId();
+
+        ActionListener<UpdateResponse> wrappedListener = ActionListener.wrap(response -> {
+            logger.info("Historical HC detector done with state: {}. Remove from cache, detector id:{}",
+                    state.name(), detectorId);
+            this.removeDetectorFromCache(detectorId);
+//                    if (response.status() == RestStatus.OK) {
+//                        logger.debug("Updated AD task successfully: {}, taskId: {}", response.status(), taskId);
+//                    } else {
+//                        logger.error("Failed to update AD task {}, status: {}", taskId, response.status());
+//                    }
+        }, e -> {
+            logger.error("Failed to update task: " + taskId, e);
+            logger.info("Historical HC detector done with state: {}. Remove from cache, detector id:{}",
+                    state.name(), detectorId);
+            this.removeDetectorFromCache(detectorId);
+        });
+
+        if (state == ADTaskState.FINISHED) {
+            this.countEntityTasks(detectorTaskId, ImmutableList.of(ADTaskState.FINISHED), ActionListener.wrap(r -> {
+                logger.info("number of finished entity tasks: {}, for detector {}", r, adTask.getDetectorId());
+                ADTaskState hcDetectorTaskState = r == 0 ? ADTaskState.FAILED : ADTaskState.FINISHED;
+                this.updateADHCDetectorTask(detectorId, taskId, ImmutableMap.of(STATE_FIELD, hcDetectorTaskState.name(),
+                        TASK_PROGRESS_FIELD, 1.0,
+                        EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()), wrappedListener);
+            }, e -> {
+                logger.error("Failed to get finished entity tasks", e);
+                this.updateADHCDetectorTask(detectorId, taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FAILED.name(),
+                        TASK_PROGRESS_FIELD, 1.0,
+                        ERROR_FIELD, getErrorMessage(e),
+                        EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()), wrappedListener);//TODO: check how to handle if no entity case, if there is only 1 entity, false will not work
+            }));
+        } else {
+            this.updateADHCDetectorTask(detectorId, taskId,
+                    ImmutableMap.of(STATE_FIELD, state.name(),
+                            ERROR_FIELD, adTask.getError(),
+                            EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()),
+                    wrappedListener);
+        }
+
+        listener.onResponse(new AnomalyDetectorJobResponse(taskId, 0,0,0,RestStatus.OK));
     }
 
     public void debugAddRunningEntity(String detectorId) {

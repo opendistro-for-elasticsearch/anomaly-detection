@@ -36,7 +36,6 @@ import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
-import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
@@ -704,8 +703,10 @@ public class ADBatchTaskRunner {
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
 
             if (!adTask.getDetector().isMultientityDetector()) {
+                //TODO: check if it's necessary to set task as FINISHED here
                 adTaskManager.cleanDetectorCache(adTask, transportService, () -> adTaskManager.updateADTask(taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name())));
             } else {
+                //TODO: check if it's necessary to set task as FINISHED here
                 adTaskManager.updateADTask(adTask.getTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()));
                 adTaskManager.entityTaskDone(adTask, transportService);
             }
@@ -1216,7 +1217,9 @@ public class ADBatchTaskRunner {
                             EXECUTION_END_TIME_FIELD,
                             Instant.now().toEpochMilli(),
                             INIT_PROGRESS_FIELD,
-                            initProgress
+                            initProgress,
+                                STATE_FIELD,
+                                ADTaskState.FINISHED
                         ),
                     ActionListener.wrap(r -> internalListener.onResponse("task execution done"),
                             e -> {logger.error("66666666666 ", e);internalListener.onFailure(e);})

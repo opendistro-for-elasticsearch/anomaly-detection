@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.task;
 
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
@@ -63,10 +64,13 @@ public class ADBatchTaskCache {
         this.entity = adTask.getEntity() == null ? null : ImmutableList.copyOf(adTask.getEntity());
 
         AnomalyDetector detector = adTask.getDetector();
+        boolean isHC = detector.isMultientityDetector();
+        int numberOfTrees = isHC ? MULTI_ENTITY_NUM_TREES : NUM_TREES;
+
         rcfModel = RandomCutForest
             .builder()
             .dimensions(detector.getShingleSize() * detector.getEnabledFeatureIds().size())
-            .numberOfTrees(NUM_TREES)
+            .numberOfTrees(numberOfTrees)
             .lambda(TIME_DECAY)
             .sampleSize(NUM_SAMPLES_PER_TREE)
             .outputAfter(NUM_MIN_SAMPLES)
@@ -83,6 +87,7 @@ public class ADBatchTaskCache {
         );
         this.thresholdModelTrainingData = new double[THRESHOLD_MODEL_TRAINING_SIZE];
         this.thresholdModelTrained = false;
+        //TODO: realtime HC shingle size is hard code 1
         this.shingle = new ArrayDeque<>(detector.getShingleSize());
     }
 

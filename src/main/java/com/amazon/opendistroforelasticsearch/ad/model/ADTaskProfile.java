@@ -453,7 +453,27 @@ public class ADTaskProfile implements ToXContentObject, Writeable, Writeable.Wri
         this.adTaskType = adTaskType;
     }
 
-//    @Override
+    public List<Entity> getEntity() {
+        return entity;
+    }
+
+    public Integer getTotalEntitiesCount() {
+        return totalEntitiesCount;
+    }
+
+    public Integer getPendingEntitiesCount() {
+        return pendingEntitiesCount;
+    }
+
+    public Integer getRunningEntitiesCount() {
+        return runningEntitiesCount;
+    }
+
+    public String[] getRunningEntities() {
+        return runningEntities;
+    }
+
+    //    @Override
 //    public String toString() {
 //        return "ADTaskProfile{"
 //            + "adTask="

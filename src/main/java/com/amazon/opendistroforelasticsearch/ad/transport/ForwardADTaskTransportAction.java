@@ -37,6 +37,8 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.ERROR_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.EXECUTION_END_TIME_FIELD;
@@ -77,44 +79,13 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 if (detector.isMultientityDetector()) {
                     adTaskManager.removeRunningEntity(detectorId, adTask.getEntity());
 
-//                    if (adTaskManager.hcDetectorDone(detectorId) && adTaskManager.hcDetectorInCache(detectorId)) {
                     logger.debug("3333333333 HC detector done: {}, taskId: {}, detectorId: {}", adTaskManager.hcDetectorDone(detectorId), adTask.getTaskId(), detectorId);
                     if (adTaskManager.hcDetectorDone(detectorId)) {
                         logger.debug("3333333333-2 Historical HC detector done, will remove from cache, detector id:{}", detectorId);
-//                        adTaskManager.updateADTask(adTask.getParentTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()));
                         listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.OK));
                         //TODO: reset task state when get task
-//                        String taskId = adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_ENTITY.name()) ? adTask.getParentTaskId() : adTask.getTaskId();
-//                        if (!adTask.isEntityTask() && adTask.getError() != null) {
-//                            logger.info("+++++++++++++++ set task as failed {}", adTask.getTaskId());
-//                            setHCDetectorTaskDone(adTask, ADTaskState.FAILED, adTask.getError(), listener);
-////                            adTaskManager.updateADHCDetectorTask(detectorId, taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FAILED.name(),
-////                                    TASK_PROGRESS_FIELD, 1.0,
-////                                    ERROR_FIELD, adTask.getError(),
-////                                    EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()));//TODO: check how to handle if no entity case, if there is only 1 entity, false will not work
-//                        } else {
-//                            setHCDetectorTaskDone(adTask, ADTaskState.FINISHED, null, listener);
-//                            /*String detectorTaskId = adTask.isEntityTask()? adTask.getParentTaskId() : adTask.getTaskId();
-//                            adTaskManager.countEntityTasks(detectorTaskId, ImmutableList.of(ADTaskState.FINISHED), ActionListener.wrap(r -> {
-//                                ADTaskState hcDetectorTaskState = ADTaskState.FINISHED;
-//                                if (r == 0) {
-//                                    hcDetectorTaskState = ADTaskState.FAILED;
-//                                }
-//                                adTaskManager.updateADHCDetectorTask(detectorId, taskId, ImmutableMap.of(STATE_FIELD, hcDetectorTaskState.name(),
-//                                        TASK_PROGRESS_FIELD, 1.0,
-//                                        EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()));
-//                            }, e -> {
-//                                logger.error("Failed to get finished entity tasks", e);
-//                                adTaskManager.updateADHCDetectorTask(detectorId, taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name(),
-//                                        TASK_PROGRESS_FIELD, 1.0,
-//                                        EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()));//TODO: check how to handle if no entity case, if there is only 1 entity, false will not work
-//                            }));*/
-//                        }
                         ADTaskState state = !adTask.isEntityTask() && adTask.getError() != null ? ADTaskState.FAILED : ADTaskState.FINISHED;
-
                         setHCDetectorTaskDone(adTask, state, adTask.getError(), listener);
-
-//                        adTaskManager.removeDetectorFromCache(detectorId);
                     } else {
                         logger.debug("3333333333-3 Run next entity for detector " + detectorId);
                         adTaskManager.runBatchResultActionForEntity(adTask, listener);
@@ -126,12 +97,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 } else {
                     logger.warn("Can only handle HC entity task for NEXT_ENTITY action, taskId:{} , taskType:{}", adTask.getTaskId(), adTask.getTaskType());
                     listener.onFailure(new IllegalArgumentException("Can only get HC entity task"));
-//                    listener.onResponse(new AnomalyDetectorJobResponse("cc", 0,0,0,RestStatus.OK));
                 }
-//                else {
-//                    adTaskManager.removeDetectorFromCache(detectorId);
-//                    listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.OK));
-//                }
 
                 break;
             case PUSH_BACK_ENTITY:
@@ -155,7 +121,6 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 } else {
                     logger.warn("Can only push back entity task");
                     listener.onFailure(new IllegalArgumentException("Can only push back entity task"));
-//                    listener.onResponse(new AnomalyDetectorJobResponse("aa", 0,0,0,RestStatus.OK));
                 }
 
                 break;
@@ -180,6 +145,15 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 }
 
                 break;
+            case CLEAN_RUNNING_ENTITY:
+                List<String> staleRunningEntities = request.getStaleRunningEntities();
+                logger.info("4444444444 received CLEAN_RUNNING_ENTITY for task {}, staleRunningEntities: {}",
+                        adTask.getTaskId(), Arrays.toString(staleRunningEntities.toArray(new String[0])));
+                for (String entity : staleRunningEntities) {
+                    adTaskManager.removeStaleRunningEntity(adTask, entity, listener);
+                }
+                listener.onResponse(new AnomalyDetectorJobResponse(adTask.getTaskId(), 0, 0, 0, RestStatus.OK));
+                break;
             default:
                 listener.onFailure(new ElasticsearchStatusException("Unsupported AD task action " + adTaskAction, RestStatus.BAD_REQUEST));
                 break;
@@ -196,7 +170,8 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
         ActionListener<UpdateResponse> wrappedListener = ActionListener.wrap(response -> {
             logger.info("Historical HC detector done with state: {}. Remove from cache, detector id:{}",
                     state.name(), detectorId);
-            adTaskManager.removeDetectorFromCache(detectorId);
+            adTaskManager.debugAddRunningEntity(detectorId);
+//            adTaskManager.removeDetectorFromCache(detectorId);
 //                    if (response.status() == RestStatus.OK) {
 //                        logger.debug("Updated AD task successfully: {}, taskId: {}", response.status(), taskId);
 //                    } else {
@@ -206,14 +181,15 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
             logger.error("Failed to update task: " + taskId, e);
             logger.info("Historical HC detector done with state: {}. Remove from cache, detector id:{}",
                     state.name(), detectorId);
-            adTaskManager.removeDetectorFromCache(detectorId);
+//            adTaskManager.removeDetectorFromCache(detectorId);
         });
 
         if (state == ADTaskState.FINISHED) {
 //            logger.info("9999999999999999999999999999 search ad entity finished tasks");
             adTaskManager.countEntityTasks(detectorTaskId, ImmutableList.of(ADTaskState.FINISHED), ActionListener.wrap(r -> {
                 logger.info("number of finished entity tasks: {}, for detector {}", r, adTask.getDetectorId());
-                ADTaskState hcDetectorTaskState = r == 0 ? ADTaskState.FAILED : ADTaskState.FINISHED;
+//                ADTaskState hcDetectorTaskState = r == 0 ? ADTaskState.FAILED : ADTaskState.FINISHED;
+                ADTaskState hcDetectorTaskState = ADTaskState.RUNNING; //TODO: remove this after test
                 adTaskManager.updateADHCDetectorTask(detectorId, taskId, ImmutableMap.of(STATE_FIELD, hcDetectorTaskState.name(),
                         TASK_PROGRESS_FIELD, 1.0,
                         EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()), wrappedListener);
@@ -226,7 +202,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
             }));
         } else {
             adTaskManager.updateADHCDetectorTask(detectorId, taskId,
-                    ImmutableMap.of(STATE_FIELD, state.name(),
+                    ImmutableMap.of(STATE_FIELD, ADTaskState.RUNNING, //TODO, change this to state after test
                             ERROR_FIELD, adTask.getError(),
                             EXECUTION_END_TIME_FIELD, Instant.now().toEpochMilli()),
                     wrappedListener);

@@ -20,5 +20,6 @@ public enum ADTaskAction {
     FINISHED, // stop detector or entity task run
     CANCEL, // stop detector or entity task run
     NEXT_ENTITY,
-    PUSH_BACK_ENTITY
+    PUSH_BACK_ENTITY,
+    CLEAN_RUNNING_ENTITY
 }

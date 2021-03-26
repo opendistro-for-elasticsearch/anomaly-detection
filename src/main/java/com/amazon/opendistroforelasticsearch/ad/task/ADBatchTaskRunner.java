@@ -36,6 +36,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
@@ -702,51 +703,24 @@ public class ADBatchTaskRunner {
             adTaskCacheManager.remove(taskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
 
-//            if (!adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_ENTITY)) {
             if (!adTask.getDetector().isMultientityDetector()) {
-                logger.info("ylwudebug4: clean detector cache for task : " + taskId);
-                adTaskManager
-                        .cleanDetectorCache(
-                                adTask,
-                                transportService,
-                                () -> adTaskManager.updateADTask(taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()))
-                        );
+                adTaskManager.cleanDetectorCache(adTask, transportService, () -> adTaskManager.updateADTask(taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name())));
             } else {
-//                logger.info("ylwudebug5: forward task done event for task : " + adTask.getTaskId());
                 adTaskManager.updateADTask(adTask.getTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()));
-//                String state = adTaskManager.hcDetectorDone(adTask.getDetectorId()) ? ADTaskState.FINISHED.name() : ADTaskState.RUNNING.name();
-//                String state = ADTaskState.RUNNING.name(); //TODO: This is not on coordinating node, can't run method hcDetectorDone
-                adTaskManager.entityTaskDone(adTask, transportService
-//                        , () -> {
-                    //TODO: update HC detector level task state
-//                    adTaskManager.updateADTask(adTask.getParentTaskId(), ImmutableMap.of(STATE_FIELD, state));}
-                    );
+                adTaskManager.entityTaskDone(adTask, transportService);
             }
-
         }, e -> {
             // If batch task failed, remove task from cache and decrease executing task count by 1.
             logger.error("ylwudebug7: taskId " + taskId, e);
             adTaskCacheManager.remove(taskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
             if (!adTask.getDetector().isMultientityDetector()) {
-//            if (!adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_ENTITY)) {
                 adTaskManager.cleanDetectorCache(adTask, transportService, () -> handleException(adTask, e));
             } else {
-//                boolean limitExceeded = e instanceof LimitExceededException;
-
-//                threadPool.executor(AD_BATCH_TASK_THREAD_POOL_NAME).execute(() -> {
-                    logger.info("ylwudebug0319-3: thread: {}, {}",
+                logger.info("ylwudebug0319-3: thread: {}, {}",
                             Thread.currentThread().getName(), Thread.currentThread().getId());
-//                    adTaskCacheManager.getRateLimiter(adTask.getDetectorId(), adTask.getTaskId()).acquire(5);
-//                try {
-//                    Thread.sleep(5000);
-//                } catch (InterruptedException interruptedException) {
-//                    logger.warn("Exception while waiting", interruptedException);
-//                }
                 waitBeforeNextEntity(5000);
-                adTaskManager.entityTaskDone(adTask, e, transportService
-                            //, () -> {handleException(adTask, e);}
-                    );
+                adTaskManager.entityTaskDone(adTask, e, transportService);
                     handleException(adTask, e);
 //                });
             }

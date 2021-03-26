@@ -18,6 +18,8 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 import static org.elasticsearch.action.ValidateActions.addValidationError;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Set;
 
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
@@ -35,13 +37,16 @@ public class ForwardADTaskRequest extends ActionRequest {
     private AnomalyDetector detector;
     private ADTask adTask;
     private DetectionDateRange detectionDateRange;
+    private List<String> staleRunningEntities;
     private User user;
     private ADTaskAction adTaskAction;
 
-    public ForwardADTaskRequest(AnomalyDetector detector, ADTask adTask, DetectionDateRange detectionDateRange, User user, ADTaskAction adTaskAction) {
+    public ForwardADTaskRequest(AnomalyDetector detector, ADTask adTask, DetectionDateRange detectionDateRange,
+                                List<String> staleRunningEntities, User user, ADTaskAction adTaskAction) {
         this.detector = detector;
         this.adTask = adTask;
         this.detectionDateRange = detectionDateRange;
+        this.staleRunningEntities = staleRunningEntities;
         this.user = user;
         this.adTaskAction = adTaskAction;
     }
@@ -55,6 +60,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         if (in.readBoolean()) {
             this.detectionDateRange = new DetectionDateRange(in);
         }
+        this.staleRunningEntities = in.readOptionalStringList();
         if (in.readBoolean()) {
             this.user = new User(in);
         }
@@ -78,6 +84,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         } else {
             out.writeBoolean(false);
         }
+        out.writeOptionalStringCollection(staleRunningEntities);
         if (user != null) {
             out.writeBoolean(true);
             user.writeTo(out);
@@ -97,6 +104,9 @@ public class ForwardADTaskRequest extends ActionRequest {
         }
         if (adTaskAction == null) {
             validationException = addValidationError(CommonErrorMessages.AD_TASK_ACTION_MISSING, validationException);
+        }
+        if (adTaskAction == ADTaskAction.CLEAN_RUNNING_ENTITY && (staleRunningEntities == null || staleRunningEntities.isEmpty())) {
+            validationException = addValidationError(CommonErrorMessages.EMPTY_STALE_RUNNING_ENTITIES, validationException);
         }
         return validationException;
     }
@@ -119,5 +129,9 @@ public class ForwardADTaskRequest extends ActionRequest {
 
     public ADTaskAction getAdTaskAction() {
         return adTaskAction;
+    }
+
+    public List<String> getStaleRunningEntities() {
+        return staleRunningEntities;
     }
 }

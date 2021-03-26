@@ -98,7 +98,7 @@ public class ADHCTaskCache {
             return;
         }
         for (String entity : entities) {
-            if (entity != null && !tempEntities.contains(entity)) {
+            if (entity != null && tempEntities.contains(entity)) {
                 tempEntities.remove(entity);
             }
             if (entity != null && !pendingEntities.contains(entity)) {
@@ -112,6 +112,7 @@ public class ADHCTaskCache {
         if (entity == null) {
             return;
         }
+        //TODO: check if exists in temp entities?
         this.tempEntities.remove(entity);
         if (!this.runningEntities.contains(entity)) {
             this.runningEntities.add(entity);
@@ -146,8 +147,8 @@ public class ADHCTaskCache {
         return !this.pendingEntities.isEmpty() || !this.runningEntities.isEmpty() || !this.tempEntities.isEmpty();
     }
 
-    public void removeRunningEntity(String entity) {
-        this.runningEntities.remove(entity);
+    public boolean removeRunningEntity(String entity) {
+        return this.runningEntities.remove(entity);
     }
 
     public RateLimiter getRateLimiter(String taskId) {

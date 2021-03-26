@@ -370,12 +370,16 @@ public class ADTaskCacheManager {
         }
     }
 
-    public void removeRunningEntity(String detectorId, String entity) {
+    //TODO: not throw exception if detector removed from cache
+    public boolean removeRunningEntity(String detectorId, String entity) {
         logger.debug("Remove entity from running entities cache: {}", entity);
-        ADHCTaskCache hcTaskCache = getExistingHCTaskCache(detectorId);
-        logger.debug("Pending entity count: {}, Running entity count: {}",
-                hcTaskCache.getPendingEntityCount(), hcTaskCache.getRunningEntityCount());
-        hcTaskCache.removeRunningEntity(entity);
+        if (hcTaskCaches.containsKey(detectorId)) {
+            ADHCTaskCache hcTaskCache = hcTaskCaches.get(detectorId);
+            logger.debug("Pending entity count: {}, Running entity count: {}",
+                    hcTaskCache.getPendingEntityCount(), hcTaskCache.getRunningEntityCount());
+            return hcTaskCache.removeRunningEntity(entity);
+        }
+        return false;
 
 
 //        if(entity != null && entity.size() > 0 && runningEntities.containsKey(detectorId)) {

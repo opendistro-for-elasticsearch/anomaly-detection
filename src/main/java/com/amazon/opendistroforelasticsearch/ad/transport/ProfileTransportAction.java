@@ -108,7 +108,7 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
                 activeEntity = cacheProvider.get().getActiveEntities(detectorId);
             }
             if (profiles.contains(DetectorProfileName.INIT_PROGRESS)) {
-                totalUpdates = cacheProvider.get().getTotalUpdates(detectorId);
+                totalUpdates = cacheProvider.get().getTotalUpdates(detectorId); //TODO: get HC detector init progress
             }
             if (profiles.contains(DetectorProfileName.TOTAL_SIZE_IN_BYTES) || profiles.contains(DetectorProfileName.MODELS)) {
                 modelSize = cacheProvider.get().getModelSize(detectorId);

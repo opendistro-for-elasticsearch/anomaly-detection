@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
@@ -502,7 +503,9 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 indexUtil.getSchemaVersion(ADIndex.RESULT)
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            detectionStateHandler.saveError(response.getError(), detectorId);
+            adTaskManager.updateLatestADTask(detectorId, ADTaskType.getRealtimeTaskTypes(),
+                    ImmutableMap.of(ADTask.ERROR_FIELD, Optional.ofNullable(response.getError()).orElse("")));
+//            detectionStateHandler.saveError(response.getError(), detectorId);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {
@@ -560,7 +563,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 indexUtil.getSchemaVersion(ADIndex.RESULT)
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            detectionStateHandler.saveError(errorMessage, detectorId);
+            adTaskManager.updateLatestADTask(detectorId, ADTaskType.getRealtimeTaskTypes(), ImmutableMap.of(ADTask.ERROR_FIELD, errorMessage));
+//            detectionStateHandler.saveError(errorMessage, detectorId);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {

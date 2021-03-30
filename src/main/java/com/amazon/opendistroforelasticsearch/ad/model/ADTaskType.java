@@ -39,4 +39,8 @@ public enum ADTaskType {
         return ImmutableList.of(ADTaskType.REALTIME_SINGLE_ENTITY, ADTaskType.REALTIME_HC_DETECTOR);
     }
 
+    public static List<ADTaskType> getAllDetectorTaskTypes() {
+        return ImmutableList.of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.HISTORICAL_SINGLE_ENTITY,
+                ADTaskType.REALTIME_SINGLE_ENTITY, ADTaskType.REALTIME_HC_DETECTOR);
+    }
 }

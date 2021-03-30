@@ -87,7 +87,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
 
         String adID = request.getAdID();
 
-        String rcfModelID = modelPartitioner.getRcfModelId(adID, 0);
+        String rcfModelID = modelPartitioner.getRcfModelId(adID, 0); //TODO: only get the first RCF model partition?
 
         Optional<DiscoveryNode> rcfNode = hashRing.getOwningNode(rcfModelID.toString());
         if (!rcfNode.isPresent()) {

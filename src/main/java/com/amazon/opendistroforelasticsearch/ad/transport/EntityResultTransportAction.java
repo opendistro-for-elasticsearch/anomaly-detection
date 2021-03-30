@@ -56,7 +56,7 @@ import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.MultiEntityResultHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 
-public class EntityResultTransportAction extends HandledTransportAction<EntityResultRequest, AcknowledgedResponse> {
+public class EntityResultTransportAction extends HandledTransportAction<EntityResultRequest, EntityResultResponse> {
 
     private static final Logger LOG = LogManager.getLogger(EntityResultTransportAction.class);
     private ModelManager manager;
@@ -123,7 +123,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     }
 
     @Override
-    protected void doExecute(Task task, EntityResultRequest request, ActionListener<AcknowledgedResponse> listener) {
+    protected void doExecute(Task task, EntityResultRequest request, ActionListener<EntityResultResponse> listener) {
         if (adCircuitBreakerService.isOpen()) {
             listener
                 .onFailure(new LimitExceededException(request.getDetectorId(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
@@ -132,6 +132,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
 
         try {
             String detectorId = request.getDetectorId();
+            //TODO: no need to get anomaly detector from index again. just need to pass detector in request
             stateManager.getAnomalyDetector(detectorId, onGetDetector(listener, detectorId, request));
         } catch (Exception exception) {
             LOG.error("fail to get entity's anomaly grade", exception);
@@ -141,7 +142,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     }
 
     private ActionListener<Optional<AnomalyDetector>> onGetDetector(
-        ActionListener<AcknowledgedResponse> listener,
+        ActionListener<EntityResultResponse> listener,
         String detectorId,
         EntityResultRequest request
     ) {
@@ -163,6 +164,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 .isAfter(clock.instant());
 
             Instant executionStartTime = Instant.now();
+            long totalUpdates = 0;
             for (Entry<String, double[]> entity : request.getEntities().entrySet()) {
                 String entityName = entity.getKey();
                 // For ES, the limit of the document ID is 512 bytes.
@@ -203,6 +205,9 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                             )
                         );
                 }
+                long updates = cache.get().getTotalUpdates(detectorId, modelId);
+                LOG.debug("555555555555555555 entity: {}, updates: {}", entityName, updates);
+                totalUpdates = Math.max(totalUpdates, updates);
             }
             if (currentBulkRequest.numberOfActions() > 0) {
                 this.anomalyResultHandler.flush(currentBulkRequest, detectorId);
@@ -210,7 +215,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
             // bulk all accumulated checkpoint requests
             this.checkpointDao.flush();
 
-            listener.onResponse(new AcknowledgedResponse(true));
+            listener.onResponse(new EntityResultResponse(totalUpdates));
         }, exception -> {
             LOG
                 .error(

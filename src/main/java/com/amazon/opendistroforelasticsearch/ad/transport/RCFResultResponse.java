@@ -28,16 +28,19 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
     public static final String CONFIDENCE_JSON_KEY = "confidence";
     public static final String FOREST_SIZE_JSON_KEY = "forestSize";
     public static final String ATTRIBUTION_JSON_KEY = "attribution";
+    public static final String TOTAL_UPDATES_JSON_KEY = "total_updates";
     private double rcfScore;
     private double confidence;
     private int forestSize;
     private double[] attribution;
+    private long totalUpdates = 0;
 
-    public RCFResultResponse(double rcfScore, double confidence, int forestSize, double[] attribution) {
+    public RCFResultResponse(double rcfScore, double confidence, int forestSize, double[] attribution, long totalUpdates) {
         this.rcfScore = rcfScore;
         this.confidence = confidence;
         this.forestSize = forestSize;
         this.attribution = attribution;
+        this.totalUpdates = totalUpdates;
     }
 
     public RCFResultResponse(StreamInput in) throws IOException {
@@ -46,6 +49,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         confidence = in.readDouble();
         forestSize = in.readVInt();
         attribution = in.readDoubleArray();
+        totalUpdates = in.readLong();
     }
 
     public double getRCFScore() {
@@ -69,12 +73,17 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         return attribution;
     }
 
+    public long getTotalUpdates() {
+        return totalUpdates;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeDouble(rcfScore);
         out.writeDouble(confidence);
         out.writeVInt(forestSize);
         out.writeDoubleArray(attribution);
+        out.writeLong(totalUpdates);
     }
 
     @Override
@@ -84,6 +93,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         builder.field(CONFIDENCE_JSON_KEY, confidence);
         builder.field(FOREST_SIZE_JSON_KEY, forestSize);
         builder.field(ATTRIBUTION_JSON_KEY, attribution);
+        builder.field(TOTAL_UPDATES_JSON_KEY, totalUpdates);
         builder.endObject();
         return builder;
     }

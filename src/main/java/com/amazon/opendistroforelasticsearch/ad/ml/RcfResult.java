@@ -27,6 +27,7 @@ public class RcfResult {
     private final double confidence;
     private final int forestSize;
     private final double[] attribution;
+    private final long totalUpdates;
 
     /**
      * Constructor with all arguments.
@@ -37,10 +38,15 @@ public class RcfResult {
      * @param attribution anomaly score attribution
      */
     public RcfResult(double score, double confidence, int forestSize, double[] attribution) {
+        this(score, confidence, forestSize, attribution, 0);
+    }
+
+    public RcfResult(double score, double confidence, int forestSize, double[] attribution, long totalUpdates) {
         this.score = score;
         this.confidence = confidence;
         this.forestSize = forestSize;
         this.attribution = attribution;
+        this.totalUpdates = totalUpdates;
     }
 
     /**
@@ -79,6 +85,10 @@ public class RcfResult {
         return attribution;
     }
 
+    public long getTotalUpdates() {
+        return totalUpdates;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o)
@@ -89,11 +99,12 @@ public class RcfResult {
         return Objects.equals(this.score, that.score)
             && Objects.equals(this.confidence, that.confidence)
             && Objects.equals(this.forestSize, that.forestSize)
-            && Arrays.equals(this.attribution, that.attribution);
+            && Arrays.equals(this.attribution, that.attribution)
+            && Objects.equals(this.totalUpdates, that.totalUpdates);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(score, confidence, forestSize, attribution);
+        return Objects.hash(score, confidence, forestSize, attribution, totalUpdates);
     }
 }

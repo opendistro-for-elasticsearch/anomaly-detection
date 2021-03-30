@@ -229,6 +229,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             || profilesToCollect.contains(DetectorProfileName.ACTIVE_ENTITIES)
                             || profilesToCollect.contains(DetectorProfileName.INIT_PROGRESS)
                             || profilesToCollect.contains(DetectorProfileName.STATE)) {
+                            //TODO: get HC init progress
                             profileModels(detector, profilesToCollect, job, true, delegateListener);
                         }
                         if (profilesToCollect.contains(DetectorProfileName.AD_TASK)) {
@@ -473,6 +474,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         long totalUpdates,
         MultiResponsesDelegateActionListener<DetectorProfile> listener
     ) {
+        //TODO: why need to check initied ever before?
         SearchRequest searchLatestResult = createInittedEverRequest(detector.getDetectorId(), enabledTime);
         client.search(searchLatestResult, onInittedEver(enabledTime, profile, profilesToCollect, detector, totalUpdates, listener));
     }

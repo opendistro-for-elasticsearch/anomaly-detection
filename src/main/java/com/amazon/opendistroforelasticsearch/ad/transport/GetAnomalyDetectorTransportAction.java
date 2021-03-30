@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
 import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
@@ -164,7 +165,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                         xContentRegistry,
                         AnomalyDetectorSettings.NUM_MIN_SAMPLES
                     );
-                    profileRunner
+                    profileRunner //TODO: profile historical entity
                         .profile(
                             detectorID,
                             entityValue,
@@ -182,6 +183,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                                                     null,
                                                     null,
                                                     false,
+                                                    null,
                                                     null,
                                                     false,
                                                     null,
@@ -209,15 +211,41 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
             } else {
                 if (returnTask) {
                     adTaskManager
-                        .getLatestADTask( //TODO: don't return realtime task now as frontend doesn't need it
+                        .getLatestADTasks( //TODO: don't return realtime task now as frontend doesn't need it
                             detectorID,
-                            ADTaskType.getHistoricalDetectorTaskTypes(),
-                            (adTask) -> getDetectorAndJob(detectorID, returnJob, returnTask, adTask, listener),
-                            transportService,
+                            null,
+                            ADTaskType.getAllDetectorTaskTypes(),
+                            (adTasks) -> {
+                                Optional<ADTask> realtimeAdTask = Optional.empty();
+                                Optional<ADTask> historicalAdTask = Optional.empty();
+
+                                if (adTasks.size() > 0) {
+                                    if (adTasks.containsKey(ADTaskType.REALTIME_HC_DETECTOR.name()) && adTasks.containsKey(ADTaskType.REALTIME_SINGLE_ENTITY.name())) {
+                                        throw new AnomalyDetectionException("Two latest realtime tasks");
+                                    }
+                                    if (adTasks.containsKey(ADTaskType.HISTORICAL_HC_DETECTOR.name()) && adTasks.containsKey(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())) {
+                                        throw new AnomalyDetectionException("Two latest historical tasks");
+                                    }
+                                    if (adTasks.containsKey(ADTaskType.REALTIME_HC_DETECTOR.name())) {
+                                        realtimeAdTask = Optional.ofNullable(adTasks.get(ADTaskType.REALTIME_HC_DETECTOR.name()));
+                                    }
+                                    if (adTasks.containsKey(ADTaskType.REALTIME_SINGLE_ENTITY.name())) {
+                                        realtimeAdTask = Optional.ofNullable(adTasks.get(ADTaskType.REALTIME_SINGLE_ENTITY.name()));
+                                    }
+                                    if (adTasks.containsKey(ADTaskType.HISTORICAL_HC_DETECTOR.name())) {
+                                        historicalAdTask = Optional.ofNullable(adTasks.get(ADTaskType.HISTORICAL_HC_DETECTOR.name()));
+                                    }
+                                    if (adTasks.containsKey(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())) {
+                                        historicalAdTask = Optional.ofNullable(adTasks.get(ADTaskType.HISTORICAL_SINGLE_ENTITY.name()));
+                                    }
+                                }
+                                getDetectorAndJob(detectorID, returnJob, returnTask, realtimeAdTask, historicalAdTask, listener);
+                                },
+                            transportService,true,
                             listener
                         );
                 } else {
-                    getDetectorAndJob(detectorID, returnJob, returnTask, Optional.empty(), listener);
+                    getDetectorAndJob(detectorID, returnJob, returnTask, Optional.empty(),Optional.empty(), listener);
                 }
             }
         } catch (Exception e) {
@@ -230,7 +258,8 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         String detectorID,
         boolean returnJob,
         boolean returnTask,
-        Optional<ADTask> adTask,
+        Optional<ADTask> realtimeAdTask,
+        Optional<ADTask> historicalAdTask,
         ActionListener<GetAnomalyDetectorResponse> listener
     ) {
         MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorID);
@@ -239,14 +268,15 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
             MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(ANOMALY_DETECTOR_JOB_INDEX, detectorID);
             multiGetRequest.add(adJobItem);
         }
-        client.multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, returnTask, adTask, detectorID));
+        client.multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, returnTask, realtimeAdTask, historicalAdTask, detectorID));
     }
 
     private ActionListener<MultiGetResponse> onMultiGetResponse(
         ActionListener<GetAnomalyDetectorResponse> listener,
         boolean returnJob,
         boolean returnTask,
-        Optional<ADTask> adTask,
+        Optional<ADTask> realtimeAdTask,
+        Optional<ADTask> historicalAdTask,
         String detectorId
     ) {
         return new ActionListener<MultiGetResponse>() {
@@ -316,7 +346,8 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                             detector,
                             adJob,
                             returnJob,
-                            adTask.orElse(null),
+                            realtimeAdTask.orElse(null),
+                            historicalAdTask.orElse(null),
                             returnTask,
                             RestStatus.OK,
                             null,
@@ -338,7 +369,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
             @Override
             public void accept(DetectorProfile profile) throws Exception {
                 listener
-                    .onResponse(new GetAnomalyDetectorResponse(0, null, 0, 0, null, null, false, null, false, null, profile, null, true));
+                    .onResponse(new GetAnomalyDetectorResponse(0, null, 0, 0, null, null, false, null,null, false, null, profile, null, true));
             }
         }, exception -> { listener.onFailure(exception); });
     }

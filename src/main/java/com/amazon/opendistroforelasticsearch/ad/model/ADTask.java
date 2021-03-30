@@ -749,4 +749,32 @@ public class ADTask implements ToXContentObject, Writeable {
     public User getUser() {
         return user;
     }
+
+    @Override
+    public String toString() {
+        return "ADTask{" +
+                "taskId='" + taskId + '\'' +
+                ", lastUpdateTime=" + lastUpdateTime +
+                ", startedBy='" + startedBy + '\'' +
+                ", stoppedBy='" + stoppedBy + '\'' +
+                ", error='" + error + '\'' +
+                ", state='" + state + '\'' +
+                ", detectorId='" + detectorId + '\'' +
+                ", taskProgress=" + taskProgress +
+                ", initProgress=" + initProgress +
+                ", currentPiece=" + currentPiece +
+                ", executionStartTime=" + executionStartTime +
+                ", executionEndTime=" + executionEndTime +
+                ", isLatest=" + isLatest +
+                ", taskType='" + taskType + '\'' +
+                ", checkpointId='" + checkpointId + '\'' +
+                ", detector=" + detector +
+                ", coordinatingNode='" + coordinatingNode + '\'' +
+                ", workerNode='" + workerNode + '\'' +
+                ", detectionDateRange=" + detectionDateRange +
+                ", entity=" + entity +
+                ", parentTaskId='" + parentTaskId + '\'' +
+                ", user=" + user +
+                '}';
+    }
 }

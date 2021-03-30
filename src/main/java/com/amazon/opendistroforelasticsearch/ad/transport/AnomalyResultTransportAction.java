@@ -16,9 +16,11 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.INVALID_SEARCH_QUERY_MSG;
+import static com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil.getErrorMessage;
 
 import java.net.ConnectException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -26,10 +28,15 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
+import com.google.common.collect.ImmutableMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -45,7 +52,6 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.action.support.ThreadedActionListener;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.block.ClusterBlockLevel;
@@ -131,6 +137,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final ThreadPool threadPool;
     private final Client client;
     private final SearchFeatureDao searchFeatureDao;
+    private final ADTaskManager adTaskManager;
 
     // cache HC detector id
     private final Set<String> hcDetectors;
@@ -151,7 +158,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         ADCircuitBreakerService adCircuitBreakerService,
         ADStats adStats,
         ThreadPool threadPool,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        ADTaskManager adTaskManager
     ) {
         super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);
         this.transportService = transportService;
@@ -173,6 +181,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.threadPool = threadPool;
         this.searchFeatureDao = searchFeatureDao;
         this.hcDetectors = new HashSet<>();
+        this.adTaskManager = adTaskManager;
     }
 
     /**
@@ -256,6 +265,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
             if (adCircuitBreakerService.isOpen()) {
                 listener.onFailure(new LimitExceededException(adID, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
+//                listener.onFailure(new LimitExceededException(adID, "test error ylwu", false));
                 return;
             }
             try {
@@ -341,6 +351,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         AtomicInteger responseCount = new AtomicInteger();
 
                         final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<>();
+                        final ConcurrentLinkedQueue entityResultResponses = new ConcurrentLinkedQueue();
                         node2Entities.stream().forEach(nodeEntity -> {
                             DiscoveryNode node = nodeEntity.getKey();
                             transportService
@@ -350,8 +361,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                     new EntityResultRequest(adID, nodeEntity.getValue(), dataStartTime, dataEndTime),
                                     this.option,
                                     new ActionListenerResponseHandler<>(
-                                        new EntityResultListener(node.getId(), adID, responseCount, nodeCount, failure, listener),
-                                        AcknowledgedResponse::new,
+                                            //TODO: when will return response to listener
+                                        new EntityResultListener(node.getId(), adID, responseCount, nodeCount, failure, entityResultResponses, listener),
+                                        EntityResultResponse::new,
                                         ThreadPool.Names.SAME
                                     )
                                 );
@@ -728,6 +740,23 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     return;
                 }
 
+                try {
+                    long totalUpdates = rcfResults.get(0).getTotalUpdates();
+                    String state = ADTaskState.INIT.name();
+                    float initProgress;
+                    if (totalUpdates <= AnomalyDetectorSettings.NUM_MIN_SAMPLES) {
+                        initProgress = (float)totalUpdates/AnomalyDetectorSettings.NUM_MIN_SAMPLES;
+                    } else {
+                        state = ADTaskState.RUNNING.name();
+                        initProgress = 1.0f;
+                    }
+                    adTaskManager.updateLatestRealtimeADTask(detector.getDetectorId(),
+                            ImmutableMap.of(ADTask.INIT_PROGRESS_FIELD, initProgress, ADTask.STATE_FIELD, state));
+                } catch (Exception e) {
+                    LOG.warn("Failed to update init progress of detector " + detector.getDetectorId(), e);
+                }
+
+
                 CombinedRcfResult combinedResult = getCombinedResult(rcfResults, numFeatures);
                 double combinedScore = combinedResult.getScore();
 
@@ -1069,13 +1098,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         return previousException;
     }
 
-    class EntityResultListener implements ActionListener<AcknowledgedResponse> {
+    class EntityResultListener implements ActionListener<EntityResultResponse> {
         private String nodeId;
         private final String adID;
         private AtomicInteger responseCount;
         private int nodeCount;
         private ActionListener<AnomalyResultResponse> listener;
-        private List<AcknowledgedResponse> ackResponses;
+        private ConcurrentLinkedQueue<EntityResultResponse> entityResultResponses;
         private AtomicReference<AnomalyDetectionException> failure;
 
         EntityResultListener(
@@ -1084,6 +1113,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             AtomicInteger responseCount,
             int nodeCount,
             AtomicReference<AnomalyDetectionException> failure,
+            ConcurrentLinkedQueue<EntityResultResponse> entityResultResponses,
             ActionListener<AnomalyResultResponse> listener
         ) {
             this.nodeId = nodeId;
@@ -1092,19 +1122,21 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.nodeCount = nodeCount;
             this.failure = failure;
             this.listener = listener;
-            this.ackResponses = new ArrayList<>();
+            this.entityResultResponses = entityResultResponses;
         }
 
         @Override
-        public void onResponse(AcknowledgedResponse response) {
+        public void onResponse(EntityResultResponse response) {
             try {
+                LOG.debug("5555555555-ok " + adID);
                 stateManager.resetBackpressureCounter(nodeId);
-                if (response.isAcknowledged() == false) {
-                    LOG.error("Cannot send entities' features to {} for {}", nodeId, adID);
-                    stateManager.addPressure(nodeId);
-                } else {
-                    ackResponses.add(response);
-                }
+//                if (response.isAcknowledged() == false) {
+//                    LOG.error("Cannot send entities' features to {} for {}", nodeId, adID);
+//                    stateManager.addPressure(nodeId);
+//                } else {
+//                    ackResponses.add(response);
+//                }
+                entityResultResponses.add(response);
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
@@ -1116,6 +1148,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         @Override
         public void onFailure(Exception e) {
+            LOG.debug("5555555555-fail " + adID, e);
             if (e == null) {
                 return;
             }
@@ -1136,11 +1169,31 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private void handleEntityResponses() {
             if (failure.get() != null) {
                 listener.onFailure(failure.get());
-            } else if (ackResponses.isEmpty()) {
+            } else if (entityResultResponses.isEmpty()) {
                 listener.onFailure(new InternalFailure(adID, NO_ACK_ERR));
             } else {
+
                 listener.onResponse(new AnomalyResultResponse(0, 0, 0, new ArrayList<FeatureData>()));
             }
+
+            long totalUpdates = 0;
+            while (!entityResultResponses.isEmpty()) {
+                totalUpdates = Math.max(totalUpdates, entityResultResponses.poll().getTotalUpdates());
+            }
+            Map<String, Object> updatedFields = new HashMap<>();
+            float initProgress = 0.0f;
+            if (totalUpdates <= AnomalyDetectorSettings.NUM_MIN_SAMPLES) {
+                initProgress = (float) totalUpdates/AnomalyDetectorSettings.NUM_MIN_SAMPLES;
+            } else {
+                initProgress = 1.0f;
+                updatedFields.put(ADTask.STATE_FIELD, ADTaskState.RUNNING.name());
+            }
+            LOG.debug("5555555555=========== update HC detector init progress as {}, totalUpdates: {}", initProgress, totalUpdates);
+            updatedFields.put(ADTask.INIT_PROGRESS_FIELD, initProgress);
+            if (failure.get() != null) {
+                updatedFields.put(ADTask.ERROR_FIELD, getErrorMessage(failure.get()));
+            }
+            adTaskManager.updateLatestRealtimeADTask(adID, updatedFields);
         }
     }
 }

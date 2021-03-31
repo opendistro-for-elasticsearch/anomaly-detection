@@ -277,7 +277,7 @@ List<String> jacocoExclusions = [
         //TODO: add more test cases later for these package
         'com.amazon.opendistroforelasticsearch.ad.model.*',
         'com.amazon.opendistroforelasticsearch.ad.rest.*',
-        'com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler',
+//        'com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler',
         'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorJobRunner',
 
         // Class containing just constants.  Don't need to test

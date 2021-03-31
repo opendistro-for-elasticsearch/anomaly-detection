@@ -66,7 +66,6 @@ import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultRequest;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyResultTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
-import com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.commons.InjectSecurity;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
@@ -92,7 +91,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     private ThreadPool threadPool;
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
     private ConcurrentHashMap<String, Integer> detectorEndRunExceptionCount;
-    private DetectionStateHandler detectionStateHandler;
+//    private DetectionStateHandler detectionStateHandler;
     private AnomalyDetectionIndices indexUtil;
     private ADTaskManager adTaskManager;
 
@@ -135,9 +134,9 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         this.maxRetryForEndRunException = AnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings);
     }
 
-    public void setDetectionStateHandler(DetectionStateHandler detectionStateHandler) {
-        this.detectionStateHandler = detectionStateHandler;
-    }
+//    public void setDetectionStateHandler(DetectionStateHandler detectionStateHandler) {
+//        this.detectionStateHandler = detectionStateHandler;
+//    }
 
     public void setAdTaskManager(ADTaskManager adTaskManager) {
         this.adTaskManager = adTaskManager;

@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.Throwables;
@@ -212,8 +213,28 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             false
                         );
                     if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
-                        GetRequest getStateRequest = new GetRequest(CommonName.DETECTION_STATE_INDEX, detectorId);
-                        client.get(getStateRequest, onGetDetectorState(delegateListener, detectorId, enabledTimeMs));
+
+                        adTaskManager.getLatestADTask(detectorId, ADTaskType.getRealtimeTaskTypes(), adTask -> {
+                            DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
+                            if (adTask.isPresent()) {
+                                long lastUpdateTimeMs = adTask.get().getLastUpdateTime().toEpochMilli();
+
+                                // if state index hasn't been updated, we should not use the error field
+                                // For example, before a detector is enabled, if the error message contains
+                                // the phrase "stopped due to blah", we should not show this when the detector
+                                // is enabled.
+                                if (lastUpdateTimeMs > enabledTimeMs && adTask.get().getError() != null) {
+                                    profileBuilder.error(adTask.get().getError());
+                                }
+                                delegateListener.onResponse(profileBuilder.build());
+                            } else {
+                                // detector state for this detector does not exist
+                                listener.onResponse(profileBuilder.build());
+                            }
+                        }, transportService, delegateListener);
+
+//                        GetRequest getStateRequest = new GetRequest(CommonName.DETECTION_STATE_INDEX, detectorId);
+//                        client.get(getStateRequest, onGetDetectorState(delegateListener, detectorId, enabledTimeMs));
                     }
 
                     // total number of listeners we need to define. Needed by MultiResponsesDelegateActionListener to decide

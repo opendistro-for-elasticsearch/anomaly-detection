@@ -684,4 +684,8 @@ public class ADTaskCacheManager {
             hcTaskCaches.get(detectorId).removeEntity(entity);
         }
     }
+
+    public String[] getRunningDetectors() {
+        return this.detectors.toArray(new String[0]);
+    }
 }

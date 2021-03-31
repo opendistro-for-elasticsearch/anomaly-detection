@@ -608,6 +608,24 @@ public class ADTaskManager {
         }));
     }
 
+    public void maintainRunningDetector(TransportService transportService) {
+        logger.info("Start to maintain running detectors");
+        String[] detectors = adTaskCacheManager.getRunningDetectors();
+        for (String detectorId : detectors) {
+            getLatestADTasks( detectorId,
+                    null,
+                    ADTaskType.getHistoricalDetectorTaskTypes(),
+                    adTask -> {},
+                    transportService,
+            true,
+            ActionListener.wrap(r -> {
+                logger.info("Finished maintaining running detector {}", detectorId);
+            }, e-> {
+                logger.error("Failed maintaining running detector " + detectorId, e);
+            }));
+        }
+    }
+
     private void resetTaskState(ADTask adTask, TransportService transportService) {
         if (adTask.isHistoricalTask() && !isADTaskEnded(adTask) && lastUpdateTimeExpired(adTask)) {
             // If AD task is still running, but its last updated time not refreshed

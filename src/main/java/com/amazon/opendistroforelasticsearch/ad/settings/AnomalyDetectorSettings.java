@@ -86,10 +86,10 @@ public final class AnomalyDetectorSettings {
         .longSetting(
             "opendistro.anomaly_detection.ad_result_history_max_docs",
             // Total documents in primary replica.
-            // A single feature result is roughly 150 bytes. Suppose a doc is
-            // of 200 bytes, 250 million docs is of 50 GB. We choose 50 GB
-            // because we have 1 shard at least. One shard can have at most 50 GB.
-            250_000_000L,
+            // A single result doc is roughly 46.8 bytes (measured by experiments).
+            // 1.35 billion docs is about 65 GB. We choose 65 GB
+            // because we have 1 shard at least. One shard can have at most 65 GB.
+            1_350_000_000L,
             0L,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -229,6 +229,9 @@ public final class AnomalyDetectorSettings {
     // Thread pool
     public static final int AD_THEAD_POOL_QUEUE_SIZE = 1000;
 
+    // ======================================
+    // HCAD caching parameters
+    // ======================================
     // multi-entity caching
     public static final int MAX_ACTIVE_STATES = 1000;
 
@@ -247,14 +250,27 @@ public final class AnomalyDetectorSettings {
     public static final int MULTI_ENTITY_NUM_TREES = 10;
 
     // cache related
-    public static final int DEDICATED_CACHE_SIZE = 10;
+    public static final Setting<Integer> DEDICATED_CACHE_SIZE = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.dedicated_cache_size",
+            10,
+            1,
+            100_000_000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
-    // We only keep priority (4 bytes float) in inactive cache. 1 million priorities
-    // take up 4 MB.
-    public static final int MAX_INACTIVE_ENTITIES = 1_000_000;
+    // We only keep priority (4 bytes float) in inactive cache. 100k priorities
+    // take up 400KB.
+    public static final int MAX_INACTIVE_ENTITIES = 100_000;
 
     // 1 million insertion costs roughly 1 MB.
-    public static final int DOOR_KEEPER_MAX_INSERTION = 1_000_000;
+    public static final int DOOR_KEEPER_FOR_CACHE_MAX_INSERTION = 1_000_000;
+
+    // 100,000 insertions costs roughly 1KB.
+    public static final int DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION = 100_000;
+
+    // public static final int DOOR_KEEPER_MAX_INSERTION = 1_000_000;
 
     public static final double DOOR_KEEPER_FAULSE_POSITIVE_RATE = 0.01;
 
@@ -287,7 +303,16 @@ public final class AnomalyDetectorSettings {
     public static final Setting<Float> INDEX_PRESSURE_SOFT_LIMIT = Setting
         .floatSetting(
             "opendistro.anomaly_detection.index_pressure_soft_limit",
-            0.8f,
+            0.6f,
+            0.0f,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<Float> INDEX_PRESSURE_HARD_LIMIT = Setting
+        .floatSetting(
+            "opendistro.anomaly_detection.index_pressure_hard_limit",
+            0.9f,
             0.0f,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -300,28 +325,9 @@ public final class AnomalyDetectorSettings {
     // max entity value's length
     public static int MAX_ENTITY_LENGTH = 256;
 
-    // max number of index checkpoint requests in one bulk
-    public static int MAX_BULK_CHECKPOINT_SIZE = 1000;
-
-    // number of bulk checkpoints per second
-    public static double CHECKPOINT_BULK_PER_SECOND = 0.02;
-
-    // responding to 100 cache misses per second allowed.
-    // 100 because the get threadpool (the one we need to get checkpoint) queue szie is 1000
-    // and we may have 10 concurrent multi-entity detectors. So each detector can use: 1000 / 10 = 100
-    // for 1m interval. if the max entity number is 3000 per node, it will need around 30m to get all of them cached
-    // Thus, for 5m internval, it will need 2.5 hours to cache all of them. for 1hour interval, it will be 30hours.
-    // but for 1 day interval, it will be 30 days.
-    public static Setting<Integer> MAX_CACHE_MISS_HANDLING_PER_SECOND = Setting
-        .intSetting(
-            "opendistro.anomaly_detection.max_cache_miss_handling_per_second",
-            100,
-            0,
-            1000,
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic
-        );
-
+    // ======================================
+    // historical detector parameters
+    // ======================================
     // Maximum number of batch tasks running on one node.
     // TODO: performance test and tune the setting.
     public static final Setting<Integer> MAX_BATCH_TASK_PER_NODE = Setting
@@ -390,4 +396,214 @@ public final class AnomalyDetectorSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
+
+    // ======================================
+    // rate-limiting queue parameters
+    // ======================================
+    // the percentage of heap usage allowed for queues holding small requests
+    public static final Setting<Float> SMALL_REQUEST_QUEUE_MAX_HEAP_PERCENT = Setting
+        .floatSetting(
+            "opendistro.anomaly_detection.small_request_queue_max_heap_percent",
+            0.001f,
+            0.0f,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    // the percentage of heap usage allowed for queues holding large requests
+    public static final Setting<Float> BIG_REQUEST_QUEUE_MAX_HEAP_PERCENT = Setting
+        .floatSetting(
+            "opendistro.anomaly_detection.big_request_queue_max_heap_percent",
+            0.01f,
+            0.0f,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    // expected execution time per cold entity request. This setting controls
+    // the speed of cold entity requests execution. The larger, the faster, and
+    // the more performance impact to customers' workload.
+    public static final Setting<Integer> EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.expected_cold_entity_execution_time_in_secs",
+            3,
+            0,
+            3600,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    /**
+     * EntityRequest has entityName (# category fields * 256, the recommended limit
+     * of a keyword field length), model Id (roughly 256 bytes), and QueuedRequest
+     * fields including detector Id(roughly 128 bytes), expirationEpochMs (long,
+     *  8 bytes), and priority (12 bytes).
+     * Plus Java object size (12 bytes), we have roughly 928 bytes per request
+     * assuming we have 2 categorical fields (plan to support 2 categorical fields now).
+     * We don't want the total size exceeds 0.1% of the heap.
+     * We can have at most 0.1% heap / 928 = heap / 928,000.
+     * For t3.small, 0.1% heap is of 1MB. The queue's size is up to
+     * 10^ 6 / 928 = 1078
+     */
+    public static int ENTITY_REQUEST_SIZE_IN_BYTES = 928;
+
+    /**
+     * EntityFeatureRequest consists of EntityRequest (928 bytes, read comments
+     * of ENTITY_COLD_START_QUEUE_SIZE_CONSTANT), pointer to current feature
+     * (8 bytes), and dataStartTimeMillis (8 bytes).  We have roughly
+     * 928 + 16 = 944 bytes per request.
+     *
+     * We don't want the total size exceeds 0.1% of the heap.
+     * We should have at most 0.1% heap / 944 = heap / 944,000
+     * For t3.small, 0.1% heap is of 1MB. The queue's size is up to
+     * 10^ 6 / 944 = 1059
+     */
+    public static int ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES = 944;
+
+    /**
+     * ResultWriteRequest consists of index request (roughly 1KB), and QueuedRequest
+     * fields (148 bytes, read comments of ENTITY_REQUEST_SIZE_CONSTANT).
+     * Plus Java object size (12 bytes), we have roughly 1160 bytes per request
+     *
+     * We don't want the total size exceeds 1% of the heap.
+     * We should have at most 1% heap / 1148 = heap / 116,000
+     * For t3.small, 1% heap is of 10MB. The queue's size is up to
+     * 10^ 7 / 1160 = 8621
+     */
+    public static int RESULT_WRITE_QUEUE_SIZE_IN_BYTES = 1160;
+
+    /**
+     * CheckpointWriteRequest consists of IndexRequest (200 KB), and QueuedRequest
+     * fields (148 bytes, read comments of ENTITY_REQUEST_SIZE_CONSTANT).
+     * The total is roughly 200 KB per request.
+     *
+     * We don't want the total size exceeds 1% of the heap.
+     * We should have at most 1% heap / 200KB = heap / 20,000,000
+     * For t3.small, 1% heap is of 10MB. The queue's size is up to
+     * 10^ 7 / 2.0 * 10^5 = 50
+     */
+    public static int CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES = 200_000;
+
+    /**
+     * Max concurrent entity cold starts per node
+     */
+    public static final Setting<Integer> ENTITY_COLDSTART_QUEUE_CONCURRENCY = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.entity_coldstart_queue_concurrency",
+            1,
+            1,
+            10,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    /**
+     * Max concurrent checkpoint reads per node
+     */
+    public static final Setting<Integer> CHECKPOINT_READ_QUEUE_CONCURRENCY = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.checkpoint_read_queue_concurrency",
+            1,
+            1,
+            10,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    /**
+     * Max concurrent checkpoint writes per node
+     */
+    public static final Setting<Integer> CHECKPOINT_WRITE_QUEUE_CONCURRENCY = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.checkpoint_write_queue_concurrency",
+            2,
+            1,
+            10,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    /**
+     * Max concurrent result writes per node.  Since checkpoint is relatively large
+     * (250KB), we have 2 concurrent threads processing the queue.
+     */
+    public static final Setting<Integer> RESULT_WRITE_QUEUE_CONCURRENCY = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.result_write_queue_concurrency",
+            2,
+            1,
+            10,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    /**
+     * Max concurrent cold entity processing per node
+     */
+    public static final Setting<Integer> COLD_ENTITY_QUEUE_CONCURRENCY = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.cold_entity_queue_concurrency",
+            1,
+            1,
+            10,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    /**
+     * Assume each checkpoint takes roughly 200KB.  25 requests are of 5 MB.
+     */
+    public static final Setting<Integer> CHECKPOINT_READ_QUEUE_BATCH_SIZE = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.checkpoint_read_queue_batch_size",
+            25,
+            1,
+            60,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    /**
+     * ES recommends bulk size to be 5~15 MB.
+     * ref: https://tinyurl.com/3zdbmbwy
+     * Assume each checkpoint takes roughly 200KB.  25 requests are of 5 MB.
+     */
+    public static final Setting<Integer> CHECKPOINT_WRITE_QUEUE_BATCH_SIZE = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.checkpoint_write_queue_batch_size",
+            25,
+            1,
+            60,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    /**
+     * ES recommends bulk size to be 5~15 MB.
+     * ref: https://tinyurl.com/3zdbmbwy
+     * Assume each result takes roughly 1KB.  5000 requests are of 5 MB.
+     */
+    public static final Setting<Integer> RESULT_WRITE_QUEUE_BATCH_SIZE = Setting
+        .intSetting(
+            "opendistro.anomaly_detection.result_write_queue_batch_size",
+            5000,
+            1,
+            15000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Duration QUEUE_MAINTENANCE = Duration.ofMinutes(5);
+
+    // we won't accept a checkpoint larger than 10MB. Or we risk OOM.
+    public static final int MAX_CHECKPOINT_BYTES = 10_000_000;
+
+    public static final float MAX_QUEUED_TASKS_RATIO = 0.5f;
+
+    public static final float MEDIUM_SEGMENT_PRUNE_RATIO = 0.1f;
+
+    public static final float LOW_SEGMENT_PRUNE_RATIO = 0.3f;
+
+    // maintain queues with 1/100 probability
+    public static final int QUEUE_MAINTENANCE_FREQ_CONSTANT = 100;
 }

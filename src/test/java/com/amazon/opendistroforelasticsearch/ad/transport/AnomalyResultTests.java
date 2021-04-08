@@ -71,6 +71,7 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
+import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
@@ -108,6 +109,7 @@ import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException
 import com.amazon.opendistroforelasticsearch.ad.common.exception.InternalFailure;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
@@ -471,113 +473,111 @@ public class AnomalyResultTests extends AbstractADTest {
         noModelExceptionTemplate(exception, adID, exception.getClass(), error);
     }
 
-    // public void testNormalColdStart() {
-    // noModelExceptionTemplate(
-    // new ResourceNotFoundException(adID, ""),
-    // adID,
-    // InternalFailure.class,
-    // AnomalyResultTransportAction.NO_MODEL_ERR_MSG
-    // );
-    // }
+    public void testNormalColdStart() {
+        noModelExceptionTemplate(
+            new ResourceNotFoundException(adID, ""),
+            adID,
+            InternalFailure.class,
+            AnomalyResultTransportAction.NO_MODEL_ERR_MSG
+        );
+    }
 
-    // public void testNormalColdStartRemoteException() {
-    // noModelExceptionTemplate(
-    // new NotSerializableExceptionWrapper(new ResourceNotFoundException(adID, "")),
-    // adID,
-    // AnomalyDetectionException.class,
-    // AnomalyResultTransportAction.NO_MODEL_ERR_MSG
-    // );
-    // }
+    public void testNormalColdStartRemoteException() {
+        noModelExceptionTemplate(
+            new NotSerializableExceptionWrapper(new ResourceNotFoundException(adID, "")),
+            adID,
+            AnomalyDetectionException.class,
+            AnomalyResultTransportAction.NO_MODEL_ERR_MSG
+        );
+    }
 
-    // public void testNullPointerExceptionWhenRCF() {
-    // noModelExceptionTemplate(new NullPointerException(), adID, EndRunException.class, AnomalyResultTransportAction.BUG_RESPONSE);
-    // }
+    public void testNullPointerExceptionWhenRCF() {
+        noModelExceptionTemplate(new NullPointerException(), adID, EndRunException.class, CommonErrorMessages.BUG_RESPONSE);
+    }
 
-    // public void testADExceptionWhenColdStart() {
-    // String error = "blah";
-    // when(stateManager.fetchColdStartException(any(String.class))).thenReturn(Optional.of(new AnomalyDetectionException(adID, error)));
-    //
-    // noModelExceptionTemplate(new ResourceNotFoundException(adID, ""), adID, AnomalyDetectionException.class, error);
-    // }
+    public void testADExceptionWhenColdStart() {
+        String error = "blah";
+        when(stateManager.fetchColdStartException(any(String.class))).thenReturn(Optional.of(new AnomalyDetectionException(adID, error)));
 
-    // @SuppressWarnings("unchecked")
-    // public void testInsufficientCapacityExceptionDuringColdStart() {
-    //
-    // ModelManager rcfManager = mock(ModelManager.class);
-    // doThrow(ResourceNotFoundException.class)
-    // .when(rcfManager)
-    // .getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
-    //
-    // when(stateManager.fetchColdStartException(any(String.class)))
-    // .thenReturn(Optional.of(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)));
-    //
-    // // These constructors register handler in transport service
-    // new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, rcfManager, adCircuitBreakerService);
-    // new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
-    //
-    // AnomalyResultTransportAction action = new AnomalyResultTransportAction(
-    // new ActionFilters(Collections.emptySet()),
-    // transportService,
-    // settings,
-    // client,
-    // stateManager,
-    // featureQuery,
-    // normalModelManager,
-    // normalModelPartitioner,
-    // hashRing,
-    // clusterService,
-    // indexNameResolver,
-    // adCircuitBreakerService,
-    // adStats,
-    // threadPool,
-    // searchFeatureDao,
-    // adTaskManager
-    // );
-    //
-    // AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
-    // PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
-    // action.doExecute(null, request, listener);
-    //
-    // assertException(listener, LimitExceededException.class);
-    // }
+        noModelExceptionTemplate(new ResourceNotFoundException(adID, ""), adID, AnomalyDetectionException.class, error);
+    }
 
-    // @SuppressWarnings("unchecked")
-    // public void testInsufficientCapacityExceptionDuringRestoringModel() {
-    //
-    // ModelManager rcfManager = mock(ModelManager.class);
-    // doThrow(new NotSerializableExceptionWrapper(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)))
-    // .when(rcfManager)
-    // .getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
-    //
-    // // These constructors register handler in transport service
-    // new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, rcfManager, adCircuitBreakerService);
-    // new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
-    //
-    // AnomalyResultTransportAction action = new AnomalyResultTransportAction(
-    // new ActionFilters(Collections.emptySet()),
-    // transportService,
-    // settings,
-    // client,
-    // stateManager,
-    // featureQuery,
-    // normalModelManager,
-    // normalModelPartitioner,
-    // hashRing,
-    // clusterService,
-    // indexNameResolver,
-    // adCircuitBreakerService,
-    // adStats,
-    // threadPool,
-    // searchFeatureDao,
-    // adTaskManager
-    // );
-    //
-    // AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
-    // PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
-    // action.doExecute(null, request, listener);
-    //
-    // assertException(listener, LimitExceededException.class);
-    // }
+//    @SuppressWarnings("unchecked")
+//    public void testInsufficientCapacityExceptionDuringColdStart() {
+//
+//        ModelManager rcfManager = mock(ModelManager.class);
+//        doThrow(ResourceNotFoundException.class)
+//            .when(rcfManager)
+//            .getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
+//
+//        when(stateManager.fetchColdStartException(any(String.class)))
+//            .thenReturn(Optional.of(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)));
+//
+//        // These constructors register handler in transport service
+//        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, rcfManager, adCircuitBreakerService);
+//        new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
+//
+//        AnomalyResultTransportAction action = new AnomalyResultTransportAction(
+//            new ActionFilters(Collections.emptySet()),
+//            transportService,
+//            settings,
+//            client,
+//            stateManager,
+//            featureQuery,
+//            normalModelManager,
+//            normalModelPartitioner,
+//            hashRing,
+//            clusterService,
+//            indexNameResolver,
+//            adCircuitBreakerService,
+//            adStats,
+//            threadPool,
+//            searchFeatureDao
+//        );
+//
+//        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
+//        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+//        action.doExecute(null, request, listener);
+//
+//        assertException(listener, LimitExceededException.class);
+//    }
+
+//    @SuppressWarnings("unchecked")
+//    public void testInsufficientCapacityExceptionDuringRestoringModel() {
+//
+//        ModelManager rcfManager = mock(ModelManager.class);
+//        doThrow(new NotSerializableExceptionWrapper(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)))
+//            .when(rcfManager)
+//            .getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
+//
+//        // These constructors register handler in transport service
+//        new RCFResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, rcfManager, adCircuitBreakerService);
+//        new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
+//
+//        AnomalyResultTransportAction action = new AnomalyResultTransportAction(
+//            new ActionFilters(Collections.emptySet()),
+//            transportService,
+//            settings,
+//            client,
+//            stateManager,
+//            featureQuery,
+//            normalModelManager,
+//            normalModelPartitioner,
+//            hashRing,
+//            clusterService,
+//            indexNameResolver,
+//            adCircuitBreakerService,
+//            adStats,
+//            threadPool,
+//            searchFeatureDao
+//        );
+//
+//        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
+//        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+//        action.doExecute(null, request, listener);
+//
+//        assertException(listener, LimitExceededException.class);
+//    }
 
     private <T extends TransportResponse> TransportResponseHandler<T> rcfResponseHandler(TransportResponseHandler<T> handler) {
         return new TransportResponseHandler<T>() {
@@ -677,10 +677,9 @@ public class AnomalyResultTests extends AbstractADTest {
         assertTrue("actual message: " + exception.getMessage(), exception.getMessage().contains(error));
     }
 
-    // public void testThresholdException() {
-    // thresholdExceptionTestTemplate(new NullPointerException(), adID, EndRunException.class,
-    // AnomalyResultTransportAction.BUG_RESPONSE);
-    // }
+    public void testThresholdException() {
+        thresholdExceptionTestTemplate(new NullPointerException(), adID, EndRunException.class, CommonErrorMessages.BUG_RESPONSE);
+    }
 
     public void testCircuitBreaker() {
 

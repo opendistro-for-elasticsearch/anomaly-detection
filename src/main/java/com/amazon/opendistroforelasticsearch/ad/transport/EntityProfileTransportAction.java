@@ -91,8 +91,11 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
         String adID = request.getAdID();
         String entityValue = request.getEntityValue();
         String modelId = modelManager.getEntityModelId(adID, entityValue);
-        Optional<DiscoveryNode> node = hashRing.getOwningNode(modelId); // TODO: get worker node from entity task, then forward the request
-                                                                        // to that node directly?
+
+        // we use entity value (e.g., app_0) to find its node
+     // TODO: get worker node from entity task, then forward the request
+     // to that node directly?
+        Optional<DiscoveryNode> node = hashRing.getOwningNode(entityValue);
         if (!node.isPresent()) {
             listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
             return;

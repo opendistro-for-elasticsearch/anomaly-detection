@@ -76,11 +76,14 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
 import com.amazon.opendistroforelasticsearch.ad.feature.SearchFeatureDao;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
-import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
+import com.amazon.opendistroforelasticsearch.ad.ml.EntityColdStarter;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelPartitioner;
 import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.CheckpointReadQueue;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.ColdEntityQueue;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.ResultWriteQueue;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStat;
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStats;
@@ -114,11 +117,13 @@ public class MultientityResultTests extends AbstractADTest {
     private String detectorId;
     private Instant now;
     private String modelId;
-    private MultiEntityResultHandler anomalyResultHandler;
-    private CheckpointDao checkpointDao;
     private CacheProvider provider;
     private AnomalyDetectionIndices indexUtil;
     private ADTaskManager adTaskManager;
+    private ResultWriteQueue resultWriteQueue;
+    private CheckpointReadQueue checkpointReadQueue;
+    private EntityColdStarter coldStarer;
+    private ColdEntityQueue coldEntityQueue;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -151,7 +156,6 @@ public class MultientityResultTests extends AbstractADTest {
             listener.onResponse(Optional.of(detector));
             return null;
         }).when(stateManager).getAnomalyDetector(anyString(), any(ActionListener.class));
-        when(stateManager.getLastIndexThrottledTime()).thenReturn(Instant.MIN);
 
         settings = Settings.builder().put(AnomalyDetectorSettings.COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5)).build();
 
@@ -215,10 +219,17 @@ public class MultientityResultTests extends AbstractADTest {
             adTaskManager
         );
 
-        anomalyResultHandler = mock(MultiEntityResultHandler.class);
-        checkpointDao = mock(CheckpointDao.class);
         provider = mock(CacheProvider.class);
+        EntityCache entityCache = mock(EntityCache.class);
+        when(provider.get()).thenReturn(entityCache);
+        when(entityCache.get(any(), any())).thenReturn(MLUtil.randomNonEmptyModelState());
+
         indexUtil = mock(AnomalyDetectionIndices.class);
+        resultWriteQueue = mock(ResultWriteQueue.class);
+        checkpointReadQueue = mock(CheckpointReadQueue.class);
+
+        coldStarer = mock(EntityColdStarter.class);
+        coldEntityQueue = mock(ColdEntityQueue.class);
     }
 
     @Override
@@ -364,21 +375,17 @@ public class MultientityResultTests extends AbstractADTest {
             testNodes[1].transportService,
             normalModelManager,
             adCircuitBreakerService,
-            anomalyResultHandler,
-            checkpointDao,
             provider,
             stateManager,
-            settings,
-            clock,
-            indexUtil
+            indexUtil,
+            resultWriteQueue,
+            checkpointReadQueue,
+            coldStarer,
+            coldEntityQueue,
+            threadPool
         );
 
-        EntityCache entityCache = mock(EntityCache.class);
-        when(provider.get()).thenReturn(entityCache);
-        when(entityCache.get(any(), any(), any(), anyString())).thenReturn(MLUtil.randomNonEmptyModelState());
-
-        when(normalModelManager.getAnomalyResultForEntity(anyString(), any(), anyString(), any(), anyString()))
-            .thenReturn(new ThresholdingResult(0, 1, 1));
+        when(normalModelManager.score(any(), anyString(), any())).thenReturn(new ThresholdingResult(0, 1, 1));
     }
 
     private <T extends TransportResponse> void setUpTransportInterceptor(
@@ -475,13 +482,14 @@ public class MultientityResultTests extends AbstractADTest {
             testNodes[1].transportService,
             normalModelManager,
             openBreaker,
-            anomalyResultHandler,
-            checkpointDao,
             provider,
             stateManager,
-            settings,
-            clock,
-            indexUtil
+            indexUtil,
+            resultWriteQueue,
+            checkpointReadQueue,
+            coldStarer,
+            coldEntityQueue,
+            threadPool
         );
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();

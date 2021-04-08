@@ -473,6 +473,13 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         String detectorId = jobParameter.getName();
         detectorEndRunExceptionCount.remove(detectorId);
         try {
+            // reset error if different from previous recorded one
+            adTaskManager
+            .updateLatestADTask(
+                detectorId,
+                ADTaskType.getRealtimeTaskTypes(),
+                ImmutableMap.of(ADTask.ERROR_FIELD, Optional.ofNullable(response.getError()).orElse(""))
+            );
             // skipping writing to the result index if not necessary
             // For a single-entity detector, the result is not useful if error is null
             // and rcf score (thus anomaly grade/confidence) is null.
@@ -504,12 +511,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 indexUtil.getSchemaVersion(ADIndex.RESULT)
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            adTaskManager
-                .updateLatestADTask(
-                    detectorId,
-                    ADTaskType.getRealtimeTaskTypes(),
-                    ImmutableMap.of(ADTask.ERROR_FIELD, Optional.ofNullable(response.getError()).orElse(""))
-                );
+
             // detectionStateHandler.saveError(response.getError(), detectorId);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);

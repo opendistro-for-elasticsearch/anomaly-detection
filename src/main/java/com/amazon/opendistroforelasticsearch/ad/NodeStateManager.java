@@ -19,7 +19,6 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -64,8 +63,6 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     private final Clock clock;
     private final Settings settings;
     private final Duration stateTtl;
-    // last time we are throttled due to too much index pressure
-    private Instant lastIndexThrottledTime;
 
     public static final String NO_ERROR = "no_error";
 
@@ -99,7 +96,6 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         this.clock = clock;
         this.settings = settings;
         this.stateTtl = stateTtl;
-        this.lastIndexThrottledTime = Instant.MIN;
     }
 
     /**
@@ -331,13 +327,5 @@ public class NodeStateManager implements MaintenanceState, CleanState {
                 nodeState.setColdStartRunning(false);
             }
         };
-    }
-
-    public Instant getLastIndexThrottledTime() {
-        return lastIndexThrottledTime;
-    }
-
-    public void setLastIndexThrottledTime(Instant lastIndexThrottledTime) {
-        this.lastIndexThrottledTime = lastIndexThrottledTime;
     }
 }

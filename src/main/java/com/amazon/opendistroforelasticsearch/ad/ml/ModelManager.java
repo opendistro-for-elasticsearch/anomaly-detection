@@ -113,9 +113,10 @@ public class ModelManager implements DetectorModelSize {
     private final Clock clock;
     public FeatureManager featureManager;
 
-    private EntityColdStarter entityColdStarter;
     private ModelPartitioner modelPartitioner;
     private MemoryTracker memoryTracker;
+
+    private EntityColdStarter entityColdStarter;
 
     /**
      * Constructor.
@@ -138,7 +139,6 @@ public class ModelManager implements DetectorModelSize {
      * @param minPreviewSize minimum number of data points for preview
      * @param modelTtl time to live for hosted models
      * @param checkpointInterval interval between checkpoints
-     * @param entityColdStarter Used train models on input data
      * @param modelPartitioner Used to partition RCF models
      * @param featureManager Used to create features for models
      * @param memoryTracker AD memory usage tracker
@@ -162,12 +162,11 @@ public class ModelManager implements DetectorModelSize {
         int minPreviewSize,
         Duration modelTtl,
         Duration checkpointInterval,
-        EntityColdStarter entityColdStarter,
         ModelPartitioner modelPartitioner,
         FeatureManager featureManager,
-        MemoryTracker memoryTracker
+        MemoryTracker memoryTracker,
+        EntityColdStarter entityColdStarter
     ) {
-
         this.rcfSerde = rcfSerde;
         this.checkpointDao = checkpointDao;
         this.gson = gson;
@@ -932,56 +931,24 @@ public class ModelManager implements DetectorModelSize {
         }
     }
 
-    /**
-     * Compute anomaly result for the given data point
-     * @param detectorId Detector Id
-     * @param datapoint Data point
-     * @param entityName entity's name like "server_1"
-     * @param modelState the state associated with the entity
-     * @param modelId the model Id
-     * @return anomaly result, confidence, and the corresponding RCF score.
-     */
-    public ThresholdingResult getAnomalyResultForEntity(
-        String detectorId,
-        double[] datapoint,
-        String entityName,
-        ModelState<EntityModel> modelState,
-        String modelId
-    ) {
-        ThresholdingResult result = null;
-
-        if (modelState != null) {
-            EntityModel model = modelState.getModel();
-            Queue<double[]> samples = model.getSamples();
-            samples.add(datapoint);
-            if (samples.size() > this.rcfNumMinSamples) {
-                samples.remove();
-            }
-
-            result = maybeTrainBeforeScore(modelState, entityName);
-        } else {
-            result = new ThresholdingResult(0, 0, 0);
-        }
-
-        return result;
-    }
-
-    private ThresholdingResult score(Queue<double[]> samples, String modelId, ModelState<EntityModel> modelState) {
+    public ThresholdingResult score(double[] feature, String modelId, ModelState<EntityModel> modelState) {
         EntityModel model = modelState.getModel();
+        if (model == null) {
+            return new ThresholdingResult(0, 0, 0);
+        }
         RandomCutForest rcf = model.getRcf();
         ThresholdingModel threshold = model.getThreshold();
-
-        double lastRcfScore = 0;
-        while (samples.peek() != null) {
-            double[] feature = samples.poll();
-            lastRcfScore = rcf.getAnomalyScore(feature);
-            rcf.update(feature);
-            threshold.update(lastRcfScore);
+        if (rcf == null || threshold == null) {
+            return new ThresholdingResult(0, 0, 0);
         }
 
-        double anomalyGrade = threshold.grade(lastRcfScore);
+        double rcfScore = rcf.getAnomalyScore(feature);
+        rcf.update(feature);
+        threshold.update(rcfScore);
+
+        double anomalyGrade = threshold.grade(rcfScore);
         double anomalyConfidence = computeRcfConfidence(rcf) * threshold.confidence();
-        ThresholdingResult result = new ThresholdingResult(anomalyGrade, anomalyConfidence, lastRcfScore);
+        ThresholdingResult result = new ThresholdingResult(anomalyGrade, anomalyConfidence, rcfScore);
 
         modelState.setLastUsedTime(clock.instant());
         return result;
@@ -998,14 +965,16 @@ public class ModelManager implements DetectorModelSize {
     }
 
     /**
-     * Instantiate an entity state out of checkpoint.  Running cold start if the
-     * model is empty. Update models using recent samples if applicable.
+     * Instantiate an entity state out of checkpoint.
      * @param checkpoint Checkpoint loaded from index
      * @param modelId Model Id
      * @param entityName Entity's name
      * @param modelState entity state to instantiate
+     *
+     * @return updated model state
+     *
      */
-    public void processEntityCheckpoint(
+    public ModelState<EntityModel> processEntityCheckpoint(
         Optional<Entry<EntityModel, Instant>> checkpoint,
         String modelId,
         String entityName,
@@ -1017,19 +986,19 @@ public class ModelManager implements DetectorModelSize {
             combineSamples(modelState.getModel(), restoredModel);
             modelState.setModel(restoredModel);
             modelState.setLastCheckpointTime(modelToTime.getValue());
-        } else {
-            // the time controls whether we saves this state or not.
-            // if it is within one hour, we don't save.
-            // This branch means this is the first state in record
-            // (the checkpoint might have been deleted).
-            // we have to save.
-            modelState.setLastCheckpointTime(clock.instant().minus(checkpointInterval));
+        }
+        EntityModel model = modelState.getModel();
+        if (model == null) {
+            model = new EntityModel(modelId, new ArrayDeque<>(), null, null);
+            modelState.setModel(model);
         }
 
-        if (modelState.getModel() == null) {
-            modelState.setModel(new EntityModel(modelId, new ArrayDeque<>(), null, null));
+        if ((model.getRcf() == null || model.getThreshold() == null)
+            && model.getSamples() != null
+            && model.getSamples().size() > rcfNumMinSamples) {
+            entityColdStarter.trainModelFromExistingSamples(modelState);
         }
-        maybeTrainBeforeScore(modelState, entityName);
+        return modelState;
     }
 
     private void combineSamples(EntityModel fromModel, EntityModel toModel) {
@@ -1037,29 +1006,5 @@ public class ModelManager implements DetectorModelSize {
         while (samples.peek() != null) {
             toModel.addSample(samples.poll());
         }
-    }
-
-    /**
-     * Infer whenever both models are not null and do cold start if one of the models is not there
-     * @param modelState Model State
-     * @param entityName The entity's name
-     * @return model inference result for the entity, return all 0 Thresholding
-     *  result if the models are not ready
-     */
-    private ThresholdingResult maybeTrainBeforeScore(ModelState<EntityModel> modelState, String entityName) {
-        EntityModel model = modelState.getModel();
-        Queue<double[]> samples = model.getSamples();
-        String modelId = model.getModelId();
-        String detectorId = modelState.getDetectorId();
-        ThresholdingResult result = null;
-        if (model.getRcf() == null || model.getThreshold() == null) {
-            entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
-        }
-
-        // update models using recent samples
-        if (model.getRcf() != null && model.getThreshold() != null && result == null) {
-            return score(samples, modelId, modelState);
-        }
-        return new ThresholdingResult(0, 0, 0);
     }
 }

@@ -74,6 +74,7 @@ import test.com.amazon.opendistroforelasticsearch.ad.util.MLUtil;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
+import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
@@ -175,6 +176,9 @@ public class ModelManagerTests {
     private MemoryTracker memoryTracker;
     private Instant now;
 
+    @Mock
+    private ADCircuitBreakerService adCircuitBreakerService;
+
     @Before
     public void setup() {
         MockitoAnnotations.initMocks(this);
@@ -222,7 +226,8 @@ public class ModelManagerTests {
             modelMaxSizePercentage,
             modelDesiredSizePercentage,
             clusterService,
-            numSamples
+            numSamples,
+            adCircuitBreakerService
         );
 
         ExecutorService executorService = mock(ExecutorService.class);
@@ -258,10 +263,10 @@ public class ModelManagerTests {
                 minPreviewSize,
                 modelTtl,
                 checkpointInterval,
-                entityColdStarter,
                 modelPartitioner,
                 featureManager,
-                memoryTracker
+                memoryTracker,
+                entityColdStarter
             )
         );
 
@@ -399,7 +404,14 @@ public class ModelManagerTests {
     ) {
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
         MemoryTracker memoryTracker = spy(
-            new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, numSamples)
+            new MemoryTracker(
+                jvmService,
+                modelMaxSizePercentage,
+                modelDesiredSizePercentage,
+                clusterService,
+                numSamples,
+                adCircuitBreakerService
+            )
         );
 
         when(memoryTracker.estimateModelSize(rcf)).thenReturn(totalModelSize);
@@ -429,7 +441,14 @@ public class ModelManagerTests {
     ) {
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
         MemoryTracker memoryTracker = spy(
-            new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, numSamples)
+            new MemoryTracker(
+                jvmService,
+                modelMaxSizePercentage,
+                modelDesiredSizePercentage,
+                clusterService,
+                numSamples,
+                adCircuitBreakerService
+            )
         );
         when(memoryTracker.estimateModelSize(rcf)).thenReturn(totalModelSize);
         modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
@@ -516,7 +535,8 @@ public class ModelManagerTests {
             modelMaxSizePercentage,
             modelDesiredSizePercentage,
             clusterService,
-            numSamples
+            numSamples,
+            adCircuitBreakerService
         );
 
         ActionListener<RcfResult> listener = mock(ActionListener.class);
@@ -542,10 +562,10 @@ public class ModelManagerTests {
                 minPreviewSize,
                 modelTtl,
                 checkpointInterval,
-                entityColdStarter,
                 modelPartitioner,
                 featureManager,
-                memoryTracker
+                memoryTracker,
+                entityColdStarter
             )
         );
 
@@ -1198,43 +1218,10 @@ public class ModelManagerTests {
     }
 
     @Test
-    public void getNullState() {
-        assertEquals(new ThresholdingResult(0, 0, 0), modelManager.getAnomalyResultForEntity("", new double[] {}, "", null, ""));
-    }
-
-    @Test
-    public void getEmptyStateFullSamples() {
-        ModelState<EntityModel> state = MLUtil.randomModelStateWithSample(false, numMinSamples);
-        assertEquals(
-            new ThresholdingResult(0, 0, 0),
-            modelManager.getAnomalyResultForEntity(detectorId, new double[] { -1 }, entityName, state, modelId)
-        );
-        assertEquals(numMinSamples, state.getModel().getSamples().size());
-    }
-
-    @Test
-    public void getEmptyStateNotFullSamples() {
-        ModelState<EntityModel> state = MLUtil.randomModelStateWithSample(false, numMinSamples - 1);
-        assertEquals(
-            new ThresholdingResult(0, 0, 0),
-            modelManager.getAnomalyResultForEntity(detectorId, new double[] { -1 }, entityName, state, modelId)
-        );
-        assertEquals(numMinSamples, state.getModel().getSamples().size());
-    }
-
-    @Test
-    public void scoreSamples() {
-        ModelState<EntityModel> state = MLUtil.randomNonEmptyModelState();
-        modelManager.getAnomalyResultForEntity(detectorId, new double[] { -1 }, entityName, state, modelId);
-        assertEquals(0, state.getModel().getSamples().size());
-        assertEquals(now, state.getLastUsedTime());
-    }
-
-    @Test
     public void processEmptyCheckpoint() {
         ModelState<EntityModel> modelState = MLUtil.randomModelStateWithSample(false, numMinSamples - 1);
         modelManager.processEntityCheckpoint(Optional.empty(), modelId, entityName, modelState);
-        assertEquals(now.minus(checkpointInterval), modelState.getLastCheckpointTime());
+        assertEquals(Instant.MIN, modelState.getLastCheckpointTime());
     }
 
     @Test

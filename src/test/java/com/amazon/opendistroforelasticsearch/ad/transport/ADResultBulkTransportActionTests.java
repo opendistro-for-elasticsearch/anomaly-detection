@@ -75,14 +75,20 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
         Settings settings = Settings
             .builder()
             .put(IndexingPressure.MAX_INDEXING_BYTES.getKey(), "1KB")
-            .put(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT.getKey(), 0.8)
+            .put(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT.getKey(), 0.6)
+            .put(AnomalyDetectorSettings.INDEX_PRESSURE_HARD_LIMIT.getKey(), 0.9)
             .build();
         setupTestNodes(settings);
         transportService = testNodes[0].transportService;
         clusterService = spy(testNodes[0].clusterService);
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT)))
+            Collections
+                .unmodifiableSet(
+                    new HashSet<>(
+                        Arrays.asList(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT, AnomalyDetectorSettings.INDEX_PRESSURE_HARD_LIMIT)
+                    )
+                )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         ActionFilters actionFilters = mock(ActionFilters.class);
@@ -123,7 +129,7 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
             return null;
         }).when(client).execute(any(), any(), any());
 
-        PlainActionFuture<BulkResponse> future = PlainActionFuture.newFuture();
+        PlainActionFuture<ADResultBulkResponse> future = PlainActionFuture.newFuture();
         resultBulk.doExecute(null, originalRequest, future);
 
         future.actionGet();
@@ -153,7 +159,7 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
             return null;
         }).when(client).execute(any(), any(), any());
 
-        PlainActionFuture<BulkResponse> future = PlainActionFuture.newFuture();
+        PlainActionFuture<ADResultBulkResponse> future = PlainActionFuture.newFuture();
         resultBulk.doExecute(null, originalRequest, future);
 
         future.actionGet();
@@ -161,7 +167,7 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testSendRandomPartial() {
-        // 400 + 421 > 1024 * 0.8. 1024 is 1KB, our INDEX_PRESSURE_SOFT_LIMIT
+        // 1024 * 0.9 > 400 + 421 > 1024 * 0.6. 1024 is 1KB, our INDEX_PRESSURE_SOFT_LIMIT
         when(indexingPressure.getCurrentCombinedCoordinatingAndPrimaryBytes()).thenReturn(400L);
         when(indexingPressure.getCurrentReplicaBytes()).thenReturn(421L);
 
@@ -189,7 +195,7 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
             return null;
         }).when(client).execute(any(), any(), any());
 
-        PlainActionFuture<BulkResponse> future = PlainActionFuture.newFuture();
+        PlainActionFuture<ADResultBulkResponse> future = PlainActionFuture.newFuture();
         resultBulk.doExecute(null, originalRequest, future);
 
         future.actionGet();

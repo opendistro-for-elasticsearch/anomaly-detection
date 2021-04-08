@@ -15,7 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.caching;
 
+import java.util.Collection;
 import java.util.List;
+
+import org.apache.commons.lang3.tuple.Pair;
 
 import com.amazon.opendistroforelasticsearch.ad.CleanState;
 import com.amazon.opendistroforelasticsearch.ad.DetectorModelSize;
@@ -32,12 +35,10 @@ public interface EntityCache extends MaintenanceState, CleanState, DetectorModel
      *
      * @param modelId Model Id
      * @param detector Detector config object
-     * @param datapoint The most recent data point
-     * @param entityName The Entity's name
      * @return the ModelState associated with the model or null if no cached item
      * for the entity
      */
-    ModelState<EntityModel> get(String modelId, AnomalyDetector detector, double[] datapoint, String entityName);
+    ModelState<EntityModel> get(String modelId, AnomalyDetector detector);
 
     /**
      * Get the number of active entities of a detector
@@ -98,4 +99,25 @@ public interface EntityCache extends MaintenanceState, CleanState, DetectorModel
      * milliseconds when the entity's state is lastly used.  Otherwise, return -1.
      */
     long getLastActiveMs(String detectorId, String entityModelId);
+
+    /**
+     * Release memory when memory circuit breaker is open
+     */
+    void releaseMemoryForOpenCircuitBreaker();
+
+    /**
+     * Select candidate entities for which we can load models
+     * @param cacheMissEntities Cache miss entities
+     * @param detectorId Detector Id
+     * @param detector Detector object
+     * @return A list of entities that are admitted into the cache as a result of the
+     *  update and the left-over entities
+     */
+    Pair<List<String>, List<String>> selectUpdateCandidate(
+        Collection<String> cacheMissEntities,
+        String detectorId,
+        AnomalyDetector detector
+    );
+
+    boolean hostIfPossible(AnomalyDetector detector, ModelState<EntityModel> toUpdate);
 }

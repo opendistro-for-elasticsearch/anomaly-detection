@@ -31,6 +31,7 @@ import org.elasticsearch.monitor.jvm.JvmInfo.Mem;
 import org.elasticsearch.monitor.jvm.JvmService;
 import org.elasticsearch.test.ESTestCase;
 
+import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
@@ -56,6 +57,7 @@ public class MemoryTrackerTests extends ESTestCase {
     double modelDesiredSizePercentage;
     JvmService jvmService;
     AnomalyDetector detector;
+    ADCircuitBreakerService circuitBreaker;
 
     @Override
     public void setUp() throws Exception {
@@ -104,18 +106,34 @@ public class MemoryTrackerTests extends ESTestCase {
         detector = mock(AnomalyDetector.class);
         when(detector.getEnabledFeatureIds()).thenReturn(Collections.singletonList("a"));
         when(detector.getShingleSize()).thenReturn(1);
+
+        circuitBreaker = mock(ADCircuitBreakerService.class);
     }
 
     private void setUpBigHeap() {
         ByteSizeValue value = new ByteSizeValue(largeHeapSize);
         when(mem.getHeapMax()).thenReturn(value);
-        tracker = new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, rcfSampleSize);
+        tracker = new MemoryTracker(
+            jvmService,
+            modelMaxSizePercentage,
+            modelDesiredSizePercentage,
+            clusterService,
+            rcfSampleSize,
+            circuitBreaker
+        );
     }
 
     private void setUpSmallHeap() {
         ByteSizeValue value = new ByteSizeValue(smallHeapSize);
         when(mem.getHeapMax()).thenReturn(value);
-        tracker = new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, rcfSampleSize);
+        tracker = new MemoryTracker(
+            jvmService,
+            modelMaxSizePercentage,
+            modelDesiredSizePercentage,
+            clusterService,
+            rcfSampleSize,
+            circuitBreaker
+        );
     }
 
     public void testEstimateModelSize() {

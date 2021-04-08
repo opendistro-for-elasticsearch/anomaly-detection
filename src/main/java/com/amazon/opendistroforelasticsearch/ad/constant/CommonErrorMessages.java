@@ -41,4 +41,5 @@ public class CommonErrorMessages {
     public static String EXCEED_HISTORICAL_ANALYSIS_LIMIT = "Exceed max historical analysis limit per node";
     public static String NO_ELIGIBLE_NODE_TO_RUN_DETECTOR = "No eligible node to run detector ";
     public static String EMPTY_STALE_RUNNING_ENTITIES = "Empty stale running entities";
+    public static final String BUG_RESPONSE = "We might have bugs.";
 }

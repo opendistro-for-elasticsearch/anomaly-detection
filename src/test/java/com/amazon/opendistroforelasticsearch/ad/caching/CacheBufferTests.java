@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Random;
 
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
@@ -33,24 +34,24 @@ import org.mockito.ArgumentCaptor;
 import test.com.amazon.opendistroforelasticsearch.ad.util.MLUtil;
 
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
-import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.CheckpointWriteQueue;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
 public class CacheBufferTests extends ESTestCase {
     CacheBuffer cacheBuffer;
-    CheckpointDao checkpointDao;
     MemoryTracker memoryTracker;
     Clock clock;
     String detectorId;
     float initialPriority;
     long memoryPerEntity;
+    CheckpointWriteQueue checkpointWriteQueue;
+    Random random;
 
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
 
-        checkpointDao = mock(CheckpointDao.class);
         memoryTracker = mock(MemoryTracker.class);
         clock = mock(Clock.class);
         when(clock.instant()).thenReturn(Instant.now());
@@ -58,15 +59,18 @@ public class CacheBufferTests extends ESTestCase {
         detectorId = "123";
         memoryPerEntity = 81920;
 
+        checkpointWriteQueue = mock(CheckpointWriteQueue.class);
+
         cacheBuffer = new CacheBuffer(
             1,
             1,
-            checkpointDao,
             memoryPerEntity,
             memoryTracker,
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            detectorId
+            detectorId,
+            checkpointWriteQueue,
+            new Random(42)
         );
         initialPriority = cacheBuffer.getPriorityTracker().getUpdatedPriority(0);
     }

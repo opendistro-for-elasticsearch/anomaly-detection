@@ -22,6 +22,7 @@ import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -116,7 +117,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
         .getExceptionName(new LimitExceededException("", ""));
     static final String NULL_RESPONSE = "Received null response from";
-    static final String BUG_RESPONSE = "We might have bugs.";
+
     static final String TROUBLE_QUERYING_ERR_MSG = "Having trouble querying data: ";
     static final String NO_ACK_ERR = "no acknowledgements from model hosting nodes.";
     // We need this invalid query tag to show proper error message on frontend
@@ -341,11 +342,28 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                             .collect(
                                 Collectors
                                     .groupingBy(
+                                        // from entity name to its node
                                         e -> hashRing.getOwningNode(e.getKey()).get(),
                                         Collectors.toMap(Entry::getKey, Entry::getValue)
                                     )
                             )
                             .entrySet();
+
+                        Iterator<Entry<DiscoveryNode, Map<String, double[]>>> iterator = node2Entities.iterator();
+
+                        while (iterator.hasNext()) {
+                            Entry<DiscoveryNode, Map<String, double[]>> entry = iterator.next();
+                            DiscoveryNode modelNode = entry.getKey();
+                            if (modelNode == null) {
+                                iterator.remove();
+                                continue;
+                            }
+                            String modelNodeId = modelNode.getId();
+                            if (stateManager.isMuted(modelNodeId)) {
+                                LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s", modelNodeId));
+                                iterator.remove();
+                            }
+                        }
 
                         int nodeCount = node2Entities.size();
                         AtomicInteger responseCount = new AtomicInteger();
@@ -615,7 +633,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             failure.set(new InternalFailure(adID, causeException));
         } else {
             // some unexpected bugs occur while predicting anomaly
-            failure.set(new EndRunException(adID, BUG_RESPONSE, causeException, false));
+            failure.set(new EndRunException(adID, CommonErrorMessages.BUG_RESPONSE, causeException, false));
         }
     }
 
@@ -928,7 +946,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         if (!nodes.nodeExists(node) && hashRing.build()) {
             return;
         }
-        // rebuilt is not done or node is unresponsive
+        // rebuilding is not done or node is unresponsive
         stateManager.addPressure(node);
     }
 
@@ -1174,10 +1192,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         @Override
         public void onFailure(Exception e) {
-            LOG.debug("5555555555-fail " + adID, e);
-            if (e == null) {
-                return;
-            }
             try {
                 LOG.error(new ParameterizedMessage("Cannot send entities' features to {} for {}", nodeId, adID), e);
 
@@ -1196,6 +1210,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             if (failure.get() != null) {
                 listener.onFailure(failure.get());
             } else if (entityResultResponses.isEmpty()) {
+             // e.g., we have connection issues with all of the nodes while restarting clusters
                 listener.onFailure(new InternalFailure(adID, NO_ACK_ERR));
             } else {
 

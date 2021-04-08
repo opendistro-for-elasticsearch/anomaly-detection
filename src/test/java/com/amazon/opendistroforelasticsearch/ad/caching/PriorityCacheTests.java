@@ -21,7 +21,6 @@ import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -31,11 +30,11 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Map.Entry;
-import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -43,12 +42,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
-import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.threadpool.Scheduler.ScheduledCancellable;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -56,13 +52,17 @@ import org.junit.Before;
 import org.mockito.ArgumentCaptor;
 
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
+import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
 import com.amazon.opendistroforelasticsearch.ad.ml.EntityModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager.ModelType;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.CheckpointReadQueue;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.CheckpointWriteQueue;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.ColdEntityQueue;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
 public class PriorityCacheTests extends ESTestCase {
@@ -87,6 +87,12 @@ public class PriorityCacheTests extends ESTestCase {
     int dedicatedCacheSize;
     Duration detectorDuration;
     int numMinSamples;
+    CheckpointReadQueue checkpointReadQueue;
+    ColdEntityQueue coldEntityQueue;
+    long dataStartTimeMs;
+    CheckpointWriteQueue checkpointWriteQueue;
+    ADCircuitBreakerService adCircuitBreakerService;
+    Random random;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -98,34 +104,33 @@ public class PriorityCacheTests extends ESTestCase {
         modelId3 = "3";
         modelId4 = "4";
         checkpoint = mock(CheckpointDao.class);
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            ActionListener<Optional<Entry<EntityModel, Instant>>> listener =
-                (ActionListener<Optional<Entry<EntityModel, Instant>>>) args[1];
-            listener.onResponse(Optional.empty());
-            return null;
-        }).when(checkpoint).restoreModelCheckpoint(anyString(), any(ActionListener.class));
 
         memoryTracker = mock(MemoryTracker.class);
         when(memoryTracker.memoryToShed()).thenReturn(0L);
 
         modelManager = mock(ModelManager.class);
-        doNothing().when(modelManager).processEntityCheckpoint(any(Optional.class), anyString(), anyString(), any(ModelState.class));
 
         clock = mock(Clock.class);
         when(clock.instant()).thenReturn(Instant.now());
 
         clusterService = mock(ClusterService.class);
-        settings = Settings.EMPTY;
-        ClusterSettings clusterSettings = new ClusterSettings(
-            settings,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND)))
+        // settings = Settings.EMPTY;
+        ClusterSettings settings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.DEDICATED_CACHE_SIZE)))
         );
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        when(clusterService.getClusterSettings()).thenReturn(settings);
 
         threadPool = mock(ThreadPool.class);
         dedicatedCacheSize = 1;
         numMinSamples = 3;
+
+        checkpointReadQueue = mock(CheckpointReadQueue.class);
+        coldEntityQueue = mock(ColdEntityQueue.class);
+
+        checkpointWriteQueue = mock(CheckpointWriteQueue.class);
+
+        adCircuitBreakerService = mock(ADCircuitBreakerService.class);
 
         EntityCache cache = new PriorityCache(
             checkpoint,
@@ -133,16 +138,12 @@ public class PriorityCacheTests extends ESTestCase {
             AnomalyDetectorSettings.CHECKPOINT_TTL,
             AnomalyDetectorSettings.MAX_INACTIVE_ENTITIES,
             memoryTracker,
-            modelManager,
             AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES,
             clock,
             clusterService,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            numMinSamples,
-            settings,
             threadPool,
-            // put a large value since my tests uses a lot of permits in a burst manner
-            2000
+            checkpointWriteQueue
         );
 
         cacheProvider = new CacheProvider(cache).get();
@@ -167,27 +168,29 @@ public class PriorityCacheTests extends ESTestCase {
         cacheBuffer = new CacheBuffer(
             1,
             1,
-            checkpoint,
             memoryPerEntity,
             memoryTracker,
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            detectorId
+            detectorId,
+            checkpointWriteQueue,
+            new Random(42)
         );
 
         initialPriority = cacheBuffer.getPriorityTracker().getUpdatedPriority(0);
         point = new double[] { 0.1 };
         entityName = "1.2.3.4";
+        dataStartTimeMs = 1617315543906L;
     }
 
     public void testCacheHit() {
         // cache miss due to empty cache
-        assertEquals(null, cacheProvider.get(modelId1, detector, point, entityName));
+        assertEquals(null, cacheProvider.get(modelId1, detector));
         // cache miss due to door keeper
-        assertEquals(null, cacheProvider.get(modelId1, detector, point, entityName));
+        assertEquals(null, cacheProvider.get(modelId1, detector));
         assertEquals(1, cacheProvider.getTotalActiveEntities());
         assertEquals(1, cacheProvider.getAllModels().size());
-        ModelState<EntityModel> hitState = cacheProvider.get(modelId1, detector, point, entityName);
+        ModelState<EntityModel> hitState = cacheProvider.get(modelId1, detector);
         assertEquals(detectorId, hitState.getDetectorId());
         EntityModel model = hitState.getModel();
         assertEquals(null, model.getRcf());
@@ -204,19 +207,19 @@ public class PriorityCacheTests extends ESTestCase {
         assertEquals(MemoryTracker.Origin.MULTI_ENTITY_DETECTOR, origin.getValue());
 
         for (int i = 0; i < 2; i++) {
-            cacheProvider.get(modelId2, detector, point, entityName);
+            cacheProvider.get(modelId2, detector);
         }
     }
 
     public void testInActiveCache() {
         // make modelId1 has enough priority
         for (int i = 0; i < 10; i++) {
-            cacheProvider.get(modelId1, detector, point, entityName);
+            cacheProvider.get(modelId1, detector);
         }
         assertEquals(1, cacheProvider.getActiveEntities(detectorId));
         when(memoryTracker.canAllocate(anyLong())).thenReturn(false);
         for (int i = 0; i < 2; i++) {
-            assertEquals(null, cacheProvider.get(modelId2, detector, point, entityName));
+            assertEquals(null, cacheProvider.get(modelId2, detector));
         }
         // modelId2 gets put to inactive cache due to nothing in shared cache
         // and it cannot replace modelId1
@@ -226,26 +229,26 @@ public class PriorityCacheTests extends ESTestCase {
     public void testSharedCache() {
         // make modelId1 has enough priority
         for (int i = 0; i < 10; i++) {
-            cacheProvider.get(modelId1, detector, point, entityName);
+            cacheProvider.get(modelId1, detector);
         }
         assertEquals(1, cacheProvider.getActiveEntities(detectorId));
         when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
         for (int i = 0; i < 2; i++) {
-            cacheProvider.get(modelId2, detector, point, entityName);
+            cacheProvider.get(modelId2, detector);
         }
         // modelId2 should be in shared cache
         assertEquals(2, cacheProvider.getActiveEntities(detectorId));
 
         for (int i = 0; i < 10; i++) {
             // put in dedicated cache
-            cacheProvider.get(modelId3, detector2, point, entityName);
+            cacheProvider.get(modelId3, detector2);
         }
 
         assertEquals(1, cacheProvider.getActiveEntities(detectorId2));
         when(memoryTracker.canAllocate(anyLong())).thenReturn(false);
         for (int i = 0; i < 4; i++) {
             // replace modelId2 in shared cache
-            cacheProvider.get(modelId4, detector2, point, entityName);
+            cacheProvider.get(modelId4, detector2);
         }
         assertEquals(2, cacheProvider.getActiveEntities(detectorId2));
         assertEquals(3, cacheProvider.getTotalActiveEntities());
@@ -260,13 +263,13 @@ public class PriorityCacheTests extends ESTestCase {
 
     public void testReplace() {
         for (int i = 0; i < 2; i++) {
-            cacheProvider.get(modelId1, detector, point, entityName);
+            cacheProvider.get(modelId1, detector);
         }
         assertEquals(1, cacheProvider.getActiveEntities(detectorId));
         when(memoryTracker.canAllocate(anyLong())).thenReturn(false);
         ModelState<EntityModel> state = null;
         for (int i = 0; i < 4; i++) {
-            state = cacheProvider.get(modelId2, detector, point, entityName);
+            state = cacheProvider.get(modelId2, detector);
         }
 
         // modelId2 replaced modelId1
@@ -277,107 +280,30 @@ public class PriorityCacheTests extends ESTestCase {
 
     public void testCannotAllocateBuffer() {
         when(memoryTracker.canAllocateReserved(anyString(), anyLong())).thenReturn(false);
-        expectThrows(LimitExceededException.class, () -> cacheProvider.get(modelId1, detector, point, entityName));
+        expectThrows(LimitExceededException.class, () -> cacheProvider.get(modelId1, detector));
     }
 
     /**
-     * Test that even though we put more and more samples, there are only numMinSamples stored
+     * Test that only when an entity is first loaded to the active cache, we add one sample.
      */
     @SuppressWarnings("unchecked")
-    public void testTooManySamples() {
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            ModelState<EntityModel> state = (ModelState<EntityModel>) args[3];
-            EntityModel model = state.getModel();
-            for (int i = 0; i < 10; i++) {
-                model.addSample(point);
-            }
-            try {
-                // invalid samples cannot bed added
-                model.addSample(null);
-                model.addSample(new double[] {});
-            } catch (Exception e) {
-                assertTrue("add invalid samples should not result in failure", false);
-            }
-
-            return null;
-        }).when(modelManager).processEntityCheckpoint(any(Optional.class), anyString(), anyString(), any(ModelState.class));
-
+    public void testLoadSamples() {
         ModelState<EntityModel> state = null;
         for (int i = 0; i < 10; i++) {
-            state = cacheProvider.get(modelId1, detector, point, entityName);
+            state = cacheProvider.get(modelId1, detector);
         }
-        assertEquals(numMinSamples, state.getModel().getSamples().size());
-    }
 
-    /**
-     * We should have no problem when the checkpoint index does not exist yet.
-     */
-    @SuppressWarnings("unchecked")
-    public void testIndexNotFoundException() {
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            ActionListener<Optional<Entry<EntityModel, Instant>>> listener =
-                (ActionListener<Optional<Entry<EntityModel, Instant>>>) args[1];
-            listener.onFailure(new IndexNotFoundException("", CommonName.CHECKPOINT_INDEX_NAME));
-            return null;
-        }).when(checkpoint).restoreModelCheckpoint(anyString(), any(ActionListener.class));
-        ModelState<EntityModel> state = null;
-        for (int i = 0; i < 3; i++) {
-            state = cacheProvider.get(modelId1, detector, point, entityName);
-        }
         assertEquals(1, state.getModel().getSamples().size());
-    }
-
-    @SuppressWarnings("unchecked")
-    public void testThrottledRestore() {
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            ActionListener<Optional<Entry<EntityModel, Instant>>> listener =
-                (ActionListener<Optional<Entry<EntityModel, Instant>>>) args[1];
-            listener.onFailure(new EsRejectedExecutionException("", false));
-            return null;
-        }).when(checkpoint).restoreModelCheckpoint(anyString(), any(ActionListener.class));
-        for (int i = 0; i < 3; i++) {
-            cacheProvider.get(modelId1, detector, point, entityName);
-        }
-        for (int i = 0; i < 3; i++) {
-            cacheProvider.get(modelId2, detector, point, entityName);
-        }
-
-        // due to throttling cool down, we should only restore once
-        verify(checkpoint, times(1)).restoreModelCheckpoint(anyString(), any(ActionListener.class));
-    }
-
-    // we only log error for this
-    @SuppressWarnings("unchecked")
-    public void testUnexpectedRestoreError() {
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            ActionListener<Optional<Entry<EntityModel, Instant>>> listener =
-                (ActionListener<Optional<Entry<EntityModel, Instant>>>) args[1];
-            listener.onFailure(new RuntimeException());
-            return null;
-        }).when(checkpoint).restoreModelCheckpoint(anyString(), any(ActionListener.class));
-        when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
-        for (int i = 0; i < 3; i++) {
-            cacheProvider.get(modelId1, detector, point, entityName);
-        }
-        for (int i = 0; i < 3; i++) {
-            cacheProvider.get(modelId2, detector, point, entityName);
-        }
-
-        verify(checkpoint, times(2)).restoreModelCheckpoint(anyString(), any(ActionListener.class));
     }
 
     public void testExpiredCacheBuffer() {
         when(clock.instant()).thenReturn(Instant.MIN);
         when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
         for (int i = 0; i < 3; i++) {
-            cacheProvider.get(modelId1, detector, point, entityName);
+            cacheProvider.get(modelId1, detector);
         }
         for (int i = 0; i < 3; i++) {
-            cacheProvider.get(modelId2, detector, point, entityName);
+            cacheProvider.get(modelId2, detector);
         }
         assertEquals(2, cacheProvider.getTotalActiveEntities());
         assertEquals(2, cacheProvider.getAllModels().size());
@@ -388,18 +314,34 @@ public class PriorityCacheTests extends ESTestCase {
 
         for (int i = 0; i < 2; i++) {
             // doorkeeper should have been reset
-            assertEquals(null, cacheProvider.get(modelId2, detector, point, entityName));
+            assertEquals(null, cacheProvider.get(modelId2, detector));
         }
     }
 
     public void testClear() {
         when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
-        for (int i = 0; i < 3; i++) {
-            cacheProvider.get(modelId1, detector, point, entityName);
-        }
-        for (int i = 0; i < 3; i++) {
-            cacheProvider.get(modelId2, detector, point, entityName);
-        }
+
+        ModelState<EntityModel> modelState1 = new ModelState<>(
+            new EntityModel(modelId1, new ArrayDeque<>(), null, null),
+            modelId1,
+            detectorId,
+            ModelType.ENTITY.getName(),
+            clock,
+            0
+        );
+
+        ModelState<EntityModel> modelState2 = new ModelState<>(
+            new EntityModel(modelId2, new ArrayDeque<>(), null, null),
+            modelId2,
+            detectorId,
+            ModelType.ENTITY.getName(),
+            clock,
+            0
+        );
+
+        cacheProvider.hostIfPossible(detector, modelState1);
+        cacheProvider.hostIfPossible(detector, modelState2);
+
         assertEquals(2, cacheProvider.getTotalActiveEntities());
         assertTrue(cacheProvider.isActive(detectorId, modelId1));
         assertEquals(1, cacheProvider.getTotalUpdates(detectorId));
@@ -409,7 +351,7 @@ public class PriorityCacheTests extends ESTestCase {
 
         for (int i = 0; i < 2; i++) {
             // doorkeeper should have been reset
-            assertEquals(null, cacheProvider.get(modelId2, detector, point, entityName));
+            assertEquals(null, cacheProvider.get(modelId2, detector));
         }
     }
 
@@ -423,13 +365,13 @@ public class PriorityCacheTests extends ESTestCase {
     private void setUpConcurrentMaintenance() {
         when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
         for (int i = 0; i < 2; i++) {
-            cacheProvider.get(modelId1, detector, point, entityName);
+            cacheProvider.get(modelId1, detector);
         }
         for (int i = 0; i < 2; i++) {
-            cacheProvider.get(modelId2, detector, point, entityName);
+            cacheProvider.get(modelId2, detector);
         }
         for (int i = 0; i < 2; i++) {
-            cacheProvider.get(modelId3, detector, point, entityName);
+            cacheProvider.get(modelId3, detector);
         }
         when(memoryTracker.memoryToShed()).thenReturn(memoryPerEntity);
         assertEquals(3, cacheProvider.getTotalActiveEntities());

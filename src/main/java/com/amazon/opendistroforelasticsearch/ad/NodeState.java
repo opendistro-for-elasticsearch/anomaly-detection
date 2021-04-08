@@ -33,7 +33,7 @@ public class NodeState implements ExpiringState {
     private AnomalyDetector detectorDef;
     // number of partitions
     private int partitonNumber;
-    // checkpoint fetch time
+    // last access time
     private Instant lastAccessTime;
     // last detection error recorded in result index. Used by DetectorStateHandler
     // to check if the error for a detector has changed or not. If changed, trigger indexing.

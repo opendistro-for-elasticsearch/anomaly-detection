@@ -20,7 +20,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -37,6 +36,8 @@ import java.util.Optional;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.support.ActionFilters;
+import org.elasticsearch.action.support.PlainActionFuture;
+import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.StreamInput;
@@ -46,8 +47,10 @@ import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.transport.TransportService;
 import org.junit.Before;
+import org.junit.Test;
 
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
+import test.com.amazon.opendistroforelasticsearch.ad.util.MLUtil;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
@@ -56,18 +59,22 @@ import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
 import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
+import com.amazon.opendistroforelasticsearch.ad.ml.EntityColdStarter;
 import com.amazon.opendistroforelasticsearch.ad.ml.EntityModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
 import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingResult;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.CheckpointReadQueue;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.ColdEntityQueue;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.ResultWriteQueue;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
-import com.amazon.opendistroforelasticsearch.ad.transport.handler.MultiEntityResultHandler;
 
 public class EntityResultTransportActionTests extends AbstractADTest {
     EntityResultTransportAction entityResult;
@@ -75,7 +82,6 @@ public class EntityResultTransportActionTests extends AbstractADTest {
     TransportService transportService;
     ModelManager manager;
     ADCircuitBreakerService adCircuitBreakerService;
-    MultiEntityResultHandler anomalyResultHandler;
     CheckpointDao checkpointDao;
     CacheProvider provider;
     EntityCache entityCache;
@@ -95,6 +101,12 @@ public class EntityResultTransportActionTests extends AbstractADTest {
     double[] cacheHitData;
     String tooLongEntity;
     double[] tooLongData;
+    ResultWriteQueue resultWriteQueue;
+    CheckpointReadQueue checkpointReadQueue;
+    int minSamples;
+    Instant now;
+    EntityColdStarter coldStarter;
+    ColdEntityQueue coldEntityQueue;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -107,7 +119,6 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         adCircuitBreakerService = mock(ADCircuitBreakerService.class);
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
-        anomalyResultHandler = mock(MultiEntityResultHandler.class);
         checkpointDao = mock(CheckpointDao.class);
 
         detectorId = "123";
@@ -126,22 +137,19 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         end = 20L;
         request = new EntityResultRequest(detectorId, entities, start, end);
 
-        manager = mock(ModelManager.class);
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            // return entity name
-            return args[1];
-        }).when(manager).getEntityModelId(anyString(), anyString());
-        when(manager.getAnomalyResultForEntity(anyString(), any(), anyString(), any(), anyString()))
-            .thenReturn(new ThresholdingResult(1, 1, 1));
+        clock = mock(Clock.class);
+        now = Instant.now();
+        when(clock.instant()).thenReturn(now);
+
+        manager = new ModelManager(null, null, null, clock, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, null, null, null, null, null, null);
 
         provider = mock(CacheProvider.class);
         entityCache = mock(EntityCache.class);
         when(provider.get()).thenReturn(entityCache);
-        when(entityCache.get(eq(cacheMissEntity), any(), any(), anyString())).thenReturn(null);
+        when(entityCache.get(eq(manager.getEntityModelId(detectorId, cacheMissEntity)), any())).thenReturn(null);
 
-        ModelState<EntityModel> state = mock(ModelState.class);
-        when(entityCache.get(eq(cacheHitEntity), any(), any(), anyString())).thenReturn(state);
+        ModelState<EntityModel> state = MLUtil.randomNonEmptyModelState();
+        when(entityCache.get(eq(manager.getEntityModelId(detectorId, cacheHitEntity)), any())).thenReturn(state);
 
         String field = "a";
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
@@ -151,55 +159,64 @@ public class EntityResultTransportActionTests extends AbstractADTest {
             listener.onResponse(Optional.of(detector));
             return null;
         }).when(stateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
-        when(stateManager.getLastIndexThrottledTime()).thenReturn(Instant.MIN);
 
         settings = Settings.builder().put(AnomalyDetectorSettings.COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5)).build();
-        clock = mock(Clock.class);
-        when(clock.instant()).thenReturn(Instant.now());
 
         AnomalyDetectionIndices indexUtil = mock(AnomalyDetectionIndices.class);
         when(indexUtil.getSchemaVersion(any())).thenReturn(CommonValue.NO_SCHEMA_VERSION);
+
+        resultWriteQueue = mock(ResultWriteQueue.class);
+        checkpointReadQueue = mock(CheckpointReadQueue.class);
+
+        minSamples = 1;
+
+        coldStarter = mock(EntityColdStarter.class);
+
+        doAnswer(invocation -> {
+            ModelState<EntityModel> modelState = invocation.getArgument(0);
+            modelState.getModel().clear();
+            return null;
+        }).when(coldStarter).trainModelFromExistingSamples(any());
+
+        coldEntityQueue = mock(ColdEntityQueue.class);
 
         entityResult = new EntityResultTransportAction(
             actionFilters,
             transportService,
             manager,
             adCircuitBreakerService,
-            anomalyResultHandler,
-            checkpointDao,
             provider,
             stateManager,
-            settings,
-            clock,
-            indexUtil
+            indexUtil,
+            resultWriteQueue,
+            checkpointReadQueue,
+            coldStarter,
+            coldEntityQueue,
+            threadPool
         );
 
         // timeout in 60 seconds
         timeoutMs = 60000L;
     }
 
-    // @SuppressWarnings("unchecked")
-    // public void testCircuitBreakerOpen() {
-    // when(adCircuitBreakerService.isOpen()).thenReturn(true);
-    // PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
-    //
-    // ActionListener<EntityResultResponse> listener = mock(ActionListener.class);
-    // entityResult.doExecute(null, request, listener);
-    //
-    // expectThrows(LimitExceededException.class, () -> future.actionGet(timeoutMs));
-    // }
-
-    // @SuppressWarnings("unchecked")
-    // public void testNormal() {
-    // PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
-    //
-    // ActionListener<EntityResultResponse> listener = mock(ActionListener.class);
-    // entityResult.doExecute(null, request, listener);
-    //
-    // future.actionGet(timeoutMs);
-    //
-    // verify(anomalyResultHandler, times(1)).flush(any(), any());
-    // }
+//    public void testCircuitBreakerOpen() {
+//        when(adCircuitBreakerService.isOpen()).thenReturn(true);
+//        PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
+//
+//        entityResult.doExecute(null, request, future);
+//
+//        expectThrows(LimitExceededException.class, () -> future.actionGet(timeoutMs));
+//    }
+//
+//    public void testNormal() {
+//        PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
+//
+//        entityResult.doExecute(null, request, future);
+//
+//        future.actionGet(timeoutMs);
+//
+//        verify(resultWriteQueue, times(1)).put(any());
+//    }
 
     // test get detector failure
     // @SuppressWarnings("unchecked")
@@ -218,38 +235,19 @@ public class EntityResultTransportActionTests extends AbstractADTest {
     // expectThrows(EndRunException.class, () -> future.actionGet(timeoutMs));
     // }
 
-    // test index pressure high, anomaly grade is 0
-    // @SuppressWarnings("unchecked")
-    // public void testIndexPressureHigh() {
-    // when(manager.getAnomalyResultForEntity(anyString(), any(), anyString(), any(), anyString()))
-    // .thenReturn(new ThresholdingResult(0, 1, 1));
-    // when(stateManager.getLastIndexThrottledTime()).thenReturn(Instant.now());
-    //
-    // PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
-    //
-    // ActionListener<EntityResultResponse> listener = mock(ActionListener.class);
-    // entityResult.doExecute(null, request, listener);
-    //
-    // future.actionGet(timeoutMs);
-    //
-    // verify(anomalyResultHandler, never()).flush(any(), any());
-    // }
-
-    // test rcf score is 0
-    // @SuppressWarnings("unchecked")
-    // public void testNotInitialized() {
-    // when(manager.getAnomalyResultForEntity(anyString(), any(), anyString(), any(), anyString()))
-    // .thenReturn(new ThresholdingResult(0, 0, 0));
-    //
-    // PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
-    //
-    // ActionListener<EntityResultResponse> listener = mock(ActionListener.class);
-    // entityResult.doExecute(null, request, listener);
-    //
-    // future.actionGet(timeoutMs);
-    //
-    // verify(anomalyResultHandler, never()).flush(any(), any());
-    // }
+//    // test rcf score is 0
+//    public void testNoResultsToSave() {
+//        ModelState<EntityModel> state = MLUtil.randomEmptyModelState();
+//        when(entityCache.get(eq(manager.getEntityModelId(detectorId, cacheHitEntity)), any())).thenReturn(state);
+//
+//        PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
+//
+//        entityResult.doExecute(null, request, future);
+//
+//        future.actionGet(timeoutMs);
+//
+//        verify(resultWriteQueue, never()).put(any());
+//    }
 
     public void testSerialzationRequest() throws IOException {
         BytesStreamOutput output = new BytesStreamOutput();
@@ -297,5 +295,38 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         assertEquals(0, Double.compare(JsonDeserializer.getArrayValue(json, cacheMissEntity).get(0).getAsDouble(), cacheMissData[0]));
         assertEquals(0, Double.compare(JsonDeserializer.getArrayValue(json, cacheHitEntity).get(0).getAsDouble(), cacheHitData[0]));
         assertEquals(0, Double.compare(JsonDeserializer.getArrayValue(json, tooLongEntity).get(0).getAsDouble(), tooLongData[0]));
+    }
+
+    @Test
+    public void getNullState() {
+        assertEquals(new ThresholdingResult(0, 0, 0), entityResult.getAnomalyResultForEntity(new double[] {}, "", null, "", null, 0));
+    }
+
+    @Test
+    public void getEmptyStateFullSamples() {
+        ModelState<EntityModel> state = MLUtil.randomModelStateWithSample(false, minSamples);
+        assertEquals(
+            new ThresholdingResult(0, 0, 0),
+            entityResult.getAnomalyResultForEntity(new double[] { -1 }, "", state, "", detector, 0)
+        );
+        assertEquals(0, state.getModel().getSamples().size());
+    }
+
+    @Test
+    public void getEmptyStateNotFullSamples() {
+        ModelState<EntityModel> state = MLUtil.randomModelStateWithSample(false, minSamples - 1);
+        assertEquals(
+            new ThresholdingResult(0, 0, 0),
+            entityResult.getAnomalyResultForEntity(new double[] { -1 }, "", state, "", detector, 0)
+        );
+        assertEquals(minSamples, state.getModel().getSamples().size());
+    }
+
+    @Test
+    public void scoreSamples() {
+        ModelState<EntityModel> state = MLUtil.randomNonEmptyModelState();
+        entityResult.getAnomalyResultForEntity(new double[] { -1 }, "", state, "", detector, 0);
+        assertEquals(0, state.getModel().getSamples().size());
+        assertEquals(now, state.getLastUsedTime());
     }
 }

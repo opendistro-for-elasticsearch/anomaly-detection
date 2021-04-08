@@ -26,6 +26,7 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.monitor.jvm.JvmService;
 
+import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.randomcutforest.RandomCutForest;
@@ -55,6 +56,7 @@ public class MemoryTracker {
     // we observe threshold model uses a fixed size array and the size is the same
     private int thresholdModelBytes;
     private int sampleSize;
+    private ADCircuitBreakerService adCircuitBreakerService;
 
     /**
      * Constructor
@@ -64,13 +66,15 @@ public class MemoryTracker {
      * @param modelDesiredSizePercentage percentage of heap for the desired size of a model
      * @param clusterService Cluster service object
      * @param sampleSize The sample size used by stream samplers in a RCF forest
+     * @param adCircuitBreakerService Memory circuit breaker
      */
     public MemoryTracker(
         JvmService jvmService,
         double modelMaxSizePercentage,
         double modelDesiredSizePercentage,
         ClusterService clusterService,
-        int sampleSize
+        int sampleSize,
+        ADCircuitBreakerService adCircuitBreakerService
     ) {
         this.totalMemoryBytes = 0;
         this.totalMemoryBytesByOrigin = new EnumMap<Origin, Long>(Origin.class);
@@ -84,6 +88,7 @@ public class MemoryTracker {
             .addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.heapLimitBytes = (long) (heapSize * it));
         this.thresholdModelBytes = 180_000;
         this.sampleSize = sampleSize;
+        this.adCircuitBreakerService = adCircuitBreakerService;
     }
 
     public synchronized boolean isHostingAllowed(String detectorId, RandomCutForest rcf) {
@@ -96,7 +101,7 @@ public class MemoryTracker {
      * @return whether there is memory required for AD
      */
     public synchronized boolean canAllocateReserved(String detectorId, long requiredBytes) {
-        if (reservedMemoryBytes + requiredBytes <= heapLimitBytes) {
+        if (false == adCircuitBreakerService.isOpen() && reservedMemoryBytes + requiredBytes <= heapLimitBytes) {
             return true;
         } else {
             throw new LimitExceededException(
@@ -118,7 +123,7 @@ public class MemoryTracker {
      * @return true if allowed; false otherwise
      */
     public synchronized boolean canAllocate(long bytes) {
-        return totalMemoryBytes + bytes <= heapLimitBytes;
+        return false == adCircuitBreakerService.isOpen() && totalMemoryBytes + bytes <= heapLimitBytes;
     }
 
     public synchronized void consumeMemory(long memoryToConsume, boolean reserved, Origin origin) {

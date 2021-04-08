@@ -21,7 +21,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -38,7 +37,6 @@ import org.junit.Before;
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
-import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 import com.google.gson.Gson;
@@ -62,9 +60,9 @@ public class CheckpointDeleteTests extends AbstractADTest {
     private ClientUtil clientUtil;
     private Gson gson;
     private RandomCutForestSerDe rcfSerde;
-    private Clock clock;
     private AnomalyDetectionIndices indexUtil;
     private String detectorId;
+    private int maxCheckpointBytes;
 
     @Override
     @Before
@@ -76,9 +74,9 @@ public class CheckpointDeleteTests extends AbstractADTest {
         clientUtil = mock(ClientUtil.class);
         gson = null;
         rcfSerde = mock(RandomCutForestSerDe.class);
-        clock = mock(Clock.class);
         indexUtil = mock(AnomalyDetectionIndices.class);
         detectorId = "123";
+        maxCheckpointBytes = 1_000_000;
 
         checkpointDao = new CheckpointDao(
             client,
@@ -87,11 +85,8 @@ public class CheckpointDeleteTests extends AbstractADTest {
             gson,
             rcfSerde,
             HybridThresholdingModel.class,
-            clock,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             indexUtil,
-            AnomalyDetectorSettings.MAX_BULK_CHECKPOINT_SIZE,
-            AnomalyDetectorSettings.CHECKPOINT_BULK_PER_SECOND
+            maxCheckpointBytes
         );
     }
 

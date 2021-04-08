@@ -15,18 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport.handler;
 
-import java.time.Clock;
-import java.util.Locale;
-import java.util.concurrent.RejectedExecutionException;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.util.Throwables;
 import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.block.ClusterBlockLevel;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -34,13 +27,13 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADResultBulkAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADResultBulkRequest;
+import com.amazon.opendistroforelasticsearch.ad.transport.ADResultBulkResponse;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.ThrowingConsumerWrapper;
@@ -56,8 +49,8 @@ import com.amazon.opendistroforelasticsearch.ad.util.ThrowingConsumerWrapper;
  */
 public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult> {
     private static final Logger LOG = LogManager.getLogger(MultiEntityResultHandler.class);
-    private final NodeStateManager nodeStateManager;
-    private final Clock clock;
+    private static final String SUCCESS_SAVING_RESULT_MSG = "Succeed in saving ";
+    private static final String CANNOT_SAVE_RESULT_ERR_MSG = "Cannot save results due to write block.";
 
     @Inject
     public MultiEntityResultHandler(
@@ -67,32 +60,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
         AnomalyDetectionIndices anomalyDetectionIndices,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
-        ClusterService clusterService,
-        NodeStateManager nodeStateManager
-    ) {
-        this(
-            client,
-            settings,
-            threadPool,
-            anomalyDetectionIndices,
-            clientUtil,
-            indexUtils,
-            clusterService,
-            nodeStateManager,
-            Clock.systemUTC()
-        );
-    }
-
-    protected MultiEntityResultHandler(
-        Client client,
-        Settings settings,
-        ThreadPool threadPool,
-        AnomalyDetectionIndices anomalyDetectionIndices,
-        ClientUtil clientUtil,
-        IndexUtils indexUtils,
-        ClusterService clusterService,
-        NodeStateManager nodeStateManager,
-        Clock clock
+        ClusterService clusterService
     ) {
         super(
             client,
@@ -105,77 +73,57 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
             indexUtils,
             clusterService
         );
-        this.nodeStateManager = nodeStateManager;
-        this.clock = clock;
     }
 
     /**
      * Execute the bulk request
      * @param currentBulkRequest The bulk request
-     * @param detectorId Detector Id
+     * @param listener callback after flushing
      */
-    public void flush(ADResultBulkRequest currentBulkRequest, String detectorId) {
+    public void flush(ADResultBulkRequest currentBulkRequest, ActionListener<ADResultBulkResponse> listener) {
         if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.indexName)) {
-            LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, detectorId));
+            listener.onFailure(new AnomalyDetectionException(CANNOT_SAVE_RESULT_ERR_MSG));
             return;
         }
 
         try {
             if (!indexExists.getAsBoolean()) {
-                createIndex
-                    .accept(
-                        ActionListener
-                            .wrap(initResponse -> onCreateIndexResponse(initResponse, currentBulkRequest, detectorId), exception -> {
-                                if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
-                                    // It is possible the index has been created while we sending the create request
-                                    bulk(currentBulkRequest, detectorId);
-                                } else {
-                                    throw new AnomalyDetectionException(
-                                        detectorId,
-                                        String.format(Locale.ROOT, "Unexpected error creating index %s", indexName),
-                                        exception
-                                    );
-                                }
-                            })
-                    );
+                createIndex.accept(ActionListener.wrap(initResponse -> {
+                    if (initResponse.isAcknowledged()) {
+                        bulk(currentBulkRequest, listener);
+                    } else {
+                        LOG.warn("Creating result index with mappings call not acknowledged.");
+                        listener.onFailure(new AnomalyDetectionException("", "Creating result index with mappings call not acknowledged."));
+                    }
+                }, exception -> {
+                    if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                        // It is possible the index has been created while we sending the create request
+                        bulk(currentBulkRequest, listener);
+                    } else {
+                        LOG.warn("Unexpected error creating result index", exception);
+                        listener.onFailure(exception);
+                    }
+                }));
             } else {
-                bulk(currentBulkRequest, detectorId);
+                bulk(currentBulkRequest, listener);
             }
         } catch (Exception e) {
-            throw new AnomalyDetectionException(
-                detectorId,
-                String.format(Locale.ROOT, "Error in bulking %s for detector %s", indexName, detectorId),
-                e
-            );
+            LOG.warn("Error in bulking results", e);
+            listener.onFailure(e);
         }
     }
 
-    private void onCreateIndexResponse(CreateIndexResponse response, ADResultBulkRequest bulkRequest, String detectorId) {
-        if (response.isAcknowledged()) {
-            bulk(bulkRequest, detectorId);
-        } else {
-            throw new AnomalyDetectionException(detectorId, "Creating %s with mappings call not acknowledged.");
-        }
-    }
-
-    private void bulk(ADResultBulkRequest currentBulkRequest, String detectorId) {
+    private void bulk(ADResultBulkRequest currentBulkRequest, ActionListener<ADResultBulkResponse> listener) {
         if (currentBulkRequest.numberOfActions() <= 0) {
+            listener.onFailure(new AnomalyDetectionException("no result to save"));
             return;
         }
-        client
-            .execute(
-                ADResultBulkAction.INSTANCE,
-                currentBulkRequest,
-                ActionListener
-                    .<BulkResponse>wrap(response -> LOG.debug(String.format(Locale.ROOT, SUCCESS_SAVING_MSG, detectorId)), exception -> {
-                        LOG.error(String.format(Locale.ROOT, FAIL_TO_SAVE_ERR_MSG, detectorId), exception);
-                        Throwable cause = Throwables.getRootCause(exception);
-                        // too much indexing pressure
-                        // TODO: pause indexing a bit before trying again, ideally with randomized exponential backoff.
-                        if (cause instanceof RejectedExecutionException) {
-                            nodeStateManager.setLastIndexThrottledTime(clock.instant());
-                        }
-                    })
-            );
+        client.execute(ADResultBulkAction.INSTANCE, currentBulkRequest, ActionListener.<ADResultBulkResponse>wrap(response -> {
+            LOG.debug(SUCCESS_SAVING_RESULT_MSG);
+            listener.onResponse(response);
+        }, exception -> {
+            LOG.error("Error in bulking results", exception);
+            listener.onFailure(exception);
+        }));
     }
 }

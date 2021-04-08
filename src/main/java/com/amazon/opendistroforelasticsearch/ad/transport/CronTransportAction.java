@@ -18,6 +18,9 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.nodes.TransportNodesAction;
@@ -30,17 +33,19 @@ import org.elasticsearch.transport.TransportService;
 import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
+import com.amazon.opendistroforelasticsearch.ad.ml.EntityColdStarter;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 
 public class CronTransportAction extends TransportNodesAction<CronRequest, CronResponse, CronNodeRequest, CronNodeResponse> {
-
+    private final Logger LOG = LogManager.getLogger(CronTransportAction.class);
     private NodeStateManager transportStateManager;
     private ModelManager modelManager;
     private FeatureManager featureManager;
     private CacheProvider cacheProvider;
     private TransportService transportService;
     private ADTaskManager adTaskManager;
+    private EntityColdStarter entityColdStarter;
 
     @Inject
     public CronTransportAction(
@@ -52,7 +57,8 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         ModelManager modelManager,
         FeatureManager featureManager,
         CacheProvider cacheProvider,
-        ADTaskManager adTaskManager
+        ADTaskManager adTaskManager,
+        EntityColdStarter entityColdStarter
     ) {
         super(
             CronAction.NAME,
@@ -71,6 +77,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         this.cacheProvider = cacheProvider;
         this.transportService = transportService;
         this.adTaskManager = adTaskManager;
+        this.entityColdStarter = entityColdStarter;
     }
 
     @Override
@@ -101,7 +108,8 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         // makes checkpoints for hosted models and stop hosting models not actively
         // used.
         // for single-entity detector
-        modelManager.maintenance();
+        modelManager
+            .maintenance(ActionListener.wrap(v -> LOG.debug("model maintenance done"), e -> LOG.error("Error maintaining model", e)));
         // for multi-entity detector
         cacheProvider.get().maintenance();
 
@@ -113,6 +121,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
 
         // maintain running detector
         adTaskManager.maintainRunningDetector(transportService);
+        entityColdStarter.maintenance();
 
         return new CronNodeResponse(clusterService.localNode());
     }

@@ -18,9 +18,11 @@ package com.amazon.opendistroforelasticsearch.ad.caching;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -33,10 +35,11 @@ import com.amazon.opendistroforelasticsearch.ad.ExpiringState;
 import com.amazon.opendistroforelasticsearch.ad.MaintenanceState;
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker.Origin;
-import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
 import com.amazon.opendistroforelasticsearch.ad.ml.EntityModel;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
 import com.amazon.opendistroforelasticsearch.ad.model.InitProgressProfile;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.CheckpointWriteQueue;
+import com.amazon.opendistroforelasticsearch.ad.ratelimit.SegmentPriority;
 
 /**
  * We use a layered cache to manage active entities’ states.  We have a two-level
@@ -68,23 +71,25 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
     // memory consumption per entity
     private final long memoryConsumptionPerEntity;
     private final MemoryTracker memoryTracker;
-    private final CheckpointDao checkpointDao;
     private final Duration modelTtl;
     private final String detectorId;
     private Instant lastUsedTime;
     private final long reservedBytes;
     private final PriorityTracker priorityTracker;
     private final Clock clock;
+    private final CheckpointWriteQueue checkpointWriteQueue;
+    private final Random random;
 
     public CacheBuffer(
         int minimumCapacity,
         long intervalSecs,
-        CheckpointDao checkpointDao,
         long memoryConsumptionPerEntity,
         MemoryTracker memoryTracker,
         Clock clock,
         Duration modelTtl,
-        String detectorId
+        String detectorId,
+        CheckpointWriteQueue checkpointWriteQueue,
+        Random random
     ) {
         if (minimumCapacity <= 0) {
             throw new IllegalArgumentException("minimum capacity should be larger than 0");
@@ -96,7 +101,6 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
         this.memoryConsumptionPerEntity = memoryConsumptionPerEntity;
         this.memoryTracker = memoryTracker;
 
-        this.checkpointDao = checkpointDao;
         this.modelTtl = modelTtl;
         this.detectorId = detectorId;
         this.lastUsedTime = clock.instant();
@@ -104,6 +108,8 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
         this.reservedBytes = memoryConsumptionPerEntity * minimumCapacity;
         this.clock = clock;
         this.priorityTracker = new PriorityTracker(clock, intervalSecs, clock.instant().getEpochSecond(), MAX_TRACKING_ENTITIES);
+        this.checkpointWriteQueue = checkpointWriteQueue;
+        this.random = random;
     }
 
     /**
@@ -234,12 +240,19 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
             if (!reserved) {
                 memoryTracker.releaseMemory(memoryConsumptionPerEntity, false, Origin.MULTI_ENTITY_DETECTOR);
             }
-            checkpointDao.write(valueRemoved, keyToRemove);
-        }
 
-        EntityModel modelRemoved = valueRemoved.getModel();
-        if (modelRemoved != null) {
-            modelRemoved.clear();
+            EntityModel modelRemoved = valueRemoved.getModel();
+            if (modelRemoved != null) {
+                if (modelRemoved.getRcf() == null || modelRemoved.getThreshold() == null) {
+                    // only have samples. If we don't save, we throw the new samples and might
+                    // never be able to initialize the model
+                    checkpointWriteQueue.write(valueRemoved, true, SegmentPriority.MEDIUM);
+                } else {
+                    checkpointWriteQueue.write(valueRemoved, false, SegmentPriority.MEDIUM);
+                }
+
+                modelRemoved.clear();
+            }
         }
 
         return valueRemoved;
@@ -298,6 +311,7 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
 
     @Override
     public void maintenance() {
+        List<ModelState<EntityModel>> modelsToSave = new ArrayList<>();
         items.entrySet().stream().forEach(entry -> {
             String entityModelId = entry.getKey();
             try {
@@ -315,20 +329,19 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
                     // already in the cache
                     // remove method saves checkpoint as well
                     remove(entityModelId);
-                } else {
-                    // we can have ConcurrentModificationException when serializing
-                    // and updating rcf model at the same time. To prevent this,
-                    // we need to have a deep copy of models or have a lock. Both
-                    // options are costly.
-                    // As we are gonna retry serializing either when the entity is
-                    // evicted out of cache or during the next maintenance period,
-                    // don't do anything when the exception happens.
-                    checkpointDao.write(modelState, entityModelId);
+                } else if (random.nextInt(6) == 0) {
+                    // checkpoint is relatively big compared to other queued requests
+                    // save checkpoints with 1/6 probability as we expect to save
+                    // all every 6 hours statistically
+                    modelsToSave.add(modelState);
                 }
+
             } catch (Exception e) {
                 LOG.warn("Failed to finish maintenance for model id " + entityModelId, e);
             }
         });
+
+        checkpointWriteQueue.writeAll(modelsToSave, detectorId, false, SegmentPriority.MEDIUM);
     }
 
     /**

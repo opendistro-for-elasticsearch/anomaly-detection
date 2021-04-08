@@ -15,18 +15,30 @@
 
 package com.amazon.opendistroforelasticsearch.ad.util;
 
+import java.util.EnumSet;
+import java.util.concurrent.RejectedExecutionException;
+
 import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.logging.log4j.core.util.Throwables;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.support.TransportActions;
 import org.elasticsearch.action.support.replication.ReplicationResponse;
 import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
+import org.elasticsearch.rest.RestStatus;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;
 
 public class ExceptionUtil {
     public static final String RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
         .getExceptionName(new ResourceNotFoundException("", ""));
+
+    // a positive cache of retriable error rest status
+    private static final EnumSet<RestStatus> RETRYABLE_STATUS = EnumSet
+        .of(RestStatus.REQUEST_TIMEOUT, RestStatus.CONFLICT, RestStatus.INTERNAL_SERVER_ERROR);
 
     /**
      * Elasticsearch restricts the kind of exceptions can be thrown over the wire
@@ -105,5 +117,28 @@ public class ExceptionUtil {
         } else {
             return ExceptionUtils.getFullStackTrace(e);
         }
+    }
+
+    /**
+     *
+     * @param exception Exception
+     * @return whether the cause indicates the cluster is overloaded
+     */
+    public static boolean isOverloaded(Throwable exception) {
+        Throwable cause = Throwables.getRootCause(exception);
+        // LimitExceededException may indicate circuit breaker exception
+        return cause instanceof RejectedExecutionException
+            || TransportActions.isShardNotAvailableException(cause)
+            || cause instanceof LimitExceededException;
+    }
+
+    public static boolean isRetryAble(Exception e) {
+        Throwable cause = ExceptionsHelper.unwrapCause(e);
+        RestStatus status = ExceptionsHelper.status(cause);
+        return RETRYABLE_STATUS.contains(status);
+    }
+
+    public static boolean isRetryAble(RestStatus status) {
+        return RETRYABLE_STATUS.contains(status);
     }
 }

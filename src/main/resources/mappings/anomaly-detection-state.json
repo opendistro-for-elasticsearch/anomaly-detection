@@ -125,6 +125,9 @@
           "type": "keyword"
         }
       }
+    },
+    "estimated_minutes_left": {
+      "type": "integer"
     }
   }
 }

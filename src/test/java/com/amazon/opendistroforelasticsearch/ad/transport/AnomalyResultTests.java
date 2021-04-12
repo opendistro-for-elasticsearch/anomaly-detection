@@ -43,6 +43,7 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1027,8 +1028,8 @@ public class AnomalyResultTests extends AbstractADTest {
             searchFeatureDao
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
-            null, null, null, null, null, null, null, null, null, 0, new AtomicInteger(), null, 1
-        );
+            null, null, null, null, null, null, null, null, null, 0, new AtomicInteger(), null, 1,
+                detector.getDetectionIntervalDuration().get(ChronoUnit.MINUTES));
         listener.onFailure(null);
     }
 
@@ -1390,8 +1391,8 @@ public class AnomalyResultTests extends AbstractADTest {
             searchFeatureDao
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
-            null, "123-rcf-0", null, "123", null, null, null, null, null, 0, new AtomicInteger(), null, 1
-        );
+            null, "123-rcf-0", null, "123", null, null, null, null, null, 0, new AtomicInteger(), null, 1,
+                detector.getDetectionIntervalDuration().get(ChronoUnit.MINUTES));
         listener.onResponse(null);
         assertTrue(testAppender.containsMessage(AnomalyResultTransportAction.NULL_RESPONSE));
     }

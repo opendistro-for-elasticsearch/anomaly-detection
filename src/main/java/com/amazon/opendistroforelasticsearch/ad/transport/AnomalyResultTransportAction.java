@@ -362,7 +362,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                     this.option,
                                     new ActionListenerResponseHandler<>(
                                             //TODO: when will return response to listener
-                                        new EntityResultListener(node.getId(), adID, responseCount, nodeCount, failure, entityResultResponses, listener),
+                                        new EntityResultListener(node.getId(), adID, responseCount, nodeCount, failure, entityResultResponses,
+                                                anomalyDetector.getDetectionIntervalDuration().getSeconds()/60 ,listener),
                                         EntityResultResponse::new,
                                         ThreadPool.Names.SAME
                                     )
@@ -508,7 +509,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     rcfPartitionNum,
                     responseCount,
                     adID,
-                    detector.getEnabledFeatureIds().size()
+                    detector.getEnabledFeatureIds().size(),
+                    detector.getDetectionIntervalDuration().getSeconds()/60
                 );
 
                 transportService
@@ -665,22 +667,23 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private final AtomicInteger responseCount;
         private final String adID;
         private int numEnabledFeatures;
+        private long intervalMinutes;
 
         RCFActionListener(
-            List<RCFResultResponse> rcfResults,
-            String modelID,
-            AtomicReference<AnomalyDetectionException> failure,
-            String rcfNodeID,
-            AnomalyDetector detector,
-            ActionListener<AnomalyResultResponse> listener,
-            String thresholdModelID,
-            DiscoveryNode thresholdNode,
-            List<FeatureData> features,
-            int nodeCount,
-            AtomicInteger responseCount,
-            String adID,
-            int numEnabledFeatures
-        ) {
+                List<RCFResultResponse> rcfResults,
+                String modelID,
+                AtomicReference<AnomalyDetectionException> failure,
+                String rcfNodeID,
+                AnomalyDetector detector,
+                ActionListener<AnomalyResultResponse> listener,
+                String thresholdModelID,
+                DiscoveryNode thresholdNode,
+                List<FeatureData> features,
+                int nodeCount,
+                AtomicInteger responseCount,
+                String adID,
+                int numEnabledFeatures,
+                long intervalMinutes) {
             this.rcfResults = rcfResults;
             this.modelID = modelID;
             this.rcfNodeID = rcfNodeID;
@@ -694,6 +697,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.responseCount = responseCount;
             this.adID = adID;
             this.numEnabledFeatures = numEnabledFeatures;
+            this.intervalMinutes = intervalMinutes;
         }
 
         @Override
@@ -751,7 +755,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         initProgress = 1.0f;
                     }
                     adTaskManager.updateLatestRealtimeADTask(detector.getDetectorId(),
-                            ImmutableMap.of(ADTask.INIT_PROGRESS_FIELD, initProgress, ADTask.STATE_FIELD, state));
+                            ImmutableMap.of(ADTask.INIT_PROGRESS_FIELD, initProgress,
+                                    ADTask.ESTIMATED_MINUTES_LEFT_FIELD, Math.max(0, AnomalyDetectorSettings.NUM_MIN_SAMPLES - totalUpdates)*intervalMinutes,
+                                    ADTask.STATE_FIELD, state));
                 } catch (Exception e) {
                     LOG.warn("Failed to update init progress of detector " + detector.getDetectorId(), e);
                 }
@@ -1106,15 +1112,16 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private ActionListener<AnomalyResultResponse> listener;
         private ConcurrentLinkedQueue<EntityResultResponse> entityResultResponses;
         private AtomicReference<AnomalyDetectionException> failure;
+        private long intervalMinutes;
 
         EntityResultListener(
-            String nodeId,
-            String adID,
-            AtomicInteger responseCount,
-            int nodeCount,
-            AtomicReference<AnomalyDetectionException> failure,
-            ConcurrentLinkedQueue<EntityResultResponse> entityResultResponses,
-            ActionListener<AnomalyResultResponse> listener
+                String nodeId,
+                String adID,
+                AtomicInteger responseCount,
+                int nodeCount,
+                AtomicReference<AnomalyDetectionException> failure,
+                ConcurrentLinkedQueue<EntityResultResponse> entityResultResponses,
+                long intervalMinutes, ActionListener<AnomalyResultResponse> listener
         ) {
             this.nodeId = nodeId;
             this.adID = adID;
@@ -1123,6 +1130,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.failure = failure;
             this.listener = listener;
             this.entityResultResponses = entityResultResponses;
+            this.intervalMinutes = intervalMinutes;
         }
 
         @Override
@@ -1177,11 +1185,14 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             long totalUpdates = 0;
+            //TODO: move out the max totalUpdate calculation from this function, just calculate max totalUpdate when we receive a new response
+            //    Just update task's init progress once receive all responses.
             while (!entityResultResponses.isEmpty()) {
                 totalUpdates = Math.max(totalUpdates, entityResultResponses.poll().getTotalUpdates());
             }
             Map<String, Object> updatedFields = new HashMap<>();
             float initProgress = 0.0f;
+            int neededPoints = (int) Math.max(AnomalyDetectorSettings.NUM_MIN_SAMPLES - totalUpdates, 0);
             if (totalUpdates <= AnomalyDetectorSettings.NUM_MIN_SAMPLES) {
                 initProgress = (float) totalUpdates/AnomalyDetectorSettings.NUM_MIN_SAMPLES;
             } else {
@@ -1190,6 +1201,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
             LOG.debug("5555555555=========== update HC detector init progress as {}, totalUpdates: {}", initProgress, totalUpdates);
             updatedFields.put(ADTask.INIT_PROGRESS_FIELD, initProgress);
+            updatedFields.put(ADTask.ESTIMATED_MINUTES_LEFT_FIELD, neededPoints * intervalMinutes);
             if (failure.get() != null) {
                 updatedFields.put(ADTask.ERROR_FIELD, getErrorMessage(failure.get()));
             }

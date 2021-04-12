@@ -61,6 +61,7 @@ public class ADTask implements ToXContentObject, Writeable {
     public static final String ENTITY_FIELD = "entity";//TODO: is it possible to query by entity
     public static final String USER_FIELD = "user";
     public static final String PARENT_TASK_ID_FIELD = "parent_task_id";
+    public static final String ESTIMATED_MINUTES_LEFT_FIELD = "estimated_minutes_left";
 
     private String taskId = null;
     private Instant lastUpdateTime = null;
@@ -84,6 +85,7 @@ public class ADTask implements ToXContentObject, Writeable {
     private DetectionDateRange detectionDateRange = null;
     private List<Entity> entity = null;
     private String parentTaskId = null;
+    private Integer estimatedMinutesLeft = null;
     private User user = null;
 
     private ADTask() {}
@@ -131,6 +133,7 @@ public class ADTask implements ToXContentObject, Writeable {
         } else {
             user = null;
         }
+        this.estimatedMinutesLeft = input.readOptionalInt();
     }
 
     @Override
@@ -180,6 +183,7 @@ public class ADTask implements ToXContentObject, Writeable {
         } else {
             out.writeBoolean(false); // user does not exist
         }
+        out.writeOptionalInt(estimatedMinutesLeft);
     }
 
     public static Builder builder() {
@@ -208,6 +212,7 @@ public class ADTask implements ToXContentObject, Writeable {
         private DetectionDateRange detectionDateRange = null;
         private List<Entity> entity;
         private String parentTaskId;
+        private Integer estimatedMinutesLeft;
         private User user = null;
 
         public Builder() {}
@@ -317,6 +322,11 @@ public class ADTask implements ToXContentObject, Writeable {
             return this;
         }
 
+        public Builder estimatedMinutesLeft(Integer estimatedMinutesLeft) {
+            this.estimatedMinutesLeft = estimatedMinutesLeft;
+            return this;
+        }
+
         public Builder user(User user) {
             this.user = user;
             return this;
@@ -345,6 +355,7 @@ public class ADTask implements ToXContentObject, Writeable {
             adTask.detectionDateRange = this.detectionDateRange;
             adTask.entity = this.entity;
             adTask.parentTaskId = this.parentTaskId;
+            adTask.estimatedMinutesLeft = this.estimatedMinutesLeft;
             adTask.user = this.user;
 
             return adTask;
@@ -418,6 +429,9 @@ public class ADTask implements ToXContentObject, Writeable {
         if (parentTaskId != null) {
             xContentBuilder.field(PARENT_TASK_ID_FIELD, parentTaskId);
         }
+        if (estimatedMinutesLeft != null) {
+            xContentBuilder.field(ESTIMATED_MINUTES_LEFT_FIELD, estimatedMinutesLeft);
+        }
         if (user != null) {
             xContentBuilder.field(USER_FIELD, user);
         }
@@ -450,6 +464,7 @@ public class ADTask implements ToXContentObject, Writeable {
         DetectionDateRange detectionDateRange = null;
         List<Entity> entityList = null;
         String parentTaskId = null;
+        Integer estimatedMinutesLeft = null;
         User user = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
@@ -525,6 +540,9 @@ public class ADTask implements ToXContentObject, Writeable {
                 case PARENT_TASK_ID_FIELD:
                     parentTaskId = parser.text();
                     break;
+                case ESTIMATED_MINUTES_LEFT_FIELD:
+                    estimatedMinutesLeft = parser.intValue();
+                    break;
                 case USER_FIELD:
                     user = User.parse(parser);
                     break;
@@ -576,6 +594,7 @@ public class ADTask implements ToXContentObject, Writeable {
             .detectionDateRange(detectionDateRange)
             .entity(entityList)
             .parentTaskId(parentTaskId)
+            .estimatedMinutesLeft(estimatedMinutesLeft)
             .user(user)
             .build();
     }
@@ -609,6 +628,7 @@ public class ADTask implements ToXContentObject, Writeable {
             && Objects.equal(getDetectionDateRange(), that.getDetectionDateRange())
             && Objects.equal(getEntity(), that.getEntity())
             && Objects.equal(getParentTaskId(), that.getParentTaskId())
+            && Objects.equal(getEstimatedMinutesLeft(), that.getEstimatedMinutesLeft())
             && Objects.equal(getUser(), that.getUser());
     }
 
@@ -638,6 +658,7 @@ public class ADTask implements ToXContentObject, Writeable {
                 detectionDateRange,
                 entity,
                 parentTaskId,
+                estimatedMinutesLeft,
                 user
             );
     }
@@ -746,6 +767,10 @@ public class ADTask implements ToXContentObject, Writeable {
         return getParentTaskId() != null && getEntity() != null && getEntity().size() > 0;
     }
 
+    public Integer getEstimatedMinutesLeft() {
+        return estimatedMinutesLeft;
+    }
+
     public User getUser() {
         return user;
     }
@@ -774,6 +799,7 @@ public class ADTask implements ToXContentObject, Writeable {
                 ", detectionDateRange=" + detectionDateRange +
                 ", entity=" + entity +
                 ", parentTaskId='" + parentTaskId + '\'' +
+                ", estimatedMinutesLeft='" + estimatedMinutesLeft + '\'' +
                 ", user=" + user +
                 '}';
     }

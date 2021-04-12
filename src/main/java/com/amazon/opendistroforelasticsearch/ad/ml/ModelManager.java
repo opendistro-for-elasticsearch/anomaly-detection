@@ -725,6 +725,7 @@ public class ModelManager implements DetectorModelSize {
             // Persist thresholding model
             String modelId = modelPartitioner.getThresholdModelId(detector.getDetectorId());
             String checkpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> gson.toJson(threshold));
+            // TODO: update realtime task's init progress
             checkpointDao.putModelCheckpoint(modelId, checkpoint, ActionListener.wrap(r -> listener.onResponse(null), listener::onFailure));
         }
     }

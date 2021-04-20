@@ -38,6 +38,7 @@ import org.junit.Before;
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 
@@ -51,6 +52,7 @@ public class MasterEventListenerTests extends AbstractADTest {
     private MasterEventListener masterService;
     private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
+    private ADTaskManager adTaskManager;
 
     @Override
     @Before
@@ -70,8 +72,9 @@ public class MasterEventListenerTests extends AbstractADTest {
         HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
         ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
         nodeFilter = new DiscoveryNodeFilterer(clusterService);
+        adTaskManager = mock(ADTaskManager.class);
 
-        masterService = new MasterEventListener(clusterService, threadPool, client, clock, clientUtil, nodeFilter);
+        masterService = new MasterEventListener(clusterService, threadPool, client, clock, clientUtil, nodeFilter, adTaskManager);
     }
 
     public void testOnOffMaster() {

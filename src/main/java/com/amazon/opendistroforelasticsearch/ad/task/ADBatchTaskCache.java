@@ -87,7 +87,7 @@ public class ADBatchTaskCache {
         );
         this.thresholdModelTrainingData = new double[THRESHOLD_MODEL_TRAINING_SIZE];
         this.thresholdModelTrained = false;
-        //TODO: realtime HC shingle size is hard code 1
+        // TODO: realtime HC shingle size is hard code 1
         this.shingle = new ArrayDeque<>(detector.getShingleSize());
     }
 

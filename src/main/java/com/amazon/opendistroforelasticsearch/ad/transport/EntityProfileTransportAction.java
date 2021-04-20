@@ -91,7 +91,8 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
         String adID = request.getAdID();
         String entityValue = request.getEntityValue();
         String modelId = modelManager.getEntityModelId(adID, entityValue);
-        Optional<DiscoveryNode> node = hashRing.getOwningNode(modelId); // TODO: get worker node from entity task, then forward the request to that node directly?
+        Optional<DiscoveryNode> node = hashRing.getOwningNode(modelId); // TODO: get worker node from entity task, then forward the request
+                                                                        // to that node directly?
         if (!node.isPresent()) {
             listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
             return;
@@ -103,7 +104,8 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
             EntityCache cache = cacheProvider.get();
             Set<EntityProfileName> profilesToCollect = request.getProfilesToCollect();
             EntityProfileResponse.Builder builder = new EntityProfileResponse.Builder();
-            if (profilesToCollect.contains(EntityProfileName.ENTITY_INFO)) { //TODO: do we really need to support choosing at so fine-granular level?
+            if (profilesToCollect.contains(EntityProfileName.ENTITY_INFO)) { // TODO: do we really need to support choosing at so
+                                                                             // fine-granular level?
                 builder.setActive(cache.isActive(adID, modelId));
                 builder.setLastActiveMs(cache.getLastActiveMs(adID, modelId));
             }

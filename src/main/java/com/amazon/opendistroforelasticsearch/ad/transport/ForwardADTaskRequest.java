@@ -20,16 +20,16 @@ import static org.elasticsearch.action.ValidateActions.addValidationError;
 import java.io.IOException;
 import java.util.List;
 
-import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
-import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskAction;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 public class ForwardADTaskRequest extends ActionRequest {
@@ -40,8 +40,14 @@ public class ForwardADTaskRequest extends ActionRequest {
     private User user;
     private ADTaskAction adTaskAction;
 
-    public ForwardADTaskRequest(AnomalyDetector detector, ADTask adTask, DetectionDateRange detectionDateRange,
-                                List<String> staleRunningEntities, User user, ADTaskAction adTaskAction) {
+    public ForwardADTaskRequest(
+        AnomalyDetector detector,
+        ADTask adTask,
+        DetectionDateRange detectionDateRange,
+        List<String> staleRunningEntities,
+        User user,
+        ADTaskAction adTaskAction
+    ) {
         this.detector = detector;
         this.adTask = adTask;
         this.detectionDateRange = detectionDateRange;

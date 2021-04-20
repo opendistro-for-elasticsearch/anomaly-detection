@@ -31,9 +31,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
-import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
-import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchStatusException;
@@ -59,7 +56,9 @@ import org.elasticsearch.transport.TransportService;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorProfileRunner;
 import com.amazon.opendistroforelasticsearch.ad.EntityProfileRunner;
 import com.amazon.opendistroforelasticsearch.ad.Name;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
@@ -165,7 +164,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                         xContentRegistry,
                         AnomalyDetectorSettings.NUM_MIN_SAMPLES
                     );
-                    profileRunner //TODO: profile historical entity
+                    profileRunner // TODO: profile historical entity
                         .profile(
                             detectorID,
                             entityValue,
@@ -211,7 +210,8 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
             } else {
                 if (returnTask) {
                     adTaskManager
-                        .getLatestADTasks( //TODO: don't return realtime task now as frontend doesn't need it
+                        .getLatestADTasks(
+                            // TODO: don't return realtime task now as frontend doesn't need it
                             detectorID,
                             null,
                             ADTaskType.getAllDetectorTaskTypes(),
@@ -220,10 +220,12 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                                 Optional<ADTask> historicalAdTask = Optional.empty();
 
                                 if (adTasks.size() > 0) {
-                                    if (adTasks.containsKey(ADTaskType.REALTIME_HC_DETECTOR.name()) && adTasks.containsKey(ADTaskType.REALTIME_SINGLE_ENTITY.name())) {
+                                    if (adTasks.containsKey(ADTaskType.REALTIME_HC_DETECTOR.name())
+                                        && adTasks.containsKey(ADTaskType.REALTIME_SINGLE_ENTITY.name())) {
                                         throw new AnomalyDetectionException("Two latest realtime tasks");
                                     }
-                                    if (adTasks.containsKey(ADTaskType.HISTORICAL_HC_DETECTOR.name()) && adTasks.containsKey(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())) {
+                                    if (adTasks.containsKey(ADTaskType.HISTORICAL_HC_DETECTOR.name())
+                                        && adTasks.containsKey(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())) {
                                         throw new AnomalyDetectionException("Two latest historical tasks");
                                     }
                                     if (adTasks.containsKey(ADTaskType.REALTIME_HC_DETECTOR.name())) {
@@ -240,12 +242,13 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                                     }
                                 }
                                 getDetectorAndJob(detectorID, returnJob, returnTask, realtimeAdTask, historicalAdTask, listener);
-                                },
-                            transportService,true,
+                            },
+                            transportService,
+                            true,
                             listener
                         );
                 } else {
-                    getDetectorAndJob(detectorID, returnJob, returnTask, Optional.empty(),Optional.empty(), listener);
+                    getDetectorAndJob(detectorID, returnJob, returnTask, Optional.empty(), Optional.empty(), listener);
                 }
             }
         } catch (Exception e) {
@@ -369,7 +372,9 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
             @Override
             public void accept(DetectorProfile profile) throws Exception {
                 listener
-                    .onResponse(new GetAnomalyDetectorResponse(0, null, 0, 0, null, null, false, null,null, false, null, profile, null, true));
+                    .onResponse(
+                        new GetAnomalyDetectorResponse(0, null, 0, 0, null, null, false, null, null, false, null, profile, null, true)
+                    );
             }
         }, exception -> { listener.onFailure(exception); });
     }

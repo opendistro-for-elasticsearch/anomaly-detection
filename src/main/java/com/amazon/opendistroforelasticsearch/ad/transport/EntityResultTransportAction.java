@@ -30,7 +30,6 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.tasks.Task;
@@ -132,7 +131,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
 
         try {
             String detectorId = request.getDetectorId();
-            //TODO: no need to get anomaly detector from index again. just need to pass detector in request
+            // TODO: no need to get anomaly detector from index again. just need to pass detector in request
             stateManager.getAnomalyDetector(detectorId, onGetDetector(listener, detectorId, request));
         } catch (Exception exception) {
             LOG.error("fail to get entity's anomaly grade", exception);

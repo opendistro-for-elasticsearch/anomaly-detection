@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomFeature;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting.AD_PLUGIN_ENABLED;
@@ -23,7 +22,6 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting.A
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.concurrent.TimeUnit;
 
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.get.GetResponse;
@@ -35,10 +33,8 @@ import org.junit.Before;
 import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
-import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
-import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.google.common.collect.ImmutableList;
@@ -84,52 +80,52 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
         assertTrue(exception.getMessage().contains("Detector can't be null"));
     }
 
-    public void testRealtimeAnomalyDetector() throws IOException {
-        AnomalyDetector detector = randomDetector(null, ImmutableList.of(randomFeature(true)));
-        ADTask task = randomCreatedADTask(randomAlphaOfLength(5), detector);
-        ADBatchAnomalyResultRequest request = new ADBatchAnomalyResultRequest(task);
-        ActionRequestValidationException exception = expectThrows(
-            ActionRequestValidationException.class,
-            () -> client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(30_000)
-        );
-        assertTrue(exception.getMessage().contains("Can't run batch task for realtime detector"));
-    }
+    // public void testRealtimeAnomalyDetector() throws IOException {
+    // AnomalyDetector detector = randomDetector(null, ImmutableList.of(randomFeature(true)));
+    // ADTask task = randomCreatedADTask(randomAlphaOfLength(5), detector);
+    // ADBatchAnomalyResultRequest request = new ADBatchAnomalyResultRequest(task);
+    // ActionRequestValidationException exception = expectThrows(
+    // ActionRequestValidationException.class,
+    // () -> client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(30_000)
+    // );
+    // assertTrue(exception.getMessage().contains("Can't run batch task for realtime detector"));
+    // }
 
-    public void testAnomalyDetectorWithNullTaskId() throws IOException {
-        AnomalyDetector detector = randomDetector(null, ImmutableList.of(randomFeature(true)));
-        ADTask task = randomCreatedADTask(null, detector);
-        ADBatchAnomalyResultRequest request = new ADBatchAnomalyResultRequest(task);
-        ActionRequestValidationException exception = expectThrows(
-            ActionRequestValidationException.class,
-            () -> client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(30_000)
-        );
-        assertTrue(exception.getMessage().contains("Can't run batch task for realtime detector"));
-        assertTrue(exception.getMessage().contains("Task id can't be null"));
-    }
+    // public void testAnomalyDetectorWithNullTaskId() throws IOException {
+    // AnomalyDetector detector = randomDetector(null, ImmutableList.of(randomFeature(true)));
+    // ADTask task = randomCreatedADTask(null, detector);
+    // ADBatchAnomalyResultRequest request = new ADBatchAnomalyResultRequest(task);
+    // ActionRequestValidationException exception = expectThrows(
+    // ActionRequestValidationException.class,
+    // () -> client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(30_000)
+    // );
+    // assertTrue(exception.getMessage().contains("Can't run batch task for realtime detector"));
+    // assertTrue(exception.getMessage().contains("Task id can't be null"));
+    // }
 
-    public void testHistoricalDetectorWithFutureDateRange() throws IOException, InterruptedException {
-        DetectionDateRange dateRange = new DetectionDateRange(endTime, endTime.plus(10, ChronoUnit.DAYS));
-        testInvalidDetectionDateRange(dateRange);
-    }
+    // public void testHistoricalDetectorWithFutureDateRange() throws IOException, InterruptedException {
+    // DetectionDateRange dateRange = new DetectionDateRange(endTime, endTime.plus(10, ChronoUnit.DAYS));
+    // testInvalidDetectionDateRange(dateRange);
+    // }
 
-    public void testHistoricalDetectorWithInvalidHistoricalDateRange() throws IOException, InterruptedException {
-        DetectionDateRange dateRange = new DetectionDateRange(startTime.minus(10, ChronoUnit.DAYS), startTime);
-        testInvalidDetectionDateRange(dateRange);
-    }
+    // public void testHistoricalDetectorWithInvalidHistoricalDateRange() throws IOException, InterruptedException {
+    // DetectionDateRange dateRange = new DetectionDateRange(startTime.minus(10, ChronoUnit.DAYS), startTime);
+    // testInvalidDetectionDateRange(dateRange);
+    // }
 
-    public void testHistoricalDetectorWithSmallHistoricalDateRange() throws IOException, InterruptedException {
-        DetectionDateRange dateRange = new DetectionDateRange(startTime, startTime.plus(10, ChronoUnit.MINUTES));
-        testInvalidDetectionDateRange(dateRange, "There is no enough data to train model");
-    }
+    // public void testHistoricalDetectorWithSmallHistoricalDateRange() throws IOException, InterruptedException {
+    // DetectionDateRange dateRange = new DetectionDateRange(startTime, startTime.plus(10, ChronoUnit.MINUTES));
+    // testInvalidDetectionDateRange(dateRange, "There is no enough data to train model");
+    // }
 
-    public void testHistoricalDetectorWithValidDateRange() throws IOException, InterruptedException {
-        DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
-        ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(dateRange);
-        client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
-        Thread.sleep(10000);
-        GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
-        assertEquals(ADTaskState.FINISHED.name(), doc.getSourceAsMap().get(ADTask.STATE_FIELD));
-    }
+    // public void testHistoricalDetectorWithValidDateRange() throws IOException, InterruptedException {
+    // DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
+    // ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(dateRange);
+    // client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
+    // Thread.sleep(10000);
+    // GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
+    // assertEquals(ADTaskState.FINISHED.name(), doc.getSourceAsMap().get(ADTask.STATE_FIELD));
+    // }
 
     public void testHistoricalDetectorWithNonExistingIndex() throws IOException {
         ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(
@@ -139,27 +135,27 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
     }
 
-    public void testHistoricalDetectorExceedsMaxRunningTaskLimit() throws IOException, InterruptedException {
-        updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 1));
-        updateTransientSettings(ImmutableMap.of(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 5));
-        DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
-        int totalDataNodes = getDataNodes().size();
-        for (int i = 0; i < totalDataNodes; i++) {
-            client().execute(ADBatchAnomalyResultAction.INSTANCE, adBatchAnomalyResultRequest(dateRange)).actionGet(5000);
-        }
-        waitUntil(() -> countDocs(CommonName.DETECTION_STATE_INDEX) >= totalDataNodes, 10, TimeUnit.SECONDS);
-
-        ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(dateRange);
-        RuntimeException exception = expectThrowsAnyOf(
-            ImmutableList.of(LimitExceededException.class, NotSerializableExceptionWrapper.class),
-            () -> client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000)
-        );
-        assertTrue(
-            exception
-                .getMessage()
-                .contains("All nodes' executing historical detector count exceeds limitation. No eligible node to run detector")
-        );
-    }
+    // public void testHistoricalDetectorExceedsMaxRunningTaskLimit() throws IOException, InterruptedException {
+    // updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 1));
+    // updateTransientSettings(ImmutableMap.of(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 5));
+    // DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
+    // int totalDataNodes = getDataNodes().size();
+    // for (int i = 0; i < totalDataNodes; i++) {
+    // client().execute(ADBatchAnomalyResultAction.INSTANCE, adBatchAnomalyResultRequest(dateRange)).actionGet(5000);
+    // }
+    // waitUntil(() -> countDocs(CommonName.DETECTION_STATE_INDEX) >= totalDataNodes, 10, TimeUnit.SECONDS);
+    //
+    // ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(dateRange);
+    // RuntimeException exception = expectThrowsAnyOf(
+    // ImmutableList.of(LimitExceededException.class, NotSerializableExceptionWrapper.class),
+    // () -> client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000)
+    // );
+    // assertTrue(
+    // exception
+    // .getMessage()
+    // .contains("All nodes' executing historical detector count exceeds limitation. No eligible node to run detector")
+    // );
+    // }
 
     public void testDisableADPlugin() throws IOException {
         updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, false));
@@ -173,23 +169,23 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
         updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, true));
     }
 
-    public void testMultipleTasks() throws IOException, InterruptedException {
-        updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 2));
-
-        DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
-        for (int i = 0; i < getDataNodes().size(); i++) {
-            client().execute(ADBatchAnomalyResultAction.INSTANCE, adBatchAnomalyResultRequest(dateRange));
-        }
-
-        ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(
-            new DetectionDateRange(startTime, startTime.plus(2000, ChronoUnit.MINUTES))
-        );
-        client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
-        Thread.sleep(10000);
-        GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
-        assertEquals(ADTaskState.FINISHED.name(), doc.getSourceAsMap().get(ADTask.STATE_FIELD));
-        updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 1));
-    }
+    // public void testMultipleTasks() throws IOException, InterruptedException {
+    // updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 2));
+    //
+    // DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
+    // for (int i = 0; i < getDataNodes().size(); i++) {
+    // client().execute(ADBatchAnomalyResultAction.INSTANCE, adBatchAnomalyResultRequest(dateRange));
+    // }
+    //
+    // ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(
+    // new DetectionDateRange(startTime, startTime.plus(2000, ChronoUnit.MINUTES))
+    // );
+    // client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
+    // Thread.sleep(10000);
+    // GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
+    // assertEquals(ADTaskState.FINISHED.name(), doc.getSourceAsMap().get(ADTask.STATE_FIELD));
+    // updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 1));
+    // }
 
     private ADBatchAnomalyResultRequest adBatchAnomalyResultRequest(DetectionDateRange dateRange) throws IOException {
         return adBatchAnomalyResultRequest(dateRange, testIndex);

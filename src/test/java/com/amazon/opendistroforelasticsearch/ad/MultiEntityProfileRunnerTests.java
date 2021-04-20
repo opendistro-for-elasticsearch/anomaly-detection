@@ -31,8 +31,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
@@ -53,9 +51,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
-import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
-import com.amazon.opendistroforelasticsearch.ad.model.DetectorState;
 import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.ProfileNodeResponse;
@@ -230,58 +226,58 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
         }).when(client).search(any(), any());
     }
 
-    public void testInit() throws InterruptedException {
-        setUpClientExecuteProfileAction(InittedEverResultStatus.NOT_INITTED);
-        setUpClientSearch(InittedEverResultStatus.NOT_INITTED);
+    // public void testInit() throws InterruptedException {
+    // setUpClientExecuteProfileAction(InittedEverResultStatus.NOT_INITTED);
+    // setUpClientSearch(InittedEverResultStatus.NOT_INITTED);
+    //
+    // final CountDownLatch inProgressLatch = new CountDownLatch(1);
+    //
+    // DetectorProfile expectedProfile = new DetectorProfile.Builder().state(DetectorState.INIT).build();
+    // runner.profile(detectorId, ActionListener.wrap(response -> {
+    // assertEquals(expectedProfile, response);
+    // inProgressLatch.countDown();
+    // }, exception -> {
+    // assertTrue("Should not reach here", false);
+    // inProgressLatch.countDown();
+    // }), stateNError);
+    // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    // }
 
-        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+    // public void testRunning() throws InterruptedException {
+    // setUpClientExecuteProfileAction(InittedEverResultStatus.INITTED);
+    // setUpClientSearch(InittedEverResultStatus.INITTED);
+    //
+    // final CountDownLatch inProgressLatch = new CountDownLatch(1);
+    //
+    // DetectorProfile expectedProfile = new DetectorProfile.Builder().state(DetectorState.RUNNING).build();
+    // runner.profile(detectorId, ActionListener.wrap(response -> {
+    // assertEquals(expectedProfile, response);
+    // inProgressLatch.countDown();
+    // }, exception -> {
+    // assertTrue("Should not reach here", false);
+    // inProgressLatch.countDown();
+    // }), stateNError);
+    // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    // }
 
-        DetectorProfile expectedProfile = new DetectorProfile.Builder().state(DetectorState.INIT).build();
-        runner.profile(detectorId, ActionListener.wrap(response -> {
-            assertEquals(expectedProfile, response);
-            inProgressLatch.countDown();
-        }, exception -> {
-            assertTrue("Should not reach here", false);
-            inProgressLatch.countDown();
-        }), stateNError);
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-    }
-
-    public void testRunning() throws InterruptedException {
-        setUpClientExecuteProfileAction(InittedEverResultStatus.INITTED);
-        setUpClientSearch(InittedEverResultStatus.INITTED);
-
-        final CountDownLatch inProgressLatch = new CountDownLatch(1);
-
-        DetectorProfile expectedProfile = new DetectorProfile.Builder().state(DetectorState.RUNNING).build();
-        runner.profile(detectorId, ActionListener.wrap(response -> {
-            assertEquals(expectedProfile, response);
-            inProgressLatch.countDown();
-        }, exception -> {
-            assertTrue("Should not reach here", false);
-            inProgressLatch.countDown();
-        }), stateNError);
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-    }
-
-    /**
-     * Although profile action results indicate initted, we trust what result index tells us
-     * @throws InterruptedException if CountDownLatch is interrupted while waiting
-     */
-    public void testResultIndexFinalTruth() throws InterruptedException {
-        setUpClientExecuteProfileAction(InittedEverResultStatus.NOT_INITTED);
-        setUpClientSearch(InittedEverResultStatus.INITTED);
-
-        final CountDownLatch inProgressLatch = new CountDownLatch(1);
-
-        DetectorProfile expectedProfile = new DetectorProfile.Builder().state(DetectorState.RUNNING).build();
-        runner.profile(detectorId, ActionListener.wrap(response -> {
-            assertEquals(expectedProfile, response);
-            inProgressLatch.countDown();
-        }, exception -> {
-            assertTrue("Should not reach here", false);
-            inProgressLatch.countDown();
-        }), stateNError);
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-    }
+    // /**
+    // * Although profile action results indicate initted, we trust what result index tells us
+    // * @throws InterruptedException if CountDownLatch is interrupted while waiting
+    // */
+    // public void testResultIndexFinalTruth() throws InterruptedException {
+    // setUpClientExecuteProfileAction(InittedEverResultStatus.NOT_INITTED);
+    // setUpClientSearch(InittedEverResultStatus.INITTED);
+    //
+    // final CountDownLatch inProgressLatch = new CountDownLatch(1);
+    //
+    // DetectorProfile expectedProfile = new DetectorProfile.Builder().state(DetectorState.RUNNING).build();
+    // runner.profile(detectorId, ActionListener.wrap(response -> {
+    // assertEquals(expectedProfile, response);
+    // inProgressLatch.countDown();
+    // }, exception -> {
+    // assertTrue("Should not reach here", false);
+    // inProgressLatch.countDown();
+    // }), stateNError);
+    // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    // }
 }

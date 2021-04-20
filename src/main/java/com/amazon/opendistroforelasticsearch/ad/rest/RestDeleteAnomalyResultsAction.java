@@ -15,44 +15,29 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
-import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
-import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
-import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
-import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyResultsAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorRequest;
-import com.google.common.collect.ImmutableList;
+import java.io.IOException;
+import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.rest.action.RestActions;
-import org.elasticsearch.rest.action.RestStatusToXContentListener;
-import org.elasticsearch.rest.action.RestToXContentListener;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Locale;
-
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DETECTOR_ID;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.ENTITY;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PROFILE;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.TYPE;
-import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.getSourceContext;
+import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
+import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyResultsAction;
+import com.google.common.collect.ImmutableList;
 
 /**
  * This class consists of the REST handler to retrieve an anomaly detector.
@@ -76,41 +61,41 @@ public class RestDeleteAnomalyResultsAction extends BaseRestHandler {
         }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
-//        searchSourceBuilder.fetchSource(getSourceContext(request));
-//        searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
-//        logger.info("----------------------------------------");
-//        logger.info(searchSourceBuilder);
-//        logger.info("----------------------------------------");
+        // searchSourceBuilder.fetchSource(getSourceContext(request));
+        // searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
+        // logger.info("----------------------------------------");
+        // logger.info(searchSourceBuilder);
+        // logger.info("----------------------------------------");
         DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(CommonName.ANOMALY_RESULT_INDEX_PATTERN)
-                .setQuery(searchSourceBuilder.query())
-//                .setBatchSize(1000)
-//                .setRequestsPerSecond(1)
-                .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
-//        return channel -> client.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(r -> {
-////            XContentBuilder xContentBuilder = channel.newBuilder().startObject();
-//            XContentBuilder contentBuilder = r.toXContent(channel.newBuilder().startObject(), ToXContent.EMPTY_PARAMS);
-//            contentBuilder.endObject();
-//            channel.sendResponse(new BytesRestResponse(RestStatus.OK, contentBuilder));
-//        }, e-> {
-//            try {
-//                channel.sendResponse(new BytesRestResponse(channel, e));
-//            } catch (IOException exception) {
-//                logger.error("Failed to send back delete anomaly result exception result", exception);
-//            }
-//        }));
+            .setQuery(searchSourceBuilder.query())
+            // .setBatchSize(1000)
+            // .setRequestsPerSecond(1)
+            .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
+        // return channel -> client.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(r -> {
+        //// XContentBuilder xContentBuilder = channel.newBuilder().startObject();
+        // XContentBuilder contentBuilder = r.toXContent(channel.newBuilder().startObject(), ToXContent.EMPTY_PARAMS);
+        // contentBuilder.endObject();
+        // channel.sendResponse(new BytesRestResponse(RestStatus.OK, contentBuilder));
+        // }, e-> {
+        // try {
+        // channel.sendResponse(new BytesRestResponse(channel, e));
+        // } catch (IOException exception) {
+        // logger.error("Failed to send back delete anomaly result exception result", exception);
+        // }
+        // }));
         return channel -> client.execute(DeleteAnomalyResultsAction.INSTANCE, deleteRequest, ActionListener.wrap(r -> {
             XContentBuilder contentBuilder = r.toXContent(channel.newBuilder().startObject(), ToXContent.EMPTY_PARAMS);
             contentBuilder.endObject();
             channel.sendResponse(new BytesRestResponse(RestStatus.OK, contentBuilder));
-        }, e-> {
+        }, e -> {
             try {
                 channel.sendResponse(new BytesRestResponse(channel, e));
             } catch (IOException exception) {
                 logger.error("Failed to send back delete anomaly result exception result", exception);
             }
         }));
-//        return channel -> client
-//            .execute(GetAnomalyDetectorAction.INSTANCE, getAnomalyDetectorRequest, new RestToXContentListener<>(channel));
+        // return channel -> client
+        // .execute(GetAnomalyDetectorAction.INSTANCE, getAnomalyDetectorRequest, new RestToXContentListener<>(channel));
     }
 
     @Override

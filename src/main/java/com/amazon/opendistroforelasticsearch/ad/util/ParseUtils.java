@@ -34,7 +34,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.regex.Matcher;
 
-import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.join.ScoreMode;
@@ -73,6 +72,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
@@ -599,6 +599,7 @@ public final class ParseUtils {
      * Generate batch query request for feature aggregation on given date range.
      *
      * @param detector anomaly detector
+     * @param entity entity
      * @param startTime start time
      * @param endTime end time
      * @param xContentRegistry content registry
@@ -620,7 +621,6 @@ public final class ParseUtils {
             .includeLower(true)
             .includeUpper(false);
 
-
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(detector.getFilterQuery());
 
         if (detector.isMultientityDetector() && entity != null && entity.size() > 0) {
@@ -639,7 +639,8 @@ public final class ParseUtils {
                     .fixedInterval(DateHistogramInterval.seconds((int) intervalSeconds))
             );
 
-        CompositeAggregationBuilder aggregationBuilder = new CompositeAggregationBuilder(FEATURE_AGGS, sources).size(MAX_BATCH_TASK_PIECE_SIZE);
+        CompositeAggregationBuilder aggregationBuilder = new CompositeAggregationBuilder(FEATURE_AGGS, sources)
+            .size(MAX_BATCH_TASK_PIECE_SIZE);
 
         if (detector.getEnabledFeatureIds().size() == 0) {
             throw new AnomalyDetectionException("No enabled feature configured").countedInStats(false);
@@ -661,9 +662,9 @@ public final class ParseUtils {
         searchSourceBuilder.query(internalFilterQuery);
         searchSourceBuilder.size(0);
 
-//        System.out.println("++++++++++----------");
-//        System.out.println(searchSourceBuilder.toString());
-//        System.out.println("++++++++++----------");
+        // System.out.println("++++++++++----------");
+        // System.out.println(searchSourceBuilder.toString());
+        // System.out.println("++++++++++----------");
         return searchSourceBuilder;
     }
 

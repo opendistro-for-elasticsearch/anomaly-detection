@@ -27,8 +27,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
-import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -64,6 +62,7 @@ import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse;
@@ -228,34 +227,33 @@ public class IndexAnomalyDetectorActionHandler {
             AnomalyDetector existingDetector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
             // We have separate flows for realtime and historical detector currently. User
             // can't change detector from realtime to historical, vice versa.
-//            if (existingDetector.isRealTimeDetector() != anomalyDetector.isRealTimeDetector()) {
-//                listener
-//                    .onFailure(
-//                        new ElasticsearchStatusException(
-//                            "Can't change detector type between realtime and historical detector",
-//                            RestStatus.BAD_REQUEST
-//                        )
-//                    );
-//                return;
-//            }
+            // if (existingDetector.isRealTimeDetector() != anomalyDetector.isRealTimeDetector()) {
+            // listener
+            // .onFailure(
+            // new ElasticsearchStatusException(
+            // "Can't change detector type between realtime and historical detector",
+            // RestStatus.BAD_REQUEST
+            // )
+            // );
+            // return;
+            // }
 
-//            if (existingDetector.isRealTimeDetector()) {
-//                validateDetector(existingDetector);
-//            } else {
-//                adTaskManager.getLatestADTask(detectorId, (adTask) -> {
-//                    if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
-//                        // can't update detector if there is AD task running
-//                        listener.onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
-//                    } else {
-//                        // TODO: change to validateDetector method when we support HC historical detector
-//                        searchAdInputIndices(detectorId);
-//                    }
-//                }, transportService, listener);
-//            }
-//            validateDetector(exisADTaskManager.javatingDetector);
-            //TODO: check if realtime job or historical analysis is executing
-            adTaskManager.getLatestADTask(detectorId, ADTaskType.getHistoricalDetectorTaskTypes(),
-                    (adTask) -> {
+            // if (existingDetector.isRealTimeDetector()) {
+            // validateDetector(existingDetector);
+            // } else {
+            // adTaskManager.getLatestADTask(detectorId, (adTask) -> {
+            // if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
+            // // can't update detector if there is AD task running
+            // listener.onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+            // } else {
+            // // TODO: change to validateDetector method when we support HC historical detector
+            // searchAdInputIndices(detectorId);
+            // }
+            // }, transportService, listener);
+            // }
+            // validateDetector(exisADTaskManager.javatingDetector);
+            // TODO: check if realtime job or historical analysis is executing
+            adTaskManager.getLatestADTask(detectorId, ADTaskType.getHistoricalDetectorTaskTypes(), (adTask) -> {
                 if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
                     // can't update detector if there is AD task running
                     listener.onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));

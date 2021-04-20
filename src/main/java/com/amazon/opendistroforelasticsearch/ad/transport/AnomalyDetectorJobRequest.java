@@ -17,11 +17,12 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import java.io.IOException;
 
-import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
+
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 
 public class AnomalyDetectorJobRequest extends ActionRequest {
 
@@ -48,7 +49,14 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
         this(detectorID, null, false, seqNo, primaryTerm, rawPath);
     }
 
-    public AnomalyDetectorJobRequest(String detectorID, DetectionDateRange detectionDateRange, boolean historical, long seqNo, long primaryTerm, String rawPath) {
+    public AnomalyDetectorJobRequest(
+        String detectorID,
+        DetectionDateRange detectionDateRange,
+        boolean historical,
+        long seqNo,
+        long primaryTerm,
+        String rawPath
+    ) {
         super();
         this.detectorID = detectorID;
         this.detectionDateRange = detectionDateRange;

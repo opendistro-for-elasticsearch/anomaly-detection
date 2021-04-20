@@ -15,10 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import org.elasticsearch.action.ActionType;
-import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
+
+import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class DeleteAnomalyResultsAction extends ActionType<BulkByScrollResponse> {
     // External Action which used for public facing RestAPIs.

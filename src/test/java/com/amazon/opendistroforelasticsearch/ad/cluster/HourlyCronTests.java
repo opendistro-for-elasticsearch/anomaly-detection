@@ -42,6 +42,7 @@ import test.com.amazon.opendistroforelasticsearch.ad.util.ClusterCreation;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronResponse;
@@ -110,7 +111,8 @@ public class HourlyCronTests extends AbstractADTest {
             return null;
         }).when(client).execute(eq(CronAction.INSTANCE), any(), any());
 
-        HourlyCron cron = new HourlyCron(client, nodeFilter);
+        ADTaskManager adTaskManager = mock(ADTaskManager.class);
+        HourlyCron cron = new HourlyCron(client, nodeFilter, adTaskManager);
         cron.run();
 
         Logger LOG = LogManager.getLogger(HourlyCron.class);

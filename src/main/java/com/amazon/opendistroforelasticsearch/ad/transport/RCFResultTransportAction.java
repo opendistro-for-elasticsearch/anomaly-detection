@@ -71,7 +71,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
                                         result.getConfidence(),
                                         result.getForestSize(),
                                         result.getAttribution(),
-                                            result.getTotalUpdates()
+                                        result.getTotalUpdates()
                                     )
                                 ),
                             exception -> {

@@ -496,28 +496,28 @@ public class AnomalyDetectorTests extends AbstractADTest {
         assertEquals(0, anomalyDetector.getFeatureAttributes().size());
     }
 
-    public void testHistoricalHCDetector() {
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> new AnomalyDetector(
-                randomAlphaOfLength(5),
-                randomLong(),
-                randomAlphaOfLength(5),
-                randomAlphaOfLength(5),
-                randomAlphaOfLength(5),
-                ImmutableList.of(randomAlphaOfLength(5)),
-                null,
-                TestHelpers.randomQuery(),
-                TestHelpers.randomIntervalTimeConfiguration(),
-                TestHelpers.randomIntervalTimeConfiguration(),
-                null,
-                null,
-                1,
-                Instant.now(),
-                ImmutableList.of(randomAlphaOfLength(5)),
-                TestHelpers.randomUser(),
-                null
-            )
-        );
-    }
+    // public void testHistoricalHCDetector() {
+    // expectThrows(
+    // IllegalArgumentException.class,
+    // () -> new AnomalyDetector(
+    // randomAlphaOfLength(5),
+    // randomLong(),
+    // randomAlphaOfLength(5),
+    // randomAlphaOfLength(5),
+    // randomAlphaOfLength(5),
+    // ImmutableList.of(randomAlphaOfLength(5)),
+    // null,
+    // TestHelpers.randomQuery(),
+    // TestHelpers.randomIntervalTimeConfiguration(),
+    // TestHelpers.randomIntervalTimeConfiguration(),
+    // null,
+    // null,
+    // 1,
+    // Instant.now(),
+    // ImmutableList.of(randomAlphaOfLength(5)),
+    // TestHelpers.randomUser(),
+    // null
+    // )
+    // );
+    // }
 }

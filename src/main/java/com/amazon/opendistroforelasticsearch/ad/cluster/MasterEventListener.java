@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.ad.cluster;
 
 import java.time.Clock;
 
-import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.LocalNodeMasterListener;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -29,6 +28,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import com.amazon.opendistroforelasticsearch.ad.cluster.diskcleanup.IndexCleanup;
 import com.amazon.opendistroforelasticsearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.google.common.annotations.VisibleForTesting;
@@ -67,7 +67,8 @@ public class MasterEventListener implements LocalNodeMasterListener {
     @Override
     public void onMaster() {
         if (hourlyCron == null) {
-            hourlyCron = threadPool.scheduleWithFixedDelay(new HourlyCron(client, nodeFilter, adTaskManager), TimeValue.timeValueHours(1), executorName());
+            hourlyCron = threadPool
+                .scheduleWithFixedDelay(new HourlyCron(client, nodeFilter, adTaskManager), TimeValue.timeValueHours(1), executorName());
             clusterService.addLifecycleListener(new LifecycleListener() {
                 @Override
                 public void beforeStop() {

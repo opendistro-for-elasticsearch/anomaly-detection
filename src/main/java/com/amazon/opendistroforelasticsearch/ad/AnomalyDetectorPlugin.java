@@ -28,9 +28,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyResultsAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyResultsAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyResultsTransportAction;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.SpecialPermission;
@@ -92,6 +89,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestAnomalyDetectorJobAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyDetectorAction;
+import com.amazon.opendistroforelasticsearch.ad.rest.RestDeleteAnomalyResultsAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestExecuteAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestGetAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.rest.RestIndexAnomalyDetectorAction;
@@ -133,6 +131,8 @@ import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorTransportAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyResultsAction;
+import com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyResultsTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.DeleteModelTransportAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.EntityProfileAction;
@@ -208,7 +208,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
     private IndexUtils indexUtils;
-//    private DetectionStateHandler detectorStateHandler;
+    // private DetectionStateHandler detectorStateHandler;
     private ADTaskCacheManager adTaskCacheManager;
     private ADTaskManager adTaskManager;
     private ADBatchTaskRunner adBatchTaskRunner;
@@ -249,7 +249,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setClientUtil(clientUtil);
         jobRunner.setThreadPool(threadPool);
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
-//        jobRunner.setDetectionStateHandler(detectorStateHandler);
+        // jobRunner.setDetectionStateHandler(detectorStateHandler);
         jobRunner.setSettings(settings);
         jobRunner.setIndexUtil(anomalyDetectionIndices);
         jobRunner.setAdTaskManager(adTaskManager);
@@ -498,18 +498,18 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         adStats = new ADStats(indexUtils, modelManager, stats);
         ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
-//        this.detectorStateHandler = new DetectionStateHandler(
-//            client,
-//            settings,
-//            threadPool,
-//            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initDetectionStateIndex),
-//            anomalyDetectionIndices::doesDetectorStateIndexExist,
-//            this.clientUtil,
-//            this.indexUtils,
-//            clusterService,
-//            xContentRegistry,
-//            stateManager
-//        );
+        // this.detectorStateHandler = new DetectionStateHandler(
+        // client,
+        // settings,
+        // threadPool,
+        // ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initDetectionStateIndex),
+        // anomalyDetectionIndices::doesDetectorStateIndexExist,
+        // this.clientUtil,
+        // this.indexUtils,
+        // clusterService,
+        // xContentRegistry,
+        // stateManager
+        // );
 
         MultiEntityResultHandler multiEntityResultHandler = new MultiEntityResultHandler(
             client,
@@ -532,7 +532,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             nodeFilter,
             hashRing,
             adTaskCacheManager,
-                threadPool);
+            threadPool
+        );
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
             client,
             settings,
@@ -582,7 +583,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 adStats,
                 new MasterEventListener(clusterService, threadPool, client, getClock(), clientUtil, nodeFilter, adTaskManager),
                 nodeFilter,
-//                detectorStateHandler,
+                // detectorStateHandler,
                 multiEntityResultHandler,
                 checkpoint,
                 modelPartitioner,

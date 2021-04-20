@@ -26,7 +26,7 @@ public abstract class AbstractProfileRunner {
         this.requiredSamples = requiredSamples;
     }
 
-    protected InitProgressProfile computeInitProgressProfile(long totalUpdates, long intervalMins) { //TODO calculate init progress left time
+    protected InitProgressProfile computeInitProgressProfile(long totalUpdates, long intervalMins) {
         float percent = Math.min((100.0f * totalUpdates) / requiredSamples, 100.0f);
         int neededPoints = (int) (requiredSamples - totalUpdates);
         return new InitProgressProfile(

@@ -91,14 +91,14 @@ public class PreviewAnomalyDetectorTransportAction extends
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             if (detectorId != null) {
                 resolveUserAndExecute(
-                        user,
-                        detectorId,
-                        filterByEnabled,
-                        listener,
-                        () -> previewExecute(request, listener),
-                        client,
-                        clusterService,
-                        xContentRegistry
+                    user,
+                    detectorId,
+                    filterByEnabled,
+                    listener,
+                    () -> previewExecute(request, listener),
+                    client,
+                    clusterService,
+                    xContentRegistry
                 );
             } else {
                 previewExecute(request, listener);
@@ -162,18 +162,18 @@ public class PreviewAnomalyDetectorTransportAction extends
     }
 
     private void previewAnomalyDetector(
-            ActionListener<PreviewAnomalyDetectorResponse> listener,
-            String detectorId,
-            AnomalyDetector detector, Instant startTime,
-            Instant endTime
+        ActionListener<PreviewAnomalyDetectorResponse> listener,
+        String detectorId,
+        AnomalyDetector detector,
+        Instant startTime,
+        Instant endTime
     ) throws IOException {
         if (!StringUtils.isBlank(detectorId)) {
             GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
             client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime));
         } else {
-//            listener.onFailure(new ElasticsearchException("Wrong input, no detector id", RestStatus.BAD_REQUEST));
-            anomalyDetectorRunner
-                    .executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(listener, detector));
+            // listener.onFailure(new ElasticsearchException("Wrong input, no detector id", RestStatus.BAD_REQUEST));
+            anomalyDetectorRunner.executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(listener, detector));
         }
     }
 

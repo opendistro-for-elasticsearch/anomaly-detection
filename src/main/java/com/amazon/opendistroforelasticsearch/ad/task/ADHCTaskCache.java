@@ -15,16 +15,17 @@
 
 package com.amazon.opendistroforelasticsearch.ad.task;
 
-import com.google.common.util.concurrent.RateLimiter;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import com.google.common.util.concurrent.RateLimiter;
 
 public class ADHCTaskCache {
     private final Logger logger = LogManager.getLogger(ADHCTaskCache.class);
@@ -112,7 +113,7 @@ public class ADHCTaskCache {
         if (entity == null) {
             return;
         }
-        //TODO: check if exists in temp entities?
+        // TODO: check if exists in temp entities?
         this.tempEntities.remove(entity);
         if (!this.runningEntities.contains(entity)) {
             this.runningEntities.add(entity);
@@ -138,12 +139,19 @@ public class ADHCTaskCache {
     public int getRunningEntityCount() {
         return this.runningEntities.size();
     }
+
     public int getTempEntityCount() {
         return this.tempEntities.size();
     }
 
     public boolean hasEntity() {
-        logger.debug("3333333333 ADHCTaskCache running: {}, pending: {}, temp: {}", runningEntities.size(), pendingEntities.size(), tempEntities.size());
+        logger
+            .debug(
+                "3333333333 ADHCTaskCache running: {}, pending: {}, temp: {}",
+                runningEntities.size(),
+                pendingEntities.size(),
+                tempEntities.size()
+            );
         return !this.pendingEntities.isEmpty() || !this.runningEntities.isEmpty() || !this.tempEntities.isEmpty();
     }
 
@@ -164,7 +172,7 @@ public class ADHCTaskCache {
     }
 
     public String pollEntity() {
-        String entity =  this.pendingEntities.poll();
+        String entity = this.pendingEntities.poll();
         if (entity != null) {
             this.moveToTempEntity(entity);
         }

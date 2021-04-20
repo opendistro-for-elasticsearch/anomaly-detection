@@ -58,7 +58,7 @@ public class ADTask implements ToXContentObject, Writeable {
     public static final String WORKER_NODE_FIELD = "worker_node";
     public static final String DETECTOR_FIELD = "detector";
     public static final String DETECTION_DATE_RANGE_FIELD = "detection_date_range";
-    public static final String ENTITY_FIELD = "entity";//TODO: is it possible to query by entity
+    public static final String ENTITY_FIELD = "entity";// TODO: is it possible to query by entity
     public static final String USER_FIELD = "user";
     public static final String PARENT_TASK_ID_FIELD = "parent_task_id";
     public static final String ESTIMATED_MINUTES_LEFT_FIELD = "estimated_minutes_left";
@@ -777,30 +777,65 @@ public class ADTask implements ToXContentObject, Writeable {
 
     @Override
     public String toString() {
-        return "ADTask{" +
-                "taskId='" + taskId + '\'' +
-                ", lastUpdateTime=" + lastUpdateTime +
-                ", startedBy='" + startedBy + '\'' +
-                ", stoppedBy='" + stoppedBy + '\'' +
-                ", error='" + error + '\'' +
-                ", state='" + state + '\'' +
-                ", detectorId='" + detectorId + '\'' +
-                ", taskProgress=" + taskProgress +
-                ", initProgress=" + initProgress +
-                ", currentPiece=" + currentPiece +
-                ", executionStartTime=" + executionStartTime +
-                ", executionEndTime=" + executionEndTime +
-                ", isLatest=" + isLatest +
-                ", taskType='" + taskType + '\'' +
-                ", checkpointId='" + checkpointId + '\'' +
-                ", detector=" + detector +
-                ", coordinatingNode='" + coordinatingNode + '\'' +
-                ", workerNode='" + workerNode + '\'' +
-                ", detectionDateRange=" + detectionDateRange +
-                ", entity=" + entity +
-                ", parentTaskId='" + parentTaskId + '\'' +
-                ", estimatedMinutesLeft='" + estimatedMinutesLeft + '\'' +
-                ", user=" + user +
-                '}';
+        return "ADTask{"
+            + "taskId='"
+            + taskId
+            + '\''
+            + ", lastUpdateTime="
+            + lastUpdateTime
+            + ", startedBy='"
+            + startedBy
+            + '\''
+            + ", stoppedBy='"
+            + stoppedBy
+            + '\''
+            + ", error='"
+            + error
+            + '\''
+            + ", state='"
+            + state
+            + '\''
+            + ", detectorId='"
+            + detectorId
+            + '\''
+            + ", taskProgress="
+            + taskProgress
+            + ", initProgress="
+            + initProgress
+            + ", currentPiece="
+            + currentPiece
+            + ", executionStartTime="
+            + executionStartTime
+            + ", executionEndTime="
+            + executionEndTime
+            + ", isLatest="
+            + isLatest
+            + ", taskType='"
+            + taskType
+            + '\''
+            + ", checkpointId='"
+            + checkpointId
+            + '\''
+            + ", detector="
+            + detector
+            + ", coordinatingNode='"
+            + coordinatingNode
+            + '\''
+            + ", workerNode='"
+            + workerNode
+            + '\''
+            + ", detectionDateRange="
+            + detectionDateRange
+            + ", entity="
+            + entity
+            + ", parentTaskId='"
+            + parentTaskId
+            + '\''
+            + ", estimatedMinutesLeft='"
+            + estimatedMinutesLeft
+            + '\''
+            + ", user="
+            + user
+            + '}';
     }
 }

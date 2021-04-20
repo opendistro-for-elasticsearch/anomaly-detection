@@ -15,27 +15,19 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.AD_BASE_STATS_URI;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 
 import java.io.IOException;
 import java.util.Map;
 
-import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.Response;
-import org.elasticsearch.client.ResponseException;
-import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.rest.RestStatus;
 import org.junit.Before;
 
 import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorRestTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
-import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
-import com.amazon.opendistroforelasticsearch.ad.model.ADTaskProfile;
-import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.google.common.collect.ImmutableMap;
 
 public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase {
@@ -49,88 +41,88 @@ public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase 
     }
 
     @SuppressWarnings("unchecked")
-    public void testHistoricalDetectorWorkflow() throws Exception {
-        // create historical detector
-        AnomalyDetector detector = createHistoricalDetector();
-        String detectorId = detector.getDetectorId();
+    // public void testHistoricalDetectorWorkflow() throws Exception {
+    // // create historical detector
+    // AnomalyDetector detector = createHistoricalDetector();
+    // String detectorId = detector.getDetectorId();
+    //
+    // // start historical detector
+    // String taskId = startHistoricalDetector(detectorId);
+    //
+    // // get task profile
+    // ADTaskProfile adTaskProfile = waitUntilGetTaskProfile(detectorId);
+    //
+    // ADTask adTask = adTaskProfile.getAdTask();
+    // assertEquals(taskId, adTask.getTaskId());
+    // assertTrue(TestHelpers.historicalDetectorRunningStats.contains(adTask.getState()));
+    //
+    // // get task stats
+    // Response statsResponse = TestHelpers.makeRequest(client(), "GET", AD_BASE_STATS_URI, ImmutableMap.of(), "", null);
+    // String statsResult = EntityUtils.toString(statsResponse.getEntity());
+    // Map<String, Object> stringObjectMap = TestHelpers.parseStatsResult(statsResult);
+    // assertTrue((long) stringObjectMap.get("historical_single_entity_detector_count") > 0);
+    // Map<String, Object> nodes = (Map<String, Object>) stringObjectMap.get("nodes");
+    // long totalBatchTaskExecution = 0;
+    // for (String key : nodes.keySet()) {
+    // Map<String, Object> nodeStats = (Map<String, Object>) nodes.get(key);
+    // totalBatchTaskExecution += (long) nodeStats.get("ad_total_batch_task_execution_count");
+    // }
+    // assertTrue(totalBatchTaskExecution > 0);
+    //
+    // // get historical detector with AD task
+    // ToXContentObject[] result = getHistoricalAnomalyDetector(detectorId, true, client());
+    // AnomalyDetector parsedDetector = (AnomalyDetector) result[0];
+    // AnomalyDetectorJob parsedJob = (AnomalyDetectorJob) result[1];
+    // ADTask parsedADTask = (ADTask) result[2];
+    // assertNull(parsedJob);
+    // assertNotNull(parsedDetector);
+    // assertNotNull(parsedADTask);
+    // assertEquals(taskId, parsedADTask.getTaskId());
+    //
+    // // get task profile
+    // ADTaskProfile endTaskProfile = waitUntilTaskFinished(detectorId);
+    // ADTask stoppedAdTask = endTaskProfile.getAdTask();
+    // assertEquals(taskId, stoppedAdTask.getTaskId());
+    // assertEquals(ADTaskState.FINISHED.name(), stoppedAdTask.getState());
+    // }
 
-        // start historical detector
-        String taskId = startHistoricalDetector(detectorId);
-
-        // get task profile
-        ADTaskProfile adTaskProfile = waitUntilGetTaskProfile(detectorId);
-
-        ADTask adTask = adTaskProfile.getAdTask();
-        assertEquals(taskId, adTask.getTaskId());
-        assertTrue(TestHelpers.historicalDetectorRunningStats.contains(adTask.getState()));
-
-        // get task stats
-        Response statsResponse = TestHelpers.makeRequest(client(), "GET", AD_BASE_STATS_URI, ImmutableMap.of(), "", null);
-        String statsResult = EntityUtils.toString(statsResponse.getEntity());
-        Map<String, Object> stringObjectMap = TestHelpers.parseStatsResult(statsResult);
-        assertTrue((long) stringObjectMap.get("historical_single_entity_detector_count") > 0);
-        Map<String, Object> nodes = (Map<String, Object>) stringObjectMap.get("nodes");
-        long totalBatchTaskExecution = 0;
-        for (String key : nodes.keySet()) {
-            Map<String, Object> nodeStats = (Map<String, Object>) nodes.get(key);
-            totalBatchTaskExecution += (long) nodeStats.get("ad_total_batch_task_execution_count");
-        }
-        assertTrue(totalBatchTaskExecution > 0);
-
-        // get historical detector with AD task
-        ToXContentObject[] result = getHistoricalAnomalyDetector(detectorId, true, client());
-        AnomalyDetector parsedDetector = (AnomalyDetector) result[0];
-        AnomalyDetectorJob parsedJob = (AnomalyDetectorJob) result[1];
-        ADTask parsedADTask = (ADTask) result[2];
-        assertNull(parsedJob);
-        assertNotNull(parsedDetector);
-        assertNotNull(parsedADTask);
-        assertEquals(taskId, parsedADTask.getTaskId());
-
-        // get task profile
-        ADTaskProfile endTaskProfile = waitUntilTaskFinished(detectorId);
-        ADTask stoppedAdTask = endTaskProfile.getAdTask();
-        assertEquals(taskId, stoppedAdTask.getTaskId());
-        assertEquals(ADTaskState.FINISHED.name(), stoppedAdTask.getState());
-    }
-
-    @SuppressWarnings("unchecked")
-    public void testStopHistoricalDetector() throws Exception {
-        // create historical detector
-        AnomalyDetector detector = createHistoricalDetector();
-        String detectorId = detector.getDetectorId();
-
-        // start historical detector
-        String taskId = startHistoricalDetector(detectorId);
-
-        waitUntilGetTaskProfile(detectorId);
-
-        // stop historical detector
-        Response stopDetectorResponse = stopAnomalyDetector(detectorId, client());
-        assertEquals(RestStatus.OK, restStatus(stopDetectorResponse));
-
-        // get task profile
-        ADTaskProfile stoppedAdTaskProfile = waitUntilTaskFinished(detectorId);
-        ADTask stoppedAdTask = stoppedAdTaskProfile.getAdTask();
-        assertEquals(taskId, stoppedAdTask.getTaskId());
-        assertEquals(ADTaskState.STOPPED.name(), stoppedAdTask.getState());
-        updateClusterSettings(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 1);
-
-        waitUntilTaskFinished(detectorId);
-
-        // get AD stats
-        Response statsResponse = TestHelpers.makeRequest(client(), "GET", AD_BASE_STATS_URI, ImmutableMap.of(), "", null);
-        String statsResult = EntityUtils.toString(statsResponse.getEntity());
-        Map<String, Object> stringObjectMap = TestHelpers.parseStatsResult(statsResult);
-        assertTrue((long) stringObjectMap.get("historical_single_entity_detector_count") > 0);
-        Map<String, Object> nodes = (Map<String, Object>) stringObjectMap.get("nodes");
-        long cancelledTaskCount = 0;
-        for (String key : nodes.keySet()) {
-            Map<String, Object> nodeStats = (Map<String, Object>) nodes.get(key);
-            cancelledTaskCount += (long) nodeStats.get("ad_canceled_batch_task_count");
-        }
-        assertTrue(cancelledTaskCount >= 1);
-    }
+    // @SuppressWarnings("unchecked")
+    // public void testStopHistoricalDetector() throws Exception {
+    // // create historical detector
+    // AnomalyDetector detector = createHistoricalDetector();
+    // String detectorId = detector.getDetectorId();
+    //
+    // // start historical detector
+    // String taskId = startHistoricalDetector(detectorId);
+    //
+    // waitUntilGetTaskProfile(detectorId);
+    //
+    // // stop historical detector
+    // Response stopDetectorResponse = stopAnomalyDetector(detectorId, client());
+    // assertEquals(RestStatus.OK, restStatus(stopDetectorResponse));
+    //
+    // // get task profile
+    // ADTaskProfile stoppedAdTaskProfile = waitUntilTaskFinished(detectorId);
+    // ADTask stoppedAdTask = stoppedAdTaskProfile.getAdTask();
+    // assertEquals(taskId, stoppedAdTask.getTaskId());
+    // assertEquals(ADTaskState.STOPPED.name(), stoppedAdTask.getState());
+    // updateClusterSettings(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 1);
+    //
+    // waitUntilTaskFinished(detectorId);
+    //
+    // // get AD stats
+    // Response statsResponse = TestHelpers.makeRequest(client(), "GET", AD_BASE_STATS_URI, ImmutableMap.of(), "", null);
+    // String statsResult = EntityUtils.toString(statsResponse.getEntity());
+    // Map<String, Object> stringObjectMap = TestHelpers.parseStatsResult(statsResult);
+    // assertTrue((long) stringObjectMap.get("historical_single_entity_detector_count") > 0);
+    // Map<String, Object> nodes = (Map<String, Object>) stringObjectMap.get("nodes");
+    // long cancelledTaskCount = 0;
+    // for (String key : nodes.keySet()) {
+    // Map<String, Object> nodeStats = (Map<String, Object>) nodes.get(key);
+    // cancelledTaskCount += (long) nodeStats.get("ad_canceled_batch_task_count");
+    // }
+    // assertTrue(cancelledTaskCount >= 1);
+    // }
 
     public void testUpdateHistoricalDetector() throws IOException {
         // create historical detector
@@ -159,33 +151,33 @@ public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase 
         assertEquals(newDetector.getDescription(), updatedDetector.getDescription());
     }
 
-    public void testUpdateRunningHistoricalDetector() throws Exception {
-        // create historical detector
-        AnomalyDetector detector = createHistoricalDetector();
-        String detectorId = detector.getDetectorId();
-
-        // start historical detector
-        startHistoricalDetector(detectorId);
-
-        // update historical detector
-        AnomalyDetector newDetector = randomAnomalyDetector(detector);
-        TestHelpers
-            .assertFailWith(
-                ResponseException.class,
-                "Detector is running",
-                () -> TestHelpers
-                    .makeRequest(
-                        client(),
-                        "PUT",
-                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "?refresh=true",
-                        ImmutableMap.of(),
-                        toHttpEntity(newDetector),
-                        null
-                    )
-            );
-
-        waitUntilTaskFinished(detectorId);
-    }
+    // public void testUpdateRunningHistoricalDetector() throws Exception {
+    // // create historical detector
+    // AnomalyDetector detector = createHistoricalDetector();
+    // String detectorId = detector.getDetectorId();
+    //
+    // // start historical detector
+    // startHistoricalDetector(detectorId);
+    //
+    // // update historical detector
+    // AnomalyDetector newDetector = randomAnomalyDetector(detector);
+    // TestHelpers
+    // .assertFailWith(
+    // ResponseException.class,
+    // "Detector is running",
+    // () -> TestHelpers
+    // .makeRequest(
+    // client(),
+    // "PUT",
+    // TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "?refresh=true",
+    // ImmutableMap.of(),
+    // toHttpEntity(newDetector),
+    // null
+    // )
+    // );
+    //
+    // waitUntilTaskFinished(detectorId);
+    // }
 
     public void testDeleteHistoricalDetector() throws IOException {
         // create historical detector
@@ -198,43 +190,43 @@ public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase 
         assertEquals(RestStatus.OK, restStatus(response));
     }
 
-    public void testDeleteRunningHistoricalDetector() throws Exception {
-        // create historical detector
-        AnomalyDetector detector = createHistoricalDetector();
-        String detectorId = detector.getDetectorId();
+    // public void testDeleteRunningHistoricalDetector() throws Exception {
+    // // create historical detector
+    // AnomalyDetector detector = createHistoricalDetector();
+    // String detectorId = detector.getDetectorId();
+    //
+    // // start historical detector
+    // startHistoricalDetector(detectorId);
+    //
+    // // delete detector
+    // TestHelpers
+    // .assertFailWith(
+    // ResponseException.class,
+    // "Detector is running",
+    // () -> TestHelpers
+    // .makeRequest(client(), "DELETE", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId, ImmutableMap.of(), "", null)
+    // );
+    //
+    // waitUntilTaskFinished(detectorId);
+    // }
 
-        // start historical detector
-        startHistoricalDetector(detectorId);
-
-        // delete detector
-        TestHelpers
-            .assertFailWith(
-                ResponseException.class,
-                "Detector is running",
-                () -> TestHelpers
-                    .makeRequest(client(), "DELETE", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId, ImmutableMap.of(), "", null)
-            );
-
-        waitUntilTaskFinished(detectorId);
-    }
-
-    public void testSearchTasks() throws IOException, InterruptedException {
-        // create historical detector
-        AnomalyDetector detector = createHistoricalDetector();
-        String detectorId = detector.getDetectorId();
-
-        // start historical detector
-        String taskId = startHistoricalDetector(detectorId);
-
-        waitUntilTaskFinished(detectorId);
-
-        String query = String.format("{\"query\":{\"term\":{\"detector_id\":{\"value\":\"%s\"}}}}", detectorId);
-        Response response = TestHelpers
-            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/tasks/_search", ImmutableMap.of(), query, null);
-        String searchResult = EntityUtils.toString(response.getEntity());
-        assertTrue(searchResult.contains(taskId));
-        assertTrue(searchResult.contains(detector.getDetectorId()));
-    }
+    // public void testSearchTasks() throws IOException, InterruptedException {
+    // // create historical detector
+    // AnomalyDetector detector = createHistoricalDetector();
+    // String detectorId = detector.getDetectorId();
+    //
+    // // start historical detector
+    // String taskId = startHistoricalDetector(detectorId);
+    //
+    // waitUntilTaskFinished(detectorId);
+    //
+    // String query = String.format("{\"query\":{\"term\":{\"detector_id\":{\"value\":\"%s\"}}}}", detectorId);
+    // Response response = TestHelpers
+    // .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/tasks/_search", ImmutableMap.of(), query, null);
+    // String searchResult = EntityUtils.toString(response.getEntity());
+    // assertTrue(searchResult.contains(taskId));
+    // assertTrue(searchResult.contains(detector.getDetectorId()));
+    // }
 
     private AnomalyDetector randomAnomalyDetector(AnomalyDetector detector) {
         return new AnomalyDetector(

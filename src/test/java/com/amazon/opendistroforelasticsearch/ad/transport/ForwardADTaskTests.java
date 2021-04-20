@@ -31,6 +31,7 @@ import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskAction;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 public class ForwardADTaskTests extends ESSingleNodeTestCase {
@@ -48,7 +49,9 @@ public class ForwardADTaskTests extends ESSingleNodeTestCase {
     public void testForwardADTaskRequest() throws IOException {
         ForwardADTaskRequest request = new ForwardADTaskRequest(
             TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now()),
+            TestHelpers.randomAdTask(),
             TestHelpers.randomDetectionDateRange(),
+            ImmutableList.of(),
             TestHelpers.randomUser(),
             ADTaskAction.START
         );
@@ -58,7 +61,9 @@ public class ForwardADTaskTests extends ESSingleNodeTestCase {
     public void testForwardADTaskRequestWithoutUser() throws IOException {
         ForwardADTaskRequest request = new ForwardADTaskRequest(
             TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now()),
-                TestHelpers.randomDetectionDateRange(),
+            TestHelpers.randomAdTask(),
+            TestHelpers.randomDetectionDateRange(),
+            null,
             null,
             ADTaskAction.START
         );
@@ -66,7 +71,14 @@ public class ForwardADTaskTests extends ESSingleNodeTestCase {
     }
 
     public void testInvalidForwardADTaskRequest() {
-        ForwardADTaskRequest request = new ForwardADTaskRequest(null, TestHelpers.randomDetectionDateRange(), TestHelpers.randomUser(), ADTaskAction.START);
+        ForwardADTaskRequest request = new ForwardADTaskRequest(
+            null,
+            null,
+            TestHelpers.randomDetectionDateRange(),
+            null,
+            TestHelpers.randomUser(),
+            ADTaskAction.START
+        );
 
         ActionRequestValidationException exception = request.validate();
         assertTrue(exception.getMessage().contains(CommonErrorMessages.DETECTOR_MISSING));

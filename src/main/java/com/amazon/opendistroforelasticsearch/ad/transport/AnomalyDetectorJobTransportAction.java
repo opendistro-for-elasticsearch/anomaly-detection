@@ -20,7 +20,6 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.resolveUserAndExecute;
 
-import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -37,6 +36,7 @@ import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
@@ -95,7 +95,17 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
                 detectorId,
                 filterByEnabled,
                 listener,
-                () -> executeDetector(listener, detectorId, detectionDateRange, historical, seqNo, primaryTerm, rawPath, requestTimeout, user),
+                () -> executeDetector(
+                    listener,
+                    detectorId,
+                    detectionDateRange,
+                    historical,
+                    seqNo,
+                    primaryTerm,
+                    rawPath,
+                    requestTimeout,
+                    user
+                ),
                 client,
                 clusterService,
                 xContentRegistry

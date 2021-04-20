@@ -334,7 +334,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static int THRESHOLD_MODEL_TRAINING_SIZE = 128; //128 data points rcf with shingle size 8
+    public static int THRESHOLD_MODEL_TRAINING_SIZE = 128; // 128 data points rcf with shingle size 8
 
     public static int MAX_OLD_AD_TASK_DOCS = 1000;
     public static final Setting<Integer> MAX_OLD_AD_TASK_DOCS_PER_DETECTOR = Setting
@@ -345,7 +345,7 @@ public final class AnomalyDetectorSettings {
             // that will be 2GB.
             1,
             0, // keep at least 1 old AD task per detector
-                MAX_OLD_AD_TASK_DOCS,
+            MAX_OLD_AD_TASK_DOCS,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -356,7 +356,7 @@ public final class AnomalyDetectorSettings {
             "opendistro.anomaly_detection.batch_task_piece_size",
             1000,
             1,
-                MAX_BATCH_TASK_PIECE_SIZE,
+            MAX_BATCH_TASK_PIECE_SIZE,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -372,22 +372,22 @@ public final class AnomalyDetectorSettings {
         );
 
     public static final Setting<Integer> MAX_TOP_ENTITIES_PER_HC_DETECTOR = Setting
-            .intSetting(
-                    "opendistro.anomaly_detection.max_top_entities_per_hc_detector",
-                    50,
-                    1,
-                    10000,
-                    Setting.Property.NodeScope,
-                    Setting.Property.Dynamic
-            );
+        .intSetting(
+            "opendistro.anomaly_detection.max_top_entities_per_hc_detector",
+            50,
+            1,
+            10000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
     public static final Setting<Integer> MAX_RUNNING_ENTITIES_PER_DETECTOR = Setting
-            .intSetting(
-                    "opendistro.anomaly_detection.max_running_entities_per_detector",
-                    2,
-                    1,
-                    1000,
-                    Setting.Property.NodeScope,
-                    Setting.Property.Dynamic
-            );
+        .intSetting(
+            "opendistro.anomaly_detection.max_running_entities_per_detector",
+            2,
+            1,
+            1000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 }

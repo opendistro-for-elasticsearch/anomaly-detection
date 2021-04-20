@@ -68,6 +68,7 @@ public class GetAnomalyDetectorActionTests {
             detectorJob,
             false,
             Mockito.mock(ADTask.class),
+            Mockito.mock(ADTask.class),
             false,
             RestStatus.OK,
             Mockito.mock(DetectorProfile.class),

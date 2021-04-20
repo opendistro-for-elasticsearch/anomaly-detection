@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 import java.io.IOException;
 import java.util.List;
 
-import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.nodes.TransportNodesAction;
@@ -32,6 +31,7 @@ import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
 import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 
 public class CronTransportAction extends TransportNodesAction<CronRequest, CronResponse, CronNodeRequest, CronNodeResponse> {
 
@@ -110,7 +110,8 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
 
         // delete unused transport state
         transportStateManager.maintenance();
-        
+
+        // maintain running detector
         adTaskManager.maintainRunningDetector(transportService);
 
         return new CronNodeResponse(clusterService.localNode());

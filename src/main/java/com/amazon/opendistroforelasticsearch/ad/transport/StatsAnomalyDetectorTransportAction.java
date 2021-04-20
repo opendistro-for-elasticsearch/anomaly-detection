@@ -142,7 +142,7 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
                 long totalDetectors = r.getHits().getTotalHits().value;
                 long totalHistoricalSingleEntityDetectors = 0;
                 for (StringTerms.Bucket b : buckets) {
-                    //TODO: fix stats
+                    // TODO: fix stats
                     if (AnomalyDetectorType.SINGLE_ENTITY.name().equals(b.getKeyAsString())) {
                         totalHistoricalSingleEntityDetectors += b.getDocCount();
                     }

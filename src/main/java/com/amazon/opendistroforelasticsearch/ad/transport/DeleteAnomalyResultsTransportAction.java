@@ -15,8 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
-import com.amazon.opendistroforelasticsearch.commons.authuser.User;
+import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.addUserBackendRolesFilter;
+import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -33,18 +35,23 @@ import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
-import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.addUserBackendRolesFilter;
-import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
+import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<DeleteByQueryRequest, BulkByScrollResponse> {
 
     private final Client client;
     private volatile Boolean filterEnabled;
     private static final Logger logger = LogManager.getLogger(DeleteAnomalyResultsTransportAction.class);
+
     @Inject
-    public DeleteAnomalyResultsTransportAction(TransportService transportService, ActionFilters actionFilters,
-                                               Settings settings, ClusterService clusterService, Client client) {
+    public DeleteAnomalyResultsTransportAction(
+        TransportService transportService,
+        ActionFilters actionFilters,
+        Settings settings,
+        ClusterService clusterService,
+        Client client
+    ) {
         super(DeleteAnomalyResultsAction.NAME, transportService, actionFilters, DeleteByQueryRequest::new);
         this.client = client;
         filterEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);

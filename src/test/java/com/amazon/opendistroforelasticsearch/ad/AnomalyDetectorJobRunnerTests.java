@@ -47,7 +47,6 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.index.Index;
 import org.elasticsearch.index.get.GetResult;
@@ -72,7 +71,6 @@ import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.transport.handler.AnomalyIndexHandler;
 import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
-import com.amazon.opendistroforelasticsearch.ad.util.ThrowingConsumerWrapper;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter;
@@ -114,7 +112,6 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
     @Mock
     private AnomalyDetectionIndices indexUtil;
-
 
     @BeforeClass
     public static void setUpBeforeClass() {

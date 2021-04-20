@@ -123,14 +123,15 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
             seqNo,
             primaryTerm,
             requestTimeout,
-            xContentRegistry
+            xContentRegistry,
+            adTaskManager
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
-            //TODO: fix this
+            // TODO: fix this
             adTaskManager.startDetector(detectorId, null, handler, user, transportService, listener);
         } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
             // Stop detector
-            //TODO: support realtime?
+            // TODO: support realtime?
             adTaskManager.stopDetector(detectorId, true, handler, user, transportService, listener);
         }
     }

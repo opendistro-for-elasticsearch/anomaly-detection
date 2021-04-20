@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import org.elasticsearch.action.ActionType;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 

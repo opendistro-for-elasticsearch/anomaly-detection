@@ -183,26 +183,26 @@ public class PreviewAnomalyDetectorTransportActionTests extends ESSingleNodeTest
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
-    @Test
-    public void testPreviewTransportActionWithNoDetector() throws IOException, InterruptedException {
-        // When detectorId is null, preview should fail
-        final CountDownLatch inProgressLatch = new CountDownLatch(1);
-        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(null, "", Instant.now(), Instant.now());
-        ActionListener<PreviewAnomalyDetectorResponse> previewResponse = new ActionListener<PreviewAnomalyDetectorResponse>() {
-            @Override
-            public void onResponse(PreviewAnomalyDetectorResponse response) {
-                Assert.assertTrue(false);
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                Assert.assertTrue(e.getMessage().contains("Wrong input, no detector id"));
-                inProgressLatch.countDown();
-            }
-        };
-        action.doExecute(task, request, previewResponse);
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-    }
+    // @Test
+    // public void testPreviewTransportActionWithNoDetector() throws IOException, InterruptedException {
+    // // When detectorId is null, preview should fail
+    // final CountDownLatch inProgressLatch = new CountDownLatch(1);
+    // PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(null, "", Instant.now(), Instant.now());
+    // ActionListener<PreviewAnomalyDetectorResponse> previewResponse = new ActionListener<PreviewAnomalyDetectorResponse>() {
+    // @Override
+    // public void onResponse(PreviewAnomalyDetectorResponse response) {
+    // Assert.assertTrue(false);
+    // }
+    //
+    // @Override
+    // public void onFailure(Exception e) {
+    // Assert.assertTrue(e.getMessage().contains("Wrong input, no detector id"));
+    // inProgressLatch.countDown();
+    // }
+    // };
+    // action.doExecute(task, request, previewResponse);
+    // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    // }
 
     @Test
     public void testPreviewTransportActionWithDetectorID() throws IOException, InterruptedException {

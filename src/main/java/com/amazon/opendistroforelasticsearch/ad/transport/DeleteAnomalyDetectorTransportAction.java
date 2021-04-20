@@ -23,7 +23,6 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 
 import java.io.IOException;
 
-import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchStatusException;
@@ -48,7 +47,7 @@ import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
@@ -105,34 +104,55 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                         // realtime detector
                         detector -> getDetectorJob(detectorId, listener, () -> {
 
-                            adTaskManager.getLatestADTask(detectorId, ADTaskType.getHistoricalDetectorTaskTypes(), adTask -> {
+                            adTaskManager
+                                .getLatestADTask(
+                                    detectorId,
+                                    ADTaskType.getHistoricalDetectorTaskTypes(),
+                                    adTask -> {
 
-//                                if (adTask.isPresent()) {
-//                                    if (!adTaskManager.isADTaskEnded(adTask.get())) {
-//                                        listener
-//                                                .onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
-//                                    } else {
-//                                        if (adTask.get().getDetectionDateRange() == null) {
-//                                            adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);
-//                                        } else {
-//                                            adTaskManager.deleteADTasks(detectorId, () -> deleteDetectorStateDoc(detectorId, listener), listener);
-//                                        }
-//                                    }
-//                                } else {
-//                                    adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);
-//                                }
-                                if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
+                                        // if (adTask.isPresent()) {
+                                        // if (!adTaskManager.isADTaskEnded(adTask.get())) {
+                                        // listener
+                                        // .onFailure(new ElasticsearchStatusException("Detector is running",
+                                        // RestStatus.INTERNAL_SERVER_ERROR));
+                                        // } else {
+                                        // if (adTask.get().getDetectionDateRange() == null) {
+                                        // adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener),
+                                        // listener);
+                                        // } else {
+                                        // adTaskManager.deleteADTasks(detectorId, () -> deleteDetectorStateDoc(detectorId, listener),
+                                        // listener);
+                                        // }
+                                        // }
+                                        // } else {
+                                        // adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener),
+                                        // listener);
+                                        // }
+                                        if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
+                                            listener
+                                                .onFailure(
+                                                    new ElasticsearchStatusException(
+                                                        "Detector is running",
+                                                        RestStatus.INTERNAL_SERVER_ERROR
+                                                    )
+                                                );
+                                        } else {
+                                            adTaskManager
+                                                .deleteADTasks(
+                                                    detectorId,
+                                                    () -> deleteAnomalyDetectorJobDoc(detectorId, listener),
+                                                    listener
+                                                );
+                                        }
+
+                                    },
+                                    transportService,
                                     listener
-                                            .onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
-                                } else {
-                                    adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);
-                                }
-
-                            }, transportService, listener);
+                                );
 
                         }),
                         // historical detector
-                            //TODO: check if there is running realtime or historical job before deleting
+                        // TODO: check if there is running realtime or historical job before deleting
 
                         listener
                     ),
@@ -152,7 +172,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
         client.delete(deleteRequest, ActionListener.wrap(response -> {
             if (response.getResult() == DocWriteResponse.Result.DELETED || response.getResult() == DocWriteResponse.Result.NOT_FOUND) {
-//                deleteDetectorStateDoc(detectorId, listener);
+                // deleteDetectorStateDoc(detectorId, listener);
                 deleteAnomalyDetectorDoc(detectorId, listener);
             } else {
                 String message = "Fail to delete anomaly detector job " + detectorId;
@@ -161,7 +181,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
             }
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {
-//                deleteDetectorStateDoc(detectorId, listener);
+                // deleteDetectorStateDoc(detectorId, listener);
                 deleteAnomalyDetectorDoc(detectorId, listener);
             } else {
                 LOG.error("Failed to delete anomaly detector job", exception);
@@ -170,29 +190,29 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
         }));
     }
 
-//    private void deleteDetectorStateDoc(String detectorId, ActionListener<DeleteResponse> listener) {
-//        LOG.info("Delete detector info {}", detectorId);
-//        DeleteRequest deleteRequest = new DeleteRequest(CommonName.DETECTION_STATE_INDEX, detectorId);
-//        client
-//            .delete(
-//                deleteRequest,
-//                ActionListener
-//                    .wrap(
-//                        response -> {
-//                            // whether deleted state doc or not, continue as state doc may not exist
-//                            deleteAnomalyDetectorDoc(detectorId, listener);
-//                        },
-//                        exception -> {
-//                            if (exception instanceof IndexNotFoundException) {
-//                                deleteAnomalyDetectorDoc(detectorId, listener);
-//                            } else {
-//                                LOG.error("Failed to delete detector state", exception);
-//                                listener.onFailure(exception);
-//                            }
-//                        }
-//                    )
-//            );
-//    }
+    // private void deleteDetectorStateDoc(String detectorId, ActionListener<DeleteResponse> listener) {
+    // LOG.info("Delete detector info {}", detectorId);
+    // DeleteRequest deleteRequest = new DeleteRequest(CommonName.DETECTION_STATE_INDEX, detectorId);
+    // client
+    // .delete(
+    // deleteRequest,
+    // ActionListener
+    // .wrap(
+    // response -> {
+    // // whether deleted state doc or not, continue as state doc may not exist
+    // deleteAnomalyDetectorDoc(detectorId, listener);
+    // },
+    // exception -> {
+    // if (exception instanceof IndexNotFoundException) {
+    // deleteAnomalyDetectorDoc(detectorId, listener);
+    // } else {
+    // LOG.error("Failed to delete detector state", exception);
+    // listener.onFailure(exception);
+    // }
+    // }
+    // )
+    // );
+    // }
 
     private void deleteAnomalyDetectorDoc(String detectorId, ActionListener<DeleteResponse> listener) {
         LOG.info("Delete anomaly detector {}", detectorId);

@@ -27,8 +27,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
-import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Settings;
@@ -41,6 +39,7 @@ import org.elasticsearch.rest.action.RestToXContentListener;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobRequest;
@@ -81,7 +80,14 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
             detectionDateRange = getDetectionDateRange(request);
         }
 
-        AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(detectorId, detectionDateRange, historical, seqNo, primaryTerm, rawPath);
+        AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(
+            detectorId,
+            detectionDateRange,
+            historical,
+            seqNo,
+            primaryTerm,
+            rawPath
+        );
 
         return channel -> client
             .execute(AnomalyDetectorJobAction.INSTANCE, anomalyDetectorJobRequest, new RestToXContentListener<>(channel));

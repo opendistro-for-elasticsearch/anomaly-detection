@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.ad.cluster;
 
-import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -23,6 +22,7 @@ import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 
+import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronRequest;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
@@ -62,7 +62,7 @@ public class HourlyCron implements Runnable {
         LOG.info("[Hourly Cron]: start to delete child tasks and AD results");
         boolean startDeleting = adTaskManager.deleteChildTasksAndADResults();
         if (!startDeleting) {
-            //TODO: delete ghost AD results, if any detector or task not found
+            // TODO: delete ghost AD results, if any detector or task not found
         }
     }
 }

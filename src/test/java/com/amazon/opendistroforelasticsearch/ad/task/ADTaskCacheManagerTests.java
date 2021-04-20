@@ -89,7 +89,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
         assertNotNull(adTaskCacheManager.getThresholdModel(adTask.getTaskId()));
         assertNotNull(adTaskCacheManager.getThresholdModelTrainingData(adTask.getTaskId()));
         assertFalse(adTaskCacheManager.isThresholdModelTrained(adTask.getTaskId()));
-        adTaskCacheManager.remove(adTask.getTaskId(), adTask.getEntity());
+        adTaskCacheManager.remove(adTask.getTaskId());
         assertEquals(0, adTaskCacheManager.size());
     }
 
@@ -159,7 +159,7 @@ public class ADTaskCacheManagerTests extends ESTestCase {
     }
 
     public void testRemoveTaskWhichNotExist() {
-        adTaskCacheManager.remove(randomAlphaOfLength(5), adTask.getEntity());
+        adTaskCacheManager.remove(randomAlphaOfLength(5));
         verify(memoryTracker, never()).releaseMemory(anyLong(), anyBoolean(), eq(HISTORICAL_SINGLE_ENTITY_DETECTOR));
     }
 
@@ -169,6 +169,6 @@ public class ADTaskCacheManagerTests extends ESTestCase {
         adTaskCacheManager.add(TestHelpers.randomAdTask());
         assertEquals(2, adTaskCacheManager.size());
         LimitExceededException e = expectThrows(LimitExceededException.class, () -> adTaskCacheManager.add(TestHelpers.randomAdTask()));
-        assertEquals("Can't run more than 2 historical detectors per data node", e.getMessage());
+        assertEquals("Exceed max historical analysis limit per node: 2", e.getMessage());
     }
 }

@@ -23,6 +23,7 @@ import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserCo
 import java.io.IOException;
 import java.util.List;
 
+import com.amazon.opendistroforelasticsearch.ad.feature.SearchFeatureDao;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -60,6 +61,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private final NamedXContentRegistry xContentRegistry;
     private final ADTaskManager adTaskManager;
     private volatile Boolean filterByEnabled;
+    private SearchFeatureDao searchFeatureDao;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
@@ -70,7 +72,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
-        ADTaskManager adTaskManager
+        ADTaskManager adTaskManager,
+        SearchFeatureDao searchFeatureDao
     ) {
         super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = client;
@@ -81,6 +84,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         this.adTaskManager = adTaskManager;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        this.searchFeatureDao = searchFeatureDao;
     }
 
     @Override
@@ -164,7 +168,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                     method,
                     xContentRegistry,
                     user,
-                    adTaskManager
+                    adTaskManager,
+                    searchFeatureDao
                 );
                 try {
                     indexAnomalyDetectorActionHandler.start();

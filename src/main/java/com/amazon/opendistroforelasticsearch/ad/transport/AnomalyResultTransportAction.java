@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -117,7 +118,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
         .getExceptionName(new LimitExceededException("", ""));
     static final String NULL_RESPONSE = "Received null response from";
-
+    static final String BUG_RESPONSE = "We might have bugs.";
     static final String TROUBLE_QUERYING_ERR_MSG = "Having trouble querying data: ";
     static final String NO_ACK_ERR = "no acknowledgements from model hosting nodes.";
     // We need this invalid query tag to show proper error message on frontend
@@ -266,7 +267,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
             if (adCircuitBreakerService.isOpen()) {
                 listener.onFailure(new LimitExceededException(adID, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
-                // listener.onFailure(new LimitExceededException(adID, "test error ylwu", false));
                 return;
             }
             try {
@@ -650,7 +650,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             listener.onFailure(ex);
         } else if (ex instanceof AnomalyDetectionException) {
             listener.onFailure(new InternalFailure((AnomalyDetectionException) ex));
-        } else if (ex instanceof SearchPhaseExecutionException && invalidQuery((SearchPhaseExecutionException) ex)) {
+        } else if (RestHandlerUtils.isExceptionCausedByInvalidQuery(ex)) {
             // This is to catch invalid aggregation on wrong field type. For example,
             // sum aggregation on text field. We should end detector run for such case.
             listener
@@ -1192,6 +1192,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         @Override
         public void onFailure(Exception e) {
+            if (e == null) {
+                return;
+            }
             try {
                 LOG.error(new ParameterizedMessage("Cannot send entities' features to {} for {}", nodeId, adID), e);
 

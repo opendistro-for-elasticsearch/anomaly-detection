@@ -92,12 +92,14 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         User user = getUserContext(client);
         String detectorId = request.getDetectorID();
         RestRequest.Method method = request.getMethod();
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+
+        AnomalyDetector detector = request.getDetector();
+        checkIndicesAndExecute(detector.getIndices(), () -> {try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(user, detectorId, method, listener, () -> adExecute(request, user, listener));
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
-        }
+        }}, listener);
     }
 
     private void resolveUserAndExecute(
@@ -148,9 +150,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Integer maxMultiEntityAnomalyDetectors = request.getMaxMultiEntityAnomalyDetectors();
         Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
 
-        checkIndicesAndExecute(detector.getIndices(), () -> {
-            try {
-                IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
+        try {
+            IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
                     clusterService,
                     client,
                     transportService,
@@ -170,19 +171,52 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                     user,
                     adTaskManager,
                     searchFeatureDao
-                );
-                try {
-                    indexAnomalyDetectorActionHandler.start();
-                } catch (IOException exception) {
-                    LOG.error("Fail to index detector", exception);
-                    listener.onFailure(exception);
-                }
-            } catch (Exception e) {
-                LOG.error(e);
-                listener.onFailure(e);
+            );
+            try {
+                indexAnomalyDetectorActionHandler.start();
+            } catch (IOException exception) {
+                LOG.error("Fail to index detector", exception);
+                listener.onFailure(exception);
             }
-
-        }, listener);
+        } catch (Exception e) {
+            LOG.error(e);
+            listener.onFailure(e);
+        }
+//        checkIndicesAndExecute(detector.getIndices(), () -> {
+//            try {
+//                IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
+//                    clusterService,
+//                    client,
+//                    transportService,
+//                    listener,
+//                    anomalyDetectionIndices,
+//                    detectorId,
+//                    seqNo,
+//                    primaryTerm,
+//                    refreshPolicy,
+//                    detector,
+//                    requestTimeout,
+//                    maxSingleEntityAnomalyDetectors,
+//                    maxMultiEntityAnomalyDetectors,
+//                    maxAnomalyFeatures,
+//                    method,
+//                    xContentRegistry,
+//                    user,
+//                    adTaskManager,
+//                    searchFeatureDao
+//                );
+//                try {
+//                    indexAnomalyDetectorActionHandler.start();
+//                } catch (IOException exception) {
+//                    LOG.error("Fail to index detector", exception);
+//                    listener.onFailure(exception);
+//                }
+//            } catch (Exception e) {
+//                LOG.error(e);
+//                listener.onFailure(e);
+//            }
+//
+//        }, listener);
     }
 
     private void checkIndicesAndExecute(

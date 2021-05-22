@@ -22,7 +22,7 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 
 public class DeleteAnomalyResultsAction extends ActionType<BulkByScrollResponse> {
     // External Action which used for public facing RestAPIs.
-    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "results/delete";
+    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "result/delete";
     public static final DeleteAnomalyResultsAction INSTANCE = new DeleteAnomalyResultsAction();
 
     private DeleteAnomalyResultsAction() {

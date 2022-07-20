@@ -51,7 +51,7 @@ ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
-version = "${opendistroVersion}.0"
+version = "${opendistroVersion}.1"
 
 apply plugin: 'java'
 apply plugin: 'idea'

@@ -27,6 +27,7 @@ import static org.elasticsearch.test.ESTestCase.randomDouble;
 import static org.elasticsearch.test.ESTestCase.randomInt;
 import static org.elasticsearch.test.ESTestCase.randomIntBetween;
 import static org.elasticsearch.test.ESTestCase.randomLong;
+import static org.elasticsearch.test.ESTestCase.randomLongBetween;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
 
@@ -136,6 +137,11 @@ import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.model.TimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.model.ModelProfile;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
+import com.amazon.opendistroforelasticsearch.ad.model.InitProgressProfile;
+import com.amazon.opendistroforelasticsearch.ad.model.ADTaskProfile;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorState;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
 import com.google.common.collect.ImmutableList;
@@ -926,6 +932,96 @@ public class TestHelpers {
             .stoppedBy(stoppedBy)
             .build();
         return task;
+    }
+
+    public static ADTaskProfile randomADTaskProfileWithAdTask(ADTask adTask) throws IOException{
+        ADTaskProfile adTaskProfile =  new ADTaskProfile(
+                adTask,
+                randomInt(),
+                randomLong(),
+                randomBoolean(),
+                randomInt(),
+                randomLong(),
+                randomAlphaOfLength(5));
+        return  adTaskProfile;
+    }
+
+    public static ADTaskProfile randomADTaskProfileWithoutAdTask() throws IOException{
+        ADTaskProfile adTaskProfile =  new ADTaskProfile(
+                randomInt(),
+                randomLong(),
+                randomBoolean(),
+                randomInt(),
+                randomLong(),
+                randomAlphaOfLength(5));
+        return  adTaskProfile;
+    }
+
+    public static Entity randomEntity() {
+        Entity entity = new Entity(
+                randomAlphaOfLength(5),
+                randomAlphaOfLength(5));
+        return entity;
+    }
+
+    public static Entity createEntity(String key, String value) {
+        Entity entity = new Entity(key, value);
+        return entity;
+    }
+
+    public static InitProgressProfile randomInitProgressProfile() {
+        InitProgressProfile initProgressProfile = new InitProgressProfile(
+                randomAlphaOfLength(4),
+                randomIntBetween(1,100),
+                randomIntBetween(1,100)
+        );
+        return initProgressProfile;
+    }
+
+    public static InitProgressProfile createInitProgressProfile(String percentage, long minleft, int shingle) {
+        InitProgressProfile initProgressProfile = new InitProgressProfile(
+                percentage, minleft, shingle);
+        return initProgressProfile;
+    }
+
+    public static DetectorProfile randomDetectorProfile() throws IOException {
+        DetectorProfile detectorProfile = new DetectorProfile
+                .Builder()
+                .state(DetectorState.INIT)
+                .error(randomAlphaOfLength(5))
+                .shingleSize(randomIntBetween(1,10))
+                .coordinatingNode(randomAlphaOfLength(6))
+                .totalSizeInBytes(randomLongBetween(10, 100))
+                .initProgress(randomInitProgressProfile())
+                .adTaskProfile(randomADTaskProfileWithoutAdTask())
+                .modelProfile(null)
+                .build();
+        return detectorProfile;
+    }
+
+    public static DetectorProfile randomDetectorProfileWithEntitiesCount(long active, long total) throws IOException {
+        DetectorProfile detectorProfile = randomDetectorProfile();
+        detectorProfile.setActiveEntities(active);
+        detectorProfile.setTotalEntities(total);
+        return detectorProfile;
+    }
+
+    public static DetectorInternalState randomDetectorInternalState() {
+        DetectorInternalState detectorInternalState = new DetectorInternalState
+                .Builder()
+                .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.MILLIS))
+                .error(randomAlphaOfLength(10))
+                .build();
+        return detectorInternalState;
+    }
+
+    public static ModelProfile randomModelProfile() {
+        ModelProfile modelProfile = new ModelProfile(
+                randomAlphaOfLength(5),
+                randomIntBetween(1,10),
+                randomAlphaOfLength(4)
+        );
+        return modelProfile;
     }
 
     public static HttpEntity toHttpEntity(ToXContentObject object) throws IOException {
